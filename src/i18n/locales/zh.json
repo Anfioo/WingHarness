@@ -1,0 +1,210 @@
+{
+  "app": {
+    "title": "WingHarness",
+    "subtitle": "桌面模板"
+  },
+  "about": {
+    "title": "关于",
+    "button": "关于",
+    "appName": "WingHarness",
+    "description": "基于 Tauri v2、React 19 和 shadcn/ui 构建的现代桌面应用模板。",
+    "techStack": "技术栈",
+    "developer": "开发者",
+    "role": "全栈开发者",
+    "bio": "Always Navigating Freedom, Inspiring Our Oceans.",
+    "github": "GitHub",
+    "blog": "博客",
+    "email": "邮箱",
+    "viewRepo": "查看仓库"
+  },
+  "start": {
+    "title": "WingHarness",
+    "subtitle": "空白 Tauri 桌面模板。从侧栏选择页面，或从下面开始。",
+    "shortcuts": {
+      "project": {
+        "title": "项目",
+        "description": "浏览并编辑工作区根目录下的文件。"
+      },
+      "terminal": {
+        "title": "终端",
+        "description": "在窗口内运行交互式命令行。"
+      },
+      "notes": {
+        "title": "笔记",
+        "description": "把 Markdown 笔记存放在数据目录里。"
+      },
+      "filePreview": {
+        "title": "文件预览",
+        "description": "只读查看文档、图片与压缩包，不写回磁盘。"
+      }
+    }
+  },
+  "routes": {
+    "group": "导航",
+    "start": {
+      "title": "起始页",
+      "scope": "模板起始页",
+      "description": "模板的落地页：从侧栏进入任意页面，或直接点开下面某个入口。"
+    },
+    "localTerminal": {
+      "title": "终端",
+      "scope": "本地 PTY / cmd.exe",
+      "description": "在应用内打开 Windows 命令行，直接执行交互式命令。"
+    },
+    "notes": {
+      "title": "笔记",
+      "scope": "数据目录下的 Markdown",
+      "description": "把每条会议、任务或想法记成一个 Markdown 文件：文件树、标签页编辑器与预览，内容直接落盘到数据目录的 notes 文件夹。"
+    },
+    "filePreview": {
+      "title": "文件预览",
+      "scope": "项目根目录 / 只读",
+      "description": "只读预览项目根目录下的文件：Word、Excel、PPT、PDF、图片、压缩包、音视频都在这里解析，文件树按需逐层展开，内容不写回磁盘。"
+    },
+    "project": {
+      "title": "项目",
+      "scope": "项目根目录",
+      "description": "用笔记页同一个编辑器打开「设置 → 项目」里配置的根目录：目录按需逐层加载，文件可查看、可修改并写回磁盘。"
+    }
+  },
+  "theme": {
+    "toggle": "切换主题"
+  },
+  "language": {
+    "toggle": "切换语言"
+  },
+  "windowMenu": {
+    "copy": "复制",
+    "selectAll": "全选",
+    "reload": "重新加载",
+    "devtools": "开发者工具",
+    "settings": "设置",
+    "about": "关于",
+    "copyFailed": "复制到剪贴板失败。"
+  },
+  "tray": {
+    "show": "显示窗口",
+    "settings": "设置",
+    "quit": "退出"
+  },
+  "updater": {
+    "checkForUpdates": "检查更新",
+    "checking": "检查中...",
+    "updating": "正在更新...",
+    "checkFailed": "检查更新失败。",
+    "installFailed": "安装更新失败。",
+    "cancelDownload": "取消下载",
+    "cancelling": "正在取消...",
+    "downloadCancelled": "已取消更新下载。",
+    "cancelFailed": "取消更新下载失败。",
+    "disabledInDev": "开发者模式下无法检查更新。",
+    "upToDate": "您正在使用最新版本！",
+    "updateAvailable": "发现新版本",
+    "downloading": "正在下载更新",
+    "installingVersion": "正在安装版本 {{version}}...",
+    "versionAvailable": "版本 {{version}} 可用。",
+    "releaseNotes": "更新说明：",
+    "later": "稍后",
+    "installNow": "立即安装"
+  },
+  "config": {
+    "loadFailed": "读取配置失败。",
+    "path": "配置文件：{{path}}"
+  },
+  "project": {
+    "title": "项目",
+    "description": "文件浏览器与预览打开的目录。",
+    "rootLabel": "项目根目录",
+    "rootHint": "文件浏览器与预览都以此目录为根。留空时不浏览任何内容，直到选定项目。",
+    "rootPlaceholder": "D:\\workspace\\my-project"
+  },
+  "settings": {
+    "title": "设置",
+    "button": "设置",
+    "appearance": {
+      "title": "外观",
+      "description": "自定义应用的外观和语言",
+      "theme": "主题",
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统",
+      "language": "语言",
+      "preset": "主题预设",
+      "presetSearch": "搜索主题",
+      "presetDefault": "默认",
+      "presetNoResults": "没有匹配的主题",
+      "presetFontsHint": "主题自带字体，首次使用时下载并缓存到本地。"
+    },
+    "shortcut": {
+      "title": "快捷键",
+      "description": "设置全局快捷键",
+      "placeholder": "按下组合键设置",
+      "showMain": "显示主窗口",
+      "showMainDesc": "使用快捷键快速显示主窗口",
+      "setSuccess": "已将快捷键设为 {{shortcut}}！",
+      "cleared": "已取消快捷键！"
+    }
+  },
+  "data": {
+    "title": "数据",
+    "description": "选择应用存放数据的位置——配置文件、缓存与应用自身产生的资源。应用其余部分都从这个目录读取。",
+    "loadFailed": "读取数据目录设置失败。",
+    "dirLabel": "数据目录",
+    "dirHint": "需为绝对路径。目录按原样使用：若为空，一切从默认值重新生成，不会复制任何旧数据。重启后生效。",
+    "pick": "选择文件夹",
+    "save": "保存",
+    "clear": "恢复默认",
+    "saved": "数据目录已保存，重启后生效。",
+    "saveFailed": "设置数据目录失败。",
+    "pendingTitle": "重启后使用新的数据目录",
+    "restartNow": "立即重启",
+    "currentLabel": "当前",
+    "currentHint": "应用当前读写所在的位置。",
+    "defaultLabel": "默认",
+    "pointerLabel": "指针文件",
+    "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。"
+  },
+  "notes": {
+    "loading": "正在加载笔记…",
+    "loadFailed": "无法加载笔记，请检查数据目录是否可读。"
+  },
+  "editor": {
+    "title": "编辑器",
+    "description": "所有用到代码编辑器的地方（如笔记页）共用这套外观设置。明暗两种模式各自选一套主题，切换模式时自动换用对应的一套。",
+    "lightTheme": "浅色模式主题",
+    "lightThemeHint": "应用处于浅色模式时编辑器使用的配色。",
+    "darkTheme": "深色模式主题",
+    "darkThemeHint": "应用处于深色模式时编辑器使用的配色。",
+    "reset": "恢复默认",
+    "appliesImmediately": "已打开的编辑器会立即更新。",
+    "preview": "主题预览",
+    "fontFamily": "字体",
+    "fontFamilyHint": "编辑器正文使用的字体，可输入搜索系统字体；留空则用内置等宽字体。",
+    "fontsDetected": "已检测到 {{count}} 个系统字体。",
+    "fontsLoading": "正在加载系统字体…",
+    "fontSize": "字号",
+    "lineHeight": "行高",
+    "lineHeightHint": "相对于字号，如 1.5 表示 1.5 倍行高。",
+    "lineNumbers": "显示行号",
+    "lineNumbersHint": "在正文左侧显示行号栏。",
+    "extensionsView": "显示「扩展」视图",
+    "extensionsViewHint": "在活动栏的文件树与搜索之外，再加一个「扩展」视图，用于查看当前运行了哪些扩展并单独开关。下一步的编辑器改动才会生效。"
+  },
+  "projectPage": {
+    "loading": "正在打开项目…",
+    "openFailed": "无法打开项目，请到「设置 → 项目」检查项目根目录。",
+    "notConfigured": "尚未配置项目。",
+    "notConfiguredHint": "请到「设置 → 项目」填写项目根目录，文件浏览器与预览都以此目录为根。"
+  },
+  "filePreview": {
+    "title": "文件预览",
+    "treeTitle": "项目文件",
+    "treeLoading": "正在读取项目…",
+    "treeEmpty": "项目中没有可预览的文件。",
+    "treeFailed": "无法读取项目文件，请到「设置 → 项目」检查项目根目录。",
+    "empty": "从左侧选择一个文件开始预览。",
+    "reload": "重新读取",
+    "close": "关闭预览",
+    "tooLarge": "文件过大，无法预览。"
+  }
+}

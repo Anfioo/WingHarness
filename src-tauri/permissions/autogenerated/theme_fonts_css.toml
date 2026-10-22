@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-theme-fonts-css"
+description = "Enables the theme_fonts_css command without any pre-configured scope."
+commands.allow = ["theme_fonts_css"]
+
+[[permission]]
+identifier = "deny-theme-fonts-css"
+description = "Denies the theme_fonts_css command without any pre-configured scope."
+commands.deny = ["theme_fonts_css"]

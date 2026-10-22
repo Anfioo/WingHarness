@@ -1,0 +1,37 @@
+#[macro_export]
+macro_rules! all_commands {
+    ($app:expr) => {
+        $app.invoke_handler(tauri::generate_handler![
+            crate::commands::config::get_config,
+            crate::commands::config::save_config,
+            crate::commands::config::set_data_dir,
+            crate::commands::devtools::open_devtools,
+            file_preview::preview_bytes,
+            file_preview::preview_metadata,
+            crate::fonts::fonts_list,
+            crate::commands::local_shell::local_shell_kill,
+            crate::commands::local_shell::local_shell_list_fonts,
+            crate::commands::local_shell::local_shell_resize,
+            crate::commands::local_shell::local_shell_start,
+            crate::commands::local_shell::local_shell_write,
+            crate::commands::notes::notes_delete,
+            crate::commands::notes::notes_list,
+            crate::commands::notes::notes_mkdir,
+            crate::commands::notes::notes_rename,
+            crate::commands::notes::notes_write,
+            crate::commands::project_fs::project_delete,
+            crate::commands::project_fs::project_info,
+            crate::commands::project_fs::project_mkdir,
+            crate::commands::project_fs::project_move,
+            crate::commands::project_fs::project_read,
+            crate::commands::project_fs::project_tree,
+            crate::commands::project_fs::project_write,
+            crate::commands::theme::theme_fonts_css,
+            crate::commands::tray::quit_app,
+            crate::commands::tray::update_tray_menu,
+            crate::commands::updater::cancel_update_download,
+            crate::commands::updater::download_and_install_update,
+            crate::commands::updater::is_update_download_active,
+        ])
+    };
+}

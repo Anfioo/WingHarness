@@ -1,0 +1,10 @@
+dist
+node_modules
+src-tauri/target
+*.lock
+src/components/ui
+# Lifted from the Office-Viewer reference implementation and kept in its own
+# style, so the two stay diffable. Host-owned files under src/lib/preview
+# (preview.css, types.ts) are still formatted.
+src/lib/preview/viewers
+src/lib/preview/lib

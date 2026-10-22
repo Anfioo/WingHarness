@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-notes-write"
+description = "Enables the notes_write command without any pre-configured scope."
+commands.allow = ["notes_write"]
+
+[[permission]]
+identifier = "deny-notes-write"
+description = "Denies the notes_write command without any pre-configured scope."
+commands.deny = ["notes_write"]
