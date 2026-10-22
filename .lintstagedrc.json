@@ -1,0 +1,5 @@
+{
+	"src/**/*.{ts,tsx}": ["prettier --write", "eslint --fix"],
+	"src/**/*.{css,json}": ["prettier --write"],
+	"vite.config.ts": ["prettier --write", "eslint --fix"]
+}
