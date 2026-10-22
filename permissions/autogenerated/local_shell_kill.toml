@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-local-shell-kill"
+description = "Enables the local_shell_kill command without any pre-configured scope."
+commands.allow = ["local_shell_kill"]
+
+[[permission]]
+identifier = "deny-local-shell-kill"
+description = "Denies the local_shell_kill command without any pre-configured scope."
+commands.deny = ["local_shell_kill"]

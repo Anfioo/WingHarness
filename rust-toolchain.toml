@@ -1,0 +1,6 @@
+# Tauri on Windows needs the MSVC toolchain.
+#
+# The GNU toolchain cannot link this crate: `crate-type` includes `cdylib` and
+# GNU ld fails with "export ordinal too large" on the generated DLL.
+[toolchain]
+channel = "stable-x86_64-pc-windows-msvc"
