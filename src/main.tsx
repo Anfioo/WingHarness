@@ -18,13 +18,14 @@ const pageMap = {
   "/about": lazy(() => import("./windows/about/index")),
   "/settings": lazy(() => import("./windows/settings/index")),
   "/tray-menu": lazy(() => import("./windows/tray-menu/index")),
+  "/update": lazy(() => import("./windows/update/index")),
 };
 
-// Routes that are their own window (settings, about, the tray menu) and so bring
-// their own frame. Every other route is a page of the main window, which the
-// router keeps wrapped in the shared app shell so the sidebar survives
-// navigation.
-const standalonePaths = new Set(["/about", "/settings", "/tray-menu"]);
+// Routes that are their own window (settings, about, the tray menu, the update
+// prompt) and so bring their own frame. Every other route is a page of the main
+// window, which the router keeps wrapped in the shared app shell so the sidebar
+// survives navigation.
+const standalonePaths = new Set(["/about", "/settings", "/tray-menu", "/update"]);
 
 function RoutedApp() {
   const { pathname } = useRouter();

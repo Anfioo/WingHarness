@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { MainTitleBar } from "@/components/main-title-bar";
-import { UpdaterDialog } from "@/components/updater-dialog";
+import { UpdaterAutoCheck } from "@/components/updater-auto-check";
 import { WindowFrame } from "@/components/window-frame";
 import { HelpTip } from "@/components/ui/help-tip";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -75,7 +75,7 @@ function AppShellFrame({ children }: AppShellProps) {
 
   return (
     <WindowFrame titleBar={<MainTitleBar />} contentClassName="flex flex-1 overflow-hidden">
-      <UpdaterDialog autoCheck />
+      <UpdaterAutoCheck />
       <SidebarProvider className="min-h-0 flex-1">
         <AppSidebar routes={appRoutes} activePath={currentRoute.path} />
         <SidebarInset className="min-w-0 overflow-hidden">
