@@ -23,6 +23,12 @@ type MenuState = {
   selection: string;
 };
 
+// Dev-only extras: release builds ship without the inspector, and windows hold
+// editing state (commit plan, working copy, SVN changes) that a stray reload
+// would throw away. Packagers can opt a release build in by setting BUILD_DEV=1
+// at build time (scripts/build.ps1 -DevBuild).
+const SHOW_DEV_MENU = import.meta.env.DEV || import.meta.env.BUILD_DEV === "1";
+
 /**
  * Replaces WebView2's own right-click menu with a themed one.
  *
@@ -131,7 +137,7 @@ export function WindowContextMenu() {
         {/* Reload is dev-only on purpose: many windows hold editing state
             (commit plan, working copy, SVN changes) and a stray click would
             throw the draft away. */}
-        {import.meta.env.DEV && (
+        {SHOW_DEV_MENU && (
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => run(() => window.location.reload())}>
