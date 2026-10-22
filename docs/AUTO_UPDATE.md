@@ -83,11 +83,22 @@ If `latest.json` is missing from the latest published release, updater clients c
 ## How It Works
 
 1. The app checks the updater endpoint on startup or during a manual check
-2. If a newer version is available, the app shows the update dialog
-3. If no update is available, the manual flow reports that the app is up to date
-4. If the check fails, the UI reports an error instead of treating it as up to date
-5. During download, progress is calculated from cumulative downloaded bytes
-6. After installation, the app relaunches automatically
+2. If a newer version is available, a dedicated update window opens, showing the new version, publish date and release notes (the `notes` field of `latest.json`)
+3. The window offers two choices: install now, or skip this version
+4. A skipped version no longer prompts on startup; a newer release prompts again. A manual check from the About window always forces the prompt, even for a skipped version
+5. If no update is available, the manual flow reports that the app is up to date. If the check fails, the UI reports an error with the underlying cause attached to the toast (network, 404, signing, ...), which keeps "update failed" diagnosable
+6. During download, progress is calculated from cumulative downloaded bytes; closing the window while downloading only hides it, the download and install continue
+7. After installation, the app relaunches automatically
+
+## Dev Builds (keeping the developer menu)
+
+Packaged builds leave "Reload" and "Developer Tools" out of the right-click menu by default (end users should not lose editing state to a stray click, and release builds ship without the inspector). Pass `-DevBuild` to keep them:
+
+```powershell
+.\scripts\build.ps1 -DevBuild
+```
+
+The switch sets `BUILD_DEV=1` (injected into the frontend at build time) and appends `--features devtools` to `tauri build`. When invoking `pnpm tauri build` directly, set `BUILD_DEV=1` and add `--features devtools` yourself.
 
 ## Troubleshooting
 

@@ -18,7 +18,7 @@ CSS v4 + shadcn/ui.
 - **Route table**: `lib/app-routes.ts` (`AppRouteId`, `appRoutes`)
 - **Pages** (`pages/`): `start`, `local-terminal`, `notes`, `file-preview`,
   `project`
-- **Windows** (`windows/`): `about`, `settings`, `tray-menu`
+- **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
   `main-title-bar.tsx`
@@ -26,8 +26,8 @@ CSS v4 + shadcn/ui.
 
 ## Routing
 
-`pageMap` holds eight routes: five pages and three windows. The pages are wrapped
-in the shared `AppShell`; the three window routes are listed in `standalonePaths`
+`pageMap` holds nine routes: five pages and four windows. The pages are wrapped
+in the shared `AppShell`; the four window routes are listed in `standalonePaths`
 and render their own frame instead.
 
 - In-app links go through `router.navigate()`, never a bare `<a href>` — a plain

@@ -3,7 +3,9 @@ param(
     [string]$PrivateKeyPath,
     [string]$PublicKeyPath,
     [string]$UpdaterEndpoint = "https://github.com/Anfioo/WingHarness/releases/latest/download/latest.json",
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    # Keeps the dev menu (reload + developer tools) in the packaged build.
+    [switch]$DevBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -108,7 +110,15 @@ try {
 
         Write-Host "Building signed WingHarness NSIS and updater bundles..."
         Write-Host "Updater endpoint: $UpdaterEndpoint"
-        & $pnpm.Source exec tauri build --bundles "nsis,updater" --config $temporaryConfigPath
+
+        $tauriArgs = @("exec", "tauri", "build", "--bundles", "nsis,updater", "--config", $temporaryConfigPath)
+        if ($DevBuild) {
+            $env:BUILD_DEV = "1"
+            $tauriArgs += @("--features", "devtools")
+            Write-Host "Dev build enabled: BUILD_DEV=1, devtools feature on."
+        }
+
+        & $pnpm.Source @tauriArgs
         if ($LASTEXITCODE -ne 0) {
             throw "Tauri build failed with exit code $LASTEXITCODE"
         }
