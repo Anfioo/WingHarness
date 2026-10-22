@@ -24,11 +24,7 @@ const pageMap = {
 // their own frame. Every other route is a page of the main window, which the
 // router keeps wrapped in the shared app shell so the sidebar survives
 // navigation.
-const standalonePaths = new Set([
-  "/about",
-  "/settings",
-  "/tray-menu",
-]);
+const standalonePaths = new Set(["/about", "/settings", "/tray-menu"]);
 
 function RoutedApp() {
   const { pathname } = useRouter();
