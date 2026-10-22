@@ -1,0 +1,74 @@
+[package]
+name = "wingharness"
+version = "0.0.2"
+description = "A Tauri App"
+authors = ["you"]
+edition = "2021"
+
+# The preview backend is its own package. The workspace root is this directory,
+# so `Cargo.lock` and `target/` stay put and the Tauri CLI's `src-tauri`
+# convention is unchanged.
+[workspace]
+members = ["file-preview"]
+resolver = "2"
+
+# No release profile was configured before, so the shipped binary was built at
+# Cargo's defaults. Size-optimized codegen + LTO + strip is a cheap net win with
+# no runtime behavior change.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+
+[features]
+# Release builds ship without the WebView inspector, which is what the window
+# menu's "Developer Tools" entry needs. Debug builds have it regardless (the
+# cfg that guards the command accepts either).
+devtools = ["tauri/devtools"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "wingharness_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+# build.rs reads `capabilities/default.json` to check it against COMMANDS.
+serde_json = "1"
+
+[dependencies]
+# The preview page's backend: reads the project's raw bytes.
+file-preview = { path = "file-preview" }
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+# preserve_order keeps the keys of `config.json` in a stable order.
+serde_json = { version = "1", features = ["preserve_order"] }
+# The pseudo-console the terminal page drives, and the base64 its output
+# crosses IPC as.
+portable-pty = "0.8"
+base64 = "0.22"
+# `font-kit` loads a chosen family into the webview; `fontdb` enumerates the
+# installed families for the appearance settings' pickers. `fontconfig` is what
+# makes that lookup see the same set the desktop does on Linux.
+font-kit = "0.14"
+fontdb = { version = "0.24", default-features = false, features = ["std", "fs", "memmap", "fontconfig"] }
+# The updater's release check and the web font download.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-window-state = "2"
+# Stream combinators for the updater's download.
+futures-util = "0.3"
+# The updater drives that download on a runtime of its own.
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "io-std", "net", "time", "signal", "sync", "fs"] }

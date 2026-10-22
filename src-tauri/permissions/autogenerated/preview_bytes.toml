@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-preview-bytes"
+description = "Enables the preview_bytes command without any pre-configured scope."
+commands.allow = ["preview_bytes"]
+
+[[permission]]
+identifier = "deny-preview-bytes"
+description = "Denies the preview_bytes command without any pre-configured scope."
+commands.deny = ["preview_bytes"]

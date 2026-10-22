@@ -1,0 +1,210 @@
+{
+  "app": {
+    "title": "WingHarness",
+    "subtitle": "Desktop Template"
+  },
+  "about": {
+    "title": "About",
+    "button": "About",
+    "appName": "WingHarness",
+    "description": "A modern desktop application template built with Tauri v2, React 19, and shadcn/ui.",
+    "techStack": "Tech Stack",
+    "developer": "Developer",
+    "role": "Full-stack Developer",
+    "bio": "Always Navigating Freedom, Inspiring Our Oceans.",
+    "github": "GitHub",
+    "blog": "Blog",
+    "email": "Email",
+    "viewRepo": "View Repository"
+  },
+  "start": {
+    "title": "WingHarness",
+    "subtitle": "A blank Tauri desktop template. Pick a page from the sidebar, or start with one of these.",
+    "shortcuts": {
+      "project": {
+        "title": "Project",
+        "description": "Browse and edit the files under the workspace root."
+      },
+      "terminal": {
+        "title": "Terminal",
+        "description": "Run an interactive shell inside the window."
+      },
+      "notes": {
+        "title": "Notes",
+        "description": "Keep Markdown notes in the data directory."
+      },
+      "filePreview": {
+        "title": "File Preview",
+        "description": "Read documents, images and archives without writing back."
+      }
+    }
+  },
+  "routes": {
+    "group": "Navigation",
+    "start": {
+      "title": "Start",
+      "scope": "Template home",
+      "description": "The template's landing page: pick a page from the sidebar or start with one of the shortcuts."
+    },
+    "localTerminal": {
+      "title": "Terminal",
+      "scope": "Local PTY / cmd.exe",
+      "description": "Open a Windows command line inside the app and run interactive commands against it."
+    },
+    "notes": {
+      "title": "Notes",
+      "scope": "Markdown in the data directory",
+      "description": "Keep each meeting, task or idea as a Markdown file: a file tree, a tabbed editor and a preview, written straight to the notes folder in the data directory."
+    },
+    "filePreview": {
+      "title": "File Preview",
+      "scope": "Project root / read-only",
+      "description": "A read-only preview of the files under the project root: Word, Excel, PowerPoint, PDF, images, archives, audio and video are all parsed here, the file tree loads one level at a time, and nothing is written back to disk."
+    },
+    "project": {
+      "title": "Project",
+      "scope": "Project root",
+      "description": "Open the root configured in Settings → Project with the same editor the notes page mounts: directories load one level at a time, and files can be edited and written back to disk."
+    }
+  },
+  "theme": {
+    "toggle": "Toggle theme"
+  },
+  "language": {
+    "toggle": "Switch language"
+  },
+  "windowMenu": {
+    "copy": "Copy",
+    "selectAll": "Select All",
+    "reload": "Reload",
+    "devtools": "Developer Tools",
+    "settings": "Settings",
+    "about": "About",
+    "copyFailed": "Failed to copy to the clipboard."
+  },
+  "tray": {
+    "show": "Show Window",
+    "settings": "Settings",
+    "quit": "Quit"
+  },
+  "updater": {
+    "checkForUpdates": "Check for Updates",
+    "checking": "Checking...",
+    "updating": "Updating...",
+    "checkFailed": "Failed to check for updates.",
+    "installFailed": "Failed to install the update.",
+    "cancelDownload": "Cancel Download",
+    "cancelling": "Cancelling...",
+    "downloadCancelled": "Update download cancelled.",
+    "cancelFailed": "Failed to cancel the update download.",
+    "disabledInDev": "Update checks are not available in dev mode.",
+    "upToDate": "You're using the latest version!",
+    "updateAvailable": "Update Available",
+    "downloading": "Downloading Update",
+    "installingVersion": "Installing version {{version}}...",
+    "versionAvailable": "Version {{version}} is available.",
+    "releaseNotes": "Release Notes:",
+    "later": "Later",
+    "installNow": "Install Now"
+  },
+  "config": {
+    "loadFailed": "Failed to load the configuration.",
+    "path": "Config file: {{path}}"
+  },
+  "project": {
+    "title": "Project",
+    "description": "The directory the file browser and the preview open at.",
+    "rootLabel": "Project root",
+    "rootHint": "Both the file browser and the preview serve this directory. Leave it blank to browse nothing until a project is chosen.",
+    "rootPlaceholder": "D:\\workspace\\my-project"
+  },
+  "settings": {
+    "title": "Settings",
+    "button": "Settings",
+    "appearance": {
+      "title": "Appearance",
+      "description": "Customize the appearance and language of the app",
+      "theme": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System",
+      "language": "Language",
+      "preset": "Theme preset",
+      "presetSearch": "Search themes",
+      "presetDefault": "Default",
+      "presetNoResults": "No themes match your search",
+      "presetFontsHint": "Themes bring their own fonts, downloaded on first use and cached locally."
+    },
+    "shortcut": {
+      "title": "Shortcuts",
+      "description": "Configure global shortcuts",
+      "placeholder": "Press key combination",
+      "showMain": "Show Main Window",
+      "showMainDesc": "Use shortcut to quickly show the main window",
+      "setSuccess": "Shortcut set to {{shortcut}}!",
+      "cleared": "Shortcut cleared!"
+    }
+  },
+  "data": {
+    "title": "Data",
+    "description": "Choose where the app keeps its data — the config file, caches and assets it builds up. Everything else in the app reads this directory.",
+    "loadFailed": "Failed to load the data directory settings.",
+    "dirLabel": "Data directory",
+    "dirHint": "An absolute path. The directory is used as-is: if it is empty, everything starts from defaults, and nothing is copied over. Takes effect after a restart.",
+    "pick": "Choose folder",
+    "save": "Save",
+    "clear": "Reset to default",
+    "saved": "Data directory saved. Restart to apply.",
+    "saveFailed": "Failed to set the data directory.",
+    "pendingTitle": "Restart to use the new data directory",
+    "restartNow": "Restart now",
+    "currentLabel": "In use",
+    "currentHint": "Where the app is reading and writing right now.",
+    "defaultLabel": "Default",
+    "pointerLabel": "Pointer file",
+    "pointerNote": "The data directory is recorded in this file. You can also edit it by hand."
+  },
+  "notes": {
+    "loading": "Loading notes…",
+    "loadFailed": "Could not load notes. Check that the data directory is readable."
+  },
+  "editor": {
+    "title": "Editor",
+    "description": "Shared appearance for every code editor in the app, such as the notes page. Light and dark modes each keep their own theme, swapped automatically when the mode changes.",
+    "lightTheme": "Light-mode theme",
+    "lightThemeHint": "Palette the editor uses while the app is in light mode.",
+    "darkTheme": "Dark-mode theme",
+    "darkThemeHint": "Palette the editor uses while the app is in dark mode.",
+    "reset": "Reset to defaults",
+    "appliesImmediately": "Open editors update immediately.",
+    "preview": "Theme preview",
+    "fontFamily": "Font",
+    "fontFamilyHint": "Font for the editor text. Type to search installed fonts; leave blank for the built-in monospace stack.",
+    "fontsDetected": "{{count}} system fonts detected.",
+    "fontsLoading": "Loading system fonts…",
+    "fontSize": "Font size",
+    "lineHeight": "Line height",
+    "lineHeightHint": "Multiple of the font size — 1.5 means 1.5×.",
+    "lineNumbers": "Show line numbers",
+    "lineNumbersHint": "Show the line-number gutter beside the text.",
+    "extensionsView": "Show the Extensions view",
+    "extensionsViewHint": "Add an “Extensions” view to the activity bar beside the file tree and search — lists the running extensions and lets you stop or start each one. Next opening of the editor applies it."
+  },
+  "projectPage": {
+    "loading": "Opening the project…",
+    "openFailed": "Could not open the project. Check the project root in Settings → Project.",
+    "notConfigured": "No project is configured yet.",
+    "notConfiguredHint": "Set the project root in Settings → Project; the file browser and the preview open it."
+  },
+  "filePreview": {
+    "title": "File preview",
+    "treeTitle": "Project files",
+    "treeLoading": "Reading the project…",
+    "treeEmpty": "The project has no files to preview.",
+    "treeFailed": "Could not read the project files. Check the project root in Settings → Project.",
+    "empty": "Pick a file on the left to preview it.",
+    "reload": "Reload",
+    "close": "Close preview",
+    "tooLarge": "The file is too large to preview."
+  }
+}

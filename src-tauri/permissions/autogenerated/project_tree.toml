@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-project-tree"
+description = "Enables the project_tree command without any pre-configured scope."
+commands.allow = ["project_tree"]
+
+[[permission]]
+identifier = "deny-project-tree"
+description = "Denies the project_tree command without any pre-configured scope."
+commands.deny = ["project_tree"]

@@ -1,0 +1,482 @@
+/*
+ * The preview's own styles, lifted from the reference viewer's `App.css`.
+ *
+ * Only the viewer half is here — the file tree, tabs, inspector and topbar are
+ * the host app's, built from shadcn and Tailwind. Everything is scoped under
+ * `.ov-preview` on the preview pane's root: the reference styles the bare
+ * `button` element, and unscoped that would restyle every button in the app.
+ *
+ * The colors are deliberately literal and light. A document, a sheet or a PDF
+ * is paper: it should look the same in either theme. The chrome around it is
+ * the host's and follows the theme as usual.
+ */
+
+.ov-preview button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid #cfd5df;
+  border-radius: 6px;
+  padding: 5px 10px;
+  color: #202124;
+  background: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ov-preview button:hover {
+  background: #eef3ff;
+  border-color: #aab8d6;
+}
+
+.ov-preview button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.ov-preview button.active {
+  background: #e6f0ff;
+  border-color: #7fa3df;
+}
+
+.ov-preview .viewer-surface {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: #ffffff;
+}
+
+.ov-preview .empty-view,
+.ov-preview .error-view {
+  display: grid;
+  height: 100%;
+  min-height: 240px;
+  place-items: center;
+  padding: 24px;
+  color: #747d8c;
+}
+
+.ov-preview .error-view {
+  color: #a12626;
+}
+
+.ov-preview .document-view {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 28px 36px 60px;
+  line-height: 1.6;
+}
+
+.ov-preview .document-view img,
+.ov-preview .document-view svg {
+  max-width: 100%;
+}
+
+.ov-preview .document-view table {
+  border-collapse: collapse;
+}
+
+.ov-preview .document-view td,
+.ov-preview .document-view th {
+  border: 1px solid #cfd5df;
+  padding: 5px 8px;
+}
+
+.ov-preview .word-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  height: 100%;
+}
+
+.ov-preview .word-layout .document-view {
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+}
+
+.ov-preview .word-outline {
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid #d9dde5;
+  background: #fbfcfe;
+  padding: 18px 14px;
+}
+
+.ov-preview .word-outline h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.ov-preview .word-outline p {
+  margin: 0;
+  color: #7b8493;
+}
+
+.ov-preview .word-outline div {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.ov-preview .word-outline span {
+  color: #7b8493;
+  font-size: 11px;
+}
+
+.ov-preview .word-outline strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.ov-preview .presentation-view {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  height: 100%;
+}
+
+.ov-preview .slide-list {
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid #d9dde5;
+  background: #fbfcfe;
+  padding: 10px;
+}
+
+.ov-preview .slide-list button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  width: 100%;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  padding: 8px;
+  color: #1f2937;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ov-preview .slide-list button.active {
+  border-color: #4f7cff;
+  background: #eef4ff;
+}
+
+.ov-preview .slide-list span {
+  display: grid;
+  width: 26px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid #ccd3df;
+  border-radius: 4px;
+  color: #7b8493;
+  font-size: 12px;
+}
+
+.ov-preview .slide-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.ov-preview .slide-detail {
+  min-height: 0;
+  overflow: auto;
+  padding: 32px 42px 64px;
+}
+
+.ov-preview .slide-detail h1 {
+  margin: 0 0 16px;
+  font-size: 28px;
+}
+
+.ov-preview .slide-detail h2 {
+  margin: 28px 0 10px;
+  font-size: 15px;
+}
+
+.ov-preview .slide-detail pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font:
+    14px/1.6 ui-sans-serif,
+    system-ui,
+    sans-serif;
+}
+
+.ov-preview .sheet-view {
+  height: 100%;
+  overflow: auto;
+}
+
+.ov-preview .sheet-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px solid #d9dde5;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.ov-preview .sheet-tabs button {
+  border: 1px solid #ccd3df;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 3px 8px;
+  color: #1f2937;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.ov-preview .sheet-tabs button.active {
+  border-color: #4f7cff;
+  background: #eef4ff;
+  color: #2147a8;
+}
+
+.ov-preview .sheet-view table {
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ov-preview .sheet-view td {
+  min-width: 80px;
+  max-width: 360px;
+  border: 1px solid #e0e4eb;
+  padding: 4px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-preview .archive-view {
+  display: grid;
+  grid-template-columns: minmax(260px, 38%) minmax(0, 1fr);
+  gap: 12px;
+  height: 100%;
+  padding: 12px;
+}
+
+.ov-preview .archive-list,
+.ov-preview .archive-preview {
+  min-height: 0;
+  overflow: auto;
+}
+
+.ov-preview .archive-preview {
+  border-left: 1px solid #d9dde5;
+  padding: 0 0 0 12px;
+}
+
+.ov-preview .archive-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ov-preview .archive-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 160px);
+  object-fit: contain;
+}
+
+.ov-preview .archive-preview p {
+  margin: 0;
+  color: #7b8493;
+}
+
+.ov-preview .archive-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 90px;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid #edf0f4;
+  background: transparent;
+  padding: 6px 4px;
+  color: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.ov-preview .archive-row:not(:disabled) {
+  cursor: pointer;
+}
+
+.ov-preview .archive-row:disabled {
+  cursor: default;
+}
+
+.ov-preview .archive-row.active {
+  background: #eef4ff;
+}
+
+.ov-preview .archive-row strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ov-preview .archive-row span,
+.ov-preview .archive-row em {
+  color: #7b8493;
+  font-style: normal;
+}
+
+.ov-preview .media-view {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  background: #f2f4f8;
+  padding: 20px;
+}
+
+.ov-preview .media-view img {
+  max-width: 100%;
+  max-height: calc(100vh - 150px);
+  object-fit: contain;
+}
+
+.ov-preview .media-view video {
+  max-width: 100%;
+  max-height: 80vh;
+}
+
+.ov-preview .media-view audio {
+  width: min(600px, 100%);
+}
+
+.ov-preview .pdf-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 28%);
+  height: 100%;
+}
+
+.ov-preview .pdf-view {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 122px);
+  border: 0;
+}
+
+.ov-preview .pdf-text {
+  min-height: 0;
+  overflow: auto;
+  border-left: 1px solid #d9dde5;
+  background: #fbfcfe;
+  padding: 14px;
+}
+
+.ov-preview .pdf-text h2 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.ov-preview .pdf-text pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ov-preview .font-view {
+  padding: 48px;
+}
+
+.ov-preview .font-view h1 {
+  margin: 0 0 24px;
+  font-size: 48px;
+}
+
+.ov-preview .font-view p {
+  font-size: 28px;
+}
+
+.ov-preview .text-view {
+  margin: 0;
+  padding: 18px;
+  color: #1f2937;
+  background: #fbfcfe;
+  font:
+    13px/1.55 ui-monospace,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+}
+
+.ov-preview .svg-wrap {
+  display: grid;
+  min-height: 420px;
+  place-items: center;
+}
+
+.ov-preview .book-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 25%) minmax(0, 1fr);
+  min-height: 100%;
+}
+
+.ov-preview .book-chapters {
+  padding: 20px;
+  overflow: auto;
+  border-right: 1px solid #d9dde5;
+}
+
+.ov-preview .book-chapters button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border: 1px solid #d9dde5;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ov-preview .book-chapters button[aria-current] {
+  background: #e8efff;
+  color: #163b85;
+}
+
+.ov-preview .email-view > header {
+  padding: 20px 32px;
+  border-bottom: 1px solid #d9dde5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 650px) {
+  .ov-preview .psd-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .ov-preview .book-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ov-preview .book-chapters {
+    max-height: 220px;
+  }
+}

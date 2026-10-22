@@ -1,0 +1,17 @@
+[package]
+name = "file-preview"
+version = "0.0.2"
+description = "Reads the configured project for the file preview page."
+edition = "2021"
+publish = false
+
+[lib]
+name = "file_preview"
+crate-type = ["rlib"]
+
+[dependencies]
+# The command macro and the raw IPC response type are both core; features are
+# unified with the app crate, so the app's `tray-icon` comes along without
+# being asked for here.
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
