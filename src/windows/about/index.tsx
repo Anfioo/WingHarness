@@ -13,8 +13,7 @@ import { WindowFrame } from "@/components/window-frame.tsx";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cancelDestroyWindow, destroyWindow } from "@/lib/window.ts";
-import { UpdaterDialog, useManualUpdateCheck } from "@/components/updater-dialog.tsx";
-import { useUpdater } from "@/hooks/use-updater";
+import { useManualUpdateCheck, useUpdater } from "@/hooks/use-updater";
 import packageJson from "../../../package.json";
 
 const techVersions = {
@@ -87,7 +86,6 @@ export default function AboutPage() {
       }
       contentClassName="flex flex-1 flex-col overflow-y-auto"
     >
-      <UpdaterDialog />
       <div className="flex flex-col gap-5 px-6 py-5">
         <div className="flex flex-col items-center gap-3 text-center">
           <img src={logo} alt={t("about.appName")} className="size-16 rounded-2xl shadow-sm" />

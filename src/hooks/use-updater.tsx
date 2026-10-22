@@ -8,16 +8,23 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { cancelUpdateDownload, downloadAndInstallUpdate, isUpdateDownloadActive } from "@/commands";
 import type { UpdateInstallResult, UpdateProgress } from "@/commands";
-import { checkForUpdates } from "@/lib/updater";
+import { checkForUpdates, updateErrorMessage } from "@/lib/updater";
 import type { UpdateCheckResult } from "@/lib/updater";
+import { createWindow } from "@/lib/window";
+import { useAppTranslation } from "@/hooks/use-app-translation";
 import { relaunch } from "@tauri-apps/plugin-process";
+import i18n from "@/i18n";
 import type { Update } from "@tauri-apps/plugin-updater";
 
 const AVAILABLE_VERSION_STORAGE_KEY = "wingharness-updater-available-version";
+const SKIPPED_VERSION_STORAGE_KEY = "wingharness-updater-skipped-version";
 const DOWNLOAD_ACTIVE_STORAGE_KEY = "wingharness-updater-download-active";
 const DOWNLOAD_PROGRESS_STORAGE_KEY = "wingharness-updater-download-progress";
+
+export const UPDATE_WINDOW_LABEL = "update";
 
 function readStoredProgress(): UpdateProgress | null {
   const value = localStorage.getItem(DOWNLOAD_PROGRESS_STORAGE_KEY);
@@ -31,21 +38,47 @@ function readStoredProgress(): UpdateProgress | null {
   }
 }
 
+/**
+ * The standalone window the update prompt lives in. Opening is idempotent — an
+ * existing (possibly hidden) window is shown and focused instead.
+ */
+function openUpdateWindow() {
+  void createWindow(UPDATE_WINDOW_LABEL, {
+    title: i18n.t("updater.windowTitle"),
+    url: "/update",
+    width: 480,
+    height: 600,
+    minWidth: 420,
+    minHeight: 460,
+    resizable: true,
+    maximizable: false,
+    decorations: false,
+    transparent: true,
+    shadow: false,
+  });
+}
+
+export interface CheckUpdateOptions {
+  /** Prompt even when this exact version was skipped (used by manual checks). */
+  force?: boolean;
+  /** Open the update window when the check finds a version worth prompting for. */
+  openWindow?: boolean;
+}
+
 interface UpdaterContextValue {
   update: Update | null;
   availableVersion: string | null;
+  skippedVersion: string | null;
   hasUpdate: boolean;
   checking: boolean;
   downloading: boolean;
   cancelling: boolean;
-  updateDialogOpen: boolean;
   progress: UpdateProgress | null;
-  checkUpdate: () => Promise<UpdateCheckResult>;
+  checkUpdate: (options?: CheckUpdateOptions) => Promise<UpdateCheckResult>;
   installUpdate: () => Promise<UpdateInstallResult | null>;
   cancelDownload: () => Promise<boolean>;
-  dismissUpdate: () => void;
-  showUpdateDialog: () => void;
-  hideUpdateDialog: () => void;
+  skipUpdate: () => void;
+  openUpdateWindow: () => void;
 }
 
 const UpdaterContext = createContext<UpdaterContextValue | null>(null);
@@ -55,19 +88,27 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   const [availableVersion, setAvailableVersion] = useState<string | null>(() =>
     localStorage.getItem(AVAILABLE_VERSION_STORAGE_KEY)
   );
+  const [skippedVersion, setSkippedVersion] = useState<string | null>(() =>
+    localStorage.getItem(SKIPPED_VERSION_STORAGE_KEY)
+  );
   const [checking, setChecking] = useState(false);
   const [downloading, setDownloading] = useState(
     () => localStorage.getItem(DOWNLOAD_ACTIVE_STORAGE_KEY) === "true"
   );
   const [cancelling, setCancelling] = useState(false);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [progress, setProgress] = useState<UpdateProgress | null>(readStoredProgress);
   const pendingCheck = useRef<Promise<UpdateCheckResult> | null>(null);
+  // checkUpdate is rebuilt whenever skippedVersion changes would make captures
+  // stale; reading through the ref keeps one stable callback instead.
+  const skippedVersionRef = useRef(skippedVersion);
 
   useEffect(() => {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === AVAILABLE_VERSION_STORAGE_KEY) {
         setAvailableVersion(event.newValue);
+      } else if (event.key === SKIPPED_VERSION_STORAGE_KEY) {
+        setSkippedVersion(event.newValue);
+        skippedVersionRef.current = event.newValue;
       } else if (event.key === DOWNLOAD_ACTIVE_STORAGE_KEY) {
         setDownloading(event.newValue === "true");
       } else if (event.key === DOWNLOAD_PROGRESS_STORAGE_KEY) {
@@ -112,35 +153,40 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       .catch((error) => console.error("Failed to read update download status:", error));
   }, [storeDownloading]);
 
-  const checkUpdate = useCallback((): Promise<UpdateCheckResult> => {
-    if (pendingCheck.current) {
-      return pendingCheck.current;
-    }
+  const checkUpdate = useCallback(
+    (options?: CheckUpdateOptions): Promise<UpdateCheckResult> => {
+      if (pendingCheck.current) {
+        return pendingCheck.current;
+      }
 
-    setChecking(true);
-    const request = checkForUpdates();
-    pendingCheck.current = request;
+      const { force = false, openWindow = true } = options ?? {};
+      setChecking(true);
+      const request = checkForUpdates();
+      pendingCheck.current = request;
 
-    void request
-      .then((result) => {
-        if (result.status === "available") {
-          setUpdate(result.update);
-          setUpdateDialogOpen(true);
-          storeAvailableVersion(result.update.version);
-        } else if (result.status === "up-to-date") {
-          setUpdate(null);
-          setUpdateDialogOpen(false);
-          storeAvailableVersion(null);
-        }
-        storeProgress(null);
-      })
-      .finally(() => {
-        pendingCheck.current = null;
-        setChecking(false);
-      });
+      void request
+        .then((result) => {
+          if (result.status === "available") {
+            setUpdate(result.update);
+            storeAvailableVersion(result.update.version);
+            if (openWindow && (force || result.update.version !== skippedVersionRef.current)) {
+              openUpdateWindow();
+            }
+          } else if (result.status === "up-to-date") {
+            setUpdate(null);
+            storeAvailableVersion(null);
+          }
+          storeProgress(null);
+        })
+        .finally(() => {
+          pendingCheck.current = null;
+          setChecking(false);
+        });
 
-    return request;
-  }, [storeAvailableVersion, storeProgress]);
+      return request;
+    },
+    [storeAvailableVersion, storeProgress]
+  );
 
   const handleProgress = useCallback((event: UpdateProgress) => {
     setProgress((current) => {
@@ -185,7 +231,6 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
         await relaunch();
       } else if (result === "up-to-date") {
         setUpdate(null);
-        setUpdateDialogOpen(false);
         storeAvailableVersion(null);
       } else {
         storeProgress(null);
@@ -210,55 +255,45 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
     }
   }, [cancelling, downloading]);
 
-  const dismissUpdate = useCallback(() => {
-    if (!downloading) {
-      setUpdate(null);
-      storeProgress(null);
-      setUpdateDialogOpen(false);
+  const skipUpdate = useCallback(() => {
+    const version = update?.version ?? availableVersion;
+    if (!version) {
+      return;
     }
-  }, [downloading, storeProgress]);
 
-  const showUpdateDialog = useCallback(() => {
-    if (update || downloading) {
-      setUpdateDialogOpen(true);
-    }
-  }, [downloading, update]);
-
-  const hideUpdateDialog = useCallback(() => {
-    setUpdateDialogOpen(false);
-  }, []);
+    setSkippedVersion(version);
+    skippedVersionRef.current = version;
+    localStorage.setItem(SKIPPED_VERSION_STORAGE_KEY, version);
+  }, [availableVersion, update]);
 
   const value = useMemo(
     () => ({
       update,
       availableVersion,
+      skippedVersion,
       hasUpdate: availableVersion !== null,
       checking,
       downloading,
       cancelling,
-      updateDialogOpen,
       progress,
       checkUpdate,
       installUpdate,
       cancelDownload,
-      dismissUpdate,
-      showUpdateDialog,
-      hideUpdateDialog,
+      skipUpdate,
+      openUpdateWindow,
     }),
     [
       update,
       availableVersion,
+      skippedVersion,
       checking,
       downloading,
       cancelling,
-      updateDialogOpen,
       progress,
       checkUpdate,
       installUpdate,
       cancelDownload,
-      dismissUpdate,
-      showUpdateDialog,
-      hideUpdateDialog,
+      skipUpdate,
     ]
   );
 
@@ -272,4 +307,47 @@ export function useUpdater() {
   }
 
   return context;
+}
+
+/**
+ * Manual "Check for Updates" (the About window's button). Unlike the startup
+ * check it forces the prompt even for a skipped version — the user asked.
+ */
+export function useManualUpdateCheck() {
+  const { checkUpdate, checking, downloading, openUpdateWindow } = useUpdater();
+  const [showNoUpdate, setShowNoUpdate] = useState(false);
+  const { t } = useAppTranslation();
+
+  const handleCheckUpdate = useCallback(async () => {
+    setShowNoUpdate(false);
+
+    if (downloading) {
+      openUpdateWindow();
+      return;
+    }
+
+    const result = await checkUpdate({ force: true });
+
+    if (result.status === "up-to-date") {
+      setShowNoUpdate(true);
+      return;
+    }
+
+    if (result.status === "disabled") {
+      toast.info(t("updater.disabledInDev"));
+      return;
+    }
+
+    if (result.status === "error") {
+      toast.error(t("updater.checkFailed"), { description: updateErrorMessage(result.error) });
+    }
+  }, [checkUpdate, downloading, openUpdateWindow, t]);
+
+  return {
+    checkUpdate: handleCheckUpdate,
+    checking,
+    downloading,
+    showNoUpdate,
+    dismissNoUpdate: () => setShowNoUpdate(false),
+  };
 }
