@@ -76,7 +76,7 @@
   "windowMenu": {
     "copy": "复制",
     "selectAll": "全选",
-    "reload": "重新加载",
+    "reload": "刷新页面",
     "devtools": "开发者工具",
     "settings": "设置",
     "about": "关于",
@@ -104,7 +104,10 @@
     "installingVersion": "正在安装版本 {{version}}...",
     "versionAvailable": "版本 {{version}} 可用。",
     "releaseNotes": "更新说明：",
-    "later": "稍后",
+    "windowTitle": "软件更新",
+    "publishedAt": "发布时间：",
+    "skipVersion": "跳过这个版本",
+    "retry": "重试",
     "installNow": "立即安装"
   },
   "config": {

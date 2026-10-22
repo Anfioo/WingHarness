@@ -104,7 +104,10 @@
     "installingVersion": "Installing version {{version}}...",
     "versionAvailable": "Version {{version}} is available.",
     "releaseNotes": "Release Notes:",
-    "later": "Later",
+    "windowTitle": "Software Update",
+    "publishedAt": "Published: ",
+    "skipVersion": "Skip This Version",
+    "retry": "Retry",
     "installNow": "Install Now"
   },
   "config": {

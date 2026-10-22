@@ -6,9 +6,18 @@ import path from "path";
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 
+// @ts-expect-error process is a nodejs global
+const buildDev = process.env.BUILD_DEV ?? "";
+
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+
+  define: {
+    // Bake BUILD_DEV into the bundle so a packaged build can show the dev menu
+    // (reload + devtools) — see `window-context-menu.tsx`.
+    "import.meta.env.BUILD_DEV": JSON.stringify(buildDev),
+  },
 
   resolve: {
     alias: {
