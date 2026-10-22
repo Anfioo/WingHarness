@@ -9,14 +9,7 @@ import { ProjectSection } from "./project-section.tsx";
 import { TerminalSection } from "./terminal-section.tsx";
 import { DataSection } from "./data-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
-import {
-  Palette,
-  Keyboard,
-  FolderKanban,
-  SquareTerminal,
-  Database,
-  SquarePen,
-} from "lucide-react";
+import { Palette, Keyboard, FolderKanban, SquareTerminal, Database, SquarePen } from "lucide-react";
 import { registerShortcut, unregisterShortcut } from "@/lib/shortcut.ts";
 import { toggleWindow } from "@/lib/window.ts";
 import { toast } from "sonner";
@@ -24,13 +17,7 @@ import { useAppTranslation } from "@/hooks/use-app-translation.ts";
 
 const SHORTCUT_KEY = "global-shortcut-show-main";
 
-type SettingSection =
-  | "appearance"
-  | "shortcut"
-  | "project"
-  | "terminal"
-  | "data"
-  | "editor";
+type SettingSection = "appearance" | "shortcut" | "project" | "terminal" | "data" | "editor";
 
 export default function SettingsPage() {
   const [shortcut, setShortcut] = useState<string>("");
@@ -161,12 +148,9 @@ export default function SettingsPage() {
 
           {activeSection === "project" && <ProjectSection />}
 
-
           {activeSection === "terminal" && <TerminalSection />}
 
-
           {activeSection === "data" && <DataSection />}
-
 
           {activeSection === "editor" && <EditorSection />}
         </div>
