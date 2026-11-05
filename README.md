@@ -175,8 +175,9 @@ repository yet.
 clean, that the branch is `main`, and that `package.json`,
 `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml` agree on the version — then
 bumps all three, commits, and tags `vX.Y.Z`. Pushing the tag runs the GitHub
-Actions workflow, which builds the installer and publishes the release the updater
-reads.
+Actions workflow, which builds the installer into a **draft** release whose body
+is generated from the commits since the previous tag. Review the draft, then
+publish it — the updater only sees published releases.
 
 ```bash
 pnpm release:version

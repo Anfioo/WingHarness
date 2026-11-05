@@ -67,16 +67,24 @@ Then it:
 - On the release branch: creates a release commit, creates a `vX.Y.Z` tag, and optionally pushes the branch and tag
 - On any other branch: stops after updating the version files — nothing is staged, committed, tagged or pushed, so a feature branch can bump versions without triggering a release
 
-The GitHub Actions workflow is triggered by `v*` tags.
+The GitHub Actions workflow is triggered by `v*` tags. It creates a **draft**
+release first, with the body generated from the conventional commits since the
+previous tag, then uploads the build artifacts into that draft.
 
-## Step 5: Verify the Published Assets
+## Step 5: Review and Publish the Draft
 
-After GitHub Actions finishes, verify that the latest published release contains updater assets such as:
-- `latest.json`
-- Windows updater bundle artifacts
-- Signature files
+The release stays a draft until you publish it. After GitHub Actions finishes:
 
-If `latest.json` is missing from the latest published release, updater clients cannot discover updates.
+1. Open the draft in GitHub Releases and review the generated notes.
+2. Verify that it contains the updater assets:
+   - `latest.json`
+   - Windows updater bundle artifacts
+   - Signature files
+3. Publish the draft.
+
+Until the draft is published it is invisible to the updater endpoint, so clients
+cannot discover the update. If `latest.json` is missing from the published
+release, updater clients cannot discover updates either.
 
 ## How It Works
 

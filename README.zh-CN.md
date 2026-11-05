@@ -170,7 +170,8 @@ pnpm dlx shadcn@latest add button
 `pnpm release:version` 是发布入口。它会检查工作区是否干净、当前分支是否为 `main`、
 `package.json`、`src-tauri/tauri.conf.json` 与 `src-tauri/Cargo.toml` 三处版本是否一致，
 然后同时更新三处、提交并打上 `vX.Y.Z` 标签。推送标签会触发 GitHub Actions 工作流，
-构建安装包并发布 updater 所读取的 release。
+把安装包构建进一个**草稿** Release，其描述由上一个 tag 以来的提交自动生成。检查无误后
+再手动发布——updater 只会读取已发布的 Release。
 
 ```bash
 pnpm release:version

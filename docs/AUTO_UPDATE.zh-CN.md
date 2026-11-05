@@ -67,16 +67,22 @@ pnpm release:version
 - 在发布分支上：创建发布提交、创建 `vX.Y.Z` tag，可选地推送分支和 tag
 - 在其他分支上：更新完版本文件就结束，不暂存、不提交、不打 tag、不推送，方便功能分支改版本号而不会触发发布
 
-GitHub Actions 会在收到 `v*` 标签后触发。
+GitHub Actions 会在收到 `v*` 标签后触发。它会先创建一个**草稿** Release，描述由
+上一个 tag 以来的约定式提交生成，随后把构建产物上传到同一个草稿中。
 
-## 步骤 5：验证发布产物
+## 步骤 5：检查并发布草稿
 
-GitHub Actions 完成后，确认最新已发布 Release 中包含以下更新相关资源：
-- `latest.json`
-- Windows updater bundle 产物
-- 签名文件
+Release 会一直保持草稿状态，直到你手动发布。GitHub Actions 完成后：
 
-如果最新已发布 Release 中缺少 `latest.json`，客户端将无法发现更新。
+1. 在 GitHub Releases 中打开草稿，检查自动生成的更新说明。
+2. 确认其中包含更新所需资源：
+   - `latest.json`
+   - Windows updater bundle 产物
+   - 签名文件
+3. 发布该草稿。
+
+草稿发布前不会出现在 updater endpoint 上，客户端无法发现更新；已发布 Release 中
+缺少 `latest.json` 时同样无法发现更新。
 
 ## 工作原理
 
