@@ -1,0 +1,44 @@
+{
+  "title": "Update",
+  "check": "Check",
+  "revisionPlaceholder": "Revision",
+  "updateToRevision": "Update to revision",
+  "updateLatest": "Update to latest",
+  "invalidRevision": "Enter a valid revision number.",
+  "localRevision": "Local revision",
+  "remoteRevision": "Remote revision",
+  "incomingCount": "Incoming",
+  "localChangeCount": "Local changes",
+  "upToDate": "The working copy is up to date.",
+  "incomingTitle": "Incoming revisions",
+  "incomingHint": "Revisions the repository has that the working copy does not",
+  "noIncoming": "No incoming revisions.",
+  "localTitle": "Local changes",
+  "localHint": "Paths that will be merged with the incoming revisions",
+  "noLocalChanges": "No local changes.",
+  "output": "Output",
+  "table": {
+    "revision": "Revision",
+    "author": "Author",
+    "date": "Date",
+    "message": "Message",
+    "changedFiles": "Files",
+    "status": "Status",
+    "file": "File",
+    "action": "Action"
+  },
+  "confirm": {
+    "title": "Update working copy",
+    "description": "Update this working copy to the latest revision?",
+    "descriptionRevision": "Update this working copy to revision r{{revision}}?"
+  },
+  "cleanup": {
+    "label": "Cleanup",
+    "success": "Working copy cleaned up",
+    "failed": "Cleanup failed: {{error}}"
+  },
+  "toast": {
+    "success": "Update complete",
+    "failed": "Update failed: {{error}}"
+  }
+}

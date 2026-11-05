@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-store-read"
+description = "Enables the svn_store_read command without any pre-configured scope."
+commands.allow = ["svn_store_read"]
+
+[[permission]]
+identifier = "deny-svn-store-read"
+description = "Denies the svn_store_read command without any pre-configured scope."
+commands.deny = ["svn_store_read"]

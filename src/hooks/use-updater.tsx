@@ -55,6 +55,7 @@ function openUpdateWindow() {
     decorations: false,
     transparent: true,
     shadow: false,
+    parent: "main",
   });
 }
 
@@ -98,8 +99,8 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   const [cancelling, setCancelling] = useState(false);
   const [progress, setProgress] = useState<UpdateProgress | null>(readStoredProgress);
   const pendingCheck = useRef<Promise<UpdateCheckResult> | null>(null);
-  // checkUpdate is rebuilt whenever skippedVersion changes would make captures
-  // stale; reading through the ref keeps one stable callback instead.
+  // Capturing skippedVersion in the check callback would rebuild it on every
+  // skip; reading through the ref keeps one stable callback instead.
   const skippedVersionRef = useRef(skippedVersion);
 
   useEffect(() => {

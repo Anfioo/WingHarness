@@ -1,0 +1,151 @@
+{
+  "panel": {
+    "ariaLabel": "{{path}} 的差异",
+    "backToGraph": "返回图谱",
+    "close": "关闭差异",
+    "unchanged": "未更改",
+    "staged": "已暂存",
+    "unstaged": "未暂存",
+    "stagingOffNote": "忽略空白更改时无法暂存。",
+    "wrapOffNote": "此文件包含超长行，无法自动换行。",
+    "fileHistory": "文件历史",
+    "blameUnavailable": "文件有提交历史后才能追溯",
+    "blameAtCommit": "在此提交上追溯",
+    "blame": "追溯",
+    "previousFile": "上一个文件",
+    "nextFile": "下一个文件",
+    "filePosition": "第 {{current}} / {{total}} 个",
+    "unstageFile": "取消暂存文件",
+    "stageFile": "暂存文件",
+    "loadError": "无法加载差异：{{message}}",
+    "retry": "重试",
+    "emptyFileTitle": "空文件",
+    "emptyFileHint": "此文件没有可比较的内容。",
+    "whitespaceTitle": "仅空白更改",
+    "whitespaceStagedHint": "忽略空白即可看到差异，或取消暂存该文件后再编辑。",
+    "whitespaceHint": "忽略空白即可看到差异。",
+    "noDiffTitle": "无更改",
+    "noDiffHint": "此文件没有可显示的差异。",
+    "unstageHunk": "取消暂存此块",
+    "stageHunk": "暂存此块",
+    "unstageLine": "取消暂存此行",
+    "stageLine": "暂存此行",
+    "discardLine": "丢弃此行",
+    "discardLineTitle": "丢弃此行？",
+    "discardLineHint": "该更改将从工作区中永久移除。",
+    "discardLineConfirm": "丢弃",
+    "copied": "已复制所选内容",
+    "copy": "复制所选内容",
+    "copyLine": "复制此行",
+    "lineCopied": "已复制此行",
+    "selectAll": "全选"
+  },
+  "action": {
+    "failed": "{{action}}失败：{{message}}",
+    "stage": "暂存",
+    "unstage": "取消暂存",
+    "hunk": "暂存块",
+    "stageLine": "暂存行",
+    "unstageLine": "取消暂存行",
+    "discardLine": "丢弃行"
+  },
+  "all": {
+    "ariaLabel": "提交 {{oid}} 的全部更改",
+    "close": "关闭",
+    "backToGraph": "返回图谱",
+    "title": "全部更改",
+    "fileCount_one": "{{count}} 个文件",
+    "fileCount_other": "{{count}} 个文件",
+    "sideBySideNote": "全部更改不支持并排视图，文件以堆叠方式显示。",
+    "expandAll": "全部展开",
+    "collapseAll": "全部折叠",
+    "previousFile": "上一个文件",
+    "nextFile": "下一个文件",
+    "filePosition": "第 {{current}} / {{total}} 个",
+    "expandFile": "展开 {{path}}",
+    "collapseFile": "折叠 {{path}}",
+    "from": "来自 {{path}}",
+    "openInFileView": "在文件视图中打开",
+    "openFileInView": "在文件视图中打开 {{path}}",
+    "largeHint_one": "大型差异，含 {{count}} 处更改行 — 展开以加载。",
+    "largeHint_other": "大型差异，含 {{count}} 处更改行 — 展开以加载。",
+    "showDiff": "显示差异",
+    "listError": "无法加载文件列表：{{message}}",
+    "noFiles": "此提交没有更改的文件。",
+    "loadError": "无法加载文件：{{message}}",
+    "retry": "重试",
+    "whitespaceOnly": "仅空白更改",
+    "noTextChanges": "无文本更改"
+  },
+  "copy": {
+    "copied_one": "已从{{side}}侧复制 {{count}} 行",
+    "copied_other": "已从{{side}}侧复制 {{count}} 行",
+    "side": {
+      "old": "旧",
+      "new": "新"
+    },
+    "selected": "已选择{{side}} — 按 {{copy}} 复制",
+    "sideLabel": {
+      "old": "旧侧",
+      "new": "新侧"
+    }
+  },
+  "nav": {
+    "previous": "上一处更改",
+    "next": "下一处更改",
+    "changeCount_one": "{{count}} 处更改",
+    "changeCount_other": "{{count}} 处更改"
+  },
+  "search": {
+    "matchCase": "区分大小写",
+    "previous": "上一个匹配",
+    "next": "下一个匹配",
+    "close": "关闭搜索",
+    "placeholder": "在差异中查找",
+    "count": "{{current}} / {{total}}",
+    "noResults": "无结果"
+  },
+  "image": {
+    "unavailableTitle": "无法预览图片",
+    "unavailableHint": "无法解码此图片。",
+    "before": "之前",
+    "after": "之后"
+  },
+  "viewer": {
+    "binaryTitle": "二进制文件",
+    "binaryHint": "二进制文件无法以文本显示。",
+    "noChangesTitle": "无文本更改",
+    "noChangesHint": "此文件没有文本差异。"
+  },
+  "controls": {
+    "showOneFile": "显示单个文件",
+    "showAllFiles": "显示全部文件",
+    "layoutGroup": "差异布局",
+    "oneFileHint": "显示单个文件",
+    "allFilesHint": "在一个滚动中显示所有文件",
+    "inline": "行内",
+    "split": "并排",
+    "viewOptions": "差异选项",
+    "ignoreWhitespaceNote": "已忽略空白",
+    "wordDiff": "高亮单词更改",
+    "ignoreWhitespace": "忽略空白",
+    "wrapLongLines": "长行换行",
+    "showWholeFile": "显示完整文件"
+  },
+  "minimap": {
+    "label": "差异缩略图"
+  },
+  "labels": {
+    "moreCharacters": "… 另有 {{hidden}} 个字符",
+    "clippedLineTitle": "仅显示此行前 {{shown}} 个字符"
+  },
+  "scrollbar": {
+    "ariaLabel": "横向滚动差异"
+  },
+  "files": {
+    "expandAllFolders": "展开所有文件夹",
+    "collapseAllFolders": "折叠所有文件夹",
+    "filterPlaceholder": "筛选文件",
+    "clearFilter": "清除筛选"
+  }
+}

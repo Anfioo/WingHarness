@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-status"
+description = "Enables the clash_status command without any pre-configured scope."
+commands.allow = ["clash_status"]
+
+[[permission]]
+identifier = "deny-clash-status"
+description = "Denies the clash_status command without any pre-configured scope."
+commands.deny = ["clash_status"]

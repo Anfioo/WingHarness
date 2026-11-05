@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-repo-ref-fingerprint"
+description = "Enables the repo_ref_fingerprint command without any pre-configured scope."
+commands.allow = ["repo_ref_fingerprint"]
+
+[[permission]]
+identifier = "deny-repo-ref-fingerprint"
+description = "Denies the repo_ref_fingerprint command without any pre-configured scope."
+commands.deny = ["repo_ref_fingerprint"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-update-provider"
+description = "Enables the ccs_update_provider command without any pre-configured scope."
+commands.allow = ["ccs_update_provider"]
+
+[[permission]]
+identifier = "deny-ccs-update-provider"
+description = "Denies the ccs_update_provider command without any pre-configured scope."
+commands.deny = ["ccs_update_provider"]

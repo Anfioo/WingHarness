@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-agent-detail"
+description = "Enables the shaic_agent_detail command without any pre-configured scope."
+commands.allow = ["shaic_agent_detail"]
+
+[[permission]]
+identifier = "deny-shaic-agent-detail"
+description = "Denies the shaic_agent_detail command without any pre-configured scope."
+commands.deny = ["shaic_agent_detail"]

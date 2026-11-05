@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-open-large-file-entry"
+description = "Enables the systools_open_large_file_entry command without any pre-configured scope."
+commands.allow = ["systools_open_large_file_entry"]
+
+[[permission]]
+identifier = "deny-systools-open-large-file-entry"
+description = "Denies the systools_open_large_file_entry command without any pre-configured scope."
+commands.deny = ["systools_open_large_file_entry"]

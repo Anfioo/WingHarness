@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discard-staged-all"
+description = "Enables the discard_staged_all command without any pre-configured scope."
+commands.allow = ["discard_staged_all"]
+
+[[permission]]
+identifier = "deny-discard-staged-all"
+description = "Denies the discard_staged_all command without any pre-configured scope."
+commands.deny = ["discard_staged_all"]

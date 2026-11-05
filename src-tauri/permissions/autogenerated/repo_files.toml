@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-repo-files"
+description = "Enables the repo_files command without any pre-configured scope."
+commands.allow = ["repo_files"]
+
+[[permission]]
+identifier = "deny-repo-files"
+description = "Denies the repo_files command without any pre-configured scope."
+commands.deny = ["repo_files"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-repo-init"
+description = "Enables the repo_init command without any pre-configured scope."
+commands.allow = ["repo_init"]
+
+[[permission]]
+identifier = "deny-repo-init"
+description = "Denies the repo_init command without any pre-configured scope."
+commands.deny = ["repo_init"]

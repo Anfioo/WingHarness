@@ -1,0 +1,118 @@
+# Upstream Projects and Porting Record
+
+WingHarness grew out of
+[MaBangProjectsWorkflows](https://github.com/Anfioo/MaBangProjectsWorkflows), the
+author's private workflow application, and now carries that application's
+features in its own tree. MaBang itself carries code from a set of open-source
+projects, so each ported feature has an upstream *chain*: upstream project →
+MaBangProjectsWorkflows → WingHarness.
+
+This file is the single record of that chain. It exists for two reasons:
+
+1. **Licence hygiene.** WingHarness is GPL-3.0-only. A port is only allowed from
+   a licence that is compatible with it, and the notice must travel with the
+   code.
+2. **Porting record.** It says which upstreams are already here, and which ones
+   must never be taken.
+
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) lists what is actually
+distributed in this repository. This file additionally records the projects that
+were only read.
+
+## Status
+
+| Status | Meaning |
+|--------|---------|
+| **Ported** | Code or data from the project is in this repository. |
+| **Reference** | Read for behaviour or design; no code in either repository. |
+
+## Licence gate
+
+Only these licences may be ported into WingHarness:
+
+| Upstream licence | Port allowed? | Why |
+|------------------|---------------|-----|
+| GPL-3.0-only / GPL-3.0-or-later | Yes | Same licence as this project. |
+| MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with GPL-3.0. |
+| Apache-2.0 | Yes | One-way compatible with GPL-3.0. |
+| MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with GPL-3.0. |
+| AGPL-3.0 | **No** | Would require the whole project to become AGPL-3.0. |
+| No licence file | **No** | Default copyright: all rights reserved. Ask the author first. |
+| "All rights reserved", non-commercial, or custom terms | **No** | Incompatible. |
+
+When in doubt, do not port. Ask the upstream author for permission in writing and
+record the grant in [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
+## Inventory
+
+### Ported into this repository
+
+The evidence column records what was found when the port was verified: a SHA-256
+comparison of the ported files against each checkout, plus a source-wide search
+for the project name (2026-11-05).
+
+| Upstream | Licence | Module | Evidence |
+|----------|---------|--------|----------|
+| [tweakcn](https://github.com/jnsahaj/tweakcn) | Apache-2.0 | `src/lib/theme/presets.json` | Generated data snapshot; `licenses/tweakcn-LICENSE.txt` |
+| [MangoDisk](https://github.com/harry0703/MangoDisk) | GPL-3.0-only | `systools-core`, `systools` page | 10 byte-identical files at import; `systools-core/UPSTREAM.md` |
+| [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor) | GPL-3.0-only | `md-editor-core`, `md-editor` page | Rewritten, no identical files; `md-editor-core/UPSTREAM.md` |
+| [angkorgit](https://github.com/cheat2001/angkorgit) | MIT | `git-core`, `git-repo` page | 16 byte-identical files at import, 7 still identical; `git-core/UPSTREAM.md` |
+| [OrcaSVN](https://github.com/wustites/OrcaSVN) | MIT | `svn-core`, `svn-workspace` page | Ported wholesale; `svn-core/UPSTREAM.md` |
+| [shaic](https://github.com/dariocurr/shaic) | MIT | `shaic-core`, `ai-config` page | 51 byte-identical files at import, 50 still identical; `shaic-core/UPSTREAM.md` |
+| [McpHub](https://github.com/Soflutionltd/McpHub) | MIT | `src-tauri/src/mcphub`, `mcp-hub` page | Every source file keeps an attribution header |
+| [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`, `servers` page | Rewritten, no identical files; `server-core/UPSTREAM.md` |
+| [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`, `frp` page | Rewritten, no identical files; `frp-core/UPSTREAM.md` |
+| [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` page, `claude_history.rs` | Behaviour port; 1 identical generic helper (`cn.ts`) |
+| [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | "Vendored from `@ekaone/use-claude` (MIT)" in headers |
+| [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`, `cc-switch` page | Icon assets copied from `src/icons/extracted`; reads its SQLite DB |
+
+**Notes on this group**
+
+- **MangoDisk** and **TizuMark** are GPL-3.0-only. They are why WingHarness is
+  GPL-3.0-only rather than MIT.
+- **cc-switch** is mostly integrated rather than copied: the app reads
+  `~/.cc-switch/cc-switch.db`. The only byte-identical file is its `hermes.png`
+  icon, so the notice still has to travel.
+- Every whole crate or subsystem carried over keeps a per-directory
+  `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
+  `frp-core`, `server-core` and `shaic-core`. The license text of each upstream
+  is in `licenses/`; GPL upstreams point at the project's own `LICENSE`.
+
+### Reference only — no code copied
+
+| Upstream | Licence | What it was read for |
+|----------|---------|----------------------|
+| [clash-verge-rev](https://github.com/clash-verge-rev/clash-verge-rev) | GPL-3.0-only | Clash page design; `prism-core` itself is first-party, built on the `clash-prism-extension` crate |
+| [Rust-Frp](https://github.com/Nu0vo1212/Rust-Frp) | Apache-2.0 | FRP protocol and process behaviour |
+| [Zephyr](https://github.com/Juwan-Hwang/Zephyr) | MIT | Mihomo GUI design |
+| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | Rust IDE and git UI design; design comments in the source |
+
+## Porting checklist
+
+Use this for every feature carried over.
+
+1. **Identify the upstream.** Walk the chain to the original project, not just
+   MaBang. Check the licence of the *original*, not an intermediate copy.
+2. **Check the gate.** The licence must be in the allowed list above. If the
+   upstream has no licence, stop and ask.
+3. **Record the version.** Note the upstream version and commit in the porting
+   entry (or in a per-directory `UPSTREAM.md` — see below).
+4. **Keep the attribution header.** Every ported file starts with a short
+   comment naming the upstream project and licence.
+5. **Write a per-directory `UPSTREAM.md`** when a whole crate or subsystem is
+   carried over. It records origin, version, what was changed, and how to take
+   an upstream change later. `src-tauri/shaic-core/UPSTREAM.md` is the model.
+6. **Update the notices.** Add the project to
+   [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and flip its status here.
+7. **Document it.** Add or update the guide under `docs/features/`, in both languages
+   (`FEATURE.md` and `FEATURE.zh-CN.md`), and link it from both READMEs.
+8. **Check the build.** `pnpm check` plus the feature's own smoke test.
+
+## Change log
+
+| Date | Change |
+|------|--------|
+| 2026-11-05 | File created; inventory compiled from both repositories and their `.dev` checkouts. |
+| 2026-11-05 | Inventory re-verified by hashing every file under MaBang's `src/`, `src-tauri/` and `scripts/` against each checkout and searching the source for each project name. |
+| 2026-11-05 | WingHarness absorbed the MaBangProjectsWorkflows tree; every pending module is now ported and its status flipped to **Ported**. |
+| 2026-11-05 | Licence audit: upstream license texts added under `licenses/`, attribution headers and `UPSTREAM.md` records added to every ported crate, tweakcn corrected from MIT to Apache-2.0, and the evidence column updated to the current tree. |

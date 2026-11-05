@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-configure-svn-executable"
+description = "Enables the configure_svn_executable command without any pre-configured scope."
+commands.allow = ["configure_svn_executable"]
+
+[[permission]]
+identifier = "deny-configure-svn-executable"
+description = "Denies the configure_svn_executable command without any pre-configured scope."
+commands.deny = ["configure_svn_executable"]

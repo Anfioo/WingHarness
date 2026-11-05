@@ -1,0 +1,70 @@
+{
+  "header": {
+    "brand": "SVN Working Copies",
+    "tagline": "Open a local SVN working copy, or check out a new one."
+  },
+  "actions": {
+    "open": "Open working copy",
+    "openHint": "Point at a folder that is already an SVN working copy.",
+    "checkout": "Check out",
+    "checkoutHint": "Pull a repository down into a new working copy."
+  },
+  "openCard": {
+    "pathPlaceholder": "Path to a working copy folder",
+    "pathLabel": "Working copy path",
+    "browse": "Browse",
+    "open": "Open",
+    "opening": "Opening",
+    "dialogTitle": "Select SVN Working Copy Directory"
+  },
+  "checkoutCard": {
+    "urlPlaceholder": "https://svn.example.com/repo/trunk",
+    "urlLabel": "Repository URL",
+    "intoPlaceholder": "Target directory",
+    "intoLabel": "Target directory",
+    "browse": "Browse",
+    "revisionPlaceholder": "Latest",
+    "revisionLabel": "Revision",
+    "checkout": "Check out",
+    "checkingOut": "Checking out"
+  },
+  "recent": {
+    "title": "Recent working copies",
+    "searchPlaceholder": "Search",
+    "searchLabel": "Search recent working copies",
+    "emptyTitle": "No working copies yet",
+    "emptyDescription": "Open an existing SVN working copy, or check one out to get started.",
+    "emptyOpen": "Open working copy",
+    "emptyCheckout": "Check out",
+    "noMatch": "No working copy matches \"{{query}}\".",
+    "open": "Open",
+    "focus": "Focus window",
+    "remove": "Remove from list",
+    "menuAria": "Actions for {{name}}",
+    "alreadyOpen": "Open",
+    "missing": "Missing",
+    "removeFailed": "Could not remove the working copy from the list.",
+    "reveal": "Open folder",
+    "revealFailed": "Could not open the folder."
+  },
+  "svnMissing": {
+    "title": "SVN command line not found",
+    "description": "The svn executable could not be located. Install Subversion and make sure svn is on your PATH, or set its path in the SVN workspace settings.",
+    "retry": "Check again"
+  },
+  "noWorkspace": {
+    "title": "No working copy opened",
+    "description": "This window shows one SVN working copy. Open one from the picker in the main window to see its status, history and stashes here.",
+    "openList": "Go to the working copies list"
+  },
+  "window": {
+    "title": "SVN"
+  },
+  "toast": {
+    "notAWorkingCopy": "That folder is not an SVN working copy.",
+    "openFailed": "Could not open the working copy.",
+    "missingFolder": "That folder no longer exists.",
+    "checkoutDone": "Checked out {{name}}.",
+    "checkoutFailed": "Could not check out the repository."
+  }
+}

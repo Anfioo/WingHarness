@@ -1,0 +1,66 @@
+{
+  "title": "Commit",
+  "selectedCount": "{{count}} selected",
+  "selectedWithHidden": "{{count}} selected, {{hidden}} hidden",
+  "searchPlaceholder": "Search files…",
+  "clearSearch": "Clear search",
+  "selectAll": "Select all",
+  "deselectAll": "Deselect all",
+  "author": "Author",
+  "partial": "Only the selected paths",
+  "messageLabel": "Commit message",
+  "messagePlaceholder": "Describe the change…",
+  "output": "Output",
+  "noWorkspaceHint": "Open a working copy to commit its changes.",
+  "filter": {
+    "all": "All",
+    "committable": "Committable",
+    "unversioned": "Unversioned"
+  },
+  "actions": {
+    "commit": "Commit",
+    "commitCount": "Commit {{count}}",
+    "commitWhole": "Commit whole working copy",
+    "addAndReview": "Add and review",
+    "reset": "Reset",
+    "diff": "View diff",
+    "discard": "Discard",
+    "resolve": "Resolve conflict"
+  },
+  "resolve": {
+    "working": "Keep working version",
+    "mine": "Keep my version",
+    "theirs": "Keep their version"
+  },
+  "conflicts": {
+    "hint": "Resolve each conflict before committing; conflicted paths cannot be recorded.",
+    "title_one": "{{count}} conflicted path blocks the commit",
+    "title_other": "{{count}} conflicted paths block the commit"
+  },
+  "confirm": {
+    "title": "Commit changes",
+    "descriptionWhole": "Commit the whole working copy?",
+    "discardTitle": "Discard unversioned file",
+    "discardDescription": "Permanently delete this unversioned file or directory? Directory contents are deleted too, bypassing the trash; this cannot be undone.",
+    "descriptionSelected_one": "Commit the {{count}} selected path?",
+    "descriptionSelected_other": "Commit the {{count}} selected paths?",
+    "descriptionAdd_one": "Add the {{count}} selected unversioned path to version control first, then review?",
+    "descriptionAdd_other": "Add the {{count}} selected unversioned paths to version control first, then review?"
+  },
+  "empty": {
+    "noChanges": "Nothing to commit",
+    "noChangesHint": "The working copy has no changed paths to record.",
+    "noMatches": "No files match the current filter",
+    "noMatchesHint": "Try another filter or clear the search."
+  },
+  "toast": {
+    "success": "Committed",
+    "discarded": "Unversioned file deleted",
+    "resolved": "Conflict resolved",
+    "failed": "Commit failed: {{error}}",
+    "added_one": "Added {{count}} path to version control",
+    "added_other": "Added {{count}} paths to version control"
+  },
+  "reviewAdded_one": "Added {{count}} unversioned path. Review the list and commit again.",
+  "reviewAdded_other": "Added {{count}} unversioned paths. Review the list and commit again."
+}

@@ -1,15 +1,28 @@
-export interface WorkspaceConfig {
+export interface AppConfig {
   /**
-   * Root the file browser and the preview open at, as a Windows path.
-   *
-   * Empty means no project has been chosen yet, which the pages render as an
-   * empty state rather than an error.
+   * Root directory the project page, the file preview and the agent config sync
+   * work in. Empty means "not configured".
    */
-  root: string;
+  projectRoot: string;
+  aiConfig: AiConfig;
 }
 
-export interface AppConfig {
-  workspace: WorkspaceConfig;
+/** One switch in the settings page's agent list. */
+export interface AgentOption {
+  /** Agent id, e.g. `claude-code`. */
+  id: string;
+  /** Display name, e.g. `Claude Code`. */
+  name: string;
+}
+
+export interface AiConfig {
+  /**
+   * Agent ids allowed to be synced.
+   *
+   * `null` (the key is absent) means every agent — the default. An explicit list
+   * is taken literally, so an empty array means "no agents".
+   */
+  enabledAgents: string[] | null;
 }
 
 export interface ConfigView {
@@ -24,4 +37,6 @@ export interface ConfigView {
   dataDirDefault: string;
   /** The pointer file that names the configured directory. */
   dataDirPointer: string;
+  /** Agents the AI config sync page can manage, in registry order. */
+  aiAgents: AgentOption[];
 }

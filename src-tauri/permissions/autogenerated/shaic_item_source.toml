@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-item-source"
+description = "Enables the shaic_item_source command without any pre-configured scope."
+commands.allow = ["shaic_item_source"]
+
+[[permission]]
+identifier = "deny-shaic-item-source"
+description = "Denies the shaic_item_source command without any pre-configured scope."
+commands.deny = ["shaic_item_source"]

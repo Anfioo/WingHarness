@@ -9,7 +9,7 @@ const AUTO_CHECK_SESSION_KEY = "wingharness-updater-auto-check-started";
 /**
  * Runs the startup update check once per session (mounted by the main window's
  * shell). A found update opens the standalone update window; a failed check is
- * surfaced with the underlying reason so "更新失败" is diagnosable.
+ * surfaced with the underlying reason so "update failed" is diagnosable.
  */
 export function UpdaterAutoCheck() {
   const { checkUpdate, downloading } = useUpdater();

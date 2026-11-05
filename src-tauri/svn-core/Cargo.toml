@@ -1,0 +1,40 @@
+[package]
+name = "svn-core"
+version = "0.0.1"
+description = "SVN working-copy engine for the standalone SVN workspace window."
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "svn_core"
+crate-type = ["rlib"]
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+# The only new parsing dependency: `svn status/log/info --xml` output. The rest
+# of the engine reads plain text.
+quick-xml = "0.37"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+# `process` spawns the `svn` CLI, `time` bounds it, `rt` moves the blocking
+# directory scan off the command thread and `sync` serializes per-workspace
+# refreshes. The runtime itself is Tauri's, never `full`.
+tokio = { version = "1", features = ["process", "time", "rt", "sync"] }
+
+[target.'cfg(windows)'.dependencies]
+# Only the five features the USN journal reader needs; the rest of the crate is
+# portable and the reader is gated behind `cfg(windows)`.
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_Ioctl",
+] }
+
+[dev-dependencies]
+tempfile = "3"

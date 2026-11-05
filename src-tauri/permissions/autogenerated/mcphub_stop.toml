@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-stop"
+description = "Enables the mcphub_stop command without any pre-configured scope."
+commands.allow = ["mcphub_stop"]
+
+[[permission]]
+identifier = "deny-mcphub-stop"
+description = "Denies the mcphub_stop command without any pre-configured scope."
+commands.deny = ["mcphub_stop"]

@@ -1,0 +1,31 @@
+{
+  "title": "差异",
+  "loading": "正在加载差异…",
+  "error": "计算差异失败。",
+  "noTarget": "尚未选择文件",
+  "noTargetHint": "请在变更或日志面板中选择文件以查看差异。",
+  "empty": "没有差异",
+  "emptyHint": "该文件与所选对比结果一致。",
+  "file": "文件",
+  "revisionRange": "版本 {{old}} → {{new}}",
+  "workingCopy": "工作副本",
+  "betweenRevisions": "版本之间",
+  "oldRevision": "旧版本",
+  "newRevision": "新版本",
+  "compare": "比较",
+  "invalidRevision": "请输入两个有效且非负的版本号。",
+  "copyPath": "复制路径",
+  "reveal": "在资源管理器中显示",
+  "findText": "在差异中查找",
+  "previousMatch": "上一处匹配",
+  "nextMatch": "下一处匹配",
+  "noMatch": "无匹配",
+  "copyAll": "复制差异",
+  "added": "新增 {{count}} 行",
+  "removed": "删除 {{count}} 行",
+  "toast": {
+    "pathCopied": "路径已复制",
+    "copied": "差异已复制",
+    "copyFailed": "复制失败"
+  }
+}

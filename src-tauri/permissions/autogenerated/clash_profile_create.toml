@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-profile-create"
+description = "Enables the clash_profile_create command without any pre-configured scope."
+commands.allow = ["clash_profile_create"]
+
+[[permission]]
+identifier = "deny-clash-profile-create"
+description = "Denies the clash_profile_create command without any pre-configured scope."
+commands.deny = ["clash_profile_create"]

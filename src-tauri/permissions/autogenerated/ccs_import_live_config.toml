@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-import-live-config"
+description = "Enables the ccs_import_live_config command without any pre-configured scope."
+commands.allow = ["ccs_import_live_config"]
+
+[[permission]]
+identifier = "deny-ccs-import-live-config"
+description = "Denies the ccs_import_live_config command without any pre-configured scope."
+commands.deny = ["ccs_import_live_config"]

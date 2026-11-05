@@ -1,0 +1,28 @@
+[package]
+name = "git-core"
+version = "0.0.1"
+description = "Git engine for the standalone repository window."
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "git_core"
+crate-type = ["rlib"]
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+git2 = { version = "0.20", features = ["vendored-libgit2"] }
+thiserror = "2"
+base64 = "0.22"
+notify-debouncer-mini = "0.4"
+portable-pty = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+which = "7"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+fontdb = { version = "0.24", default-features = false, features = ["std", "fs", "memmap", "fontconfig"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stash-restore-files"
+description = "Enables the stash_restore_files command without any pre-configured scope."
+commands.allow = ["stash_restore_files"]
+
+[[permission]]
+identifier = "deny-stash-restore-files"
+description = "Denies the stash_restore_files command without any pre-configured scope."
+commands.deny = ["stash_restore_files"]

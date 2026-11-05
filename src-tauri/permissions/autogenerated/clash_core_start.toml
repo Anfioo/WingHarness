@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-core-start"
+description = "Enables the clash_core_start command without any pre-configured scope."
+commands.allow = ["clash_core_start"]
+
+[[permission]]
+identifier = "deny-clash-core-start"
+description = "Denies the clash_core_start command without any pre-configured scope."
+commands.deny = ["clash_core_start"]

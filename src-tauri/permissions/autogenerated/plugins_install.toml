@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-install"
+description = "Enables the plugins_install command without any pre-configured scope."
+commands.allow = ["plugins_install"]
+
+[[permission]]
+identifier = "deny-plugins-install"
+description = "Denies the plugins_install command without any pre-configured scope."
+commands.deny = ["plugins_install"]

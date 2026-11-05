@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-pick-import-file"
+description = "Enables the ccs_pick_import_file command without any pre-configured scope."
+commands.allow = ["ccs_pick_import_file"]
+
+[[permission]]
+identifier = "deny-ccs-pick-import-file"
+description = "Denies the ccs_pick_import_file command without any pre-configured scope."
+commands.deny = ["ccs_pick_import_file"]

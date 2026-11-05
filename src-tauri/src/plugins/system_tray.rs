@@ -4,9 +4,22 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     plugin::{Builder, TauriPlugin},
-    AppHandle, Manager, Runtime,
+    AppHandle, Emitter, Manager, Runtime,
 };
 
+/// Label prefix of a plugin's own window. A window with this label is one the
+/// plugins page may be showing as a greyed-out tab, so its destruction has to be
+/// announced — see [`init`].
+const PLUGIN_WINDOW_PREFIX: &str = "plugin-window-";
+
+/// Emitted when a plugin's own window is destroyed. Payload: the plugin id.
+///
+/// The plugins page greys out a plugin's tab while that plugin's window is open,
+/// and has no other reliable way to learn the window is gone: a webview torn
+/// down natively does not always finish its own `pagehide` work, so the frontend
+/// cannot announce the close itself. This comes from the window system, which
+/// always knows.
+const PLUGIN_WINDOW_CLOSED_EVENT: &str = "plugin-window-closed";
 
 // Update tray menu with localized text
 //
@@ -115,10 +128,28 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             Ok(())
         })
         .on_window_ready(move |window| {
+            // A plugin's own window announces its destruction, so the plugins
+            // page stops showing that plugin's tab as greyed out. Registered
+            // for every label, since the window system — not the page — is what
+            // reliably knows the window is gone.
+            if let Some(encoded) = window.label().strip_prefix(PLUGIN_WINDOW_PREFIX) {
+                // The label carries the encoded id; the frontend matches the
+                // event payload against the real id, so decode it back.
+                let id = crate::plugins::decode_label_id(encoded);
+                let app = window.app_handle().clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Destroyed = event {
+                        let _ =
+                            app.emit(PLUGIN_WINDOW_CLOSED_EVENT, serde_json::json!({ "id": id }));
+                    }
+                });
+            }
+
             // Only the main window hides on close, so the app keeps living in
-            // the tray. Every other window — a settings pane, the tray menu —
-            // is a thing the user can close for good, and hiding one would
-            // leave it alive but invisible.
+            // the tray. Every other window is a thing the user can close for
+            // good — a settings pane, a plugin's page — and hiding one would
+            // leave it alive but invisible, which for a plugin window also
+            // means its tab stays greyed out forever.
             if window.label() != "main" {
                 return;
             }

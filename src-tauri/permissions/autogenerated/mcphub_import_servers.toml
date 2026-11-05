@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-import-servers"
+description = "Enables the mcphub_import_servers command without any pre-configured scope."
+commands.allow = ["mcphub_import_servers"]
+
+[[permission]]
+identifier = "deny-mcphub-import-servers"
+description = "Denies the mcphub_import_servers command without any pre-configured scope."
+commands.deny = ["mcphub_import_servers"]

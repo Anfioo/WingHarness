@@ -1,0 +1,155 @@
+{
+  "id": "plugin-showcase",
+  "name": "配置能力全示例",
+  "version": "1.0.0",
+  "description": "一个清单用上全部配置能力：三种文件格式、五种字段类型、选项的两种写法、带选项的 boolean 与普通 boolean、点路径与数组下标键、startmust 的两种取值，以及带占位符的 ui。照着它写自己的 plugin.json 就不会漏。",
+  "entry": "run.cmd",
+  "ui": "http://{SHOWCASE_HOST}:{SHOWCASE_PORT}/",
+  "configFiles": [
+    {
+      "type": "env",
+      "path": ".env",
+      "startmust": true,
+      "fields": [
+        {
+          "key": "SHOWCASE_HOST",
+          "label": "监听地址",
+          "type": "string",
+          "default": "127.0.0.1",
+          "hint": "ui 里的 {SHOWCASE_HOST} 与 {SHOWCASE_PORT} 都从这个源读。只给本机看就保持 127.0.0.1。"
+        },
+        {
+          "key": "SHOWCASE_PORT",
+          "label": "端口",
+          "type": "number",
+          "default": 8123,
+          "min": 1024,
+          "max": 65535,
+          "hint": "number 类型可以带 min/max；越界保存会被拒绝。"
+        },
+        {
+          "key": "SHOWCASE_TITLE",
+          "label": "页面标题",
+          "type": "string",
+          "default": "Plugin Showcase"
+        },
+        {
+          "key": "SHOWCASE_THEME",
+          "label": "页面配色",
+          "type": "select",
+          "default": "auto",
+          "options": [
+            { "value": "auto", "label": "跟随系统" },
+            { "value": "light", "label": "浅色" },
+            { "value": "dark", "label": "深色" }
+          ],
+          "hint": "select 是 N 选一的下拉：options 每项都有 value 和 label，写回文件的是 value。"
+        },
+        {
+          "key": "SHOWCASE_PROXY",
+          "label": "启用系统代理",
+          "type": "boolean",
+          "default": "1",
+          "options": [
+            { "value": "1", "label": "开启" },
+            { "value": "0", "label": "关闭" }
+          ],
+          "trueValue": "1",
+          "hint": "boolean 带 options 是个开关：两个选项是它的两个状态，trueValue 指定哪个代表「开」。按钮显示 label，写回文件的是 value（这里是 1 / 0），所以文件保留自己的写法。"
+        }
+      ]
+    },
+    {
+      "type": "json",
+      "path": "cfg.json",
+      "startmust": true,
+      "fields": [
+        {
+          "key": "app.name",
+          "label": "应用名",
+          "type": "string",
+          "default": "showcase",
+          "hint": "json 的 key 是点路径：app.name 对应 { \"app\": { \"name\": ... } }。"
+        },
+        {
+          "key": "app.accent",
+          "label": "主题色",
+          "type": "select",
+          "default": "blue",
+          "options": [
+            { "value": "blue", "label": "蓝" },
+            { "value": "green", "label": "绿" },
+            { "value": "orange", "label": "橙" }
+          ],
+          "hint": "options 用对象写法：下拉框显示 label，写回文件的是 value。"
+        },
+        {
+          "key": "app.note",
+          "label": "页面备注",
+          "type": "textarea",
+          "default": "",
+          "hint": "textarea 是多行输入，写回 json 时是普通字符串。"
+        },
+        {
+          "key": "app.retries",
+          "label": "重试次数",
+          "type": "number",
+          "default": 3,
+          "min": 0,
+          "max": 10
+        },
+        {
+          "key": "features.enabled",
+          "label": "启用新特性",
+          "type": "boolean",
+          "default": true,
+          "hint": "不带 options 的 boolean：json 里存的是真正的 true/false，不是字符串。"
+        },
+        {
+          "key": "features.weights.0",
+          "label": "首个权重",
+          "type": "number",
+          "default": 100,
+          "min": 0,
+          "max": 1000,
+          "hint": "纯数字的一段是数组下标：features.weights.0 对应 weights 数组的第一个元素。"
+        }
+      ]
+    },
+    {
+      "type": "yaml",
+      "path": "cfg.yaml",
+      "startmust": true,
+      "fields": [
+        {
+          "key": "site.tagline",
+          "label": "副标题",
+          "type": "string",
+          "default": "served from YAML"
+        },
+        {
+          "key": "site.retries",
+          "label": "重试次数",
+          "type": "number",
+          "default": 3,
+          "min": 0,
+          "max": 10
+        }
+      ]
+    },
+    {
+      "type": "yaml",
+      "path": "generated.yml",
+      "startmust": false,
+      "fields": [
+        {
+          "key": "generated.at",
+          "label": "生成时间",
+          "type": "string",
+          "default": "",
+          "hint": "这个文件随包不携带，由 server.ps1 首次启动时生成——startmust:false 的意义就在这里。保存会创建它。"
+        }
+      ]
+    }
+  ]
+}

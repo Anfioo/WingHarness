@@ -1,10 +1,10 @@
 //! User-editable application configuration.
 //!
-//! Deliberately plain `std`: the file is read and written with `serde_json`
-//! alone, so it stays usable without a Tauri handle. The real config directory
-//! is handed over once at startup through [`init`], with a `%APPDATA%` fallback
-//! for anything running outside the app (tests, tools).
+//! Deliberately plain `std` — no Tauri handle — so it stays usable from tests
+//! and tools. The real config directory is handed over once at startup through
+//! [`init`], with a `%APPDATA%` fallback for anything running outside the app.
 
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -37,26 +37,60 @@ static SAVE_LOCK: Mutex<()> = Mutex::new(());
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct Config {
-    pub workspace: Workspace,
+    /// Root directory the project page, the preview and the agent config sync
+    /// work in. Empty means "not configured": those pages show an empty state
+    /// rather than failing.
+    #[serde(rename = "projectRoot")]
+    pub project_root: String,
+    /// CC Switch（AI 编程 CLI 供应商切换）设置。
+    pub ccs: crate::ccs::settings::CcsSettings,
+    /// AI 配置同步（shaic）设置。
+    #[serde(rename = "aiConfig")]
+    pub ai_config: AiConfig,
 }
 
-/// The project the app is pointed at.
+/// AI 配置同步（shaic）设置。
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
-pub struct Workspace {
-    /// Root of the project the file browser and the preview open at, as a
-    /// Windows path.
+pub struct AiConfig {
+    /// 允许被同步的 agent id 列表。
     ///
-    /// Empty means no project has been chosen yet: the pages show an empty
-    /// state rather than treating it as an error.
-    pub root: String,
+    /// `None`（键缺省）表示「全部开启」，这是新装与老配置的默认；显式列表按
+    /// 原样采用，空数组表示「一个都不开」。之所以不用「空 = 全部」的约定，
+    /// 是因为设置页是一排开关，必须能区分「用户全部关掉」与「用户没动过」。
+    #[serde(rename = "enabledAgents")]
+    pub enabled_agents: Option<Vec<String>>,
+}
+
+
+impl Config {
+    /// The configured project root, or `None` when the field is blank.
+    pub fn project_root(&self) -> Option<&str> {
+        let root = self.project_root.trim();
+        (!root.is_empty()).then_some(root)
+    }
+
+    /// Repairs values that would otherwise break a feature silently.
+    fn normalize(&mut self) {
+        // `None` means "every agent" and is kept as-is; an explicit list is the
+        // user's literal choice, so it is only trimmed and de-duplicated. Ids are
+        // lower-case constants, so folding case for the duplicate check is safe.
+        self.ai_config.enabled_agents = self.ai_config.enabled_agents.as_ref().map(|ids| {
+            let mut seen = HashSet::new();
+            ids.iter()
+                .map(|id| id.trim().to_string())
+                .filter(|id| !id.is_empty())
+                .filter(|id| seen.insert(id.to_ascii_lowercase()))
+                .collect()
+        });
+    }
 }
 
 /// Records the directory resolved by Tauri and resolves the data directory.
 ///
 /// Called once from `.setup()`. The pointer is read exactly once here and the
 /// result cached: a directory that changed under a running app would scatter
-/// state (notes, logs, cached fonts) across two roots. Moving the data directory
+/// state (plugins, logs, cache) across two roots. Moving the data directory
 /// therefore only takes effect after a restart, which the settings page asks for.
 pub fn init(dir: PathBuf) {
     let resolved = read_pointer_at(&dir).unwrap_or_else(|| dir.clone());
@@ -166,10 +200,12 @@ pub fn path() -> PathBuf {
 ///
 /// Never fails: a corrupt or missing file must not stop the app from starting.
 pub fn load() -> Config {
-    fs::read(path())
+    let mut config = fs::read(path())
         .ok()
         .and_then(|bytes| serde_json::from_slice::<Config>(strip_bom(&bytes)).ok())
-        .unwrap_or_default()
+        .unwrap_or_default();
+    config.normalize();
+    config
 }
 
 /// Persists the configuration atomically.
@@ -178,11 +214,14 @@ pub fn save(config: &Config) -> Result<(), String> {
         .lock()
         .map_err(|_| "Config lock poisoned.".to_string())?;
 
+    let mut normalized = config.clone();
+    normalized.normalize();
+
     let dir = dir();
     fs::create_dir_all(&dir)
         .map_err(|error| format!("Failed to create {}: {error}", dir.display()))?;
 
-    let json = serde_json::to_vec_pretty(config)
+    let json = serde_json::to_vec_pretty(&normalized)
         .map_err(|error| format!("Failed to serialize config: {error}"))?;
 
     let target = path();
@@ -215,19 +254,68 @@ pub(crate) fn strip_bom(bytes: &[u8]) -> &[u8] {
 mod tests {
     use super::*;
 
-    /// A fresh install has no project, and a config file written before the
-    /// workspace fields existed still loads.
+    /// The project root is a plain setting with no default: blank means "not
+    /// configured", which the pages render as an empty state.
     #[test]
-    fn a_fresh_config_has_no_workspace_root() {
-        assert!(Config::default().workspace.root.is_empty());
+    fn the_project_root_is_trimmed_and_unset_when_blank() {
+        let mut config = Config::default();
+        assert_eq!(config.project_root, "");
+        assert_eq!(config.project_root(), None);
 
-        // Unknown keys are dropped and the missing ones fall back to their
-        // defaults, so an older file keeps working without a migration step.
-        let config: Config = serde_json::from_str(r#"{"gitSvn":{"repo":"X:\\repo"}}"#).unwrap();
-        assert!(config.workspace.root.is_empty());
+        config.project_root = "  M:\\work\\project  ".to_string();
+        assert_eq!(config.project_root(), Some(r"M:\work\project"));
+
+        config.project_root = "   ".to_string();
+        assert_eq!(config.project_root(), None);
 
         let json = serde_json::to_string(&Config::default()).unwrap();
-        assert!(json.contains("\"workspace\""), "{json}");
+        assert!(json.contains("\"projectRoot\":\"\""), "{json}");
+    }
+
+    #[test]
+    fn partial_json_falls_back_to_defaults() {
+        let config: Config = serde_json::from_str("{}").unwrap();
+        assert_eq!(config.project_root, "");
+        assert_eq!(config.ai_config.enabled_agents, None);
+    }
+
+    /// Enabled agents default to `None` ("every agent"); an explicit list is the
+    /// user's literal choice, kept trimmed and de-duplicated.
+    #[test]
+    fn enabled_agents_default_to_every_agent() {
+        assert_eq!(Config::default().ai_config.enabled_agents, None);
+
+        let json = serde_json::to_string(&Config::default()).unwrap();
+        assert!(json.contains("\"aiConfig\""), "{json}");
+        assert!(json.contains("\"enabledAgents\":null"), "{json}");
+
+        let mut patched = Config {
+            ai_config: AiConfig {
+                enabled_agents: Some(vec![
+                    "  claude-code ".to_string(),
+                    String::new(),
+                    "CLAUDE-CODE".to_string(),
+                    "cursor".to_string(),
+                ]),
+            },
+            ..Config::default()
+        };
+        patched.normalize();
+        assert_eq!(
+            patched.ai_config.enabled_agents,
+            Some(vec!["claude-code".to_string(), "cursor".to_string()])
+        );
+
+        // An explicit empty list means "none", which is why the field is an
+        // `Option`: a plain `Vec` could not tell that apart from "untouched".
+        let mut none = Config {
+            ai_config: AiConfig {
+                enabled_agents: Some(Vec::new()),
+            },
+            ..Config::default()
+        };
+        none.normalize();
+        assert_eq!(none.ai_config.enabled_agents, Some(Vec::new()));
     }
 
     #[test]
@@ -244,7 +332,7 @@ mod tests {
 
     impl Scratch {
         fn new(tag: &str) -> Self {
-            let dir = env::temp_dir().join(format!("wingharness-config-{tag}-{}", std::process::id()));
+            let dir = env::temp_dir().join(format!("mabang-config-{tag}-{}", std::process::id()));
             let _ = fs::remove_dir_all(&dir);
             fs::create_dir_all(&dir).unwrap();
             Self(dir)

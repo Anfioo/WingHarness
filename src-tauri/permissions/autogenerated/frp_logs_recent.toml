@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-logs-recent"
+description = "Enables the frp_logs_recent command without any pre-configured scope."
+commands.allow = ["frp_logs_recent"]
+
+[[permission]]
+identifier = "deny-frp-logs-recent"
+description = "Denies the frp_logs_recent command without any pre-configured scope."
+commands.deny = ["frp_logs_recent"]

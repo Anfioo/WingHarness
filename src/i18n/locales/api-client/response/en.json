@@ -1,0 +1,47 @@
+{
+  "title": "Response",
+  "empty": {
+    "title": "No response yet",
+    "description": "Send the request to see the server's response here."
+  },
+  "sending": {
+    "title": "Sending request…",
+    "description": "Waiting for the server to respond."
+  },
+  "cancelled": {
+    "title": "Request cancelled",
+    "description": "No response was received because the request was cancelled."
+  },
+  "error": {
+    "title": "Request failed",
+    "description": "The request could not be completed."
+  },
+  "status": {
+    "label": "Status code",
+    "finalUrl": "Final URL",
+    "truncated": "Truncated",
+    "truncatedHint": "The response body exceeded the size limit and was cut off."
+  },
+  "tabs": {
+    "body": "Body",
+    "headers": "Headers",
+    "raw": "Raw"
+  },
+  "copy": {
+    "body": "Copy body",
+    "failed": "Could not copy to clipboard"
+  },
+  "body": {
+    "empty": "The response has no body.",
+    "binary": {
+      "title": "Binary response",
+      "description": "The body is binary ({{contentType}}) and cannot be displayed as text. Size: {{size}}.",
+      "unknown": "unknown type"
+    }
+  },
+  "headers": {
+    "name": "Name",
+    "value": "Value",
+    "empty": "No response headers."
+  }
+}

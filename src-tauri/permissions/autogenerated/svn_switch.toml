@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-switch"
+description = "Enables the svn_switch command without any pre-configured scope."
+commands.allow = ["svn_switch"]
+
+[[permission]]
+identifier = "deny-svn-switch"
+description = "Denies the svn_switch command without any pre-configured scope."
+commands.deny = ["svn_switch"]

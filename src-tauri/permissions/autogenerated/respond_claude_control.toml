@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-respond-claude-control"
+description = "Enables the respond_claude_control command without any pre-configured scope."
+commands.allow = ["respond_claude_control"]
+
+[[permission]]
+identifier = "deny-respond-claude-control"
+description = "Denies the respond_claude_control command without any pre-configured scope."
+commands.deny = ["respond_claude_control"]

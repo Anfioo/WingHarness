@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-sessions-list"
+description = "Enables the server_sessions_list command without any pre-configured scope."
+commands.allow = ["server_sessions_list"]
+
+[[permission]]
+identifier = "deny-server-sessions-list"
+description = "Denies the server_sessions_list command without any pre-configured scope."
+commands.deny = ["server_sessions_list"]

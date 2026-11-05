@@ -1,0 +1,151 @@
+{
+  "panel": {
+    "ariaLabel": "Diff for {{path}}",
+    "backToGraph": "Back to graph",
+    "close": "Close diff",
+    "unchanged": "Unchanged",
+    "staged": "Staged",
+    "unstaged": "Unstaged",
+    "stagingOffNote": "Staging is disabled while whitespace changes are ignored.",
+    "wrapOffNote": "Line wrapping is unavailable because this file contains a very long line.",
+    "fileHistory": "File history",
+    "blameUnavailable": "Blame is available once the file has committed history",
+    "blameAtCommit": "Blame at this commit",
+    "blame": "Blame",
+    "previousFile": "Previous file",
+    "nextFile": "Next file",
+    "filePosition": "{{current}} of {{total}}",
+    "unstageFile": "Unstage file",
+    "stageFile": "Stage file",
+    "loadError": "Could not load the diff: {{message}}",
+    "retry": "Retry",
+    "emptyFileTitle": "Empty file",
+    "emptyFileHint": "This file has no content to compare.",
+    "whitespaceTitle": "Whitespace-only changes",
+    "whitespaceStagedHint": "Ignore whitespace to see the differences, or unstage the file to edit it.",
+    "whitespaceHint": "Ignore whitespace to see the differences.",
+    "noDiffTitle": "No changes",
+    "noDiffHint": "This file has no differences to show.",
+    "unstageHunk": "Unstage hunk",
+    "stageHunk": "Stage hunk",
+    "unstageLine": "Unstage line",
+    "stageLine": "Stage line",
+    "discardLine": "Discard line",
+    "discardLineTitle": "Discard this line?",
+    "discardLineHint": "The change is permanently removed from the working tree.",
+    "discardLineConfirm": "Discard",
+    "copied": "Selection copied",
+    "copy": "Copy selection",
+    "copyLine": "Copy line",
+    "lineCopied": "Line copied",
+    "selectAll": "Select all"
+  },
+  "action": {
+    "failed": "Failed to {{action}}: {{message}}",
+    "stage": "stage",
+    "unstage": "unstage",
+    "hunk": "stage hunk",
+    "stageLine": "stage line",
+    "unstageLine": "unstage line",
+    "discardLine": "discard line"
+  },
+  "all": {
+    "ariaLabel": "All changes in commit {{oid}}",
+    "close": "Close",
+    "backToGraph": "Back to graph",
+    "title": "All changes",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "sideBySideNote": "Side-by-side is unavailable for all changes; files are shown stacked.",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "previousFile": "Previous file",
+    "nextFile": "Next file",
+    "filePosition": "{{current}} of {{total}}",
+    "expandFile": "Expand {{path}}",
+    "collapseFile": "Collapse {{path}}",
+    "from": "from {{path}}",
+    "openInFileView": "Open in file view",
+    "openFileInView": "Open {{path}} in file view",
+    "largeHint_one": "Large diff with {{count}} changed line — show it to load.",
+    "largeHint_other": "Large diff with {{count}} changed lines — show it to load.",
+    "showDiff": "Show diff",
+    "listError": "Could not load the file list: {{message}}",
+    "noFiles": "This commit has no changed files.",
+    "loadError": "Could not load the file: {{message}}",
+    "retry": "Retry",
+    "whitespaceOnly": "Whitespace-only changes",
+    "noTextChanges": "No text changes"
+  },
+  "copy": {
+    "copied_one": "Copied {{count}} line from the {{side}} side",
+    "copied_other": "Copied {{count}} lines from the {{side}} side",
+    "side": {
+      "old": "old",
+      "new": "new"
+    },
+    "selected": "{{side}} selected — press {{copy}} to copy",
+    "sideLabel": {
+      "old": "Old side",
+      "new": "New side"
+    }
+  },
+  "nav": {
+    "previous": "Previous change",
+    "next": "Next change",
+    "changeCount_one": "{{count}} change",
+    "changeCount_other": "{{count}} changes"
+  },
+  "search": {
+    "matchCase": "Match case",
+    "previous": "Previous match",
+    "next": "Next match",
+    "close": "Close search",
+    "placeholder": "Find in diff",
+    "count": "{{current}} / {{total}}",
+    "noResults": "No results"
+  },
+  "image": {
+    "unavailableTitle": "Image preview unavailable",
+    "unavailableHint": "This image could not be decoded.",
+    "before": "Before",
+    "after": "After"
+  },
+  "viewer": {
+    "binaryTitle": "Binary file",
+    "binaryHint": "Binary files cannot be shown as text.",
+    "noChangesTitle": "No text changes",
+    "noChangesHint": "This file has no textual differences."
+  },
+  "controls": {
+    "showOneFile": "Show one file",
+    "showAllFiles": "Show all files",
+    "layoutGroup": "Diff layout",
+    "oneFileHint": "Show a single file",
+    "allFilesHint": "Show every file in one scroll",
+    "inline": "Inline",
+    "split": "Side by side",
+    "viewOptions": "Diff options",
+    "ignoreWhitespaceNote": "Whitespace is ignored",
+    "wordDiff": "Highlight word changes",
+    "ignoreWhitespace": "Ignore whitespace",
+    "wrapLongLines": "Wrap long lines",
+    "showWholeFile": "Show the whole file"
+  },
+  "minimap": {
+    "label": "Diff minimap"
+  },
+  "labels": {
+    "moreCharacters": "… {{hidden}} more characters",
+    "clippedLineTitle": "Only the first {{shown}} characters of this line are shown"
+  },
+  "scrollbar": {
+    "ariaLabel": "Scroll diff horizontally"
+  },
+  "files": {
+    "expandAllFolders": "Expand all folders",
+    "collapseAllFolders": "Collapse all folders",
+    "filterPlaceholder": "Filter files",
+    "clearFilter": "Clear filter"
+  }
+}

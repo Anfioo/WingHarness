@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discard-staged-file"
+description = "Enables the discard_staged_file command without any pre-configured scope."
+commands.allow = ["discard_staged_file"]
+
+[[permission]]
+identifier = "deny-discard-staged-file"
+description = "Denies the discard_staged_file command without any pre-configured scope."
+commands.deny = ["discard_staged_file"]

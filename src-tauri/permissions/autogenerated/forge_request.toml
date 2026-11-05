@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-forge-request"
+description = "Enables the forge_request command without any pre-configured scope."
+commands.allow = ["forge_request"]
+
+[[permission]]
+identifier = "deny-forge-request"
+description = "Denies the forge_request command without any pre-configured scope."
+commands.deny = ["forge_request"]

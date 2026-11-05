@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-output-read"
+description = "Enables the clash_output_read command without any pre-configured scope."
+commands.allow = ["clash_output_read"]
+
+[[permission]]
+identifier = "deny-clash-output-read"
+description = "Denies the clash_output_read command without any pre-configured scope."
+commands.deny = ["clash_output_read"]

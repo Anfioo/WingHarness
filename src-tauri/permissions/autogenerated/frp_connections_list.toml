@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-connections-list"
+description = "Enables the frp_connections_list command without any pre-configured scope."
+commands.allow = ["frp_connections_list"]
+
+[[permission]]
+identifier = "deny-frp-connections-list"
+description = "Denies the frp_connections_list command without any pre-configured scope."
+commands.deny = ["frp_connections_list"]

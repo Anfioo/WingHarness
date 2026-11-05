@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-commit-is-ancestor"
+description = "Enables the commit_is_ancestor command without any pre-configured scope."
+commands.allow = ["commit_is_ancestor"]
+
+[[permission]]
+identifier = "deny-commit-is-ancestor"
+description = "Denies the commit_is_ancestor command without any pre-configured scope."
+commands.deny = ["commit_is_ancestor"]

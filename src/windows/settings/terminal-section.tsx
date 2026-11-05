@@ -1,18 +1,8 @@
 import { useState } from "react";
+import { FontFamilySelect } from "@/components/font-family-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useInstalledFonts } from "@/lib/fonts/installed";
-import { cleanFontFamily, monoFontStack } from "@/lib/fonts/stack";
+import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   loadTerminalPrefs,
   saveTerminalPrefs,
@@ -88,8 +78,8 @@ function ToggleRow({
 }
 
 export function TerminalSection() {
+  const { t } = useAppTranslation();
   const [prefs, setPrefs] = useState<TerminalPrefs>(() => loadTerminalPrefs());
-  const { fonts, loading } = useInstalledFonts();
 
   const update = (patch: Partial<TerminalPrefs>) => {
     const next = { ...prefs, ...patch };
@@ -97,84 +87,44 @@ export function TerminalSection() {
     saveTerminalPrefs(next);
   };
 
-  const monospace = fonts.filter((font) => font.monospaced);
-  const other = fonts.filter((font) => !font.monospaced);
-
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="mb-1 text-lg font-semibold">终端</h2>
-        <p className="text-muted-foreground text-sm">本地终端页签的字体、字号与显示行为。</p>
+        <h2 className="mb-1 text-lg font-semibold">{t("settings.terminal.title")}</h2>
+        <p className="text-muted-foreground text-sm">{t("settings.terminal.description")}</p>
       </div>
 
       <div className="space-y-0 divide-y">
         <div className="py-2.5">
-          <label className="text-sm font-medium">字体</label>
-          <Select
-            value={cleanFontFamily(prefs.fontFamily)}
-            onValueChange={(value) => update({ fontFamily: value })}
-            disabled={loading}
-          >
-            <SelectTrigger className="mt-1.5 w-full">
-              <SelectValue placeholder={loading ? "正在加载系统字体…" : "选择字体"} />
-            </SelectTrigger>
-            <SelectContent>
-              {monospace.length > 0 && (
-                <SelectGroup>
-                  <SelectLabel>等宽字体</SelectLabel>
-                  {monospace.map((font) => (
-                    <SelectItem key={font.family} value={cleanFontFamily(font.family)}>
-                      <span style={{ fontFamily: monoFontStack(font.family) }}>{font.family}</span>
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              )}
-              {other.length > 0 && (
-                <>
-                  <SelectSeparator />
-                  <SelectGroup>
-                    <SelectLabel>其他字体</SelectLabel>
-                    {other.map((font) => (
-                      <SelectItem key={font.family} value={cleanFontFamily(font.family)}>
-                        <span style={{ fontFamily: `"${cleanFontFamily(font.family)}"` }}>
-                          {font.family}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </>
-              )}
-            </SelectContent>
-          </Select>
-          {/* Font family names are drawn in their own face, like the git settings. */}
-          <div
-            className="bg-muted/40 mt-1.5 rounded-md border px-3 py-2 text-xs"
-            style={{ fontFamily: monoFontStack(prefs.fontFamily) }}
-          >
-            {PREVIEW}
-          </div>
+          <label className="text-sm font-medium">{t("settings.terminal.font")}</label>
+          <FontFamilySelect
+            className="mt-1.5"
+            value={prefs.fontFamily}
+            onChange={(fontFamily) => update({ fontFamily })}
+            preview={PREVIEW}
+          />
         </div>
 
         <NumberField
-          label="字号"
+          label={t("settings.terminal.fontSize")}
           unit="px"
           value={prefs.fontSize}
           onChange={(n) => update({ fontSize: n })}
         />
         <NumberField
-          label="Tab 宽度"
+          label={t("settings.terminal.tabStopWidth")}
           value={prefs.tabStopWidth}
           onChange={(n) => update({ tabStopWidth: n })}
         />
         <ToggleRow
-          label="自动换行"
-          hint="长行在终端内自动折行，减少横向滚动。"
+          label={t("settings.terminal.autoWrap")}
+          hint={t("settings.terminal.autoWrapHint")}
           checked={prefs.autoWrap}
           onChange={(v) => update({ autoWrap: v })}
         />
         <ToggleRow
-          label="高亮当前行"
-          hint="当前光标所在行显示轻量标记。"
+          label={t("settings.terminal.highlightCurrentLine")}
+          hint={t("settings.terminal.highlightCurrentLineHint")}
           checked={prefs.highlightCurrentLine}
           onChange={(v) => update({ highlightCurrentLine: v })}
         />
@@ -182,7 +132,7 @@ export function TerminalSection() {
 
       <div>
         <Button variant="outline" size="sm" onClick={() => update({ ...DEFAULT_TERMINAL_PREFS })}>
-          恢复默认
+          {t("settings.terminal.reset")}
         </Button>
       </div>
     </div>

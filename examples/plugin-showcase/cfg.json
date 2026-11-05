@@ -1,0 +1,15 @@
+{
+  "app": {
+    "name": "showcase",
+    "accent": "blue",
+    "note": "这段备注来自 cfg.json，在配置窗口里用多行输入框编辑。",
+    "retries": 3
+  },
+  "features": {
+    "enabled": true,
+    "weights": [100, 50, 25]
+  },
+  "undeclared": {
+    "kept": "这个键没有被声明，任何保存都不应改动它。"
+  }
+}

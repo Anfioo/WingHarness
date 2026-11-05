@@ -1,0 +1,16 @@
+{
+  "actions": {
+    "copy": "复制",
+    "done": "完成"
+  },
+  "panel": {
+    "stop": "停止{{title}}",
+    "expand": "在全屏视图中打开{{title}}",
+    "dismiss": "关闭{{title}}"
+  },
+  "locateLine": "在差异中显示此行",
+  "toast": {
+    "copied": "已复制",
+    "copyFailed": "复制失败"
+  }
+}

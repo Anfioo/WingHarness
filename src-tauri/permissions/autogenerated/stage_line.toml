@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stage-line"
+description = "Enables the stage_line command without any pre-configured scope."
+commands.allow = ["stage_line"]
+
+[[permission]]
+identifier = "deny-stage-line"
+description = "Denies the stage_line command without any pre-configured scope."
+commands.deny = ["stage_line"]

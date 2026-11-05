@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-load-claude-project-session"
+description = "Enables the load_claude_project_session command without any pre-configured scope."
+commands.allow = ["load_claude_project_session"]
+
+[[permission]]
+identifier = "deny-load-claude-project-session"
+description = "Denies the load_claude_project_session command without any pre-configured scope."
+commands.deny = ["load_claude_project_session"]

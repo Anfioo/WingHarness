@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Check, Monitor, Moon, Search, Sun } from "lucide-react";
+import { Check, Monitor, Moon, PanelLeft, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LanguageToggle } from "@/components/toggle/language-toggle";
 import { resolveMode, useTheme } from "@/components/theme-provider";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { createWindow } from "@/lib/window";
 import { cn } from "@/lib/utils";
 import { DEFAULT_PRESET_ID, THEME_PRESETS, previewColors } from "@/lib/theme/presets";
 
@@ -39,6 +40,23 @@ export function AppearanceSection() {
   const [query, setQuery] = useState("");
 
   const mode = resolveMode(theme);
+
+  // The board needs more room than this window, so it opens as its own window.
+  const openSidebarManager = () => {
+    void createWindow("sidebar-manager", {
+      title: t("sidebarManager.title"),
+      url: "/sidebar-manager",
+      width: 720,
+      height: 680,
+      resizable: true,
+      maximizable: true,
+      minimizable: false,
+      decorations: false,
+      transparent: true,
+      shadow: false,
+      parent: "settings",
+    });
+  };
 
   // The default theme has no entry of its own — it is what the stylesheet already
   // says — so its card is built here and pinned to the front.
@@ -100,6 +118,21 @@ export function AppearanceSection() {
         <div className="flex items-center justify-between py-2.5">
           <label className="text-sm font-medium">{t("settings.appearance.language")}</label>
           <LanguageToggle />
+        </div>
+
+        <div className="border-t" />
+
+        <div className="flex items-center justify-between py-2.5">
+          <div className="pe-4">
+            <label className="text-sm font-medium">{t("settings.appearance.sidebarManager")}</label>
+            <p className="text-muted-foreground mt-0.5 text-xs">
+              {t("settings.appearance.sidebarManagerDesc")}
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={openSidebarManager}>
+            <PanelLeft className="h-3.5 w-3.5" />
+            {t("settings.appearance.sidebarManagerOpen")}
+          </Button>
         </div>
       </div>
 

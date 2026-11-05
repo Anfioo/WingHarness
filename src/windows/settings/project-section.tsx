@@ -1,25 +1,22 @@
-import { type WorkspaceConfig } from "@/commands";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useConfigDraft } from "@/hooks/use-config-draft";
 
 /**
- * The project the file browser and the preview open at.
+ * The project root the project page, the file preview and the AI config sync
+ * work in.
  *
  * Kept as its own settings section rather than folded into another one: it is
- * project data, not environment setup, and the two change for different
- * reasons.
+ * project data, not environment setup, and it changes for different reasons.
  */
 export function ProjectSection() {
   const { t } = useAppTranslation();
 
   const { view, draft, setDraft, loading } = useConfigDraft("project config");
 
-  const update = (field: keyof WorkspaceConfig, value: string) => {
-    setDraft((current) =>
-      current ? { ...current, workspace: { ...current.workspace, [field]: value } } : current
-    );
+  const update = (value: string) => {
+    setDraft((current) => (current ? { ...current, projectRoot: value } : current));
   };
 
   return (
@@ -40,8 +37,8 @@ export function ProjectSection() {
             <p className="text-muted-foreground text-xs">{t("project.rootHint")}</p>
             <Input
               id="project-root"
-              value={draft.workspace.root}
-              onChange={(event) => update("root", event.target.value)}
+              value={draft.projectRoot}
+              onChange={(event) => update(event.target.value)}
               placeholder={t("project.rootPlaceholder")}
               spellCheck={false}
               className="font-mono text-xs"

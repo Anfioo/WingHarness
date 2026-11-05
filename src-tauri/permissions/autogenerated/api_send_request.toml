@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-api-send-request"
+description = "Enables the api_send_request command without any pre-configured scope."
+commands.allow = ["api_send_request"]
+
+[[permission]]
+identifier = "deny-api-send-request"
+description = "Denies the api_send_request command without any pre-configured scope."
+commands.deny = ["api_send_request"]

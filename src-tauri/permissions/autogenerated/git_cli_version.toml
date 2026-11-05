@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-git-cli-version"
+description = "Enables the git_cli_version command without any pre-configured scope."
+commands.allow = ["git_cli_version"]
+
+[[permission]]
+identifier = "deny-git-cli-version"
+description = "Denies the git_cli_version command without any pre-configured scope."
+commands.deny = ["git_cli_version"]

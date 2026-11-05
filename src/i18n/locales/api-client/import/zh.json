@@ -1,0 +1,52 @@
+{
+  "title": "导入 OpenAPI",
+  "description": "从文件或 URL 读取 OpenAPI 3.x 或 Swagger 2.0 规范，并将其转换为请求集合。",
+  "source": {
+    "file": "从文件",
+    "url": "从 URL"
+  },
+  "pathLabel": "规范文件",
+  "pathPlaceholder": "OpenAPI / Swagger 文件路径",
+  "urlLabel": "规范 URL",
+  "urlPlaceholder": "https://example.com/openapi.json",
+  "nameLabel": "工作区名称",
+  "namePlaceholder": "工作区名称",
+  "browse": "浏览…",
+  "specFilter": "OpenAPI 规范",
+  "defaultName": "导入的规范",
+  "actions": {
+    "cancel": "取消",
+    "preview": "预览",
+    "reading": "正在读取…",
+    "back": "返回",
+    "import": "导入",
+    "importing": "正在导入…"
+  },
+  "preview": {
+    "untitled": "导入的 API",
+    "folders_one": "{{count}} 个文件夹",
+    "folders_other": "{{count}} 个文件夹",
+    "requests_one": "{{count}} 个请求",
+    "requests_other": "{{count}} 个请求",
+    "endpoints": "包含的端点",
+    "more_one": "还有 {{count}} 个",
+    "more_other": "还有 {{count}} 个",
+    "prefixLabel": "集合名称前缀",
+    "prefixPlaceholder": "例如 staging-",
+    "prefixHint": "追加到导入集合名称的前面。",
+    "baseUrlLabel": "Base URL",
+    "baseUrlPlaceholder": "https://api.example.com",
+    "baseUrlHint": "会保存到工作区的默认环境；留空可稍后再设置。",
+    "useBaseUrlVariable": "请求地址使用 Base URL 变量"
+  },
+  "warnings": {
+    "title_one": "{{count}} 条提示",
+    "title_other": "{{count}} 条提示"
+  },
+  "toast": {
+    "imported": "已将 {{count}} 个请求导入到“{{name}}”。",
+    "readFailed": "无法读取规范文件或 URL。",
+    "parseFailed": "无法解析规范。请确认它是有效的 OpenAPI 3.x 或 Swagger 2.0 文档。",
+    "applyFailed": "无法将导入应用到工作区。"
+  }
+}

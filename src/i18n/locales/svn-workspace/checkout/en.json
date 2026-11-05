@@ -1,0 +1,43 @@
+{
+  "title": "Checkout",
+  "url": {
+    "label": "Repository URL",
+    "placeholder": "https://svn.example.com/repo/trunk",
+    "required": "Enter a repository URL.",
+    "invalid": "That does not look like a repository URL."
+  },
+  "target": {
+    "label": "Target directory",
+    "placeholder": "Select or type a target directory",
+    "browse": "Browse",
+    "dialogTitle": "Select target directory",
+    "required": "Enter a target directory."
+  },
+  "revision": {
+    "label": "Revision",
+    "placeholder": "Latest",
+    "hint": "Leave empty to check out the latest revision."
+  },
+  "invalidRevision": "Enter a valid revision number.",
+  "destination": {
+    "label": "Destination",
+    "none": "The repository name will be used"
+  },
+  "start": "Check out",
+  "checkingOut": "Checking out…",
+  "reset": "Reset",
+  "output": "Output",
+  "confirm": {
+    "title": "Check out repository",
+    "description": "Check out this repository into the target directory?",
+    "descriptionRevision": "Check out revision r{{revision}} into the target directory?"
+  },
+  "confirmExisting": {
+    "title": "Target directory already exists",
+    "description": "That directory already contains files. SVN will write the repository into it; existing content may be overwritten or cause the checkout to fail. Continue?"
+  },
+  "toast": {
+    "success": "Checked out {{name}}.",
+    "failed": "Checkout failed: {{error}}"
+  }
+}

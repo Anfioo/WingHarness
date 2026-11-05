@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-browser-set-visible"
+description = "Enables the plugins_browser_set_visible command without any pre-configured scope."
+commands.allow = ["plugins_browser_set_visible"]
+
+[[permission]]
+identifier = "deny-plugins-browser-set-visible"
+description = "Denies the plugins_browser_set_visible command without any pre-configured scope."
+commands.deny = ["plugins_browser_set_visible"]

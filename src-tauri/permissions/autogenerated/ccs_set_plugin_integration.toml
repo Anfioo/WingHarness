@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-set-plugin-integration"
+description = "Enables the ccs_set_plugin_integration command without any pre-configured scope."
+commands.allow = ["ccs_set_plugin_integration"]
+
+[[permission]]
+identifier = "deny-ccs-set-plugin-integration"
+description = "Denies the ccs_set_plugin_integration command without any pre-configured scope."
+commands.deny = ["ccs_set_plugin_integration"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-leftovers-execute"
+description = "Enables the systools_leftovers_execute command without any pre-configured scope."
+commands.allow = ["systools_leftovers_execute"]
+
+[[permission]]
+identifier = "deny-systools-leftovers-execute"
+description = "Denies the systools_leftovers_execute command without any pre-configured scope."
+commands.deny = ["systools_leftovers_execute"]

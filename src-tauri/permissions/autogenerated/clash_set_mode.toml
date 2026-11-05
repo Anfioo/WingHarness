@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-set-mode"
+description = "Enables the clash_set_mode command without any pre-configured scope."
+commands.allow = ["clash_set_mode"]
+
+[[permission]]
+identifier = "deny-clash-set-mode"
+description = "Denies the clash_set_mode command without any pre-configured scope."
+commands.deny = ["clash_set_mode"]

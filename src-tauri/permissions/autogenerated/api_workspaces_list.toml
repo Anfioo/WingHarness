@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-api-workspaces-list"
+description = "Enables the api_workspaces_list command without any pre-configured scope."
+commands.allow = ["api_workspaces_list"]
+
+[[permission]]
+identifier = "deny-api-workspaces-list"
+description = "Denies the api_workspaces_list command without any pre-configured scope."
+commands.deny = ["api_workspaces_list"]

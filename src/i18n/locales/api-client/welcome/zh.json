@@ -1,0 +1,91 @@
+{
+  "header": {
+    "brand": "API 客户端",
+    "tagline": "导入规范、收发请求、查看响应。"
+  },
+  "window": {
+    "title": "API 客户端",
+    "loading": "正在打开工作区…"
+  },
+  "openFailed": {
+    "title": "无法打开工作区",
+    "description": "工作区可能已被删除或移动。请返回列表重新选择一个。",
+    "home": "打开工作区列表"
+  },
+  "list": {
+    "title": "工作区",
+    "loading": "正在加载工作区…",
+    "searchLabel": "搜索工作区",
+    "searchPlaceholder": "搜索工作区",
+    "noMatch": "没有匹配“{{query}}”的工作区。"
+  },
+  "actions": {
+    "create": "新建工作区",
+    "import": "导入 OpenAPI"
+  },
+  "empty": {
+    "title": "还没有工作区",
+    "description": "导入 OpenAPI / Swagger 规范，得到一个现成的请求集合；或从一个空工作区开始，自己添加请求。",
+    "import": "导入 OpenAPI",
+    "create": "新建空工作区"
+  },
+  "card": {
+    "requests_one": "{{count}} 个请求",
+    "requests_other": "{{count}} 个请求",
+    "alreadyOpen": "已打开",
+    "menuAria": "{{name}} 的操作",
+    "open": "在新窗口打开",
+    "rename": "重命名",
+    "remove": "删除"
+  },
+  "delete": {
+    "title": "删除工作区",
+    "description": "确定删除“{{name}}”及其全部内容吗？此操作无法撤销。",
+    "confirm": "删除"
+  },
+  "nameDialog": {
+    "createTitle": "新建工作区",
+    "renameTitle": "重命名工作区",
+    "createDescription": "为工作区取一个名字。打开后即可添加集合与请求。",
+    "renameDescription": "输入该工作区的新名称。",
+    "nameLabel": "名称",
+    "namePlaceholder": "工作区名称",
+    "cancel": "取消",
+    "confirm": "确认"
+  },
+  "import": {
+    "title": "导入 OpenAPI",
+    "description": "从文件或 URL 读取 OpenAPI / Swagger 规范，并据此创建一个工作区。",
+    "sourceFile": "从文件",
+    "sourceUrl": "从 URL",
+    "pathLabel": "规范文件",
+    "pathPlaceholder": "OpenAPI / Swagger 文件路径",
+    "urlLabel": "规范 URL",
+    "urlPlaceholder": "https://example.com/openapi.json",
+    "nameLabel": "工作区名称",
+    "namePlaceholder": "工作区名称",
+    "browse": "浏览…",
+    "cancel": "取消",
+    "confirm": "导入",
+    "confirming": "正在读取…",
+    "specFilter": "OpenAPI 规范",
+    "defaultName": "导入的规范"
+  },
+  "guidance": {
+    "title": "还没有打开工作区",
+    "description": "工作区用来存放你的集合与请求。请打开工作区列表创建或导入一个，然后开始使用。",
+    "importTitle": "导入规范",
+    "importHint": "从一份 OpenAPI / Swagger 文档开始。",
+    "requestTitle": "新建请求",
+    "requestHint": "在集合里手工搭建一个请求。",
+    "openList": "打开工作区列表"
+  },
+  "toast": {
+    "createFailed": "创建工作区失败。",
+    "renameFailed": "重命名工作区失败。",
+    "deleteFailed": "删除工作区失败。",
+    "deleted": "已删除“{{name}}”。",
+    "importReady": "已创建“{{name}}”，并读取了 {{bytes}} 字节的规范。",
+    "importFailed": "读取规范失败。"
+  }
+}

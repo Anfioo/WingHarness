@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-md-editor-read-asset"
+description = "Enables the md_editor_read_asset command without any pre-configured scope."
+commands.allow = ["md_editor_read_asset"]
+
+[[permission]]
+identifier = "deny-md-editor-read-asset"
+description = "Denies the md_editor_read_asset command without any pre-configured scope."
+commands.deny = ["md_editor_read_asset"]

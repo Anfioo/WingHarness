@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-run-all"
+description = "Enables the plugins_run_all command without any pre-configured scope."
+commands.allow = ["plugins_run_all"]
+
+[[permission]]
+identifier = "deny-plugins-run-all"
+description = "Denies the plugins_run_all command without any pre-configured scope."
+commands.deny = ["plugins_run_all"]

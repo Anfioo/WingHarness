@@ -1,0 +1,91 @@
+{
+  "header": {
+    "brand": "API Client",
+    "tagline": "Import a spec, send requests, read the response."
+  },
+  "window": {
+    "title": "API Client",
+    "loading": "Opening workspace…"
+  },
+  "openFailed": {
+    "title": "Could not open the workspace",
+    "description": "The workspace may have been deleted or moved. Go back to the list and pick another one.",
+    "home": "Open workspace list"
+  },
+  "list": {
+    "title": "Workspaces",
+    "loading": "Loading workspaces…",
+    "searchLabel": "Search workspaces",
+    "searchPlaceholder": "Search workspaces",
+    "noMatch": "No workspaces match “{{query}}”."
+  },
+  "actions": {
+    "create": "New workspace",
+    "import": "Import OpenAPI"
+  },
+  "empty": {
+    "title": "No workspaces yet",
+    "description": "Import an OpenAPI / Swagger spec to get a collection of requests, or start from an empty workspace and add requests yourself.",
+    "import": "Import OpenAPI",
+    "create": "New empty workspace"
+  },
+  "card": {
+    "requests_one": "{{count}} request",
+    "requests_other": "{{count}} requests",
+    "alreadyOpen": "Open",
+    "menuAria": "Actions for {{name}}",
+    "open": "Open in new window",
+    "rename": "Rename",
+    "remove": "Delete"
+  },
+  "delete": {
+    "title": "Delete workspace",
+    "description": "Delete “{{name}}” and everything in it? This cannot be undone.",
+    "confirm": "Delete"
+  },
+  "nameDialog": {
+    "createTitle": "New workspace",
+    "renameTitle": "Rename workspace",
+    "createDescription": "Give the workspace a name. You can add collections and requests after it opens.",
+    "renameDescription": "Enter a new name for this workspace.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Workspace name",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "import": {
+    "title": "Import OpenAPI",
+    "description": "Read an OpenAPI / Swagger spec from a file or URL and create a workspace for it.",
+    "sourceFile": "From file",
+    "sourceUrl": "From URL",
+    "pathLabel": "Spec file",
+    "pathPlaceholder": "Path to an OpenAPI / Swagger file",
+    "urlLabel": "Spec URL",
+    "urlPlaceholder": "https://example.com/openapi.json",
+    "nameLabel": "Workspace name",
+    "namePlaceholder": "Workspace name",
+    "browse": "Browse…",
+    "cancel": "Cancel",
+    "confirm": "Import",
+    "confirming": "Reading…",
+    "specFilter": "OpenAPI spec",
+    "defaultName": "Imported spec"
+  },
+  "guidance": {
+    "title": "Nothing open yet",
+    "description": "A workspace holds your collections and requests. Open the workspace list to create one, then fill it in.",
+    "importTitle": "Import a spec",
+    "importHint": "Start from an OpenAPI / Swagger document.",
+    "requestTitle": "Add a request",
+    "requestHint": "Build a request by hand inside a collection.",
+    "openList": "Open workspace list"
+  },
+  "toast": {
+    "createFailed": "Could not create the workspace.",
+    "renameFailed": "Could not rename the workspace.",
+    "deleteFailed": "Could not delete the workspace.",
+    "deleted": "Deleted “{{name}}”.",
+    "importReady": "Created “{{name}}” and read {{bytes}} bytes of spec.",
+    "importFailed": "Could not read the spec."
+  }
+}

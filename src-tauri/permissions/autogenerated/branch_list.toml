@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-branch-list"
+description = "Enables the branch_list command without any pre-configured scope."
+commands.allow = ["branch_list"]
+
+[[permission]]
+identifier = "deny-branch-list"
+description = "Denies the branch_list command without any pre-configured scope."
+commands.deny = ["branch_list"]

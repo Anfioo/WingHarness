@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-nudge-health"
+description = "Enables the frp_nudge_health command without any pre-configured scope."
+commands.allow = ["frp_nudge_health"]
+
+[[permission]]
+identifier = "deny-frp-nudge-health"
+description = "Denies the frp_nudge_health command without any pre-configured scope."
+commands.deny = ["frp_nudge_health"]

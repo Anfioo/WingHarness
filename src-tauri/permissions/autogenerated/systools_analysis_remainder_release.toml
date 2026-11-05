@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-analysis-remainder-release"
+description = "Enables the systools_analysis_remainder_release command without any pre-configured scope."
+commands.allow = ["systools_analysis_remainder_release"]
+
+[[permission]]
+identifier = "deny-systools-analysis-remainder-release"
+description = "Denies the systools_analysis_remainder_release command without any pre-configured scope."
+commands.deny = ["systools_analysis_remainder_release"]

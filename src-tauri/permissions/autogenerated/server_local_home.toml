@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-local-home"
+description = "Enables the server_local_home command without any pre-configured scope."
+commands.allow = ["server_local_home"]
+
+[[permission]]
+identifier = "deny-server-local-home"
+description = "Denies the server_local_home command without any pre-configured scope."
+commands.deny = ["server_local_home"]

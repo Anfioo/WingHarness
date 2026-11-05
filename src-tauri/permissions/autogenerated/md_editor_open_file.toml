@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-md-editor-open-file"
+description = "Enables the md_editor_open_file command without any pre-configured scope."
+commands.allow = ["md_editor_open_file"]
+
+[[permission]]
+identifier = "deny-md-editor-open-file"
+description = "Denies the md_editor_open_file command without any pre-configured scope."
+commands.deny = ["md_editor_open_file"]

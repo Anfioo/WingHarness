@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-commit-drop-paths"
+description = "Enables the commit_drop_paths command without any pre-configured scope."
+commands.allow = ["commit_drop_paths"]
+
+[[permission]]
+identifier = "deny-commit-drop-paths"
+description = "Denies the commit_drop_paths command without any pre-configured scope."
+commands.deny = ["commit_drop_paths"]

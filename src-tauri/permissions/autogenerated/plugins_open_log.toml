@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-open-log"
+description = "Enables the plugins_open_log command without any pre-configured scope."
+commands.allow = ["plugins_open_log"]
+
+[[permission]]
+identifier = "deny-plugins-open-log"
+description = "Denies the plugins_open_log command without any pre-configured scope."
+commands.deny = ["plugins_open_log"]

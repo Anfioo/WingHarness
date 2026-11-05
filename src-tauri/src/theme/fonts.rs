@@ -53,8 +53,8 @@ fn client() -> Result<reqwest::blocking::Client, String> {
         .map_err(|e| format!("Failed to build HTTP client: {e}"))
 }
 
-/// The feature's own directory, under the data directory so the whole thing
-/// stays movable between machines.
+/// The feature's own directory, beside `ccs/` and `.svn-workspace/` so the whole
+/// data directory stays movable between machines.
 fn root() -> PathBuf {
     crate::config::dir().join(".theme-fonts")
 }

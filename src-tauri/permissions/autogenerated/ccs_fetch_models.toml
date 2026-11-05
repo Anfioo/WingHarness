@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-fetch-models"
+description = "Enables the ccs_fetch_models command without any pre-configured scope."
+commands.allow = ["ccs_fetch_models"]
+
+[[permission]]
+identifier = "deny-ccs-fetch-models"
+description = "Denies the ccs_fetch_models command without any pre-configured scope."
+commands.deny = ["ccs_fetch_models"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-runtimes-list"
+description = "Enables the frp_runtimes_list command without any pre-configured scope."
+commands.allow = ["frp_runtimes_list"]
+
+[[permission]]
+identifier = "deny-frp-runtimes-list"
+description = "Denies the frp_runtimes_list command without any pre-configured scope."
+commands.deny = ["frp_runtimes_list"]

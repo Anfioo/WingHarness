@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-summary"
+description = "Enables the clash_summary command without any pre-configured scope."
+commands.allow = ["clash_summary"]
+
+[[permission]]
+identifier = "deny-clash-summary"
+description = "Denies the clash_summary command without any pre-configured scope."
+commands.deny = ["clash_summary"]
