@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-get-resolved-dirs"
+description = "Enables the ccs_get_resolved_dirs command without any pre-configured scope."
+commands.allow = ["ccs_get_resolved_dirs"]
+
+[[permission]]
+identifier = "deny-ccs-get-resolved-dirs"
+description = "Denies the ccs_get_resolved_dirs command without any pre-configured scope."
+commands.deny = ["ccs_get_resolved_dirs"]

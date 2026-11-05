@@ -1,0 +1,47 @@
+{
+  "title": "响应",
+  "empty": {
+    "title": "暂无响应",
+    "description": "发送请求后，服务器的响应会显示在这里。"
+  },
+  "sending": {
+    "title": "正在发送请求…",
+    "description": "正在等待服务器响应。"
+  },
+  "cancelled": {
+    "title": "请求已取消",
+    "description": "请求被取消，因此没有收到响应。"
+  },
+  "error": {
+    "title": "请求失败",
+    "description": "请求未能完成。"
+  },
+  "status": {
+    "label": "状态码",
+    "finalUrl": "最终 URL",
+    "truncated": "已截断",
+    "truncatedHint": "响应体超过大小限制，已被截断。"
+  },
+  "tabs": {
+    "body": "正文",
+    "headers": "响应头",
+    "raw": "原始"
+  },
+  "copy": {
+    "body": "复制正文",
+    "failed": "复制到剪贴板失败"
+  },
+  "body": {
+    "empty": "该响应没有正文。",
+    "binary": {
+      "title": "二进制响应",
+      "description": "正文为二进制内容（{{contentType}}），无法以文本显示。大小：{{size}}。",
+      "unknown": "未知类型"
+    }
+  },
+  "headers": {
+    "name": "名称",
+    "value": "值",
+    "empty": "没有响应头。"
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-sftp-home"
+description = "Enables the server_sftp_home command without any pre-configured scope."
+commands.allow = ["server_sftp_home"]
+
+[[permission]]
+identifier = "deny-server-sftp-home"
+description = "Denies the server_sftp_home command without any pre-configured scope."
+commands.deny = ["server_sftp_home"]

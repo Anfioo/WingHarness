@@ -1,0 +1,18 @@
+{
+  "label": "环境",
+  "baseUrl": "Base URL",
+  "baseUrlPlaceholder": "https://api.example.com",
+  "baseUrlHint": "相对路径的请求（例如导入的 /pets）会拼接到这个 Base URL 上发送。",
+  "manage": "管理环境",
+  "title": "环境",
+  "description": "发送请求前，会用这里定义的变量替换请求中的占位符。",
+  "name": "环境名称",
+  "variables": "变量",
+  "usage": "被 {{count}} 个请求引用",
+  "unused": "没有任何请求引用",
+  "empty": "还没有环境",
+  "create": "新建环境",
+  "newName": "新环境",
+  "delete": "删除环境",
+  "deleteHint": "只删除这组变量，工作区里的请求会保留。"
+}

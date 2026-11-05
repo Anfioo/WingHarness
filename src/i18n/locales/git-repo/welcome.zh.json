@@ -1,0 +1,74 @@
+{
+  "header": {
+    "brand": "Git",
+    "tagline": "让日常 Git 操作更舒心。"
+  },
+  "actions": {
+    "open": "打开仓库",
+    "openHint": "从本地文件夹打开",
+    "clone": "克隆仓库",
+    "cloneHint": "从远程 URL 克隆"
+  },
+  "openCard": {
+    "pathLabel": "仓库路径",
+    "pathPlaceholder": "仓库的路径",
+    "browse": "浏览…",
+    "open": "打开",
+    "initialize": "初始化",
+    "initializing": "正在初始化…"
+  },
+  "cloneCard": {
+    "urlLabel": "远程 URL",
+    "urlPlaceholder": "https://example.com/user/repo.git",
+    "intoLabel": "目标文件夹",
+    "intoPlaceholder": "克隆到的位置",
+    "branchLabel": "分支",
+    "branchPlaceholder": "默认分支",
+    "browse": "浏览…",
+    "clone": "克隆",
+    "cloning": "正在克隆…"
+  },
+  "scan": {
+    "open": "扫描文件夹中的仓库",
+    "close": "关闭扫描",
+    "rootLabel": "要扫描的文件夹",
+    "rootPlaceholder": "用于扫描仓库的文件夹",
+    "browse": "浏览…",
+    "start": "扫描",
+    "scanning": "正在扫描…",
+    "addAll": "全部加入最近记录",
+    "empty": "此文件夹中未找到仓库。",
+    "truncated": "仅显示前部分结果；文件夹结构过大。",
+    "results_other": "找到 {{count}} 个仓库"
+  },
+  "recent": {
+    "title": "最近的仓库",
+    "searchLabel": "搜索最近的仓库",
+    "searchPlaceholder": "搜索仓库",
+    "emptyTitle": "暂无仓库",
+    "emptyDescription": "打开一个已包含 .git 目录的文件夹、扫描装满仓库的文件夹，或从 URL 克隆一个。你打开过的仓库都会显示在这里。",
+    "emptyOpen": "打开仓库",
+    "emptyScan": "扫描文件夹",
+    "emptyClone": "克隆仓库",
+    "noMatch": "没有与“{{query}}”匹配的仓库。",
+    "open": "在新窗口中打开",
+    "focus": "聚焦已打开的窗口",
+    "reveal": "在文件管理器中显示",
+    "copyPath": "复制路径",
+    "remove": "从最近记录中移除",
+    "alreadyOpen": "已打开",
+    "missing": "文件夹缺失",
+    "menuAria": "{{name}} 的操作"
+  },
+  "toast": {
+    "missingFolder": "该文件夹已不存在。",
+    "initDone": "已初始化一个空仓库。",
+    "initFailed": "无法初始化仓库。",
+    "cloneDone": "已克隆 {{name}}。",
+    "cloneFailed": "无法克隆仓库。",
+    "scanFailed": "无法扫描该文件夹。",
+    "revealFailed": "无法显示该文件夹。",
+    "copyFailed": "无法复制路径。",
+    "copied": "路径已复制到剪贴板。"
+  }
+}

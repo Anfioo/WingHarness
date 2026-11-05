@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-get-tool-versions"
+description = "Enables the ccs_get_tool_versions command without any pre-configured scope."
+commands.allow = ["ccs_get_tool_versions"]
+
+[[permission]]
+identifier = "deny-ccs-get-tool-versions"
+description = "Denies the ccs_get_tool_versions command without any pre-configured scope."
+commands.deny = ["ccs_get_tool_versions"]

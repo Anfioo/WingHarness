@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-get-settings"
+description = "Enables the mcphub_get_settings command without any pre-configured scope."
+commands.allow = ["mcphub_get_settings"]
+
+[[permission]]
+identifier = "deny-mcphub-get-settings"
+description = "Denies the mcphub_get_settings command without any pre-configured scope."
+commands.deny = ["mcphub_get_settings"]

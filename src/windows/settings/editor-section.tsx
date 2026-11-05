@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Editor, type Theme } from "codelet";
 import { Check, Moon, RotateCcw, Sun, Type } from "lucide-react";
+import { FontFamilySelect } from "@/components/font-family-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,11 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { listLocalShellFonts } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   DEFAULT_EDITOR_PREFS,
-  DEFAULT_FONT_FAMILY,
   FONT_SIZE_RANGE,
   LINE_HEIGHT_RANGE,
   loadEditorPrefs,
@@ -23,6 +22,7 @@ import {
 } from "@/lib/editor/prefs";
 import { themesFor } from "@/lib/editor/themes";
 import { applyEditorTypography } from "@/lib/editor/typography";
+import { monoFontStack } from "@/lib/fonts/stack";
 
 /** Class the draft stylesheet is scoped to, so the preview shows unsaved edits. */
 const PREVIEW_CLASS = "editor-preview";
@@ -209,13 +209,6 @@ function NumberField({
 export function EditorSection() {
   const { t } = useAppTranslation();
   const [prefs, setPrefs] = useState<EditorPrefs>(() => loadEditorPrefs());
-  const [fonts, setFonts] = useState<string[]>([]);
-
-  useEffect(() => {
-    listLocalShellFonts()
-      .then((list) => setFonts(list.sort((a, b) => a.localeCompare(b))))
-      .catch(() => setFonts([]));
-  }, []);
 
   const update = (patch: Partial<EditorPrefs>) => {
     const next = { ...prefs, ...patch };
@@ -262,24 +255,13 @@ export function EditorSection() {
             <label className="text-sm font-medium">{t("editor.fontFamily")}</label>
           </div>
           <p className="text-muted-foreground mt-0.5 text-xs">{t("editor.fontFamilyHint")}</p>
-          <Input
-            list="settings-editor-fonts"
+          <FontFamilySelect
             className="mt-1.5"
             value={prefs.fontFamily}
-            spellCheck={false}
-            onChange={(event) => update({ fontFamily: event.target.value })}
-            placeholder={DEFAULT_FONT_FAMILY}
+            onChange={(fontFamily) => update({ fontFamily })}
+            defaultLabel={t("editor.fontFamilyDefault")}
+            stackFor={monoFontStack}
           />
-          <datalist id="settings-editor-fonts">
-            {fonts.map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
-          <p className="text-muted-foreground mt-1 text-xs">
-            {fonts.length > 0
-              ? t("editor.fontsDetected", { count: fonts.length })
-              : t("editor.fontsLoading")}
-          </p>
         </div>
 
         <NumberField

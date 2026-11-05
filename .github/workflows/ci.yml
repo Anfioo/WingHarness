@@ -5,6 +5,13 @@ on:
     branches: ['**']
   pull_request:
 
+# Workflow-level env: every step inherits it, and it reaches `pnpm build` ->
+# `vite build` as an inherited process env. Node's default heap size is computed
+# from the memory it sees, which is not reliable on a shared runner: an
+# unspecified default aborted the build with an OOM near 2 GB.
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -25,6 +32,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      # Records where the heap limit came from, so a future OOM is diagnosable
+      # from the log alone.
+      - name: Show Node build environment
+        run: node -p "process.version + ' | heap limit ' + Math.round(require('node:v8').getHeapStatistics().heap_size_limit/1048576) + ' MB | ram ' + Math.round(require('node:os').totalmem()/1073741824) + ' GB'"
 
       - name: Format, lint and build
         run: pnpm check

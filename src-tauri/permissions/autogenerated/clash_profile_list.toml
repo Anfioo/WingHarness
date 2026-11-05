@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-profile-list"
+description = "Enables the clash_profile_list command without any pre-configured scope."
+commands.allow = ["clash_profile_list"]
+
+[[permission]]
+identifier = "deny-clash-profile-list"
+description = "Denies the clash_profile_list command without any pre-configured scope."
+commands.deny = ["clash_profile_list"]

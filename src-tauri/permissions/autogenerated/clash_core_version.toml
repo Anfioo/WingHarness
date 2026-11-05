@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-core-version"
+description = "Enables the clash_core_version command without any pre-configured scope."
+commands.allow = ["clash_core_version"]
+
+[[permission]]
+identifier = "deny-clash-core-version"
+description = "Denies the clash_core_version command without any pre-configured scope."
+commands.deny = ["clash_core_version"]

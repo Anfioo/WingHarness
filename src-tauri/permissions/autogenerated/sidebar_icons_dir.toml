@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sidebar-icons-dir"
+description = "Enables the sidebar_icons_dir command without any pre-configured scope."
+commands.allow = ["sidebar_icons_dir"]
+
+[[permission]]
+identifier = "deny-sidebar-icons-dir"
+description = "Denies the sidebar_icons_dir command without any pre-configured scope."
+commands.deny = ["sidebar_icons_dir"]

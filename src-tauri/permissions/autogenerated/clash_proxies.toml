@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-proxies"
+description = "Enables the clash_proxies command without any pre-configured scope."
+commands.allow = ["clash_proxies"]
+
+[[permission]]
+identifier = "deny-clash-proxies"
+description = "Denies the clash_proxies command without any pre-configured scope."
+commands.deny = ["clash_proxies"]

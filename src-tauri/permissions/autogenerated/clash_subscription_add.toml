@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-subscription-add"
+description = "Enables the clash_subscription_add command without any pre-configured scope."
+commands.allow = ["clash_subscription_add"]
+
+[[permission]]
+identifier = "deny-clash-subscription-add"
+description = "Denies the clash_subscription_add command without any pre-configured scope."
+commands.deny = ["clash_subscription_add"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-profile-import"
+description = "Enables the clash_profile_import command without any pre-configured scope."
+commands.allow = ["clash_profile_import"]
+
+[[permission]]
+identifier = "deny-clash-profile-import"
+description = "Denies the clash_profile_import command without any pre-configured scope."
+commands.deny = ["clash_profile_import"]

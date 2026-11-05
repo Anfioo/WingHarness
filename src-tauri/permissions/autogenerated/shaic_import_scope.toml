@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-import-scope"
+description = "Enables the shaic_import_scope command without any pre-configured scope."
+commands.allow = ["shaic_import_scope"]
+
+[[permission]]
+identifier = "deny-shaic-import-scope"
+description = "Denies the shaic_import_scope command without any pre-configured scope."
+commands.deny = ["shaic_import_scope"]

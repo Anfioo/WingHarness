@@ -1,0 +1,43 @@
+{
+  "actions": {
+    "create": "Create",
+    "rename": "Rename",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "search": "Search",
+    "refresh": "Refresh",
+    "close": "Close",
+    "retry": "Retry",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading…",
+    "empty": "Nothing here yet",
+    "error": "Error",
+    "warning": "Warning"
+  },
+  "labels": {
+    "request": "Request",
+    "response": "Response",
+    "collection": "Collection",
+    "folder": "Folder",
+    "workspace": "Workspace",
+    "method": "Method",
+    "url": "URL",
+    "headers": "Headers",
+    "params": "Params",
+    "body": "Body",
+    "auth": "Auth",
+    "variables": "Variables",
+    "none": "None"
+  },
+  "validation": {
+    "methodRequired": "Enter a request method",
+    "urlRequired": "Enter a URL",
+    "urlInvalid": "Enter a valid http(s) URL",
+    "urlUnresolved": "The URL still has unresolved variables",
+    "urlNeedsBase": "Enter a full URL, or set a base URL first",
+    "baseUrlInvalid": "The base URL must be a valid http(s) address"
+  }
+}

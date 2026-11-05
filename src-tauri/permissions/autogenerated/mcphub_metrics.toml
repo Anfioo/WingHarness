@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-metrics"
+description = "Enables the mcphub_metrics command without any pre-configured scope."
+commands.allow = ["mcphub_metrics"]
+
+[[permission]]
+identifier = "deny-mcphub-metrics"
+description = "Denies the mcphub_metrics command without any pre-configured scope."
+commands.deny = ["mcphub_metrics"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-api-cancel-request"
+description = "Enables the api_cancel_request command without any pre-configured scope."
+commands.allow = ["api_cancel_request"]
+
+[[permission]]
+identifier = "deny-api-cancel-request"
+description = "Denies the api_cancel_request command without any pre-configured scope."
+commands.deny = ["api_cancel_request"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-tunnel-create"
+description = "Enables the frp_tunnel_create command without any pre-configured scope."
+commands.allow = ["frp_tunnel_create"]
+
+[[permission]]
+identifier = "deny-frp-tunnel-create"
+description = "Denies the frp_tunnel_create command without any pre-configured scope."
+commands.deny = ["frp_tunnel_create"]

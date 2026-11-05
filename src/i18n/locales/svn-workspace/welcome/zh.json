@@ -1,0 +1,70 @@
+{
+  "header": {
+    "brand": "SVN 工作副本",
+    "tagline": "打开本地 SVN 工作副本，或从仓库检出一个新的。"
+  },
+  "actions": {
+    "open": "打开工作副本",
+    "openHint": "选择一个已经是 SVN 工作副本的目录。",
+    "checkout": "检出",
+    "checkoutHint": "把仓库拉取到一个新的工作副本。"
+  },
+  "openCard": {
+    "pathPlaceholder": "工作副本目录路径",
+    "pathLabel": "工作副本路径",
+    "browse": "浏览",
+    "open": "打开",
+    "opening": "正在打开",
+    "dialogTitle": "选择 SVN 工作副本目录"
+  },
+  "checkoutCard": {
+    "urlPlaceholder": "https://svn.example.com/repo/trunk",
+    "urlLabel": "仓库 URL",
+    "intoPlaceholder": "目标目录",
+    "intoLabel": "目标目录",
+    "browse": "浏览",
+    "revisionPlaceholder": "最新",
+    "revisionLabel": "版本",
+    "checkout": "检出",
+    "checkingOut": "正在检出"
+  },
+  "recent": {
+    "title": "最近的工作副本",
+    "searchPlaceholder": "搜索",
+    "searchLabel": "搜索最近的工作副本",
+    "emptyTitle": "还没有工作副本",
+    "emptyDescription": "打开已有 SVN 工作副本，或检出一个新的开始使用。",
+    "emptyOpen": "打开工作副本",
+    "emptyCheckout": "检出",
+    "noMatch": "没有匹配 \"{{query}}\" 的工作副本。",
+    "open": "打开",
+    "focus": "聚焦窗口",
+    "remove": "从列表中移除",
+    "menuAria": "{{name}} 的操作",
+    "alreadyOpen": "已打开",
+    "missing": "缺失",
+    "removeFailed": "无法从列表中移除该工作副本。",
+    "reveal": "打开文件夹",
+    "revealFailed": "无法打开该文件夹。"
+  },
+  "svnMissing": {
+    "title": "未检测到 SVN 命令行",
+    "description": "无法定位 svn 可执行文件。请安装 Subversion 并确保 svn 在 PATH 中，或在 SVN 工作副本设置里指定其路径。",
+    "retry": "重新检测"
+  },
+  "noWorkspace": {
+    "title": "尚未打开工作副本",
+    "description": "本窗口用于展示一个 SVN 工作副本。请从主窗口的选择页打开一个，即可在此查看它的状态、历史与贮藏。",
+    "openList": "前往工作副本列表"
+  },
+  "window": {
+    "title": "SVN"
+  },
+  "toast": {
+    "notAWorkingCopy": "该目录不是 SVN 工作副本。",
+    "openFailed": "无法打开工作副本。",
+    "missingFolder": "该目录已不存在。",
+    "checkoutDone": "已检出 {{name}}。",
+    "checkoutFailed": "无法检出该仓库。"
+  }
+}

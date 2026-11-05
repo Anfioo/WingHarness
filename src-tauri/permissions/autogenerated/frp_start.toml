@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-start"
+description = "Enables the frp_start command without any pre-configured scope."
+commands.allow = ["frp_start"]
+
+[[permission]]
+identifier = "deny-frp-start"
+description = "Denies the frp_start command without any pre-configured scope."
+commands.deny = ["frp_start"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-sftp-write-text"
+description = "Enables the server_sftp_write_text command without any pre-configured scope."
+commands.allow = ["server_sftp_write_text"]
+
+[[permission]]
+identifier = "deny-server-sftp-write-text"
+description = "Denies the server_sftp_write_text command without any pre-configured scope."
+commands.deny = ["server_sftp_write_text"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-branch-rename"
+description = "Enables the branch_rename command without any pre-configured scope."
+commands.allow = ["branch_rename"]
+
+[[permission]]
+identifier = "deny-branch-rename"
+description = "Denies the branch_rename command without any pre-configured scope."
+commands.deny = ["branch_rename"]

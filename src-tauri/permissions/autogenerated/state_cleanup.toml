@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-state-cleanup"
+description = "Enables the state_cleanup command without any pre-configured scope."
+commands.allow = ["state_cleanup"]
+
+[[permission]]
+identifier = "deny-state-cleanup"
+description = "Denies the state_cleanup command without any pre-configured scope."
+commands.deny = ["state_cleanup"]

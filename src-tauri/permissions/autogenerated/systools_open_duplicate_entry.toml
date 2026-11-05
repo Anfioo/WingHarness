@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-open-duplicate-entry"
+description = "Enables the systools_open_duplicate_entry command without any pre-configured scope."
+commands.allow = ["systools_open_duplicate_entry"]
+
+[[permission]]
+identifier = "deny-systools-open-duplicate-entry"
+description = "Denies the systools_open_duplicate_entry command without any pre-configured scope."
+commands.deny = ["systools_open_duplicate_entry"]

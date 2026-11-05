@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-stop-all"
+description = "Enables the frp_stop_all command without any pre-configured scope."
+commands.allow = ["frp_stop_all"]
+
+[[permission]]
+identifier = "deny-frp-stop-all"
+description = "Denies the frp_stop_all command without any pre-configured scope."
+commands.deny = ["frp_stop_all"]

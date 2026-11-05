@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-commit-extract-paths"
+description = "Enables the commit_extract_paths command without any pre-configured scope."
+commands.allow = ["commit_extract_paths"]
+
+[[permission]]
+identifier = "deny-commit-extract-paths"
+description = "Denies the commit_extract_paths command without any pre-configured scope."
+commands.deny = ["commit_extract_paths"]

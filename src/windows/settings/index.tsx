@@ -7,9 +7,24 @@ import { ShortcutInput } from "@/components/shortcut-input.tsx";
 import { AppearanceSection } from "./appearance-section.tsx";
 import { ProjectSection } from "./project-section.tsx";
 import { TerminalSection } from "./terminal-section.tsx";
+import { PluginsSection } from "./plugins-section.tsx";
 import { DataSection } from "./data-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
-import { Palette, Keyboard, FolderKanban, SquareTerminal, Database, SquarePen } from "lucide-react";
+import { AiConfigSection } from "./ai-config-section.tsx";
+import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
+import { MdEditorSection } from "./md-editor-section.tsx";
+import {
+  Palette,
+  Keyboard,
+  FolderKanban,
+  SquareTerminal,
+  Package,
+  Database,
+  SquarePen,
+  FileText,
+  Bot,
+} from "lucide-react";
+import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { registerShortcut, unregisterShortcut } from "@/lib/shortcut.ts";
 import { toggleWindow } from "@/lib/window.ts";
 import { toast } from "sonner";
@@ -17,7 +32,17 @@ import { useAppTranslation } from "@/hooks/use-app-translation.ts";
 
 const SHORTCUT_KEY = "global-shortcut-show-main";
 
-type SettingSection = "appearance" | "shortcut" | "project" | "terminal" | "data" | "editor";
+type SettingSection =
+  | "appearance"
+  | "shortcut"
+  | "project"
+  | "terminal"
+  | "plugins"
+  | "data"
+  | "editor"
+  | "mdEditor"
+  | "aiConfig"
+  | "ccs";
 
 export default function SettingsPage() {
   const [shortcut, setShortcut] = useState<string>("");
@@ -76,8 +101,13 @@ export default function SettingsPage() {
     },
     {
       id: "terminal" as SettingSection,
-      label: "终端",
+      label: t("settings.terminal.title"),
       icon: SquareTerminal,
+    },
+    {
+      id: "plugins" as SettingSection,
+      label: t("plugins.title"),
+      icon: Package,
     },
     {
       id: "data" as SettingSection,
@@ -85,9 +115,24 @@ export default function SettingsPage() {
       icon: Database,
     },
     {
+      id: "ccs" as SettingSection,
+      label: "应用配置",
+      icon: CcSwitchLogo,
+    },
+    {
       id: "editor" as SettingSection,
       label: t("editor.title"),
       icon: SquarePen,
+    },
+    {
+      id: "mdEditor" as SettingSection,
+      label: t("mdEditor.settings.title"),
+      icon: FileText,
+    },
+    {
+      id: "aiConfig" as SettingSection,
+      label: t("settings.aiConfig.title"),
+      icon: Bot,
     },
   ];
 
@@ -120,7 +165,7 @@ export default function SettingsPage() {
       </aside>
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-3xl p-4">
+        <div className="p-4">
           {activeSection === "appearance" && <AppearanceSection />}
 
           {activeSection === "shortcut" && (
@@ -150,9 +195,17 @@ export default function SettingsPage() {
 
           {activeSection === "terminal" && <TerminalSection />}
 
+          {activeSection === "plugins" && <PluginsSection />}
+
           {activeSection === "data" && <DataSection />}
 
+          {activeSection === "ccs" && <CcsAppConfigSection />}
+
           {activeSection === "editor" && <EditorSection />}
+
+          {activeSection === "mdEditor" && <MdEditorSection />}
+
+          {activeSection === "aiConfig" && <AiConfigSection />}
         </div>
       </div>
     </WindowFrame>

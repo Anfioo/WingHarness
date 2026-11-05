@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "WingHarness",
-    "subtitle": "桌面模板"
+    "title": "WingHarness"
   },
   "about": {
     "title": "关于",
@@ -15,68 +14,27 @@
     "github": "GitHub",
     "blog": "博客",
     "email": "邮箱",
-    "viewRepo": "查看仓库"
-  },
-  "start": {
-    "title": "WingHarness",
-    "subtitle": "空白 Tauri 桌面模板。从侧栏选择页面，或从下面开始。",
-    "shortcuts": {
-      "project": {
-        "title": "项目",
-        "description": "浏览并编辑工作区根目录下的文件。"
-      },
-      "terminal": {
-        "title": "终端",
-        "description": "在窗口内运行交互式命令行。"
-      },
-      "notes": {
-        "title": "笔记",
-        "description": "把 Markdown 笔记存放在数据目录里。"
-      },
-      "filePreview": {
-        "title": "文件预览",
-        "description": "只读查看文档、图片与压缩包，不写回磁盘。"
-      }
-    }
-  },
-  "routes": {
-    "group": "导航",
-    "start": {
-      "title": "起始页",
-      "scope": "模板起始页",
-      "description": "模板的落地页：从侧栏进入任意页面，或直接点开下面某个入口。"
-    },
-    "localTerminal": {
-      "title": "终端",
-      "scope": "本地 PTY / cmd.exe",
-      "description": "在应用内打开 Windows 命令行，直接执行交互式命令。"
-    },
-    "notes": {
-      "title": "笔记",
-      "scope": "数据目录下的 Markdown",
-      "description": "把每条会议、任务或想法记成一个 Markdown 文件：文件树、标签页编辑器与预览，内容直接落盘到数据目录的 notes 文件夹。"
-    },
-    "filePreview": {
-      "title": "文件预览",
-      "scope": "项目根目录 / 只读",
-      "description": "只读预览项目根目录下的文件：Word、Excel、PPT、PDF、图片、压缩包、音视频都在这里解析，文件树按需逐层展开，内容不写回磁盘。"
-    },
-    "project": {
-      "title": "项目",
-      "scope": "项目根目录",
-      "description": "用笔记页同一个编辑器打开「设置 → 项目」里配置的根目录：目录按需逐层加载，文件可查看、可修改并写回磁盘。"
-    }
+    "viewRepo": "查看仓库",
+    "thirdParty": "第三方许可",
+    "licensesTitle": "第三方许可",
+    "licensesDescription": "WingHarness 以 GPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
+    "licenseSources": "来源项目",
+    "licenseNotices": "完整声明",
+    "licenseOpen": "打开 {{name}}",
+    "licenseBundled": "随附库及其许可证列在完整声明中。许可证文本随应用分发在 licenses 目录。"
   },
   "theme": {
     "toggle": "切换主题"
   },
   "language": {
-    "toggle": "切换语言"
+    "toggle": "切换语言",
+    "en": "English",
+    "zh": "中文"
   },
   "windowMenu": {
     "copy": "复制",
     "selectAll": "全选",
-    "reload": "刷新页面",
+    "reload": "重新加载",
     "devtools": "开发者工具",
     "settings": "设置",
     "about": "关于",
@@ -85,7 +43,37 @@
   "tray": {
     "show": "显示窗口",
     "settings": "设置",
-    "quit": "退出"
+    "clash": "Clash",
+    "frp": "FRP",
+    "quit": "退出",
+    "clashPanel": {
+      "core": "核心",
+      "on": "已开启",
+      "off": "已关闭",
+      "starting": "启动中…",
+      "stopping": "关闭中…",
+      "profiles": "配置",
+      "noProfiles": "暂无配置",
+      "proxies": "代理",
+      "back": "返回",
+      "loading": "加载中…",
+      "proxiesFailed": "读取代理列表失败"
+    },
+    "frpPanel": {
+      "runningCount": "运行中 {{running}}/{{total}}",
+      "startAll": "全部启动",
+      "stopAll": "全部停止",
+      "start": "启动",
+      "stop": "停止",
+      "restart": "重启",
+      "profiles": "配置",
+      "tunnels": "隧道",
+      "tunnelCount_other": "{{count}} 条隧道",
+      "noProfiles": "暂无配置",
+      "noTunnels": "该配置没有隧道",
+      "back": "返回",
+      "loading": "加载中…"
+    }
   },
   "updater": {
     "checkForUpdates": "检查更新",
@@ -111,19 +99,36 @@
     "installNow": "立即安装"
   },
   "config": {
+    "saved": "配置已保存。",
+    "saveFailed": "保存配置失败。",
     "loadFailed": "读取配置失败。",
     "path": "配置文件：{{path}}"
   },
+  "output": {
+    "exitCode": "退出码 {{code}}",
+    "clear": "清空输出"
+  },
   "project": {
     "title": "项目",
-    "description": "文件浏览器与预览打开的目录。",
+    "description": "「项目」页、文件预览与 AI 配置同步使用的项目根目录。",
     "rootLabel": "项目根目录",
-    "rootHint": "文件浏览器与预览都以此目录为根。留空时不浏览任何内容，直到选定项目。",
-    "rootPlaceholder": "D:\\workspace\\my-project"
+    "rootHint": "「项目」页与文件预览会打开这个目录。留空则保持空状态，直到配置了项目。",
+    "rootPlaceholder": "M:\\work\\project",
+    "loadFailed": "读取配置失败。"
   },
   "settings": {
     "title": "设置",
     "button": "设置",
+    "close": "关闭",
+    "aiConfig": {
+      "title": "AI 配置同步",
+      "description": "选择同步页管理哪些 AI 编程工具。关闭的工具不会出现在该页，也不会被写入磁盘。",
+      "agentsLabel": "Agent",
+      "agentsHint": "只有这里开启的工具会出现在 AI 配置同步页，并被写入磁盘。",
+      "noneEnabled": "没有开启任何 agent — 同步页将为空。",
+      "autoSave": "修改后自动保存。",
+      "loadFailed": "加载 agent 列表失败。"
+    },
     "appearance": {
       "title": "外观",
       "description": "自定义应用的外观和语言",
@@ -136,7 +141,30 @@
       "presetSearch": "搜索主题",
       "presetDefault": "默认",
       "presetNoResults": "没有匹配的主题",
-      "presetFontsHint": "主题自带字体，首次使用时下载并缓存到本地。"
+      "presetFontsHint": "主题自带字体，首次使用时下载并缓存到本地。",
+      "sidebarManager": "侧边栏",
+      "sidebarManagerDesc": "调整分组的顺序与内容，安排一级菜单和二级菜单。",
+      "sidebarManagerOpen": "侧边栏管理"
+    },
+    "fonts": {
+      "loading": "正在加载系统字体…",
+      "notInstalled": "未安装",
+      "groups": {
+        "monospace": "等宽字体",
+        "other": "其他字体"
+      }
+    },
+    "terminal": {
+      "title": "终端",
+      "description": "本地终端页签的字体、字号与显示行为。",
+      "font": "字体",
+      "fontSize": "字号",
+      "tabStopWidth": "Tab 宽度",
+      "autoWrap": "自动换行",
+      "autoWrapHint": "长行在终端内自动折行，减少横向滚动。",
+      "highlightCurrentLine": "高亮当前行",
+      "highlightCurrentLineHint": "当前光标所在行显示轻量标记。",
+      "reset": "恢复默认"
     },
     "shortcut": {
       "title": "快捷键",
@@ -148,9 +176,59 @@
       "cleared": "已取消快捷键！"
     }
   },
+  "releaseVersion": {
+    "options": {
+      "patch": "补丁版本",
+      "minor": "次版本",
+      "major": "主版本",
+      "promotePrerelease": "当前预发布转正式版",
+      "nextPrerelease": "下一个预发布版本",
+      "nextPatchBeta": "下一个补丁 beta",
+      "custom": "自定义版本"
+    },
+    "prompts": {
+      "yesNoDefaultYes": " (Y/n): ",
+      "yesNoDefaultNo": " (y/N): ",
+      "enterChoice": "\n请输入选择 (1-{{max}}): ",
+      "enterCustomVersion": "请输入自定义版本号: ",
+      "confirmRelease": "是否继续更新版本并创建 release 提交和 tag？",
+      "confirmBumpOnly": "是否继续更新版本文件？",
+      "pushNow": "是否立即推送提交和 tag 到远程仓库？"
+    },
+    "messages": {
+      "currentVersion": "当前版本：{{version}}",
+      "selectNextVersion": "请选择下一个版本：",
+      "invalidChoice": "选择无效，默认使用第一个候选版本。",
+      "summaryTitle": "发布摘要：",
+      "summaryBranch": "- 分支：{{branch}}",
+      "summaryCurrentVersion": "- 当前版本：{{version}}",
+      "summaryNextVersion": "- 新版本：{{version}}",
+      "summaryTag": "- Tag：{{tag}}",
+      "summaryReleaseAction": "- 操作：更新版本文件、创建提交与 tag，可选择推送",
+      "summaryBumpOnlyAction": "- 操作：仅更新版本文件。当前分支 {{branch}} 不是发布分支（{{releaseBranch}}），不会暂存、提交、打 tag 或推送",
+      "cancelled": "已取消。",
+      "updatedFilesOnly": "已更新版本文件。当前不是发布分支（{{releaseBranch}}），已跳过 git add、commit、tag 和 push。",
+      "createdCommitAndTag": "已成功创建提交和 tag。",
+      "pushCompleted": "推送完成。",
+      "pushSkipped": "已跳过推送，你之后可以执行：",
+      "pushBranchLater": "git push origin {{branch}}",
+      "pushTagLater": "git push origin {{tag}}"
+    },
+    "errors": {
+      "unsupportedVersion": "不支持的版本格式：{{version}}",
+      "cargoVersionNotFound": "未能在 Cargo.toml 中找到版本字段",
+      "cargoPackageNameNotFound": "未能在 Cargo.toml 中找到包名字段",
+      "workingTreeNotClean": "当前工作区不干净，请先提交或暂存现有改动。",
+      "tagExists": "Tag {{tag}} 已存在。",
+      "remoteTagExists": "远程 origin 上已存在 Tag {{tag}}。",
+      "versionMissing": "{{file}} 中的版本号缺失或无效",
+      "versionMismatch": "检测到版本不一致：{{versions}}",
+      "invalidLang": "无效的 --lang 参数，请使用 zh 或 en。"
+    }
+  },
   "data": {
     "title": "数据",
-    "description": "选择应用存放数据的位置——配置文件、缓存与应用自身产生的资源。应用其余部分都从这个目录读取。",
+    "description": "选择应用存放数据的位置——插件、日志、缓存以及配置文件。应用其余部分都从这个目录读取。",
     "loadFailed": "读取数据目录设置失败。",
     "dirLabel": "数据目录",
     "dirHint": "需为绝对路径。目录按原样使用：若为空，一切从默认值重新生成，不会复制任何旧数据。重启后生效。",
@@ -167,7 +245,587 @@
     "pointerLabel": "指针文件",
     "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。"
   },
+  "plugins": {
+    "title": "插件",
+    "description": "把插件 zip 拖到本窗口任意位置即可安装。每个插件能配置什么，由它自己的 plugin.json 决定；脚本以当前用户身份运行，请只安装你信任的插件。",
+    "dropTitle": "松开即可安装",
+    "dropHint": "把插件 zip 拖到这里",
+    "dropNote": "插件安装后默认停用，启用前不会执行任何脚本。",
+    "dropNotZip": "只能安装 .zip 文件。",
+    "installed": "已安装插件：{{name}}",
+    "installFailed": "安装 {{name}} 失败：{{message}}",
+    "installing": "正在解压…",
+    "installingRate": "{{rate}}/秒",
+    "installingCount": "第 {{index}} / {{count}} 个",
+    "loadFailed": "加载插件列表失败。",
+    "openDir": "打开插件目录",
+    "openFolder": "打开目录",
+    "runAll": "运行全部",
+    "run": "运行",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "enabledCount": "已启用 {{n}} 个",
+    "noConfig": "该插件没有可配置项。",
+    "broken": "插件清单无法读取：{{message}}",
+    "empty": "还没有安装任何插件。",
+    "output": "运行输出",
+    "outputPlaceholder": "运行插件后，输出会显示在这里。",
+    "runFinished": "运行结束，退出码 {{code}}。",
+    "saveFailed": "保存「{{name}}」失败：{{message}}",
+    "uninstallTitle": "卸载插件",
+    "uninstall": "卸载",
+    "uninstallConfirm": "确定要卸载「{{name}}」吗？插件目录和它的全部配置都会被删除。",
+    "uninstalled": "已卸载：{{name}}",
+    "cancel": "取消",
+    "valueOn": "已开启",
+    "valueOff": "已关闭",
+    "configure": "配置",
+    "stop": "停止",
+    "stopped": "已停止「{{name}}」。",
+    "stoppedLine": "--- 已被用户停止 ---",
+    "stopFailed": "停止「{{name}}」失败：{{message}}",
+    "openLog": "打开运行日志",
+    "stopScript": "停止脚本：{{script}}"
+  },
+  "pluginPanel": {
+    "loading": "正在读取插件…",
+    "empty": "还没有可显示的插件页面。",
+    "emptyHint": "到「设置 → 插件」里启用插件，并在它的 plugin.json 中写上 ui 地址，这里就会出现对应的页签。",
+    "starting": "正在启动「{{name}}」…",
+    "waiting": "等待「{{name}}」的页面响应…",
+    "unreachable": "「{{name}}」的页面（{{url}}）一直没有响应。",
+    "startFailed": "启动「{{name}}」失败：{{message}}",
+    "start": "启动",
+    "retry": "重试",
+    "reload": "刷新页面",
+    "openExternal": "在浏览器中打开",
+    "stop": "停止",
+    "stopped": "已停止：{{name}}",
+    "stopFailed": "停止「{{name}}」失败：{{message}}",
+    "openFailed": "无法打开浏览器：{{message}}",
+    "log": "运行日志",
+    "logFailed": "打开运行日志失败：{{message}}",
+    "idleHint": "插件未启动，点「启动」运行。",
+    "retryHint": "点「启动」重试。",
+    "back": "后退",
+    "forward": "前进",
+    "addressPlaceholder": "插件本站内的地址",
+    "browserFailed": "打开「{{name}}」的页面失败：{{message}}",
+    "openWindow": "打开独立窗口",
+    "inWindow": "已在独立窗口打开"
+  },
+  "pluginFocus": {
+    "missing": "该插件不存在或没有可显示的页面。"
+  },
+  "pluginWindow": {
+    "title": "插件"
+  },
+  "sidebarManager": {
+    "title": "侧边栏管理",
+    "description": "分组是侧边栏最外层的一栏；分组内是一级菜单，一级菜单可以是页面，也可以带二级菜单。",
+    "help": "拖动可排序或换位置；把条目拖到下方两张卡片即可从侧边栏移除。",
+    "cachePages": "页面缓存",
+    "cachePagesHint": "开启后切换页面不会重置页面状态，默认关闭。",
+    "groupCount": "共 {{n}} 组",
+    "addGroup": "新建分组",
+    "renameGroup": "重命名分组",
+    "deleteGroup": "删除分组",
+    "deleteGroupConfirm": "删除分组「{{name}}」？组里的菜单会一并从侧边栏移除。",
+    "emptyGroup": "这个分组还没有菜单，把条目拖进来即可。",
+    "dragGroup": "拖动分组",
+    "addParent": "新建父级菜单",
+    "edit": "编辑",
+    "editTitle": "编辑菜单",
+    "name": "名称",
+    "nameDefault": "留空则使用原本的名称。",
+    "icon": "图标",
+    "iconDefault": "默认图标",
+    "iconSearch": "搜索图标",
+    "iconEmpty": "没有匹配的图标。",
+    "iconReset": "恢复默认图标",
+    "iconBuiltin": "内置图标",
+    "iconCustom": "自定义图标（SVG）",
+    "iconCustomEmpty": "还没有自定义图标。把 SVG 文件放进下面的文件夹即可。",
+    "iconOpenFolder": "打开图标文件夹",
+    "iconRefresh": "重新读取图标",
+    "iconColor": "颜色",
+    "iconColorDefault": "使用默认颜色",
+    "iconColorHint": "自定义 SVG 和品牌图标自带颜色，无法改色。",
+    "scope": "摘要",
+    "notes": "备注",
+    "pageDefaultHint": "留空则沿用原本的文案。",
+    "deleteParent": "拆开父级菜单",
+    "emptyParent": "把条目拖到这里成为二级菜单。",
+    "defaultChild": "默认",
+    "defaultHint": "点击一级菜单时打开的页面",
+    "dragParent": "拖动菜单",
+    "dragEntry": "拖动条目",
+    "other": "其他",
+    "otherHint": "未配置的页面",
+    "otherEmpty": "所有页面都已配置。",
+    "pool": "插件页签",
+    "poolHint": "未放进侧边栏的插件",
+    "poolEmpty": "所有插件都在侧边栏中。",
+    "namePlaceholder": "名称",
+    "save": "保存",
+    "cancel": "取消",
+    "loadFailed": "加载侧边栏配置失败。"
+  },
+  "pluginConfig": {
+    "title": "插件设置",
+    "notFound": "该插件尚未安装。",
+    "renderFailed": "该插件的配置无法显示。",
+    "required": "启动必需",
+    "external": "插件目录外",
+    "openFile": "打开文件",
+    "missing": "文件尚未生成——插件会在首次启动时创建它。",
+    "missingExternal": "文件尚未生成——启动一次插件它就会写出来。",
+    "noFields": "该文件没有可编辑的键。"
+  },
+  "mcphub": {
+    "groupAgent": "Agent",
+    "title": "MCP Hub",
+    "description": "把本地/远程 MCP server 聚合成一个端点，统一开关、日志与 token。",
+    "loading": "正在加载 MCP Hub…",
+    "loaded": "已刷新。",
+    "loadFailed": "加载 MCP Hub 状态失败。",
+    "refresh": "刷新",
+    "regenerateCache": "重建缓存",
+    "regenerated": "工具缓存已重建。",
+    "regenerateFailed": "重建缓存失败。",
+    "running": "运行中",
+    "stopped": "已停止",
+    "sseUrl": "SSE 地址",
+    "mode": "模式",
+    "modeDiscover": "discover（自动发现工具）",
+    "modePassthrough": "passthrough（透传）",
+    "modeChanged": "模式已更新。",
+    "modeChangeFailed": "切换模式失败。",
+    "start": "启动",
+    "stop": "停止",
+    "starting": "启动中…",
+    "stopping": "停止中…",
+    "started": "MCP Hub 已启动。",
+    "stoppedHub": "MCP Hub 已停止。",
+    "startFailed": "启动 MCP Hub 失败。",
+    "stopFailed": "停止 MCP Hub 失败。",
+    "statPort": "端口",
+    "statServers": "Server 数",
+    "statTools": "工具数",
+    "statUptime": "运行时长",
+    "statTokensSaved": "节省 Token",
+    "tokensSavedHint": "discover 模式每次请求",
+    "tokensSavedPassthrough": "passthrough",
+    "uptimeFormat": "{{hours}} 小时 {{minutes}} 分",
+    "uptimeSeconds": "{{seconds}} 秒",
+    "tabs": {
+      "servers": "Servers",
+      "tools": "Tools",
+      "logs": "Logs",
+      "tokens": "Tokens",
+      "metrics": "Metrics",
+      "settings": "Settings"
+    },
+    "servers": {
+      "add": "添加 Server",
+      "edit": "编辑",
+      "remove": "删除",
+      "removeConfirm": "确定要删除 Server「{{name}}」吗？其配置会被移除，正在运行的子进程会被终止。",
+      "removed": "已删除 Server：{{name}}",
+      "removeFailed": "删除 Server 失败。",
+      "saved": "Server 已保存。",
+      "saveFailed": "保存 Server 失败。",
+      "loadFailed": "加载 Server 列表失败。",
+      "empty": "还没有配置 Server。点右上角「添加 Server」接入第一个 MCP server。",
+      "colName": "名称",
+      "colCommand": "命令",
+      "colStatus": "状态",
+      "colTools": "工具数",
+      "colLatency": "延迟",
+      "colEnabled": "启用",
+      "colActions": "操作",
+      "statusRunning": "运行中",
+      "statusStopped": "未运行",
+      "statusHealthy": "健康",
+      "statusUnhealthy": "异常",
+      "latencyMs": "{{ms}} ms",
+      "dialogAddTitle": "添加 Server",
+      "dialogEditTitle": "编辑 Server",
+      "dialogImportTitle": "Add MCP Server",
+      "dialogImportDesc": "粘贴任意 MCP server README 或 Cursor 配置里的 JSON。支持单个或多个 server，支持 mcpServers 包裹格式。",
+      "importPlaceholder": "{\n  \"command\": \"npx\",\n  \"args\": [\"-y\", \"@modelcontextprotocol/server-github\"],\n  \"env\": { \"GITHUB_TOKEN\": \"your-token-here\" }\n}",
+      "import": "Import",
+      "importDone": "完成：{{ok}} 成功，{{failed}} 失败，共 {{tools}} 个工具",
+      "importEmpty": "请先粘贴 JSON。",
+      "importInvalid": "JSON 解析失败，请检查格式。",
+      "secretDetected": "检测到 {{count}} 个密钥字段，分享前请注意。",
+      "fieldName": "名称",
+      "fieldNamePlaceholder": "filesystem",
+      "fieldCommand": "命令",
+      "fieldCommandPlaceholder": "npx",
+      "fieldArgs": "参数（每行一个）",
+      "fieldArgsPlaceholder": "-y\n@modelcontextprotocol/server-filesystem\nM:\\",
+      "fieldEnv": "环境变量（KEY=VALUE，每行一个）",
+      "fieldEnvPlaceholder": "FOO=bar",
+      "fieldPool": "进程池大小",
+      "fieldEnabled": "启用",
+      "cancel": "取消",
+      "submitAdd": "添加",
+      "submitUpdate": "保存"
+    },
+    "tools": {
+      "searchPlaceholder": "按工具名过滤…",
+      "empty": "没有可用的工具。",
+      "emptyForServer": "该 Server 没有暴露工具。",
+      "loadFailed": "加载工具列表失败。",
+      "toggleFailed": "切换工具状态失败。",
+      "enabled": "已启用",
+      "disabled": "已停用"
+    },
+    "logs": {
+      "refresh": "刷新",
+      "loadFailed": "加载日志失败。",
+      "empty": "暂无日志。",
+      "filterAllServers": "全部 Server",
+      "filterAllLevels": "全部级别",
+      "limit": "条数",
+      "levelInfo": "info",
+      "levelWarn": "warn",
+      "levelError": "error"
+    },
+    "tokens": {
+      "add": "创建 Token",
+      "loadFailed": "加载 Token 列表失败。",
+      "empty": "还没有 Token。创建一个用于客户端接入 MCP Hub。",
+      "colToken": "Token",
+      "colName": "名称",
+      "colAllowed": "允许的 Server",
+      "colCreatedAt": "创建时间",
+      "colActions": "操作",
+      "revoke": "撤销",
+      "revokeConfirm": "确定要撤销 Token「{{name}}」吗？持有该 Token 的客户端将立即被拒绝接入。",
+      "revoked": "已撤销 Token：{{name}}",
+      "revokeFailed": "撤销 Token 失败。",
+      "dialogTitle": "创建 Token",
+      "fieldName": "名称",
+      "fieldNamePlaceholder": "claude-desktop",
+      "fieldAllowed": "允许的 Server（不选则全部）",
+      "cancel": "取消",
+      "submit": "创建",
+      "createdTitle": "Token 已创建",
+      "createdHint": "请立即复制并妥善保存。该 Token 仅显示这一次，关闭后无法再查看。",
+      "copy": "复制",
+      "copied": "Token 已复制到剪贴板。",
+      "copyFailed": "复制失败，请手动选择复制。",
+      "done": "完成",
+      "allServers": "全部"
+    },
+    "metrics": {
+      "totalRequests": "累计请求数",
+      "activeSessions": "活跃 SSE 连接",
+      "uptime": "运行时长",
+      "requests": "请求数",
+      "errors": "错误数",
+      "avgLatency": "平均延迟",
+      "lastCall": "最后调用",
+      "healthy": "healthy",
+      "unhealthy": "unhealthy",
+      "running": "running",
+      "stopped": "stopped",
+      "loadFailed": "加载指标失败。",
+      "empty": "暂无指标数据。",
+      "noServers": "还没有 Server，暂无分项指标。"
+    },
+    "settings": {
+      "mode": "模式",
+      "modeDiscoverDesc": "仅暴露 discover + execute 元工具（BM25 搜索节省 token）",
+      "modePassthroughDesc": "把所有工具以 server__tool 前缀透传",
+      "idleTimeout": "空闲超时（秒）",
+      "idleTimeoutHint": "范围 30–3600，默认 300",
+      "cached": "已缓存 {{count}} 个工具",
+      "noCache": "无缓存",
+      "rebuild": "重建缓存",
+      "save": "保存",
+      "saved": "设置已保存。",
+      "saveFailed": "保存设置失败。",
+      "loadFailed": "加载设置失败。"
+    }
+  },
+  "aiConfig": {
+    "loading": "加载中…",
+    "loadFailed": "加载 AI 配置失败。",
+    "refreshed": "已刷新。",
+    "cancel": "取消",
+    "save": "保存",
+    "close": "关闭",
+    "storeExists": "Store 已就绪",
+    "storeMissing": "尚未初始化 Store",
+    "noRemote": "未配置远程仓库",
+    "storePath": "Store 路径",
+    "projectRoot": "项目目录",
+    "push": "推送",
+    "pull": "拉取",
+    "setup": {
+      "title": "初始化 Store",
+      "description": "填写一个 git 远程仓库地址作为唯一配置数据源。每个 AI 编码工具都从它翻译出各自的 skills / rules / commands 配置。",
+      "init": "初始化"
+    },
+    "tabs": {
+      "agents": "Agent 状态",
+      "items": "条目"
+    },
+    "agents": {
+      "noStore": "初始化 Store 后即可查看各 agent 的同步状态。",
+      "agent": "Agent",
+      "status": "状态",
+      "detail": "明细",
+      "contentDiff": "内容差异",
+      "mcpDiff": "MCP 差异",
+      "search": "按名称搜索 agent…",
+      "filterAll": "全部状态",
+      "noMatch": "没有符合筛选条件的 agent。"
+    },
+    "status": {
+      "in-sync": "已同步",
+      "drift": "有漂移",
+      "unconfirmed": "未确认",
+      "error": "错误"
+    },
+    "scope": {
+      "global": "全局",
+      "project": "项目"
+    },
+    "detail": {
+      "description": "按作用域拆分。每个轴展示写入路径、磁盘上已有的内容，以及同步会做出的改动。",
+      "axis": {
+        "content": "内容",
+        "mcp": "MCP 服务器"
+      },
+      "location": "路径",
+      "locationUnavailable": "本机没有可用路径",
+      "onDisk": "该类型在磁盘上已有的文件数",
+      "pending": "待写入 {{toWrite}} · 待删除 {{toDelete}}",
+      "nothingPending": "已同步 — 无需写入",
+      "readOnly": "约定未确认 — 只读，不会写入任何内容。",
+      "import": "导入到 Store"
+    },
+    "plan": {
+      "title": "写入预览",
+      "description": "下面是本次同步会改动的内容。确认后才会真正写入 agent 的配置文件。",
+      "inSync": "已完全同步 — 没有需要应用的内容",
+      "apply": "应用"
+    },
+    "items": {
+      "noStore": "初始化 Store 后即可管理条目。",
+      "all": "全部",
+      "empty": "还没有条目。",
+      "add": "新建条目",
+      "newTitle": "新建条目",
+      "editTitle": "编辑条目",
+      "editorHint": "直接编辑 frontmatter 与正文；保存后写入 Store。改名不被支持。",
+      "name": "名称",
+      "edit": "编辑",
+      "loadFailed": "加载条目失败。"
+    },
+    "kind": {
+      "skill": "Skill",
+      "rule": "Rule",
+      "command": "Command",
+      "subagent": "Subagent"
+    },
+    "help": {
+      "title": "帮助",
+      "open": "帮助",
+      "subtitle": "store 与 agent 磁盘文件是两件事，以及各页面的操作说明。",
+      "lines": [
+        "shaic 管理两类互不相同的东西：",
+        "  store        — 你添加的、作为唯一数据源的 skills / rules / commands / subagents / MCP servers；会被同步到每个 agent。",
+        "  agent files  — 某个 agent 磁盘上已有的配置（可能在 shaic 介入之前就存在）。CLI 的 'agents discover' 可列出；条目页的「导入」可把某一作用域拉进 store。",
+        "",
+        "Agent 状态",
+        "  每个 agent 一行，显示其在所有支持的作用域与 content/MCP 维度上的最差状态。",
+        "  「明细」= 进入 agent 详情   「内容差异」/「MCP 差异」= 写入前的预览",
+        "  「推送」/「拉取」同步 store；被密钥扫描拦截时会二次确认",
+        "  「初始化」= 设置向导   「刷新」= 重新拉取状态",
+        "",
+        "条目（skills / rules / commands / subagents）",
+        "  顶部筛选按类型过滤   「新建条目」= 新增   「编辑」= 修改   「删除」= 删除并立即同步",
+        "",
+        "写入预览（真正写入之前展示）",
+        "  「应用」= 按列出的改动写入   「取消」= 什么都不写",
+        "",
+        "Agent 详情",
+        "  按作用域（Global / Project）拆开所选 agent，每行同时展示 content 与 MCP 状态。",
+        "  「内容差异」/「MCP 差异」= 预览对应轴的改动   「导入到 Store」= 把该作用域磁盘文件拉进 store",
+        "",
+        "设置向导（首次运行，或 store 缺失时显示）",
+        "  填入 git remote 地址，「初始化」= 校验后 clone / init"
+      ]
+    },
+    "confirm": {
+      "deleteTitle": "删除条目",
+      "deleteBody": "确定删除 {{kind}} {{name}}，并同步到各 agent？",
+      "delete": "删除",
+      "importTitle": "导入到 Store",
+      "importBody": "把 {{label}} 本地磁盘上的文件导入 Store？（不会写入 agent 配置）",
+      "import": "导入",
+      "forceTitle": "密钥扫描已拦截",
+      "force": "仍然继续"
+    }
+  },
+  "claudeChat": {
+    "modelDefault": "默认模型",
+    "clear": "清空对话",
+    "empty": "发一条消息，开始和本机 Claude 对话。",
+    "placeholder": "输入消息，Enter 发送，Shift+Enter 换行",
+    "send": "发送",
+    "stop": "停止",
+    "thinking": "正在思考…",
+    "thought": "思考过程",
+    "hint": "使用本机安装的 claude CLI，多条消息之间保留上下文。",
+    "permissionLabel": "权限模式",
+    "permissionManual": "手动确认（每次询问）",
+    "permissionAcceptEdits": "自动接受编辑",
+    "permissionAuto": "自动判定（模型分类器）",
+    "permissionPlan": "计划模式",
+    "permissionDontAsk": "不询问（未预授权即拒绝）",
+    "permissionBypass": "跳过权限确认",
+    "toolsCount": "{{count}} 个工具",
+    "mcpServers": "MCP",
+    "mcp": "mcp",
+    "toolRunning": "运行中",
+    "toolError": "失败",
+    "toolStopped": "已停止",
+    "input": "输入",
+    "output": "输出",
+    "copy": "复制",
+    "copied": "已复制",
+    "copyFailed": "复制到剪贴板失败",
+    "turnDone": "完成",
+    "turnStopped": "已停止",
+    "turnFailed": "失败（{{subtype}}）",
+    "askTitle": "Claude 需要你的选择",
+    "askPermissionTitle": "Claude 请求权限",
+    "askCountdown": "{{seconds}} 秒后自动选择",
+    "askPermissionCountdown": "{{seconds}} 秒后自动拒绝",
+    "askRecommended": "推荐",
+    "askMultiHint": "可多选",
+    "askContinue": "继续",
+    "askAllow": "允许",
+    "askDeny": "拒绝",
+    "askPermissionBody": "Claude 想使用 {{tool}}。",
+    "askPermissionHint": "该工具请求在你的工作目录中执行。",
+    "askApplySuggestions": "应用 Claude 建议的权限设置",
+    "askApplySuggestionsHint": "这些变更随本次允许一并生效，可能影响整个会话或后续命令。",
+    "history": "历史记录",
+    "historyLoading": "正在加载会话…",
+    "historyEmpty": "该目录下没有已保存的会话。",
+    "historyError": "无法加载会话历史记录。",
+    "loadEarlierTurns": "继续加载…（还有 {{count}} 条）",
+    "anchors": "本对话中的提问",
+    "anchorGoTo": "跳转到第 {{index}} 条提问",
+    "cwdPlaceholder": "工作目录",
+    "cwdHint": "按 Enter 或点击别处生效；换目录会开始新对话。",
+    "modelSearch": "搜索模型…",
+    "modelLoading": "正在获取模型…",
+    "modelEmpty": "没有匹配的模型。",
+    "modelFetchFailed": "无法获取该供应商的模型列表，可以直接输入模型名。",
+    "modelHint": "从下一轮消息开始生效。",
+    "log": "CLI 日志",
+    "logTitle": "CLI 调用日志",
+    "logCount": "{{count}} 行",
+    "logClear": "清空",
+    "logEmpty": "还没有调用记录。",
+    "logDirSpawn": "实际执行的命令",
+    "logDirIn": "写入 CLI（stdin）",
+    "logDirOut": "CLI 输出（stdout）",
+    "logDirErr": "CLI 错误输出（stderr）",
+    "logDirSys": "本应用合成的事件",
+    "agents": "子 agent",
+    "agentUntitled": "未命名任务",
+    "agentRunning": "运行中",
+    "agentDone": "已完成",
+    "agentFailed": "失败",
+    "agentStopped": "已停止",
+    "agentMessages": "{{count}} 条消息"
+  },
+  "claudeHistory": {
+    "projectsTitle": "项目",
+    "projectsEmpty": "~/.claude/projects 下没有找到已保存的会话。",
+    "sessionsLoading": "正在加载会话…",
+    "sessionsEmpty": "该项目下没有会话。",
+    "refresh": "刷新",
+    "empty": "从左侧选一个会话开始查看。",
+    "sessionEmpty": "该会话没有可展示的内容。",
+    "viewNodes": "节点视图",
+    "viewFull": "完整记录",
+    "nodeUser": "我",
+    "nodeAssistant": "Claude",
+    "nodeTools": "{{count}} 次工具调用",
+    "nodeThoughts": "{{count}} 段思考",
+    "awaitingInput": "等待我输入",
+    "fork": "在此分叉",
+    "clone": "复制会话",
+    "viewFamily": "查看家族",
+    "export": "导出对话",
+    "exportConversation": "仅导出对话",
+    "exportWithTools": "导出对话 + 工具调用",
+    "exportFull": "导出完整详细对话",
+    "exportProject": "项目",
+    "exportSession": "会话",
+    "exportedAt": "导出时间",
+    "exportUser": "我",
+    "exportAssistant": "Claude",
+    "exportThinking": "思考",
+    "exportTool": "工具调用",
+    "exportInput": "输入",
+    "exportResult": "结果",
+    "exportNoResult": "没有保存结果。",
+    "exportDone": "对话已导出",
+    "exportFailed": "导出失败",
+    "cloneDescription": "把整段对话另存为一个新会话，原会话不会被改动。",
+    "forkDescription": "另存一个新会话，到这条回复为止，之后的内容不带过去；原会话不会被改动。",
+    "nameLabel": "名称",
+    "cancel": "取消",
+    "copyDone": "已创建会话",
+    "copyDoneBody": "复制自 {{title}}。",
+    "copySuffix": "（副本）",
+    "branchSuffix": "（分支）",
+    "forksHere": "从此处分叉：",
+    "origin_clone": "副本",
+    "origin_fork": "分支"
+  },
+  "claudeWorkflow": {
+    "title": "Claude 工作流",
+    "familiesTitle": "会话",
+    "sessions": "{{count}} 段会话",
+    "copies": "{{count}} 份副本",
+    "branches": "{{count}} 个分支",
+    "store": "关系存于 {{path}}",
+    "refresh": "刷新",
+    "loadFailed": "无法读取工作流，请检查数据目录是否可读。",
+    "familiesEmpty": "还没有克隆或分叉出来的会话。",
+    "pickFamily": "从左栏挑一段会话，画出从它派生出来的那些。",
+    "emptyHint": "在「Claude 历史」里克隆整段会话，或对某条回复点「在此分叉」，派生出的会话就会出现在这张画布上。",
+    "emptyFork": "还没有消息",
+    "emptyForkHint": "这份副本还没有自己的消息，与来源共有的部分画在它分叉出来的那条线上。",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "fit": "适应画布",
+    "you": "我",
+    "claude": "Claude",
+    "noQuestion": "（无提问）",
+    "noReply": "（无回复）",
+    "detailTitle": "这一轮",
+    "closeDetail": "关闭详情",
+    "inSessions": "出现在 {{count}} 段会话里",
+    "continuedBy": "从此处继续",
+    "branchedHere": "从此处分叉",
+    "andMore": "还有 {{count}} 段未显示"
+  },
   "notes": {
+    "title": "笔记",
+    "description": "左侧文件树、标签页编辑器与可拖拽面板构成的本地 Markdown 笔记工作区。",
     "loading": "正在加载笔记…",
     "loadFailed": "无法加载笔记，请检查数据目录是否可读。"
   },
@@ -182,9 +840,8 @@
     "appliesImmediately": "已打开的编辑器会立即更新。",
     "preview": "主题预览",
     "fontFamily": "字体",
-    "fontFamilyHint": "编辑器正文使用的字体，可输入搜索系统字体；留空则用内置等宽字体。",
-    "fontsDetected": "已检测到 {{count}} 个系统字体。",
-    "fontsLoading": "正在加载系统字体…",
+    "fontFamilyHint": "编辑器正文使用的字体，从本机已安装的字体中选择。",
+    "fontFamilyDefault": "默认（内置等宽字体）",
     "fontSize": "字号",
     "lineHeight": "行高",
     "lineHeightHint": "相对于字号，如 1.5 表示 1.5 倍行高。",
@@ -195,19 +852,782 @@
   },
   "projectPage": {
     "loading": "正在打开项目…",
-    "openFailed": "无法打开项目，请到「设置 → 项目」检查项目根目录。",
-    "notConfigured": "尚未配置项目。",
-    "notConfiguredHint": "请到「设置 → 项目」填写项目根目录，文件浏览器与预览都以此目录为根。"
+    "openFailed": "无法打开项目，请到「设置 → 项目」检查项目根目录。"
+  },
+  "projectGit": {
+    "activityTitle": "Git",
+    "commitActivityTitle": "提交",
+    "logTab": "日志",
+    "logTabBranch": "日志：{{branch}}",
+    "allBranches": "全部分支",
+    "groupByPrefix": "按前缀折叠分支",
+    "viewOptions": "显示选项",
+    "groupByDir": "按目录分组",
+    "showFilePath": "显示文件路径",
+    "consoleTab": "控制台",
+    "workingTreeTab": "工作树",
+    "workingTree": "工作树",
+    "refresh": "刷新",
+    "closePanel": "隐藏 Git 窗口",
+    "closeView": "关闭",
+    "clearConsole": "清空控制台",
+    "consoleEmpty": "此页面运行的 Git 命令会显示在这里。",
+    "noCommits": "还没有提交。",
+    "endOfHistory": "已经到底了。",
+    "statusFailed": "无法读取工作树：{{message}}",
+    "noRepo": "没有打开 Git 仓库。请在「设置 → 项目」里填写工作副本路径。",
+    "fileOpFailed": "文件操作失败：{{message}}",
+    "commitNoChanges": "请至少勾选一个要提交的文件。",
+    "commitConflicts": "请先解决合并冲突。",
+    "commitPartialWhole": "暂时不支持按块暂存 —— 已将 {{path}} 整个文件暂存。",
+    "commitHistory": "提交消息历史",
+    "commitHistoryEmpty": "没有最近的消息",
+    "commitHint": "{{mod}}+Enter 提交",
+    "headMessageFailed": "无法读取上一次的提交消息：{{message}}",
+    "editorUnavailable": "没有可用的编辑器打开该文件。",
+    "selectAll": "全部包含",
+    "deselectAll": "全部排除",
+    "partial": "部分",
+    "partialHint": "只提交这个文件已暂存的部分。",
+    "menu": {
+      "branch": {
+        "createFrom": "从 '{{name}}' 新建分支…",
+        "checkoutAndRebase": "签出并变基到 '{{name}}'",
+        "checkoutAndUpdate": "签出并更新",
+        "update": "更新",
+        "compare": "与 '{{name}}' 比较…",
+        "compareWorktree": "显示与工作树的差异",
+        "copyRevision": "复制修订号",
+        "newTag": "新建标记…",
+        "newWorktree": "从 '{{name}}' 新建工作树…",
+        "checkoutTag": "检出标记",
+        "newBranchFromTag": "从标记新建分支…",
+        "deleteTag": "删除标记"
+      },
+      "commit": {
+        "checkout": "签出修订（分离头指针）",
+        "resetTo": "将当前分支重置到此处…",
+        "revert": "还原提交",
+        "undo": "撤消提交",
+        "reword": "编辑提交消息…",
+        "fixup": "Fixup 提交…",
+        "squashInto": "压缩到…",
+        "drop": "删除提交",
+        "dropMany": "删除 {{count}} 个提交",
+        "interactiveRebase": "从此处进行交互式变基…",
+        "pushUpToHere": "推送此前所有提交",
+        "newBranch": "在此处新建分支…",
+        "newTag": "在此处新建标记…",
+        "goToParent": "转到父提交",
+        "goToChild": "转到子提交",
+        "copyRevision": "复制修订号",
+        "copyMessage": "复制提交消息",
+        "cherryPick": "优选提交",
+        "cherryPickMany": "优选 {{count}} 个提交",
+        "showRepoAtRevision": "在修订版中显示仓库",
+        "compareWithLocal": "与本地比较"
+      },
+      "file": {
+        "diff": "显示差异",
+        "diffNewTab": "在新标签页中显示差异",
+        "historyFromRev": "迄今为止的历史记录",
+        "history": "文件历史",
+        "changesFromParent": "显示与父提交的差异",
+        "compareWorktree": "与工作树比较",
+        "compareWithLocal": "与本地比较",
+        "comparePrevWithLocal": "与本地比较（上一版本）",
+        "editSource": "编辑源文件",
+        "openRepoVersion": "打开仓库版本",
+        "restore": "还原所选更改",
+        "getFromRevision": "从修订中获取",
+        "cherryPick": "优选所选更改",
+        "extractToCommit": "提取到单独的提交…",
+        "dropChanges": "删除所选更改",
+        "createPatch": "创建补丁…",
+        "copyPath": "复制路径"
+      }
+    },
+    "compare": {
+      "empty": "这两个修订之间没有差异。",
+      "pickFile": "选择一个有变更的文件查看差异。"
+    },
+    "revisionFile": {
+      "readOnly": "只读"
+    },
+    "revisionTree": {
+      "title": "修订版中的仓库",
+      "fileCount": "{{count}} 个文件",
+      "empty": "该修订没有任何文件。"
+    },
+    "fileHistory": {
+      "tabTitle": "历史：{{name}}",
+      "from": "自 {{oid}}",
+      "count": "{{count}} 个提交",
+      "empty": "没有提交改动过该文件。",
+      "truncated": "仅显示最新的 {{count}} 个提交。"
+    },
+    "dialog": {
+      "cancel": "取消",
+      "confirm": "确定",
+      "required": "请输入内容。",
+      "invalidBranch": "请输入 Git 接受的分支名。",
+      "invalidTag": "请输入 Git 接受的标记名。",
+      "branchFrom": "从 '{{name}}' 创建分支。",
+      "tagTitle": "新建标记",
+      "tagDescription": "在 {{oid}} 处创建标记。",
+      "tagLabel": "名称",
+      "tagPlaceholder": "v1.0.0",
+      "tagSubmit": "创建标记",
+      "worktreeFolder": "目录",
+      "worktreeFolderHint": "目录不存在时会自动创建。",
+      "worktreeBrowse": "浏览",
+      "worktreeCreate": "创建工作树",
+      "worktreeFailed": "无法创建工作树：{{error}}",
+      "reword": {
+        "title": "编辑提交消息",
+        "label": "消息",
+        "submit": "更新消息"
+      },
+      "reset": {
+        "title": "将当前分支重置到 {{oid}}",
+        "description": "分支会移动到该提交。请选择索引和工作树的处理方式。",
+        "soft": "Soft",
+        "softHint": "保留索引和工作树 —— 改动会变成已暂存。",
+        "mixed": "Mixed",
+        "mixedHint": "保留工作树 —— 改动会变成未暂存。",
+        "hard": "Hard",
+        "hardHint": "丢弃索引和工作树中的所有改动。",
+        "cancel": "取消"
+      },
+      "fixup": {
+        "title": "将 '{{summary}}' Fixup 到…",
+        "description": "选择要并入的提交。中间的提交会保留。",
+        "empty": "没有更早的提交可供并入。",
+        "cancel": "取消"
+      },
+      "squash": {
+        "title": "将 '{{summary}}' 压缩到…",
+        "description": "选择要合并到的提交。中间的提交会保留。",
+        "empty": "没有更早的提交可供合并。",
+        "cancel": "取消"
+      },
+      "extract": {
+        "title": "提取到单独的提交",
+        "description": "将 {{path}} 的更改从所选提交中提取出来，单独形成一个提交。",
+        "label": "提交消息",
+        "submit": "提取"
+      }
+    },
+    "confirm": {
+      "deleteBranch": {
+        "title": "删除分支 '{{name}}'？",
+        "description": "分支将被删除，只有它能到达的提交会变成不可达。",
+        "confirm": "删除"
+      },
+      "deleteTag": {
+        "title": "删除标记 '{{name}}'？",
+        "description": "标记会从仓库中移除，它指向的提交仍然保留。",
+        "confirm": "删除"
+      },
+      "undoCommit": {
+        "title": "撤消提交 {{oid}}？",
+        "description": "提交会从分支上移除，改动保留在工作树中且不暂存。只有 HEAD 处的提交可以撤消。",
+        "confirm": "撤消提交"
+      },
+      "dropCommit": {
+        "title": "删除所选提交？",
+        "description": "这些提交会从当前分支移除，其上的所有提交都会被重写。此操作无法撤消。",
+        "confirm": "删除"
+      },
+      "restoreFile": {
+        "title": "还原该文件的更改？",
+        "description": "工作副本中的该文件会被替换为所选修订的版本，未提交的改动会丢失。",
+        "confirm": "还原"
+      },
+      "dropChanges": {
+        "title": "删除该文件的更改？",
+        "description": "该文件在所选提交中的更改会被移除，其上方的所有提交都会被重写。此操作无法撤消。",
+        "confirm": "删除"
+      }
+    },
+    "error": {
+      "currentBranch": "这是当前分支。",
+      "remoteBranch": "远端分支不支持此操作。",
+      "noUpstream": "该分支没有上游分支。",
+      "heldByWorktree": "该分支已在某个工作树中签出。",
+      "noCurrentBranch": "当前没有签出的分支。",
+      "noParentCommit": "该提交没有父提交。",
+      "noChildCommit": "列表中没有可见的子提交。",
+      "notInCurrentHistory": "该提交不在当前分支的历史中。",
+      "rewriteCurrentBranch": "请在日志中显示当前分支后再重写提交。",
+      "onlyHead": "只有 HEAD 处的提交可以撤消。",
+      "noMergeInRange": "所选范围内包含合并提交。",
+      "nothingAbove": "这是最新的提交，其上方没有可进行交互式变基的提交。",
+      "onlyCurrentBranchPush": "只能推送当前分支。",
+      "notAtHead": "当前分支还没有提交。"
+    },
+    "toast": {
+      "branchCreated": "已创建分支 {{name}}。",
+      "branchRenamed": "已重命名为 {{name}}。",
+      "branchDeleted": "已删除分支 {{name}}。",
+      "branchUpdated": "已更新分支 {{name}}。",
+      "rebaseConflicts": "已签出 {{name}}，变基在冲突处停止。",
+      "tagCreated": "已创建标记 {{name}}。",
+      "tagDeleted": "已删除标记 {{name}}。",
+      "revisionCopied": "已复制修订号。",
+      "commitMessageCopied": "已复制提交消息。",
+      "reset": "已将分支重置到 {{oid}}。",
+      "reworded": "已更新提交消息。",
+      "rewritten": "历史已重写。",
+      "restored": "已还原文件。",
+      "pathCopied": "已复制路径。",
+      "patchSaved": "已保存补丁。",
+      "patchFailed": "无法保存补丁"
+    },
+    "group": {
+      "conflicts": "合并冲突",
+      "unversioned": "未版本控制的文件"
+    },
+    "status": {
+      "modified": "已修改",
+      "added": "新增",
+      "deleted": "已删除",
+      "renamed": "重命名",
+      "untracked": "未版本控制",
+      "conflicted": "冲突",
+      "ignored": "已忽略"
+    }
   },
   "filePreview": {
     "title": "文件预览",
-    "treeTitle": "项目文件",
+    "treeTitle": "项目",
     "treeLoading": "正在读取项目…",
-    "treeEmpty": "项目中没有可预览的文件。",
-    "treeFailed": "无法读取项目文件，请到「设置 → 项目」检查项目根目录。",
+    "treeEmpty": "项目目录是空的。",
+    "treeFailed": "无法读取项目，请到「设置 → 项目」检查项目根目录。",
     "empty": "从左侧选择一个文件开始预览。",
     "reload": "重新读取",
     "close": "关闭预览",
     "tooLarge": "文件过大，无法预览。"
+  },
+  "gitRepo": {
+    "windowTitle": "Git 仓库",
+    "welcomeTitle": "打开仓库",
+    "welcomeHint": "选择一个本地仓库，浏览它的分支、提交图、工作区与 Diff。每个仓库一个独立窗口。",
+    "openedRepo": "已打开仓库"
+  },
+  "servers": {
+    "title": "服务器管理",
+    "subtitle": "在本机保存 SSH 服务器档案；凭据存入系统凭据管理器，私钥只记录路径。",
+    "empty": {
+      "title": "还没有服务器",
+      "description": "新增一台服务器后，就可以在服务器管理窗口里打开终端与 XFTP。所有配置只保存在本机。",
+      "action": "新增服务器"
+    },
+    "action": {
+      "create": "新增服务器",
+      "open": "打开",
+      "edit": "编辑",
+      "duplicate": "复制为新档案",
+      "delete": "删除",
+      "forgetHostKey": "忘记主机密钥"
+    },
+    "form": {
+      "name": "名称",
+      "host": "主机",
+      "port": "端口",
+      "username": "用户名",
+      "authKind": "认证方式",
+      "password": "密码",
+      "privateKey": "私钥",
+      "passphrase": "私钥口令",
+      "testHint": "凭据以明文保存在 servers.json 中，可在此处显示。",
+      "showSecret": "显示凭据",
+      "hideSecret": "隐藏凭据",
+      "save": "保存",
+      "cancel": "取消",
+      "validation": {
+        "nameRequired": "请输入名称。",
+        "hostRequired": "请输入主机地址。",
+        "portInvalid": "端口必须在 1 到 65535 之间。",
+        "usernameRequired": "请输入用户名。",
+        "passwordRequired": "请输入密码。",
+        "privateKeyRequired": "请粘贴或选择私钥内容。"
+      }
+    },
+    "hostKey": {
+      "title": "确认主机密钥",
+      "fingerprint": "SHA256 指纹",
+      "trust": "信任并连接",
+      "mismatch": "主机密钥与已信任的记录不一致。若确认变更是预期的，请先忘记已保存的密钥，再重新连接。",
+      "forgetHint": "忘记已保存的密钥后，下次连接会重新请求确认。"
+    },
+    "window": {
+      "title": "服务器管理",
+      "empty": {
+        "title": "还没有打开服务器",
+        "description": "从服务器列表里打开一台服务器，即可开始终端与 XFTP 会话。"
+      },
+      "tab": {
+        "terminal": "终端",
+        "sftp": "XFTP",
+        "metrics": "监控"
+      },
+      "reconnect": "重新连接",
+      "disconnected": "连接已断开"
+    },
+    "connection": {
+      "idle": "未连接",
+      "connecting": "连接中",
+      "ready": "已连接",
+      "failed": "连接失败"
+    },
+    "metrics": {
+      "waiting": "等待数据…",
+      "notConnected": "连接服务器后开始采集指标。",
+      "connecting": "正在连接…",
+      "latency": "延迟",
+      "cpu": "CPU",
+      "user": "用户",
+      "system": "系统",
+      "memory": "内存",
+      "disk": "磁盘",
+      "network": "网络",
+      "load": "负载",
+      "uptime": "运行时间",
+      "processes": "进程",
+      "threads": "线程",
+      "availableMemory": "可用内存",
+      "swap": "Swap",
+      "diskIo": "磁盘 I/O",
+      "iowait": "I/O 等待",
+      "steal": "Steal",
+      "inodeUsage": "Inode 使用率",
+      "download": "下行",
+      "upload": "上行",
+      "read": "读",
+      "write": "写",
+      "cpuChart": "CPU 使用率",
+      "memoryChart": "内存使用率",
+      "diskChart": "磁盘 I/O",
+      "networkChart": "网络"
+    },
+    "sftp": {
+      "local": "本地",
+      "remote": "远程",
+      "upload": "上传",
+      "download": "下载",
+      "newFolder": "新建目录",
+      "rename": "重命名",
+      "delete": "删除",
+      "refresh": "刷新",
+      "hidden": {
+        "show": "显示隐藏文件",
+        "hide": "隐藏隐藏文件"
+      },
+      "conflict": {
+        "title": "目标文件已存在",
+        "overwrite": "覆盖",
+        "skip": "跳过",
+        "rename": "保留两者",
+        "applyAll": "全部应用"
+      }
+    },
+    "transfer": {
+      "pending": "等待中",
+      "running": "传输中",
+      "paused": "已暂停",
+      "done": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "clearFinished": "清空已完成"
+    },
+    "error": {
+      "hostKeyUnknown": "尚未信任这台主机，请确认指纹后继续。",
+      "hostKeyMismatch": "主机密钥已变化，请先忘记已保存的密钥再连接。",
+      "authFailed": "服务器拒绝了这组凭据。",
+      "connectTimeout": "连接超时。",
+      "fileTooLarge": "文件超出此操作的大小上限。"
+    }
+  },
+  "frp": {
+    "title": "FRP 控制台",
+    "subtitle": "每个服务器档案各运行一个本地 frpc 进程，自动生成配置并实时回显状态与日志。",
+    "tab": {
+      "overview": "概览",
+      "servers": "服务器",
+      "tunnels": "隧道",
+      "logs": "日志",
+      "runtime": "运行时"
+    },
+    "common": {
+      "refresh": "刷新",
+      "loading": "加载中…",
+      "retry": "重试",
+      "save": "保存",
+      "cancel": "取消",
+      "delete": "删除",
+      "edit": "编辑",
+      "create": "新建",
+      "confirm": "确认",
+      "close": "关闭",
+      "copy": "复制",
+      "copied": "已复制",
+      "copyFailed": "复制到剪贴板失败。",
+      "start": "启动",
+      "stop": "停止",
+      "restart": "重启",
+      "enabled": "已开启",
+      "disabled": "已关闭"
+    },
+    "shell": {
+      "summary": "{{profiles}} 个服务器 · {{running}} 个运行中 · {{runtimes}} 个运行时"
+    },
+    "status": {
+      "running": "运行中",
+      "starting": "启动中",
+      "reconnecting": "重连中",
+      "stopping": "停止中",
+      "stopped": "已停止",
+      "failed": "失败",
+      "online": "在线",
+      "offline": "离线",
+      "error": "错误",
+      "unknown": "未知"
+    },
+    "overview": {
+      "statConnected": "已连接",
+      "statTunnels": "在线隧道",
+      "statErrors": "失败",
+      "statRuntime": "推荐运行时",
+      "startAll": "全部启动",
+      "stopAll": "全部停止",
+      "failedHeading": "部分服务器未能启动",
+      "retry": "重试",
+      "empty": {
+        "title": "还没有服务器",
+        "description": "先添加服务器档案，再启动 frpc。"
+      },
+      "noRuntime": {
+        "title": "先添加 frpc 运行时",
+        "description": "选择本机已有的 frpc 可执行文件即可，不需要联网下载。",
+        "action": "选择运行时"
+      },
+      "activeConnections": "活动连接",
+      "allServers": "服务器一览",
+      "pid": "PID",
+      "batchFailed": "{{name}}：{{error}}"
+    },
+    "servers": {
+      "title": "服务器",
+      "search": {
+        "placeholder": "按名称或地址搜索"
+      },
+      "empty": {
+        "title": "还没有服务器档案",
+        "description": "一个档案对应一个服务器地址、它的 Token，以及要运行的运行时。",
+        "action": "新建服务器",
+        "noRuntime": "请先添加 frpc 运行时，再添加服务器。"
+      },
+      "action": {
+        "create": "新建服务器",
+        "moveUp": "上移",
+        "moveDown": "下移",
+        "duplicate": "复制",
+        "details": "详情"
+      },
+      "col": {
+        "name": "名称",
+        "address": "地址",
+        "runtime": "运行时",
+        "status": "状态",
+        "latency": "延迟",
+        "tunnels": "隧道",
+        "lastError": "最近错误",
+        "actions": "操作"
+      },
+      "list": {
+        "count": "{{count}} 个服务器",
+        "noResults": "没有匹配的服务器。"
+      },
+      "runtime": {
+        "recommended": "自动选择最新",
+        "pinned": "指定版本",
+        "missing": "运行时缺失"
+      },
+      "notRunning": "未运行",
+      "restartToApply": "配置已修改，重启后生效。",
+      "copySuffix": "副本",
+      "configRevision": "配置修订 {{revision}}",
+      "badgeRestart": "需重启",
+      "duplicated": "已复制服务器。",
+      "deleted": "已删除服务器。",
+      "reorderFailed": "无法保存新顺序。"
+    },
+    "serverForm": {
+      "name": "名称",
+      "serverAddr": "服务端地址",
+      "serverPort": "端口",
+      "token": "Token",
+      "runtimePolicy": "运行时",
+      "runtime": "运行时版本",
+      "runtimeRecommended": "自动选择最新",
+      "runtimePinned": "指定版本",
+      "runtimeEmpty": "尚未导入运行时。",
+      "runtimePlaceholder": "选择版本",
+      "reconnect": "自动重连",
+      "note": "备注",
+      "showToken": "显示 Token",
+      "hideToken": "隐藏 Token",
+      "titleCreate": "添加服务器",
+      "titleEdit": "编辑服务器",
+      "created": "服务器已创建。",
+      "updated": "服务器已更新。",
+      "validation": {
+        "name": "名称需为 1–80 个字符。",
+        "nameTaken": "已有其他服务器使用该名称。",
+        "serverAddr": "请填写主机名，不要带 http:// 或 https://。",
+        "serverPort": "端口需在 1–65535 之间。",
+        "runtime": "请选择运行时版本。"
+      }
+    },
+    "import": {
+      "action": "导入配置",
+      "title": "导入 frpc 配置",
+      "description": "从现有的 frpc.toml 新建一个服务器档案及其隧道。",
+      "source": {
+        "text": "粘贴 TOML",
+        "file": "选择文件"
+      },
+      "placeholder": "serverAddr = \"frps.example.com\"\nserverPort = 7000\nauth.token = \"shared-secret\"\n\n[[proxies]]\nname = \"web\"\ntype = \"tcp\"\nlocalIP = \"127.0.0.1\"\nlocalPort = 8080\nremotePort = 8080",
+      "fileFilter": "frpc 配置",
+      "chooseFile": "选择文件",
+      "noFile": "未选择文件",
+      "preview": "解析预览",
+      "previewing": "解析中…",
+      "previewTitle": "解析结果",
+      "tokenDetected": "已检测到 Token",
+      "tokenMissing": "未检测到 Token",
+      "applyToken": "应用配置中的 Token",
+      "noTunnels": "该配置中没有隧道。",
+      "warnings": "警告",
+      "name": "档案名称",
+      "defaultName": "导入的 {{addr}}",
+      "runtimePolicy": "运行时",
+      "runtime": "运行时版本",
+      "runtimeEmpty": "尚未导入运行时。",
+      "runtimePlaceholder": "选择版本",
+      "notStarted": "导入只会新建一个服务器，不会自动启动；导入后可继续用表单编辑。",
+      "confirm": "导入",
+      "importing": "导入中…",
+      "success": "已导入 {{count}} 条隧道。",
+      "openRuntime": "前往运行时",
+      "col": {
+        "name": "名称",
+        "type": "类型",
+        "local": "本地地址",
+        "public": "公网地址",
+        "enabled": "启用"
+      },
+      "validation": {
+        "name": "名称需为 1–80 个字符。",
+        "runtime": "请选择运行时版本。",
+        "source": "无法读取该配置，请检查 TOML 内容或文件路径。"
+      }
+    },
+    "serverDetail": {
+      "title": "服务器详情",
+      "basic": "基本信息",
+      "configPreview": "配置预览",
+      "configLoading": "正在加载配置…",
+      "tunnels": "隧道",
+      "runtime": "运行时",
+      "lastError": "最近错误",
+      "restartToApply": "配置已修改，重启后生效。",
+      "copyConfig": "复制配置",
+      "viewLogs": "查看日志",
+      "verify": "校验配置",
+      "verifying": "正在校验…",
+      "verifyValid": "配置校验通过",
+      "verifyInvalid": "配置校验失败",
+      "rawOutput": "frpc 输出",
+      "noTunnels": "该服务器还没有隧道。"
+    },
+    "delete": {
+      "title": "删除服务器",
+      "description": "删除会停止 frpc，并移除该服务器的隧道、生成的配置和日志，且无法撤销。"
+    },
+    "tunnels": {
+      "title": "隧道",
+      "subtitle": "把本地端口转发出去，或通过服务器暴露本地服务。",
+      "allServers": "全部服务器",
+      "search": {
+        "placeholder": "按名称或地址搜索"
+      },
+      "col": {
+        "name": "名称",
+        "server": "服务器",
+        "type": "类型",
+        "local": "本地地址",
+        "public": "公网地址",
+        "status": "状态",
+        "enabled": "启用",
+        "actions": "操作"
+      },
+      "empty": {
+        "title": "还没有隧道",
+        "description": "添加隧道来转发本地端口或发布本地服务。",
+        "noServer": "请先添加服务器，再新建隧道。"
+      },
+      "action": {
+        "create": "新建隧道"
+      },
+      "list": {
+        "count": "{{count}} 条隧道",
+        "noResults": "没有符合筛选条件的隧道。"
+      },
+      "delete": {
+        "title": "删除隧道",
+        "description": "这会从服务器配置中移除该隧道，且无法撤销。"
+      },
+      "deleted": "隧道已删除。",
+      "updateFailed": "无法更新隧道。"
+    },
+    "tunnelForm": {
+      "name": "名称",
+      "profile": "所属服务器",
+      "profilePlaceholder": "选择服务器",
+      "type": "类型",
+      "localIp": "本地 IP",
+      "localPort": "本地端口",
+      "bindIp": "绑定地址",
+      "bindPort": "绑定端口",
+      "remotePort": "远程端口",
+      "customDomains": "自定义域名",
+      "subdomain": "子域名",
+      "locations": "路径前缀",
+      "secretKey": "密钥",
+      "role": "角色",
+      "serverRole": "服务端",
+      "visitorRole": "访问端",
+      "serverName": "服务名",
+      "enabled": "启用",
+      "listHint": "每行一个或用逗号分隔。",
+      "showSecret": "显示密钥",
+      "hideSecret": "隐藏密钥",
+      "titleCreate": "新建隧道",
+      "titleEdit": "编辑隧道",
+      "created": "隧道已创建。",
+      "updated": "隧道已更新。",
+      "validation": {
+        "name": "名称需为 1–80 个字符。",
+        "nameTaken": "该服务器下已有同名隧道。",
+        "profile": "请选择所属服务器。",
+        "localIp": "请填写有效的本地地址。",
+        "localPort": "端口需在 1–65535 之间。",
+        "remotePort": "远程端口需在 1–65535 之间。",
+        "domains": "请至少填写一个域名或一个子域名。",
+        "secretKey": "请填写密钥。",
+        "serverName": "访问端必须填写服务名。"
+      }
+    },
+    "tunnel": {
+      "publicAddress": "公网地址",
+      "noPublicAddress": "未暴露",
+      "restartToApply": "配置已修改，重启后生效。",
+      "enable": "启用",
+      "disable": "禁用"
+    },
+    "logs": {
+      "title": "日志",
+      "filter": {
+        "server": "服务器",
+        "level": "级别",
+        "all": "全部"
+      },
+      "search": {
+        "placeholder": "搜索日志内容"
+      },
+      "pause": "暂停",
+      "resume": "继续",
+      "clear": "清空",
+      "openDir": "打开日志目录",
+      "openDirFailed": "打开日志目录失败。",
+      "empty": "还没有日志。",
+      "noMatch": "没有匹配的日志行。",
+      "autoScroll": "自动跟随",
+      "level": {
+        "trace": "TRACE",
+        "debug": "DEBUG",
+        "info": "INFO",
+        "warn": "WARN",
+        "error": "ERROR"
+      }
+    },
+    "runtime": {
+      "title": "运行时",
+      "subtitle": "只使用本机已有的 frpc 可执行文件，不会联网下载。",
+      "empty": {
+        "title": "还没有导入运行时",
+        "description": "选择本机已有的 frpc.exe 导入即可，控制台直接运行它，不需要联网。"
+      },
+      "action": {
+        "import": "导入 frpc",
+        "rescan": "重新扫描",
+        "deepScan": "深度扫描"
+      },
+      "col": {
+        "version": "版本",
+        "source": "来源",
+        "platform": "平台",
+        "size": "大小",
+        "usage": "引用档案",
+        "added": "添加时间",
+        "actions": "操作"
+      },
+      "source": {
+        "path": "PATH",
+        "common": "常见安装目录",
+        "deep": "深度扫描"
+      },
+      "inUseBy": "被 {{count}} 个服务器引用",
+      "inUse": "使用中",
+      "runningInUse": "有正在运行的 frpc 进程使用该运行时。",
+      "delete": "删除",
+      "deleteTitle": "删除运行时",
+      "deleteDescription": "只删除记录，外部 frpc 文件仍保留在磁盘上。",
+      "recheck": "重新探测",
+      "alreadyImported": "已导入",
+      "importOne": "导入",
+      "imported": "已导入 {{version}}。",
+      "rechecked": "已探测 {{version}}。",
+      "deleted": "运行时记录已删除。",
+      "scanFailed": "扫描失败。",
+      "discovered": "本机扫描结果",
+      "chooseFile": "选择文件",
+      "noFile": "未选择文件",
+      "scanHint": "扫描 PATH 与常见安装目录；深度扫描还会遍历用户目录。",
+      "noneFound": "没有找到 frpc 可执行文件。",
+      "unknownVersion": "未知版本",
+      "probe": {
+        "title": "探测结果",
+        "valid": "这个可执行文件可用。",
+        "invalid": "这个文件不是可用的 frpc 可执行文件。",
+        "version": "版本",
+        "platform": "平台",
+        "architecture": "架构",
+        "error": "错误"
+      }
+    },
+    "error": {
+      "notFound": "目标对象已不存在。",
+      "invalidInput": "输入内容不合法。",
+      "conflict": "操作与当前状态冲突。",
+      "runtimeMissing": "没有可用的 frpc 运行时。",
+      "runtimeInUse": "该运行时被档案引用或正在运行。",
+      "configInvalid": "frpc 拒绝了生成的配置。",
+      "spawnFailed": "frpc 启动失败。",
+      "notImplemented": "该功能尚未接入。",
+      "internal": "FRP 引擎内部错误。"
+    }
   }
 }

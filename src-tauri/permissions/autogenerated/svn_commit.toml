@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-commit"
+description = "Enables the svn_commit command without any pre-configured scope."
+commands.allow = ["svn_commit"]
+
+[[permission]]
+identifier = "deny-svn-commit"
+description = "Denies the svn_commit command without any pre-configured scope."
+commands.deny = ["svn_commit"]

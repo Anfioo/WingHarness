@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-unversioned-files"
+description = "Enables the read_unversioned_files command without any pre-configured scope."
+commands.allow = ["read_unversioned_files"]
+
+[[permission]]
+identifier = "deny-read-unversioned-files"
+description = "Denies the read_unversioned_files command without any pre-configured scope."
+commands.deny = ["read_unversioned_files"]

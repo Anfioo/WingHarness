@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-api-import-apply"
+description = "Enables the api_import_apply command without any pre-configured scope."
+commands.allow = ["api_import_apply"]
+
+[[permission]]
+identifier = "deny-api-import-apply"
+description = "Denies the api_import_apply command without any pre-configured scope."
+commands.deny = ["api_import_apply"]

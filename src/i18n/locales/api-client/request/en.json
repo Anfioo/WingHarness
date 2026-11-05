@@ -1,0 +1,92 @@
+{
+  "title": "Request",
+  "empty": {
+    "title": "No request selected",
+    "description": "Pick a request from the tree to edit and send it."
+  },
+  "send": "Send",
+  "sendShortcut": "Send (Ctrl+Enter)",
+  "resolvedUrl": "Sends to: {{url}}",
+  "urlMissing": "Undefined variables: {{names}}",
+  "urlPlaceholder": "https://api.example.com/v1/users",
+  "variables": {
+    "hint": "Variables here override the active environment's; use them for path parameters such as petId.",
+    "used": "Variables used by this request",
+    "none": "This request uses no variables.",
+    "source": {
+      "request": "request",
+      "environment": "environment",
+      "undefined": "undefined"
+    },
+    "addUndefined": "Add {{name}} as a request variable"
+  },
+  "method": {
+    "label": "Request method",
+    "search": "Search methods",
+    "custom": "Use “{{value}}”",
+    "empty": "No matching method"
+  },
+  "save": {
+    "dirty": "Unsaved changes",
+    "saving": "Saving…"
+  },
+  "settings": {
+    "label": "Request settings",
+    "timeout": "Timeout (ms)",
+    "timeoutPlaceholder": "30000",
+    "timeoutHint": "Leave empty to use the default of 30 seconds.",
+    "followRedirects": "Follow redirects",
+    "followRedirectsHint": "When off, a 3xx response is returned as-is.",
+    "reset": "Reset to defaults"
+  },
+  "errors": {
+    "missingVariables": "Fill in these variables first: {{names}}"
+  },
+  "keyValue": {
+    "key": "Key",
+    "value": "Value",
+    "add": "Add row",
+    "empty": "No rows yet",
+    "enable": "Enable {{name}}",
+    "remove": "Remove {{name}}"
+  },
+  "body": {
+    "label": "Body type",
+    "kind": {
+      "json": "JSON",
+      "form": "Form (urlencoded)",
+      "multipart": "Multipart",
+      "raw": "Raw"
+    },
+    "jsonPlaceholder": "{\n  \"key\": \"value\"\n}",
+    "rawPlaceholder": "Raw request body",
+    "contentType": "Content type",
+    "contentTypePlaceholder": "text/plain",
+    "keyPlaceholder": "Field",
+    "valuePlaceholder": "Value",
+    "addField": "Add field",
+    "file": "Choose file",
+    "fileHint": "Name the field first",
+    "clearFile": "Clear file"
+  },
+  "auth": {
+    "label": "Auth type",
+    "kind": {
+      "bearer": "Bearer token",
+      "basic": "Basic auth",
+      "apiKey": "API key"
+    },
+    "token": "Token",
+    "tokenPlaceholder": "Paste token",
+    "username": "Username",
+    "usernamePlaceholder": "Username",
+    "password": "Password",
+    "passwordPlaceholder": "Password",
+    "apiKeyName": "Header name",
+    "apiKeyNamePlaceholder": "X-API-Key",
+    "apiKeyValue": "Header value",
+    "apiKeyValuePlaceholder": "Key value",
+    "apiKeyNote": "The API key is sent as a request header.",
+    "warning": "Values entered here are stored in plain text inside the request JSON — do not use this for shared workspaces."
+  }
+}

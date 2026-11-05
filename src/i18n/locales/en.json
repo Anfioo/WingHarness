@@ -1,7 +1,6 @@
 {
   "app": {
-    "title": "WingHarness",
-    "subtitle": "Desktop Template"
+    "title": "WingHarness"
   },
   "about": {
     "title": "About",
@@ -15,63 +14,22 @@
     "github": "GitHub",
     "blog": "Blog",
     "email": "Email",
-    "viewRepo": "View Repository"
-  },
-  "start": {
-    "title": "WingHarness",
-    "subtitle": "A blank Tauri desktop template. Pick a page from the sidebar, or start with one of these.",
-    "shortcuts": {
-      "project": {
-        "title": "Project",
-        "description": "Browse and edit the files under the workspace root."
-      },
-      "terminal": {
-        "title": "Terminal",
-        "description": "Run an interactive shell inside the window."
-      },
-      "notes": {
-        "title": "Notes",
-        "description": "Keep Markdown notes in the data directory."
-      },
-      "filePreview": {
-        "title": "File Preview",
-        "description": "Read documents, images and archives without writing back."
-      }
-    }
-  },
-  "routes": {
-    "group": "Navigation",
-    "start": {
-      "title": "Start",
-      "scope": "Template home",
-      "description": "The template's landing page: pick a page from the sidebar or start with one of the shortcuts."
-    },
-    "localTerminal": {
-      "title": "Terminal",
-      "scope": "Local PTY / cmd.exe",
-      "description": "Open a Windows command line inside the app and run interactive commands against it."
-    },
-    "notes": {
-      "title": "Notes",
-      "scope": "Markdown in the data directory",
-      "description": "Keep each meeting, task or idea as a Markdown file: a file tree, a tabbed editor and a preview, written straight to the notes folder in the data directory."
-    },
-    "filePreview": {
-      "title": "File Preview",
-      "scope": "Project root / read-only",
-      "description": "A read-only preview of the files under the project root: Word, Excel, PowerPoint, PDF, images, archives, audio and video are all parsed here, the file tree loads one level at a time, and nothing is written back to disk."
-    },
-    "project": {
-      "title": "Project",
-      "scope": "Project root",
-      "description": "Open the root configured in Settings → Project with the same editor the notes page mounts: directories load one level at a time, and files can be edited and written back to disk."
-    }
+    "viewRepo": "View Repository",
+    "thirdParty": "Third-party licenses",
+    "licensesTitle": "Third-party licenses",
+    "licensesDescription": "WingHarness is distributed under GPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
+    "licenseSources": "Source projects",
+    "licenseNotices": "Full notices",
+    "licenseOpen": "Open {{name}}",
+    "licenseBundled": "Bundled libraries and their licenses are listed in the full notices. The license texts ship in the licenses directory."
   },
   "theme": {
     "toggle": "Toggle theme"
   },
   "language": {
-    "toggle": "Switch language"
+    "toggle": "Switch language",
+    "en": "English",
+    "zh": "中文"
   },
   "windowMenu": {
     "copy": "Copy",
@@ -85,7 +43,38 @@
   "tray": {
     "show": "Show Window",
     "settings": "Settings",
-    "quit": "Quit"
+    "clash": "Clash",
+    "frp": "FRP",
+    "quit": "Quit",
+    "clashPanel": {
+      "core": "Core",
+      "on": "On",
+      "off": "Off",
+      "starting": "Starting…",
+      "stopping": "Stopping…",
+      "profiles": "Profile",
+      "noProfiles": "No profiles",
+      "proxies": "Proxies",
+      "back": "Back",
+      "loading": "Loading…",
+      "proxiesFailed": "Could not read the proxy list"
+    },
+    "frpPanel": {
+      "runningCount": "{{running}}/{{total}} running",
+      "startAll": "Start all",
+      "stopAll": "Stop all",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "profiles": "Profiles",
+      "tunnels": "Tunnels",
+      "tunnelCount_one": "{{count}} tunnel",
+      "tunnelCount_other": "{{count}} tunnels",
+      "noProfiles": "No profiles",
+      "noTunnels": "No tunnels in this profile",
+      "back": "Back",
+      "loading": "Loading…"
+    }
   },
   "updater": {
     "checkForUpdates": "Check for Updates",
@@ -111,19 +100,36 @@
     "installNow": "Install Now"
   },
   "config": {
+    "saved": "Configuration saved.",
+    "saveFailed": "Failed to save the configuration.",
     "loadFailed": "Failed to load the configuration.",
     "path": "Config file: {{path}}"
   },
+  "output": {
+    "exitCode": "exit code {{code}}",
+    "clear": "Clear output"
+  },
   "project": {
-    "title": "Project",
-    "description": "The directory the file browser and the preview open at.",
+    "title": "Projects",
+    "description": "The root directory the project page, the file preview and the AI config sync work in.",
     "rootLabel": "Project root",
-    "rootHint": "Both the file browser and the preview serve this directory. Leave it blank to browse nothing until a project is chosen.",
-    "rootPlaceholder": "D:\\workspace\\my-project"
+    "rootHint": "The project page and the file preview open this directory. Leave blank to keep them empty until a project is configured.",
+    "rootPlaceholder": "M:\\work\\project",
+    "loadFailed": "Failed to load the configuration."
   },
   "settings": {
     "title": "Settings",
     "button": "Settings",
+    "close": "Close",
+    "aiConfig": {
+      "title": "AI config sync",
+      "description": "Choose which AI coding tools the sync page manages. A switched-off tool is not listed there and is never written to.",
+      "agentsLabel": "Agents",
+      "agentsHint": "Only the tools switched on here appear on the AI config sync page and get written to disk.",
+      "noneEnabled": "No agent is switched on — the sync page will be empty.",
+      "autoSave": "Changes save automatically.",
+      "loadFailed": "Could not load the agent list."
+    },
     "appearance": {
       "title": "Appearance",
       "description": "Customize the appearance and language of the app",
@@ -136,7 +142,30 @@
       "presetSearch": "Search themes",
       "presetDefault": "Default",
       "presetNoResults": "No themes match your search",
-      "presetFontsHint": "Themes bring their own fonts, downloaded on first use and cached locally."
+      "presetFontsHint": "Themes bring their own fonts, downloaded on first use and cached locally.",
+      "sidebarManager": "Sidebar",
+      "sidebarManagerDesc": "Reorder groups and decide which menus they hold, second level included.",
+      "sidebarManagerOpen": "Manage sidebar"
+    },
+    "fonts": {
+      "loading": "Loading system fonts…",
+      "notInstalled": "Not installed",
+      "groups": {
+        "monospace": "Monospace",
+        "other": "Other"
+      }
+    },
+    "terminal": {
+      "title": "Terminal",
+      "description": "Font, size and display behaviour of the local terminal tabs.",
+      "font": "Font",
+      "fontSize": "Font size",
+      "tabStopWidth": "Tab width",
+      "autoWrap": "Wrap lines",
+      "autoWrapHint": "Long lines wrap inside the terminal, so there is less horizontal scrolling.",
+      "highlightCurrentLine": "Highlight the current line",
+      "highlightCurrentLineHint": "Marks the line the cursor is on.",
+      "reset": "Reset to defaults"
     },
     "shortcut": {
       "title": "Shortcuts",
@@ -148,9 +177,59 @@
       "cleared": "Shortcut cleared!"
     }
   },
+  "releaseVersion": {
+    "options": {
+      "patch": "Patch",
+      "minor": "Minor",
+      "major": "Major",
+      "promotePrerelease": "Promote pre-release to release",
+      "nextPrerelease": "Next pre-release",
+      "nextPatchBeta": "Next patch beta",
+      "custom": "Custom version"
+    },
+    "prompts": {
+      "yesNoDefaultYes": " (Y/n): ",
+      "yesNoDefaultNo": " (y/N): ",
+      "enterChoice": "\nEnter choice (1-{{max}}): ",
+      "enterCustomVersion": "Enter custom version: ",
+      "confirmRelease": "Continue with the version update, release commit and tag?",
+      "confirmBumpOnly": "Continue with updating the version files?",
+      "pushNow": "Push commit and tag to remote now?"
+    },
+    "messages": {
+      "currentVersion": "Current version: {{version}}",
+      "selectNextVersion": "Select the next version:",
+      "invalidChoice": "Invalid choice, defaulting to the first suggestion.",
+      "summaryTitle": "Release summary:",
+      "summaryBranch": "- Branch: {{branch}}",
+      "summaryCurrentVersion": "- Current version: {{version}}",
+      "summaryNextVersion": "- Next version: {{version}}",
+      "summaryTag": "- Tag: {{tag}}",
+      "summaryReleaseAction": "- Action: update version files, commit, tag, then optionally push",
+      "summaryBumpOnlyAction": "- Action: update version files only. {{branch}} is not the release branch ({{releaseBranch}}), so nothing is staged, committed, tagged or pushed",
+      "cancelled": "Cancelled.",
+      "updatedFilesOnly": "Version files updated. Skipped git add, commit, tag and push because {{branch}} is not the release branch ({{releaseBranch}}).",
+      "createdCommitAndTag": "Created commit and tag successfully.",
+      "pushCompleted": "Push completed.",
+      "pushSkipped": "Skipped push. You can push later with:",
+      "pushBranchLater": "git push origin {{branch}}",
+      "pushTagLater": "git push origin {{tag}}"
+    },
+    "errors": {
+      "unsupportedVersion": "Unsupported version format: {{version}}",
+      "cargoVersionNotFound": "Failed to locate version in Cargo.toml",
+      "cargoPackageNameNotFound": "Failed to locate package name in Cargo.toml",
+      "workingTreeNotClean": "Working tree is not clean. Please commit or stash your changes first.",
+      "tagExists": "Tag {{tag}} already exists.",
+      "remoteTagExists": "Remote tag {{tag}} already exists on origin.",
+      "versionMissing": "{{file}} is missing a valid version",
+      "versionMismatch": "Version mismatch detected: {{versions}}",
+      "invalidLang": "Invalid --lang value. Use zh or en."
+    }
+  },
   "data": {
     "title": "Data",
-    "description": "Choose where the app keeps its data — the config file, caches and assets it builds up. Everything else in the app reads this directory.",
+    "description": "Choose where the app keeps its data — plugins, logs, caches, and the config file. Everything else in the app reads this directory.",
     "loadFailed": "Failed to load the data directory settings.",
     "dirLabel": "Data directory",
     "dirHint": "An absolute path. The directory is used as-is: if it is empty, everything starts from defaults, and nothing is copied over. Takes effect after a restart.",
@@ -167,7 +246,587 @@
     "pointerLabel": "Pointer file",
     "pointerNote": "The data directory is recorded in this file. You can also edit it by hand."
   },
+  "plugins": {
+    "title": "Plugins",
+    "description": "Drop a plugin zip anywhere in this window to install it. What a plugin can be configured with comes from its own plugin.json; scripts run as you, so only install plugins you trust.",
+    "dropTitle": "Release to install",
+    "dropHint": "Drop a plugin zip here",
+    "dropNote": "A plugin stays disabled after installing; nothing runs until you enable it.",
+    "dropNotZip": "Only .zip files can be installed.",
+    "installed": "Installed plugin: {{name}}",
+    "installFailed": "Could not install {{name}}: {{message}}",
+    "installing": "Unpacking…",
+    "installingRate": "{{rate}}/s",
+    "installingCount": "{{index}} / {{count}}",
+    "loadFailed": "Could not load the plugin list.",
+    "openDir": "Open plugins folder",
+    "openFolder": "Open folder",
+    "runAll": "Run all",
+    "run": "Run",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enabledCount": "{{n}} enabled",
+    "noConfig": "This plugin has nothing to configure.",
+    "broken": "The plugin manifest could not be read: {{message}}",
+    "empty": "No plugins installed yet.",
+    "output": "Run output",
+    "outputPlaceholder": "Output appears here once a plugin runs.",
+    "runFinished": "Run finished with exit code {{code}}.",
+    "saveFailed": "Could not save \"{{name}}\": {{message}}",
+    "uninstallTitle": "Uninstall plugin",
+    "uninstall": "Uninstall",
+    "uninstallConfirm": "Uninstall \"{{name}}\"? Its folder and every setting stored for it will be deleted.",
+    "uninstalled": "Uninstalled: {{name}}",
+    "cancel": "Cancel",
+    "valueOn": "On",
+    "valueOff": "Off",
+    "configure": "Configure",
+    "stop": "Stop",
+    "stopped": "Stopped \"{{name}}\".",
+    "stoppedLine": "--- stopped by the user ---",
+    "stopFailed": "Could not stop \"{{name}}\": {{message}}",
+    "openLog": "Open run log",
+    "stopScript": "Stop script: {{script}}"
+  },
+  "pluginPanel": {
+    "loading": "Loading plugins…",
+    "empty": "No plugin has a page to show yet.",
+    "emptyHint": "Enable a plugin in Settings → Plugins and give it a ui address in its plugin.json, and its tab will appear here.",
+    "starting": "Starting {{name}}…",
+    "waiting": "Waiting for {{name}} to answer…",
+    "unreachable": "The page of \"{{name}}\" ({{url}}) never answered.",
+    "startFailed": "Could not start \"{{name}}\": {{message}}",
+    "start": "Start",
+    "retry": "Retry",
+    "reload": "Reload page",
+    "openExternal": "Open in browser",
+    "stop": "Stop",
+    "stopped": "Stopped: {{name}}",
+    "stopFailed": "Could not stop \"{{name}}\": {{message}}",
+    "openFailed": "Could not open the browser: {{message}}",
+    "log": "Run log",
+    "logFailed": "Could not open the run log: {{message}}",
+    "idleHint": "The plugin is not running. Press Start to launch it.",
+    "retryHint": "Press Start to try again.",
+    "back": "Back",
+    "forward": "Forward",
+    "addressPlaceholder": "Address on the plugin's own site",
+    "browserFailed": "Could not open {{name}}'s page: {{message}}",
+    "openWindow": "Open in a separate window",
+    "inWindow": "Open in a separate window"
+  },
+  "pluginFocus": {
+    "missing": "That plugin does not exist or has no page to show."
+  },
+  "pluginWindow": {
+    "title": "Plugin"
+  },
+  "sidebarManager": {
+    "title": "Sidebar",
+    "description": "A group is the outermost section of the sidebar. Its entries are first-level menus: a page, or a menu that holds a second level.",
+    "help": "Drag to reorder or move an entry. Drop it on the cards below to take it out of the sidebar.",
+    "cachePages": "Page caching",
+    "cachePagesHint": "Keeps a page's state when you switch away. Off by default.",
+    "groupCount": "{{n}} groups",
+    "addGroup": "New group",
+    "renameGroup": "Rename group",
+    "deleteGroup": "Delete group",
+    "deleteGroupConfirm": "Delete the group \"{{name}}\"? Its menus leave the sidebar with it.",
+    "emptyGroup": "This group is empty — drag an entry in.",
+    "dragGroup": "Drag group",
+    "addParent": "New parent menu",
+    "edit": "Edit",
+    "editTitle": "Edit menu entry",
+    "name": "Name",
+    "nameDefault": "Leave empty to keep the original name.",
+    "icon": "Icon",
+    "iconDefault": "Default icon",
+    "iconSearch": "Search icons",
+    "iconEmpty": "No matching icon.",
+    "iconReset": "Use the default icon",
+    "iconBuiltin": "Built-in",
+    "iconCustom": "Custom (SVG)",
+    "iconCustomEmpty": "No custom icons yet — drop SVG files into the folder below.",
+    "iconOpenFolder": "Open the icons folder",
+    "iconRefresh": "Reload icons",
+    "iconColor": "Color",
+    "iconColorDefault": "Use the default color",
+    "iconColorHint": "Custom SVGs and the brand mark carry their own colors, so they cannot be recolored.",
+    "scope": "Summary",
+    "notes": "Note",
+    "pageDefaultHint": "Leave empty to keep the original text.",
+    "deleteParent": "Flatten parent menu",
+    "emptyParent": "Drop entries here to make them second-level menus.",
+    "defaultChild": "Default",
+    "defaultHint": "The page this menu opens",
+    "dragParent": "Drag menu",
+    "dragEntry": "Drag entry",
+    "other": "Other",
+    "otherHint": "Pages with no place",
+    "otherEmpty": "Every page is placed.",
+    "pool": "Plugin tabs",
+    "poolHint": "Plugins outside the sidebar",
+    "poolEmpty": "Every plugin is in the sidebar.",
+    "namePlaceholder": "Name",
+    "save": "Save",
+    "cancel": "Cancel",
+    "loadFailed": "Could not load the sidebar layout."
+  },
+  "pluginConfig": {
+    "title": "Plugin settings",
+    "notFound": "That plugin is not installed.",
+    "renderFailed": "This plugin's config could not be shown.",
+    "required": "required at start",
+    "external": "outside the plugin",
+    "openFile": "Open file",
+    "missing": "File not on disk yet — the plugin generates it on first start.",
+    "missingExternal": "File not on disk yet — start the plugin once and it will write it.",
+    "noFields": "This file declares nothing to edit."
+  },
+  "mcphub": {
+    "groupAgent": "Agent",
+    "title": "MCP Hub",
+    "description": "Aggregate local/remote MCP servers into one endpoint with unified toggles, logs and tokens.",
+    "loading": "Loading MCP Hub…",
+    "loaded": "Refreshed.",
+    "loadFailed": "Could not load MCP Hub status.",
+    "refresh": "Refresh",
+    "regenerateCache": "Rebuild cache",
+    "regenerated": "Tool cache rebuilt.",
+    "regenerateFailed": "Could not rebuild the tool cache.",
+    "running": "Running",
+    "stopped": "Stopped",
+    "sseUrl": "SSE URL",
+    "mode": "Mode",
+    "modeDiscover": "discover (auto-discover tools)",
+    "modePassthrough": "passthrough (forward)",
+    "modeChanged": "Mode updated.",
+    "modeChangeFailed": "Could not change the mode.",
+    "start": "Start",
+    "stop": "Stop",
+    "starting": "Starting…",
+    "stopping": "Stopping…",
+    "started": "MCP Hub started.",
+    "stoppedHub": "MCP Hub stopped.",
+    "startFailed": "Could not start MCP Hub.",
+    "stopFailed": "Could not stop MCP Hub.",
+    "statPort": "Port",
+    "statServers": "Servers",
+    "statTools": "Tools",
+    "statUptime": "Uptime",
+    "statTokensSaved": "Tokens Saved",
+    "tokensSavedHint": "discover per request",
+    "tokensSavedPassthrough": "passthrough",
+    "uptimeFormat": "{{hours}}h {{minutes}}m",
+    "uptimeSeconds": "{{seconds}}s",
+    "tabs": {
+      "servers": "Servers",
+      "tools": "Tools",
+      "logs": "Logs",
+      "tokens": "Tokens",
+      "metrics": "Metrics",
+      "settings": "Settings"
+    },
+    "servers": {
+      "add": "Add server",
+      "edit": "Edit",
+      "remove": "Delete",
+      "removeConfirm": "Delete server \"{{name}}\"? Its config is removed and any running child process is killed.",
+      "removed": "Deleted server: {{name}}",
+      "removeFailed": "Could not delete the server.",
+      "saved": "Server saved.",
+      "saveFailed": "Could not save the server.",
+      "loadFailed": "Could not load the server list.",
+      "empty": "No servers configured yet. Press \"Add server\" to connect your first MCP server.",
+      "colName": "Name",
+      "colCommand": "Command",
+      "colStatus": "Status",
+      "colTools": "Tools",
+      "colLatency": "Latency",
+      "colEnabled": "Enabled",
+      "colActions": "Actions",
+      "statusRunning": "Running",
+      "statusStopped": "Stopped",
+      "statusHealthy": "Healthy",
+      "statusUnhealthy": "Unhealthy",
+      "latencyMs": "{{ms}} ms",
+      "dialogAddTitle": "Add server",
+      "dialogEditTitle": "Edit server",
+      "dialogImportTitle": "Add MCP Server",
+      "dialogImportDesc": "Paste JSON from any MCP server README or Cursor config. Single or multiple servers accepted. Supports mcpServers wrapper.",
+      "importPlaceholder": "{\n  \"command\": \"npx\",\n  \"args\": [\"-y\", \"@modelcontextprotocol/server-github\"],\n  \"env\": { \"GITHUB_TOKEN\": \"your-token-here\" }\n}",
+      "import": "Import",
+      "importDone": "Done: {{ok}} OK, {{failed}} failed, {{tools}} tools",
+      "importEmpty": "Paste JSON first.",
+      "importInvalid": "Invalid JSON — check the format.",
+      "secretDetected": "Detected {{count}} secret fields, be careful sharing this",
+      "fieldName": "Name",
+      "fieldNamePlaceholder": "filesystem",
+      "fieldCommand": "Command",
+      "fieldCommandPlaceholder": "npx",
+      "fieldArgs": "Args (one per line)",
+      "fieldArgsPlaceholder": "-y\n@modelcontextprotocol/server-filesystem\nM:\\",
+      "fieldEnv": "Env (KEY=VALUE, one per line)",
+      "fieldEnvPlaceholder": "FOO=bar",
+      "fieldPool": "Pool size",
+      "fieldEnabled": "Enabled",
+      "cancel": "Cancel",
+      "submitAdd": "Add",
+      "submitUpdate": "Save"
+    },
+    "tools": {
+      "searchPlaceholder": "Filter by tool name…",
+      "empty": "No tools available.",
+      "emptyForServer": "This server exposes no tools.",
+      "loadFailed": "Could not load the tool list.",
+      "toggleFailed": "Could not toggle the tool.",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "logs": {
+      "refresh": "Refresh",
+      "loadFailed": "Could not load logs.",
+      "empty": "No logs yet.",
+      "filterAllServers": "All servers",
+      "filterAllLevels": "All levels",
+      "limit": "Limit",
+      "levelInfo": "info",
+      "levelWarn": "warn",
+      "levelError": "error"
+    },
+    "tokens": {
+      "add": "Create token",
+      "loadFailed": "Could not load tokens.",
+      "empty": "No tokens yet. Create one so clients can connect to MCP Hub.",
+      "colToken": "Token",
+      "colName": "Name",
+      "colAllowed": "Allowed servers",
+      "colCreatedAt": "Created",
+      "colActions": "Actions",
+      "revoke": "Revoke",
+      "revokeConfirm": "Revoke token \"{{name}}\"? Holders of this token will be rejected immediately.",
+      "revoked": "Revoked token: {{name}}",
+      "revokeFailed": "Could not revoke the token.",
+      "dialogTitle": "Create token",
+      "fieldName": "Name",
+      "fieldNamePlaceholder": "claude-desktop",
+      "fieldAllowed": "Allowed servers (none = all)",
+      "cancel": "Cancel",
+      "submit": "Create",
+      "createdTitle": "Token created",
+      "createdHint": "Copy and store it now. It is shown only once and cannot be viewed again after closing.",
+      "copy": "Copy",
+      "copied": "Token copied to clipboard.",
+      "copyFailed": "Copy failed — select and copy manually.",
+      "done": "Done",
+      "allServers": "All"
+    },
+    "metrics": {
+      "totalRequests": "Total Requests",
+      "activeSessions": "Active SSE Sessions",
+      "uptime": "Uptime",
+      "requests": "Requests",
+      "errors": "Errors",
+      "avgLatency": "Avg Latency",
+      "lastCall": "Last Call",
+      "healthy": "healthy",
+      "unhealthy": "unhealthy",
+      "running": "running",
+      "stopped": "stopped",
+      "loadFailed": "Could not load metrics.",
+      "empty": "No metrics yet.",
+      "noServers": "No servers yet — no per-server metrics."
+    },
+    "settings": {
+      "mode": "Mode",
+      "modeDiscoverDesc": "Only expose discover + execute meta-tools (BM25 search saves tokens)",
+      "modePassthroughDesc": "Expose all tools as server__tool prefixed",
+      "idleTimeout": "Idle Timeout (seconds)",
+      "idleTimeoutHint": "30–3600, default 300",
+      "cached": "{{count}} tools cached",
+      "noCache": "No cache",
+      "rebuild": "Rebuild Cache",
+      "save": "Save",
+      "saved": "Settings saved.",
+      "saveFailed": "Could not save settings.",
+      "loadFailed": "Could not load settings."
+    }
+  },
+  "aiConfig": {
+    "loading": "Loading…",
+    "loadFailed": "Could not load AI config.",
+    "refreshed": "Refreshed.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "close": "Close",
+    "storeExists": "Store ready",
+    "storeMissing": "Store not initialized",
+    "noRemote": "No remote configured",
+    "storePath": "Store path",
+    "projectRoot": "Project root",
+    "push": "Push",
+    "pull": "Pull",
+    "setup": {
+      "title": "Initialize Store",
+      "description": "Point at a git remote to use as the single source of truth. Every AI coding tool translates it into its own skills / rules / commands.",
+      "init": "Initialize"
+    },
+    "tabs": {
+      "agents": "Agent status",
+      "items": "Items"
+    },
+    "agents": {
+      "noStore": "Initialize the store to see each agent's sync status.",
+      "agent": "Agent",
+      "status": "Status",
+      "detail": "Detail",
+      "contentDiff": "Content diff",
+      "mcpDiff": "MCP diff",
+      "search": "Search agents by name…",
+      "filterAll": "All statuses",
+      "noMatch": "No agents match the filter."
+    },
+    "status": {
+      "in-sync": "In sync",
+      "drift": "Drift",
+      "unconfirmed": "Unconfirmed",
+      "error": "Error"
+    },
+    "scope": {
+      "global": "Global",
+      "project": "Project"
+    },
+    "detail": {
+      "description": "Broken down by scope. Each axis shows where it writes, what is already on disk, and what a sync would change.",
+      "axis": {
+        "content": "Content",
+        "mcp": "MCP servers"
+      },
+      "location": "Path",
+      "locationUnavailable": "No usable path on this machine",
+      "onDisk": "Files of this kind already on disk",
+      "pending": "{{toWrite}} to write · {{toDelete}} to delete",
+      "nothingPending": "In sync — nothing to write",
+      "readOnly": "Convention unconfirmed — read-only, nothing will be written here.",
+      "import": "Import to store"
+    },
+    "plan": {
+      "title": "Write preview",
+      "description": "What this sync would change. Nothing is written until you confirm.",
+      "inSync": "Everything is in sync — nothing to apply",
+      "apply": "Apply"
+    },
+    "items": {
+      "noStore": "Initialize the store to manage items.",
+      "all": "All",
+      "empty": "No items yet.",
+      "add": "New item",
+      "newTitle": "New item",
+      "editTitle": "Edit item",
+      "editorHint": "Edit the frontmatter and body directly; saving writes it to the store. Renaming is not supported.",
+      "name": "Name",
+      "edit": "Edit",
+      "loadFailed": "Could not load the item."
+    },
+    "kind": {
+      "skill": "Skill",
+      "rule": "Rule",
+      "command": "Command",
+      "subagent": "Subagent"
+    },
+    "help": {
+      "title": "Help",
+      "open": "Help",
+      "subtitle": "The store and each agent's files on disk are two separate things — plus what each control does.",
+      "lines": [
+        "shaic tracks two separate things:",
+        "  the store    — canonical skills/rules/commands/subagents/MCP servers you've added; this is what gets synced out to every agent.",
+        "  agent files  — whatever's already on disk for an agent (may exist before shaic ever touched it). 'agents discover' (CLI) lists these; 'Import' in a scope row pulls one into the store.",
+        "",
+        "Agent status",
+        "  one row per agent, showing its worst status across every scope and content/MCP axis it supports.",
+        "  Detail = open the agent   Content diff / MCP diff = preview before any write",
+        "  Push / Pull sync the store; a secret-scan block asks for confirmation first",
+        "  Initialize = setup wizard   Refresh = re-read status",
+        "",
+        "Items (skills / rules / commands / subagents)",
+        "  the chips filter by kind   New item = add   Edit = change   Delete = remove and sync out immediately",
+        "",
+        "Write preview (shown before anything is written)",
+        "  Apply writes the listed changes   Cancel writes nothing",
+        "",
+        "Agent detail",
+        "  breaks the selected agent down by scope (Global / Project), each row showing both content and MCP status.",
+        "  Content diff / MCP diff = preview that axis   Import to store = pull this scope's on-disk files in",
+        "",
+        "Setup wizard (first run, or when no store exists)",
+        "  type the git remote URL, Initialize = validate then clone/init it"
+      ]
+    },
+    "confirm": {
+      "deleteTitle": "Delete item",
+      "deleteBody": "Delete {{kind}} {{name}} and materialize to every agent?",
+      "delete": "Delete",
+      "importTitle": "Import to store",
+      "importBody": "Pull {{label}}'s on-disk files into the store? (Does not write agent config.)",
+      "import": "Import",
+      "forceTitle": "Blocked by secret scan",
+      "force": "Continue anyway"
+    }
+  },
+  "claudeChat": {
+    "modelDefault": "Default model",
+    "clear": "Clear chat",
+    "empty": "Send a message to start chatting with the local Claude.",
+    "placeholder": "Type a message, Enter to send, Shift+Enter for a new line",
+    "send": "Send",
+    "stop": "Stop",
+    "thinking": "Thinking…",
+    "thought": "Thought",
+    "hint": "Uses the locally installed claude CLI; context is kept across messages.",
+    "permissionLabel": "Permissions",
+    "permissionManual": "Manual (ask every time)",
+    "permissionAcceptEdits": "Accept edits",
+    "permissionAuto": "Auto (model classifier)",
+    "permissionPlan": "Plan mode",
+    "permissionDontAsk": "Don't ask (deny if not pre-approved)",
+    "permissionBypass": "Bypass permissions",
+    "toolsCount": "{{count}} tools",
+    "mcpServers": "MCP",
+    "mcp": "mcp",
+    "toolRunning": "running",
+    "toolError": "error",
+    "toolStopped": "stopped",
+    "input": "input",
+    "output": "output",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyFailed": "Could not copy to the clipboard",
+    "turnDone": "Done",
+    "turnStopped": "Stopped",
+    "turnFailed": "Failed ({{subtype}})",
+    "askTitle": "Claude needs your input",
+    "askPermissionTitle": "Claude is requesting permission",
+    "askCountdown": "Auto-selects in {{seconds}}s",
+    "askPermissionCountdown": "Denied automatically in {{seconds}}s",
+    "askRecommended": "Recommended",
+    "askMultiHint": "Choose one or more",
+    "askContinue": "Continue",
+    "askAllow": "Allow",
+    "askDeny": "Deny",
+    "askPermissionBody": "Claude wants to use {{tool}}.",
+    "askPermissionHint": "This tool wants to run in your working directory.",
+    "askApplySuggestions": "Apply Claude's suggested permission settings",
+    "askApplySuggestionsHint": "These changes take effect with this approval and can affect the session or later commands.",
+    "history": "History",
+    "historyLoading": "Loading sessions…",
+    "historyEmpty": "No saved sessions for this directory.",
+    "historyError": "Could not load the session history.",
+    "loadEarlierTurns": "Load earlier turns ({{count}} left)",
+    "anchors": "Questions in this conversation",
+    "anchorGoTo": "Go to question {{index}}",
+    "cwdPlaceholder": "Working directory",
+    "cwdHint": "Enter or leave the field to apply — the working directory change starts a new conversation.",
+    "modelSearch": "Search models…",
+    "modelLoading": "Loading models…",
+    "modelEmpty": "No matching models.",
+    "modelFetchFailed": "Could not load this provider's model list. Type a model name instead.",
+    "modelHint": "Applies from the next message.",
+    "log": "CLI log",
+    "logTitle": "CLI bridge log",
+    "logCount": "{{count}} lines",
+    "logClear": "Clear",
+    "logEmpty": "Nothing logged yet.",
+    "logDirSpawn": "Command that ran",
+    "logDirIn": "Written to the CLI (stdin)",
+    "logDirOut": "Read from the CLI (stdout)",
+    "logDirErr": "Read from the CLI (stderr)",
+    "logDirSys": "Synthesized by this app",
+    "agents": "Sub-agents",
+    "agentUntitled": "Untitled task",
+    "agentRunning": "Running",
+    "agentDone": "Done",
+    "agentFailed": "Failed",
+    "agentStopped": "Stopped",
+    "agentMessages": "{{count}} messages"
+  },
+  "claudeHistory": {
+    "projectsTitle": "Projects",
+    "projectsEmpty": "No stored sessions were found under ~/.claude/projects.",
+    "sessionsLoading": "Loading sessions…",
+    "sessionsEmpty": "No sessions in this project.",
+    "refresh": "Refresh",
+    "empty": "Pick a session on the left to read it.",
+    "sessionEmpty": "This session has nothing stored to show.",
+    "viewNodes": "Nodes",
+    "viewFull": "Full transcript",
+    "nodeUser": "You",
+    "nodeAssistant": "Claude",
+    "nodeTools": "{{count}} tool calls",
+    "nodeThoughts": "{{count}} thoughts",
+    "awaitingInput": "waiting for you",
+    "fork": "Branch here",
+    "clone": "Duplicate session",
+    "viewFamily": "See its family",
+    "export": "Export",
+    "exportConversation": "Conversation only",
+    "exportWithTools": "Conversation + tool calls",
+    "exportFull": "Full detail (thinking + tools)",
+    "exportProject": "Project",
+    "exportSession": "Session",
+    "exportedAt": "Exported",
+    "exportUser": "You",
+    "exportAssistant": "Claude",
+    "exportThinking": "Thinking",
+    "exportTool": "Tool call",
+    "exportInput": "Input",
+    "exportResult": "Result",
+    "exportNoResult": "No result was stored.",
+    "exportDone": "Conversation exported",
+    "exportFailed": "Export failed",
+    "cloneDescription": "Writes a new session holding this whole conversation. The original is not touched.",
+    "forkDescription": "Writes a new session that ends at this reply, leaving the rest behind. The original is not touched.",
+    "nameLabel": "Name",
+    "cancel": "Cancel",
+    "copyDone": "Session created",
+    "copyDoneBody": "Copied from {{title}}.",
+    "copySuffix": "(copy)",
+    "branchSuffix": "(branch)",
+    "forksHere": "Branched from here:",
+    "origin_clone": "dup",
+    "origin_fork": "branch"
+  },
+  "claudeWorkflow": {
+    "title": "Claude workflow",
+    "familiesTitle": "Conversations",
+    "sessions": "{{count}} sessions",
+    "copies": "{{count}} copies",
+    "branches": "{{count}} branches",
+    "store": "Relationships in {{path}}",
+    "refresh": "Refresh",
+    "loadFailed": "Could not read the workflow. Check that the data directory is readable.",
+    "familiesEmpty": "No conversation has been cloned or forked out of another yet.",
+    "pickFamily": "Pick a conversation to draw the ones taken out of it.",
+    "emptyHint": "In Claude History, choose Clone, or Branch here on a reply — what comes out of it shows up on this canvas.",
+    "emptyFork": "No messages yet",
+    "emptyForkHint": "This copy has nothing of its own yet. What it shares with its source is drawn on the line it left.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit to board",
+    "you": "You",
+    "claude": "Claude",
+    "noQuestion": "(no question)",
+    "noReply": "(no reply)",
+    "detailTitle": "This turn",
+    "closeDetail": "Close details",
+    "inSessions": "In {{count}} sessions",
+    "continuedBy": "Continued by",
+    "branchedHere": "Branched from here",
+    "andMore": "{{count}} more not shown"
+  },
   "notes": {
+    "title": "Notes",
+    "description": "A local Markdown workspace: file tree, tabbed editor and draggable panels.",
     "loading": "Loading notes…",
     "loadFailed": "Could not load notes. Check that the data directory is readable."
   },
@@ -182,9 +841,8 @@
     "appliesImmediately": "Open editors update immediately.",
     "preview": "Theme preview",
     "fontFamily": "Font",
-    "fontFamilyHint": "Font for the editor text. Type to search installed fonts; leave blank for the built-in monospace stack.",
-    "fontsDetected": "{{count}} system fonts detected.",
-    "fontsLoading": "Loading system fonts…",
+    "fontFamilyHint": "Font for the editor text, picked from the fonts installed on this computer.",
+    "fontFamilyDefault": "Default (built-in monospace)",
     "fontSize": "Font size",
     "lineHeight": "Line height",
     "lineHeightHint": "Multiple of the font size — 1.5 means 1.5×.",
@@ -195,19 +853,782 @@
   },
   "projectPage": {
     "loading": "Opening the project…",
-    "openFailed": "Could not open the project. Check the project root in Settings → Project.",
-    "notConfigured": "No project is configured yet.",
-    "notConfiguredHint": "Set the project root in Settings → Project; the file browser and the preview open it."
+    "openFailed": "Could not open the project. Check the project root in Settings → Project."
+  },
+  "projectGit": {
+    "activityTitle": "Git",
+    "commitActivityTitle": "Commit",
+    "logTab": "Log",
+    "logTabBranch": "Log: {{branch}}",
+    "allBranches": "All branches",
+    "groupByPrefix": "Fold branches by prefix",
+    "viewOptions": "View options",
+    "groupByDir": "Group by directory",
+    "showFilePath": "Show file path",
+    "consoleTab": "Console",
+    "workingTreeTab": "Working tree",
+    "workingTree": "Working tree",
+    "refresh": "Refresh",
+    "closePanel": "Hide the Git window",
+    "closeView": "Close",
+    "clearConsole": "Clear console",
+    "consoleEmpty": "Git commands run from this page appear here.",
+    "noCommits": "No commits yet.",
+    "endOfHistory": "End of history.",
+    "statusFailed": "Could not read the working tree: {{message}}",
+    "noRepo": "No Git repository is open. Set the project's working-copy path in Settings → Project.",
+    "fileOpFailed": "File operation failed: {{message}}",
+    "commitNoChanges": "Select at least one file to commit.",
+    "commitConflicts": "Resolve the merge conflicts first.",
+    "commitPartialWhole": "Partial staging is not available yet — {{path}} was staged as a whole file.",
+    "commitHistory": "Commit message history",
+    "commitHistoryEmpty": "No recent messages",
+    "commitHint": "{{mod}}+Enter commits",
+    "headMessageFailed": "Could not read the last commit message: {{message}}",
+    "editorUnavailable": "No editor is available to show this file.",
+    "selectAll": "Include all files",
+    "deselectAll": "Exclude all files",
+    "partial": "partial",
+    "partialHint": "Partially staged — only the staged changes are committed.",
+    "menu": {
+      "branch": {
+        "createFrom": "New branch from '{{name}}'…",
+        "checkoutAndRebase": "Checkout and rebase onto '{{name}}'",
+        "checkoutAndUpdate": "Checkout and update",
+        "update": "Update",
+        "compare": "Compare with '{{name}}'…",
+        "compareWorktree": "Show diff with working tree",
+        "copyRevision": "Copy revision number",
+        "newTag": "New tag…",
+        "newWorktree": "New worktree from '{{name}}'…",
+        "checkoutTag": "Checkout tag",
+        "newBranchFromTag": "New branch from tag…",
+        "deleteTag": "Delete tag"
+      },
+      "commit": {
+        "checkout": "Checkout revision (detached)",
+        "resetTo": "Reset current branch to here…",
+        "revert": "Revert commit",
+        "undo": "Undo commit",
+        "reword": "Edit commit message…",
+        "fixup": "Fixup commit…",
+        "squashInto": "Squash into…",
+        "drop": "Drop commit",
+        "dropMany": "Drop {{count}} commits",
+        "interactiveRebase": "Interactive rebase from here…",
+        "pushUpToHere": "Push commits up to here",
+        "newBranch": "New branch here…",
+        "newTag": "New tag here…",
+        "goToParent": "Go to parent commit",
+        "goToChild": "Go to child commit",
+        "copyRevision": "Copy revision number",
+        "copyMessage": "Copy commit message",
+        "cherryPick": "Cherry-pick commit",
+        "cherryPickMany": "Cherry-pick {{count}} commits",
+        "showRepoAtRevision": "Show repository at revision",
+        "compareWithLocal": "Compare with local"
+      },
+      "file": {
+        "diff": "Show diff",
+        "diffNewTab": "Show diff in new tab",
+        "historyFromRev": "History up to here",
+        "history": "File history",
+        "changesFromParent": "Show changes from parent",
+        "compareWorktree": "Compare with working tree",
+        "compareWithLocal": "Compare with local",
+        "comparePrevWithLocal": "Compare previous with local",
+        "editSource": "Edit source",
+        "openRepoVersion": "Open repository version",
+        "restore": "Restore selected changes",
+        "getFromRevision": "Get from revision",
+        "cherryPick": "Cherry-pick selected changes",
+        "extractToCommit": "Extract to separate commit…",
+        "dropChanges": "Delete selected changes",
+        "createPatch": "Create patch…",
+        "copyPath": "Copy path"
+      }
+    },
+    "compare": {
+      "empty": "These revisions have no differences.",
+      "pickFile": "Pick a changed file to see its diff."
+    },
+    "revisionFile": {
+      "readOnly": "Read-only"
+    },
+    "revisionTree": {
+      "title": "Repository at revision",
+      "fileCount": "{{count}} files",
+      "empty": "This revision holds no files."
+    },
+    "fileHistory": {
+      "tabTitle": "History: {{name}}",
+      "from": "from {{oid}}",
+      "count": "{{count}} commits",
+      "empty": "No commit touches this file.",
+      "truncated": "Showing the newest {{count}} commits."
+    },
+    "dialog": {
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "required": "Enter a value.",
+      "invalidBranch": "Enter a name Git accepts for a branch.",
+      "invalidTag": "Enter a name Git accepts for a tag.",
+      "branchFrom": "Create a branch from '{{name}}'.",
+      "tagTitle": "New tag",
+      "tagDescription": "Create a tag at {{oid}}.",
+      "tagLabel": "Name",
+      "tagPlaceholder": "v1.0.0",
+      "tagSubmit": "Create tag",
+      "worktreeFolder": "Folder",
+      "worktreeFolderHint": "The folder is created if it does not exist.",
+      "worktreeBrowse": "Browse",
+      "worktreeCreate": "Create worktree",
+      "worktreeFailed": "Could not create the worktree: {{error}}",
+      "reword": {
+        "title": "Edit commit message",
+        "label": "Message",
+        "submit": "Update message"
+      },
+      "reset": {
+        "title": "Reset current branch to {{oid}}",
+        "description": "The branch moves to this commit. Choose what happens to the index and the working tree.",
+        "soft": "Soft",
+        "softHint": "Keep the index and working tree — the changes become staged.",
+        "mixed": "Mixed",
+        "mixedHint": "Keep the working tree — the changes become unstaged.",
+        "hard": "Hard",
+        "hardHint": "Discard the index and every change in the working tree.",
+        "cancel": "Cancel"
+      },
+      "fixup": {
+        "title": "Fixup '{{summary}}' into…",
+        "description": "Pick the commit this one is folded into. Commits in between are kept.",
+        "empty": "There is no older commit to fold this one into.",
+        "cancel": "Cancel"
+      },
+      "squash": {
+        "title": "Squash '{{summary}}' into…",
+        "description": "Pick the commit this one is combined with. Commits in between are kept.",
+        "empty": "There is no older commit to combine this one with.",
+        "cancel": "Cancel"
+      },
+      "extract": {
+        "title": "Extract to a separate commit",
+        "description": "Move {{path}}'s change out of the selected commit into its own commit.",
+        "label": "Commit message",
+        "submit": "Extract"
+      }
+    },
+    "confirm": {
+      "deleteBranch": {
+        "title": "Delete branch '{{name}}'?",
+        "description": "The branch is deleted. Commits reachable only from it become unreachable.",
+        "confirm": "Delete"
+      },
+      "deleteTag": {
+        "title": "Delete tag '{{name}}'?",
+        "description": "The tag is removed from this repository. The commits it points to stay.",
+        "confirm": "Delete"
+      },
+      "undoCommit": {
+        "title": "Undo commit {{oid}}?",
+        "description": "The commit is removed from the branch and its changes stay in the working tree, unstaged. Only the commit at HEAD can be undone.",
+        "confirm": "Undo commit"
+      },
+      "dropCommit": {
+        "title": "Drop the selected commits?",
+        "description": "The commits are removed from the current branch and everything above them is rewritten. This cannot be undone.",
+        "confirm": "Drop"
+      },
+      "restoreFile": {
+        "title": "Restore this file's changes?",
+        "description": "The file in the working copy is replaced with the revision's version. Uncommitted changes to it are lost.",
+        "confirm": "Restore"
+      },
+      "dropChanges": {
+        "title": "Delete this file's changes?",
+        "description": "The file's change is removed from the selected commit and everything above it is rewritten. This cannot be undone.",
+        "confirm": "Delete"
+      }
+    },
+    "error": {
+      "currentBranch": "This is the current branch.",
+      "remoteBranch": "Not available for remote branches.",
+      "noUpstream": "This branch has no upstream.",
+      "heldByWorktree": "This branch is checked out in a worktree.",
+      "noCurrentBranch": "No branch is currently checked out.",
+      "noParentCommit": "This commit has no parent.",
+      "noChildCommit": "No child commit is visible in the list.",
+      "notInCurrentHistory": "That commit is not part of the current branch's history.",
+      "rewriteCurrentBranch": "Show the current branch in the log to rewrite commits.",
+      "onlyHead": "Only the commit at HEAD can be undone.",
+      "noMergeInRange": "The selection includes a merge commit.",
+      "nothingAbove": "This is the newest commit — there is nothing to rebase above it.",
+      "onlyCurrentBranchPush": "Only the current branch can be pushed from here.",
+      "notAtHead": "The current branch has no commits yet."
+    },
+    "toast": {
+      "branchCreated": "Created branch {{name}}.",
+      "branchRenamed": "Renamed branch to {{name}}.",
+      "branchDeleted": "Deleted branch {{name}}.",
+      "branchUpdated": "Updated branch {{name}}.",
+      "rebaseConflicts": "Checked out {{name}}; the rebase stopped at a conflict.",
+      "tagCreated": "Created tag {{name}}.",
+      "tagDeleted": "Deleted tag {{name}}.",
+      "revisionCopied": "Revision number copied.",
+      "commitMessageCopied": "Commit message copied.",
+      "reset": "Reset the branch to {{oid}}.",
+      "reworded": "Commit message updated.",
+      "rewritten": "History rewritten.",
+      "restored": "File restored.",
+      "pathCopied": "Path copied.",
+      "patchSaved": "Patch saved.",
+      "patchFailed": "Could not save the patch"
+    },
+    "group": {
+      "conflicts": "Merge Conflicts",
+      "unversioned": "Unversioned Files"
+    },
+    "status": {
+      "modified": "Modified",
+      "added": "Added",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "untracked": "Unversioned",
+      "conflicted": "Merge conflict",
+      "ignored": "Ignored"
+    }
   },
   "filePreview": {
     "title": "File preview",
-    "treeTitle": "Project files",
+    "treeTitle": "Project",
     "treeLoading": "Reading the project…",
-    "treeEmpty": "The project has no files to preview.",
-    "treeFailed": "Could not read the project files. Check the project root in Settings → Project.",
+    "treeEmpty": "The project directory is empty.",
+    "treeFailed": "Could not read the project. Check the project root in Settings → Project.",
     "empty": "Pick a file on the left to preview it.",
     "reload": "Reload",
     "close": "Close preview",
     "tooLarge": "The file is too large to preview."
+  },
+  "gitRepo": {
+    "windowTitle": "Git repository",
+    "welcomeTitle": "Open a repository",
+    "welcomeHint": "Pick a local repository to browse its branches, commit graph, working copy and diffs. Each repository gets a window of its own.",
+    "openedRepo": "Repository opened"
+  },
+  "servers": {
+    "title": "Servers",
+    "subtitle": "SSH profiles stored on this machine. Credentials go to the system keychain; private keys are referenced by path.",
+    "empty": {
+      "title": "No servers yet",
+      "description": "Add a server to open its terminal and XFTP panes in the server manager window. Everything is stored locally.",
+      "action": "Add server"
+    },
+    "action": {
+      "create": "Add server",
+      "open": "Open",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "forgetHostKey": "Forget host key"
+    },
+    "form": {
+      "name": "Name",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "authKind": "Authentication",
+      "password": "Password",
+      "privateKey": "Private key",
+      "passphrase": "Passphrase",
+      "testHint": "Credentials are stored in plain text in servers.json and can be revealed here.",
+      "showSecret": "Show secret",
+      "hideSecret": "Hide secret",
+      "save": "Save",
+      "cancel": "Cancel",
+      "validation": {
+        "nameRequired": "Enter a name.",
+        "hostRequired": "Enter a host.",
+        "portInvalid": "The port must be between 1 and 65535.",
+        "usernameRequired": "Enter a username.",
+        "passwordRequired": "Enter the password.",
+        "privateKeyRequired": "Paste or load a private key."
+      }
+    },
+    "hostKey": {
+      "title": "Confirm host key",
+      "fingerprint": "SHA256 fingerprint",
+      "trust": "Trust and connect",
+      "mismatch": "The host key does not match the trusted record. If the change is expected, forget the saved key first, then connect again.",
+      "forgetHint": "Forgetting the saved key lets the next connection ask for confirmation again."
+    },
+    "window": {
+      "title": "Server manager",
+      "empty": {
+        "title": "No server open",
+        "description": "Open a server from the list to start a terminal and XFTP session."
+      },
+      "tab": {
+        "terminal": "Terminal",
+        "sftp": "XFTP",
+        "metrics": "Monitor"
+      },
+      "reconnect": "Reconnect",
+      "disconnected": "Disconnected"
+    },
+    "connection": {
+      "idle": "Not connected",
+      "connecting": "Connecting",
+      "ready": "Connected",
+      "failed": "Failed"
+    },
+    "metrics": {
+      "waiting": "Waiting for data…",
+      "notConnected": "Connect to this server to start collecting metrics.",
+      "connecting": "Connecting…",
+      "latency": "Latency",
+      "cpu": "CPU",
+      "user": "usr",
+      "system": "sys",
+      "memory": "Memory",
+      "disk": "Disk",
+      "network": "Network",
+      "load": "Load",
+      "uptime": "Uptime",
+      "processes": "Processes",
+      "threads": "Threads",
+      "availableMemory": "Available memory",
+      "swap": "Swap",
+      "diskIo": "Disk I/O",
+      "iowait": "I/O wait",
+      "steal": "Steal",
+      "inodeUsage": "Inode usage",
+      "download": "Down",
+      "upload": "Up",
+      "read": "Read",
+      "write": "Write",
+      "cpuChart": "CPU usage",
+      "memoryChart": "Memory usage",
+      "diskChart": "Disk I/O",
+      "networkChart": "Network"
+    },
+    "sftp": {
+      "local": "Local",
+      "remote": "Remote",
+      "upload": "Upload",
+      "download": "Download",
+      "newFolder": "New folder",
+      "rename": "Rename",
+      "delete": "Delete",
+      "refresh": "Refresh",
+      "hidden": {
+        "show": "Show hidden files",
+        "hide": "Hide hidden files"
+      },
+      "conflict": {
+        "title": "File already exists",
+        "overwrite": "Overwrite",
+        "skip": "Skip",
+        "rename": "Keep both",
+        "applyAll": "Apply to all"
+      }
+    },
+    "transfer": {
+      "pending": "Pending",
+      "running": "Running",
+      "paused": "Paused",
+      "done": "Done",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "clearFinished": "Clear finished"
+    },
+    "error": {
+      "hostKeyUnknown": "This host is not trusted yet. Confirm its fingerprint to continue.",
+      "hostKeyMismatch": "The host key changed. Forget the saved key before connecting again.",
+      "authFailed": "The server rejected the credentials.",
+      "connectTimeout": "The connection timed out.",
+      "fileTooLarge": "The file is too large for this operation."
+    }
+  },
+  "frp": {
+    "title": "FRP Console",
+    "subtitle": "Run a local frpc process per server profile, with generated configuration, live status and logs.",
+    "tab": {
+      "overview": "Overview",
+      "servers": "Servers",
+      "tunnels": "Tunnels",
+      "logs": "Logs",
+      "runtime": "Runtimes"
+    },
+    "common": {
+      "refresh": "Refresh",
+      "loading": "Loading…",
+      "retry": "Retry",
+      "save": "Save",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "create": "Create",
+      "confirm": "Confirm",
+      "close": "Close",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Could not copy to the clipboard.",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "shell": {
+      "summary": "{{profiles}} servers · {{running}} running · {{runtimes}} runtimes"
+    },
+    "status": {
+      "running": "Running",
+      "starting": "Starting",
+      "reconnecting": "Reconnecting",
+      "stopping": "Stopping",
+      "stopped": "Stopped",
+      "failed": "Failed",
+      "online": "Online",
+      "offline": "Offline",
+      "error": "Error",
+      "unknown": "Unknown"
+    },
+    "overview": {
+      "statConnected": "Connected",
+      "statTunnels": "Tunnels online",
+      "statErrors": "Failed",
+      "statRuntime": "Recommended runtime",
+      "startAll": "Start all",
+      "stopAll": "Stop all",
+      "failedHeading": "Some servers could not start",
+      "retry": "Retry",
+      "empty": {
+        "title": "No servers yet",
+        "description": "Add a server profile before starting frpc."
+      },
+      "noRuntime": {
+        "title": "Add an frpc runtime first",
+        "description": "Pick an frpc binary that already exists on this machine; nothing is downloaded.",
+        "action": "Choose runtime"
+      },
+      "activeConnections": "Active connections",
+      "allServers": "Servers",
+      "pid": "PID",
+      "batchFailed": "{{name}}: {{error}}"
+    },
+    "servers": {
+      "title": "Servers",
+      "search": {
+        "placeholder": "Search by name or address"
+      },
+      "empty": {
+        "title": "No server profiles",
+        "description": "A profile holds one server address, its token and the runtime it runs.",
+        "action": "New server",
+        "noRuntime": "Add an frpc runtime first, then create a server."
+      },
+      "action": {
+        "create": "New server",
+        "moveUp": "Move up",
+        "moveDown": "Move down",
+        "duplicate": "Duplicate",
+        "details": "Details"
+      },
+      "col": {
+        "name": "Name",
+        "address": "Address",
+        "runtime": "Runtime",
+        "status": "Status",
+        "latency": "Latency",
+        "tunnels": "Tunnels",
+        "lastError": "Last error",
+        "actions": "Actions"
+      },
+      "list": {
+        "count": "{{count}} servers",
+        "noResults": "No servers match your search."
+      },
+      "runtime": {
+        "recommended": "Latest available",
+        "pinned": "Pinned",
+        "missing": "Runtime missing"
+      },
+      "notRunning": "Not running",
+      "restartToApply": "Configuration changed. Restart to apply.",
+      "copySuffix": "copy",
+      "configRevision": "Config rev. {{revision}}",
+      "badgeRestart": "Needs restart",
+      "duplicated": "Server copied.",
+      "deleted": "Server deleted.",
+      "reorderFailed": "Could not save the new order."
+    },
+    "serverForm": {
+      "name": "Name",
+      "serverAddr": "Server address",
+      "serverPort": "Port",
+      "token": "Token",
+      "runtimePolicy": "Runtime",
+      "runtime": "Runtime version",
+      "runtimeRecommended": "Latest available",
+      "runtimePinned": "Pinned version",
+      "runtimeEmpty": "No runtimes imported yet.",
+      "runtimePlaceholder": "Choose a version",
+      "reconnect": "Reconnect automatically",
+      "note": "Note",
+      "showToken": "Show token",
+      "hideToken": "Hide token",
+      "titleCreate": "Add server",
+      "titleEdit": "Edit server",
+      "created": "Server created.",
+      "updated": "Server updated.",
+      "validation": {
+        "name": "Name must be 1–80 characters.",
+        "nameTaken": "Another server already uses this name.",
+        "serverAddr": "Enter a host without http:// or https://.",
+        "serverPort": "Port must be between 1 and 65535.",
+        "runtime": "Choose a runtime version."
+      }
+    },
+    "import": {
+      "action": "Import config",
+      "title": "Import frpc configuration",
+      "description": "Creates one server profile and its tunnels from an existing frpc.toml.",
+      "source": {
+        "text": "Paste TOML",
+        "file": "Choose file"
+      },
+      "placeholder": "serverAddr = \"frps.example.com\"\nserverPort = 7000\nauth.token = \"shared-secret\"\n\n[[proxies]]\nname = \"web\"\ntype = \"tcp\"\nlocalIP = \"127.0.0.1\"\nlocalPort = 8080\nremotePort = 8080",
+      "fileFilter": "frpc config",
+      "chooseFile": "Choose file",
+      "noFile": "No file selected",
+      "preview": "Parse preview",
+      "previewing": "Parsing…",
+      "previewTitle": "Parsed configuration",
+      "tokenDetected": "Token detected",
+      "tokenMissing": "No token found",
+      "applyToken": "Apply the token from the config",
+      "noTunnels": "No tunnels were found in this configuration.",
+      "warnings": "Warnings",
+      "name": "Profile name",
+      "defaultName": "Imported {{addr}}",
+      "runtimePolicy": "Runtime",
+      "runtime": "Runtime version",
+      "runtimeEmpty": "No runtimes imported yet.",
+      "runtimePlaceholder": "Choose a version",
+      "notStarted": "Importing only creates a server profile; it never starts frpc. You can keep editing it in the form afterwards.",
+      "confirm": "Import",
+      "importing": "Importing…",
+      "success": "Imported {{count}} tunnels.",
+      "openRuntime": "Go to runtimes",
+      "col": {
+        "name": "Name",
+        "type": "Type",
+        "local": "Local address",
+        "public": "Public address",
+        "enabled": "Enabled"
+      },
+      "validation": {
+        "name": "Name must be 1–80 characters.",
+        "runtime": "Choose a runtime version.",
+        "source": "The configuration could not be read. Check the TOML or the file path."
+      }
+    },
+    "serverDetail": {
+      "title": "Server details",
+      "basic": "Basic information",
+      "configPreview": "Configuration preview",
+      "configLoading": "Loading configuration…",
+      "tunnels": "Tunnels",
+      "runtime": "Runtime",
+      "lastError": "Last error",
+      "restartToApply": "Configuration changed. Restart to apply.",
+      "copyConfig": "Copy configuration",
+      "viewLogs": "View logs",
+      "verify": "Verify configuration",
+      "verifying": "Verifying…",
+      "verifyValid": "Configuration is valid",
+      "verifyInvalid": "Configuration is invalid",
+      "rawOutput": "frpc output",
+      "noTunnels": "No tunnels on this server yet."
+    },
+    "delete": {
+      "title": "Delete server",
+      "description": "This stops frpc, deletes the server's tunnels, generated configuration and logs. It cannot be undone."
+    },
+    "tunnels": {
+      "title": "Tunnels",
+      "subtitle": "Forward local ports or expose local services through the server.",
+      "allServers": "All servers",
+      "search": {
+        "placeholder": "Search by name or address"
+      },
+      "col": {
+        "name": "Name",
+        "server": "Server",
+        "type": "Type",
+        "local": "Local address",
+        "public": "Public address",
+        "status": "Status",
+        "enabled": "Enabled",
+        "actions": "Actions"
+      },
+      "empty": {
+        "title": "No tunnels",
+        "description": "Add a tunnel to forward a local port or publish a local service.",
+        "noServer": "Add a server first, then create tunnels."
+      },
+      "action": {
+        "create": "New tunnel"
+      },
+      "list": {
+        "count": "{{count}} tunnels",
+        "noResults": "No tunnels match your filters."
+      },
+      "delete": {
+        "title": "Delete tunnel",
+        "description": "This removes the tunnel from the server configuration. It cannot be undone."
+      },
+      "deleted": "Tunnel deleted.",
+      "updateFailed": "Could not update the tunnel."
+    },
+    "tunnelForm": {
+      "name": "Name",
+      "profile": "Server",
+      "profilePlaceholder": "Choose a server",
+      "type": "Type",
+      "localIp": "Local IP",
+      "localPort": "Local port",
+      "bindIp": "Bind address",
+      "bindPort": "Bind port",
+      "remotePort": "Remote port",
+      "customDomains": "Custom domains",
+      "subdomain": "Subdomain",
+      "locations": "Locations",
+      "secretKey": "Secret key",
+      "role": "Role",
+      "serverRole": "Server",
+      "visitorRole": "Visitor",
+      "serverName": "Server name",
+      "enabled": "Enabled",
+      "listHint": "One entry per line or comma separated.",
+      "showSecret": "Show secret key",
+      "hideSecret": "Hide secret key",
+      "titleCreate": "New tunnel",
+      "titleEdit": "Edit tunnel",
+      "created": "Tunnel created.",
+      "updated": "Tunnel updated.",
+      "validation": {
+        "name": "Name must be 1–80 characters.",
+        "nameTaken": "Another tunnel on this server already uses this name.",
+        "profile": "Choose the server this tunnel belongs to.",
+        "localIp": "Enter a valid local address.",
+        "localPort": "Port must be between 1 and 65535.",
+        "remotePort": "Remote port must be between 1 and 65535.",
+        "domains": "Enter at least one domain or a subdomain.",
+        "secretKey": "Enter the secret key.",
+        "serverName": "A visitor needs the server name."
+      }
+    },
+    "tunnel": {
+      "publicAddress": "Public address",
+      "noPublicAddress": "Not exposed",
+      "restartToApply": "Configuration changed. Restart to apply.",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "logs": {
+      "title": "Logs",
+      "filter": {
+        "server": "Server",
+        "level": "Level",
+        "all": "All"
+      },
+      "search": {
+        "placeholder": "Search messages"
+      },
+      "pause": "Pause",
+      "resume": "Resume",
+      "clear": "Clear",
+      "openDir": "Open log folder",
+      "openDirFailed": "Could not open the log folder.",
+      "empty": "No log lines yet.",
+      "noMatch": "No lines match the filter.",
+      "autoScroll": "Follow tail",
+      "level": {
+        "trace": "TRACE",
+        "debug": "DEBUG",
+        "info": "INFO",
+        "warn": "WARN",
+        "error": "ERROR"
+      }
+    },
+    "runtime": {
+      "title": "Runtimes",
+      "subtitle": "Only frpc binaries that already exist on this machine; nothing is downloaded.",
+      "empty": {
+        "title": "No runtime imported",
+        "description": "Choose an frpc.exe to import. The console runs it directly, with no network download."
+      },
+      "action": {
+        "import": "Import frpc",
+        "rescan": "Scan again",
+        "deepScan": "Deep scan"
+      },
+      "col": {
+        "version": "Version",
+        "source": "Source",
+        "platform": "Platform",
+        "size": "Size",
+        "usage": "Used by",
+        "added": "Added",
+        "actions": "Actions"
+      },
+      "source": {
+        "path": "PATH",
+        "common": "Common folder",
+        "deep": "Deep scan"
+      },
+      "inUseBy": "Used by {{count}} servers",
+      "inUse": "In use",
+      "runningInUse": "A running frpc process uses this runtime.",
+      "delete": "Delete",
+      "deleteTitle": "Remove runtime",
+      "deleteDescription": "Only the record is removed; the frpc binary stays on disk.",
+      "recheck": "Probe again",
+      "alreadyImported": "Already imported",
+      "importOne": "Import",
+      "imported": "Imported {{version}}.",
+      "rechecked": "Probed {{version}}.",
+      "deleted": "Runtime removed.",
+      "scanFailed": "Scan failed.",
+      "discovered": "Found on this machine",
+      "chooseFile": "Choose file",
+      "noFile": "No file selected",
+      "scanHint": "Scans PATH and common install folders. Deep scan also walks your user folder.",
+      "noneFound": "No frpc binary was found.",
+      "unknownVersion": "Unknown version",
+      "probe": {
+        "title": "Probe result",
+        "valid": "This binary works.",
+        "invalid": "This file is not a usable frpc binary.",
+        "version": "Version",
+        "platform": "Platform",
+        "architecture": "Architecture",
+        "error": "Error"
+      }
+    },
+    "error": {
+      "notFound": "The requested item no longer exists.",
+      "invalidInput": "The input is not valid.",
+      "conflict": "The operation conflicts with the current state.",
+      "runtimeMissing": "No usable frpc runtime was found.",
+      "runtimeInUse": "The runtime is referenced by a server or currently running.",
+      "configInvalid": "frpc rejected the generated configuration.",
+      "spawnFailed": "frpc could not be started.",
+      "notImplemented": "This feature is not connected yet.",
+      "internal": "The FRP engine hit an internal error."
+    }
   }
 }

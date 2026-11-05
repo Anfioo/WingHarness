@@ -15,7 +15,7 @@ example of each platform feature are done; what the app is *for* is yours to add
 |--------|------|------------|----------------|-------|
 | Frontend | `src/` | TypeScript/React | Routing, windows, i18n, editor, viewers | [src/CLAUDE.md](./src/CLAUDE.md) |
 | Backend | `src-tauri/` | Rust | Commands, config, tray, theme fonts | [src-tauri/CLAUDE.md](./src-tauri/CLAUDE.md) |
-| Documentation | `docs/` | Markdown | One guide per retained feature | — |
+| Documentation | `docs/` | Markdown | Cross-cutting guides at the root; one guide per feature under `docs/features/` | — |
 
 Both module guides are loaded automatically when working inside those
 directories; they hold the per-module conventions. This file holds the ones that
@@ -33,7 +33,7 @@ span both.
 
 ```bash
 pnpm install        # Install dependencies
-pnpm tauri dev      # Dev server (:11420) + the app
+pnpm tauri dev      # Dev server (:11421) + the app
 pnpm tauri build    # Production bundle
 pnpm check          # prettier --check + eslint + tsc + vite build
 pnpm format         # Format code
@@ -97,13 +97,57 @@ data directory). Never the config directory root, never `localStorage`.
 
 ### Documentation
 
-When adding a feature that deserves a guide, write both language versions:
-`docs/FEATURE.md` and `docs/FEATURE.zh-CN.md`, and add them to the table in
-[README.md](./README.md) and [README.zh-CN.md](./README.zh-CN.md).
+Two kinds of guide, and every one is written twice:
+
+- **Cross-cutting guides** stay at the root of `docs/` — `AUTO_UPDATE.md`,
+  `GLOBAL_SHORTCUT.md`, `I18N.md`, `UPSTREAM_PROJECTS.md`.
+- **Feature guides** live in `docs/features/`, one per feature and named after
+  it (`GIT.md`, `FILE_PREVIEW.md`, …).
+
+`X.md` and `X.zh-CN.md` must stay key-for-key in step, and both must appear in
+the tables in [README.md](./README.md) and [README.zh-CN.md](./README.zh-CN.md).
+A guide is added in the same change as the feature.
+
+A feature guide is never named `CLAUDE.md`: Claude Code loads any `CLAUDE.md` in
+a directory it works in as instructions, so the guide would be read as rules
+instead of description. The Claude pages' guide is therefore `CLAUDE_CODE.md`.
+
+### Licensing and upstream code
+
+WingHarness is GPL-3.0-only. Any code carried over from another project must
+pass the licence gate in [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md)
+before it is copied: GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL are
+allowed; AGPL-3.0 and unlicensed projects are not. A ported file keeps an
+attribution header, a whole subsystem gets an `UPSTREAM.md`, and the notices in
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and the porting record are
+updated in the same change.
 
 ## Available Guides
 
+Cross-cutting:
+
 - [AUTO_UPDATE.md](./docs/AUTO_UPDATE.md) — Tauri auto-update configuration and the GitHub Actions release flow
-- [FILE_PREVIEW.md](./docs/FILE_PREVIEW.md) — the viewer subsystem and how to add a format
 - [GLOBAL_SHORTCUT.md](./docs/GLOBAL_SHORTCUT.md) — registering shortcuts with the OS
 - [I18N.md](./docs/I18N.md) — i18next configuration and adding a language
+- [UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md) — every upstream project, its licence and the porting record
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — development setup, commit format, contribution licensing
+
+Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
+
+- [AI_CONFIG.md](./docs/features/AI_CONFIG.md) — AI config sync store and per-agent materialisation
+- [API_CLIENT.md](./docs/features/API_CLIENT.md) — REST client driven by an OpenAPI or Swagger document
+- [CC_SWITCH.md](./docs/features/CC_SWITCH.md) — provider management for the AI coding CLIs
+- [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) — the Claude chat, history and workflow pages
+- [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) — the viewer subsystem and how to add a format
+- [FRP.md](./docs/features/FRP.md) — the FRP console, `frpc` processes and generated configs
+- [GIT.md](./docs/features/GIT.md) — the local Git client
+- [MCP_HUB.md](./docs/features/MCP_HUB.md) — the local MCP gateway
+- [MD_EDITOR.md](./docs/features/MD_EDITOR.md) — the multi-tab Markdown editor
+- [NOTES.md](./docs/features/NOTES.md) — Markdown notes in the data directory
+- [PLUGINS.md](./docs/features/PLUGINS.md) — the plugin format and its generated settings UI
+- [PROJECT.md](./docs/features/PROJECT.md) — the project file explorer and editor
+- [SERVERS.md](./docs/features/SERVERS.md) — the SSH / SFTP server manager
+- [SVN.md](./docs/features/SVN.md) — the Subversion workspace
+- [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console
+- [TERMINAL.md](./docs/features/TERMINAL.md) — the pseudo-console page
+- [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) — the About window's third-party licence dialog

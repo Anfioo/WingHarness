@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-test-list"
+description = "Enables the clash_test_list command without any pre-configured scope."
+commands.allow = ["clash_test_list"]
+
+[[permission]]
+identifier = "deny-clash-test-list"
+description = "Denies the clash_test_list command without any pre-configured scope."
+commands.deny = ["clash_test_list"]

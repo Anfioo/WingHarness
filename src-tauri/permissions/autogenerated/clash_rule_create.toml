@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-rule-create"
+description = "Enables the clash_rule_create command without any pre-configured scope."
+commands.allow = ["clash_rule_create"]
+
+[[permission]]
+identifier = "deny-clash-rule-create"
+description = "Denies the clash_rule_create command without any pre-configured scope."
+commands.deny = ["clash_rule_create"]

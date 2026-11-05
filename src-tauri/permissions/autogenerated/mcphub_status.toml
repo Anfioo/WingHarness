@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-status"
+description = "Enables the mcphub_status command without any pre-configured scope."
+commands.allow = ["mcphub_status"]
+
+[[permission]]
+identifier = "deny-mcphub-status"
+description = "Denies the mcphub_status command without any pre-configured scope."
+commands.deny = ["mcphub_status"]

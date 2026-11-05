@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recent-set-ai-instructions"
+description = "Enables the recent_set_ai_instructions command without any pre-configured scope."
+commands.allow = ["recent_set_ai_instructions"]
+
+[[permission]]
+identifier = "deny-recent-set-ai-instructions"
+description = "Denies the recent_set_ai_instructions command without any pre-configured scope."
+commands.deny = ["recent_set_ai_instructions"]

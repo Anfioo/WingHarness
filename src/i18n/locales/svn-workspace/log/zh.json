@@ -1,0 +1,47 @@
+{
+  "title": "日志",
+  "subtitle": "当前工作副本的版本历史",
+  "loading": "正在加载版本记录…",
+  "error": "读取日志失败。",
+  "authorPlaceholder": "按作者筛选",
+  "keywordPlaceholder": "搜索提交信息…",
+  "dateRangePlaceholder": "日期范围",
+  "query": "查询",
+  "reset": "重置",
+  "filtered": "已筛选",
+  "revision": "版本",
+  "author": "作者",
+  "date": "日期",
+  "message": "提交信息",
+  "changedFiles": "文件数",
+  "close": "关闭",
+  "empty": {
+    "noLogs": "没有版本记录",
+    "noLogsHint": "当前工作副本没有可显示的历史。",
+    "noMatches": "没有符合筛选的版本记录",
+    "noMatchesHint": "请调整筛选条件后重新查询。"
+  },
+  "previousPage": "上一页",
+  "nextPage": "下一页",
+  "pageNumber": "第 {{page}} 页",
+  "pageSize": "每页",
+  "detail": {
+    "title": "版本 r{{revision}}",
+    "copyRevision": "复制版本号",
+    "copyMessage": "复制提交信息",
+    "changedPaths": "变更路径",
+    "noChangedPaths": "该版本没有列出变更路径。",
+    "openDiff": "查看差异",
+    "openBlame": "逐行追溯",
+    "reveal": "在资源管理器中显示"
+  },
+  "toast": {
+    "revisionCopied": "版本号已复制",
+    "messageCopied": "提交信息已复制",
+    "copyFailed": "复制失败"
+  },
+  "loadedCount_one": "{{count}} 条版本记录",
+  "loadedCount_other": "{{count}} 条版本记录",
+  "matchedCount_one": "匹配 {{count}} 条版本记录",
+  "matchedCount_other": "匹配 {{count}} 条版本记录"
+}

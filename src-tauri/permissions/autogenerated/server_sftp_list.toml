@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-sftp-list"
+description = "Enables the server_sftp_list command without any pre-configured scope."
+commands.allow = ["server_sftp_list"]
+
+[[permission]]
+identifier = "deny-server-sftp-list"
+description = "Denies the server_sftp_list command without any pre-configured scope."
+commands.deny = ["server_sftp_list"]

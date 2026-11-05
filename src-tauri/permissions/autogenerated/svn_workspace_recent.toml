@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-workspace-recent"
+description = "Enables the svn_workspace_recent command without any pre-configured scope."
+commands.allow = ["svn_workspace_recent"]
+
+[[permission]]
+identifier = "deny-svn-workspace-recent"
+description = "Denies the svn_workspace_recent command without any pre-configured scope."
+commands.deny = ["svn_workspace_recent"]

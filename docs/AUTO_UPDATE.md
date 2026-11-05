@@ -14,7 +14,7 @@ https://github.com/<owner>/<repo>/releases/latest/download/latest.json
 
 1. Generate a signing key pair for secure updates
 2. Add the signing secrets to GitHub Actions
-3. Release from the `main` branch
+3. Release from the default branch (the one `origin/HEAD` points at, `main` by default)
 4. Publish releases with tags in the `vX.Y.Z` format
 
 ## Step 1: Generate Signing Keys
@@ -59,15 +59,13 @@ pnpm release:version
 
 The script performs release preflight checks before it makes changes:
 - Ensures the working tree is clean
-- Requires the current branch to be `main`
-- Verifies the three version files are consistent
-- Checks that the target tag does not already exist locally or on `origin`
+- Verifies the version files (`package.json`, `tauri.conf.json`, `Cargo.toml`, and `Cargo.lock` when present) are consistent
+- On the release branch, checks that the target tag does not already exist locally or on `origin`
 
 Then it:
 - Updates all version files together
-- Creates a release commit
-- Creates a `vX.Y.Z` tag
-- Optionally pushes the branch and tag
+- On the release branch: creates a release commit, creates a `vX.Y.Z` tag, and optionally pushes the branch and tag
+- On any other branch: stops after updating the version files — nothing is staged, committed, tagged or pushed, so a feature branch can bump versions without triggering a release
 
 The GitHub Actions workflow is triggered by `v*` tags.
 

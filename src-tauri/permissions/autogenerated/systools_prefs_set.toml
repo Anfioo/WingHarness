@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-prefs-set"
+description = "Enables the systools_prefs_set command without any pre-configured scope."
+commands.allow = ["systools_prefs_set"]
+
+[[permission]]
+identifier = "deny-systools-prefs-set"
+description = "Denies the systools_prefs_set command without any pre-configured scope."
+commands.deny = ["systools_prefs_set"]

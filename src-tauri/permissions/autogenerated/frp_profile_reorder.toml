@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-profile-reorder"
+description = "Enables the frp_profile_reorder command without any pre-configured scope."
+commands.allow = ["frp_profile_reorder"]
+
+[[permission]]
+identifier = "deny-frp-profile-reorder"
+description = "Denies the frp_profile_reorder command without any pre-configured scope."
+commands.deny = ["frp_profile_reorder"]

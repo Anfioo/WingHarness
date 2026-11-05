@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-delete-unversioned"
+description = "Enables the delete_unversioned command without any pre-configured scope."
+commands.allow = ["delete_unversioned"]
+
+[[permission]]
+identifier = "deny-delete-unversioned"
+description = "Denies the delete_unversioned command without any pre-configured scope."
+commands.deny = ["delete_unversioned"]

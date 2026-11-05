@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-md-editor-recent-add"
+description = "Enables the md_editor_recent_add command without any pre-configured scope."
+commands.allow = ["md_editor_recent_add"]
+
+[[permission]]
+identifier = "deny-md-editor-recent-add"
+description = "Denies the md_editor_recent_add command without any pre-configured scope."
+commands.deny = ["md_editor_recent_add"]

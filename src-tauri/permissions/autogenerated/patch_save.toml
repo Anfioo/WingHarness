@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-patch-save"
+description = "Enables the patch_save command without any pre-configured scope."
+commands.allow = ["patch_save"]
+
+[[permission]]
+identifier = "deny-patch-save"
+description = "Denies the patch_save command without any pre-configured scope."
+commands.deny = ["patch_save"]

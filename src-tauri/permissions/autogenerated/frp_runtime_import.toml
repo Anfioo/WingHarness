@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-runtime-import"
+description = "Enables the frp_runtime_import command without any pre-configured scope."
+commands.allow = ["frp_runtime_import"]
+
+[[permission]]
+identifier = "deny-frp-runtime-import"
+description = "Denies the frp_runtime_import command without any pre-configured scope."
+commands.deny = ["frp_runtime_import"]

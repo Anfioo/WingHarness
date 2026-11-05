@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-update-sort-order"
+description = "Enables the ccs_update_sort_order command without any pre-configured scope."
+commands.allow = ["ccs_update_sort_order"]
+
+[[permission]]
+identifier = "deny-ccs-update-sort-order"
+description = "Denies the ccs_update_sort_order command without any pre-configured scope."
+commands.deny = ["ccs_update_sort_order"]

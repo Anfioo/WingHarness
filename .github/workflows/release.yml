@@ -9,6 +9,11 @@ jobs:
   publish-tauri:
     permissions:
       contents: write
+    # Job-level env so the var survives into the tauri-action step and from
+    # there into `tauri build` -> beforeBuildCommand -> `pnpm build` -> vite.
+    # Step-level env in that step merges with this block, it does not replace it.
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +55,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      # Records where the heap limit came from, so a future OOM is diagnosable
+      # from the log alone.
+      - name: Show Node build environment
+        run: node -p "process.version + ' | heap limit ' + Math.round(require('node:v8').getHeapStatistics().heap_size_limit/1048576) + ' MB | ram ' + Math.round(require('node:os').totalmem()/1073741824) + ' GB'"
 
       - name: Configure updater
         shell: bash

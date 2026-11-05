@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-proxy-delay"
+description = "Enables the clash_proxy_delay command without any pre-configured scope."
+commands.allow = ["clash_proxy_delay"]
+
+[[permission]]
+identifier = "deny-clash-proxy-delay"
+description = "Denies the clash_proxy_delay command without any pre-configured scope."
+commands.deny = ["clash_proxy_delay"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-startup-prepare-change"
+description = "Enables the systools_startup_prepare_change command without any pre-configured scope."
+commands.allow = ["systools_startup_prepare_change"]
+
+[[permission]]
+identifier = "deny-systools-startup-prepare-change"
+description = "Denies the systools_startup_prepare_change command without any pre-configured scope."
+commands.deny = ["systools_startup_prepare_change"]

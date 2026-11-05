@@ -1,0 +1,75 @@
+{
+  "title": "Changes",
+  "subtitle": "Local changes in this working copy",
+  "loading": "Loading changes…",
+  "cached": "Showing cached status; a fresh scan is pending.",
+  "error": "Could not read the working copy status.",
+  "refresh": "Refresh",
+  "searchPlaceholder": "Search files…",
+  "clearSearch": "Clear search",
+  "selectAll": "Select all",
+  "deselectAll": "Deselect all",
+  "selected": "{{count}} selected",
+  "selectedWithHidden": "{{count}} selected, {{hidden}} hidden",
+  "expandAll": "Expand all",
+  "collapseAll": "Collapse all",
+  "empty": {
+    "noChanges": "No changes in this working copy",
+    "noChangesHint": "The working copy matches its base revision.",
+    "noMatches": "No files match the current filter",
+    "noMatchesHint": "Try another filter or clear the search."
+  },
+  "filter": {
+    "all": "All",
+    "modified": "Changes",
+    "added": "Added",
+    "deleted": "Deleted",
+    "unversioned": "Unversioned",
+    "conflicted": "Conflicted",
+    "missing": "Missing"
+  },
+  "status": {
+    "added": "Added",
+    "modified": "Modified",
+    "deleted": "Deleted",
+    "replaced": "Replaced",
+    "unversioned": "Unversioned",
+    "missing": "Missing",
+    "conflicted": "Conflicted",
+    "obstructed": "Obstructed"
+  },
+  "actions": {
+    "diff": "View diff",
+    "blame": "Blame",
+    "add": "Add to version control",
+    "delete": "Delete",
+    "revert": "Revert",
+    "resolve": "Resolve conflict",
+    "reveal": "Reveal in File Explorer",
+    "copyPath": "Copy path",
+    "copyAbsolutePath": "Copy absolute path",
+    "more": "More actions"
+  },
+  "resolve": {
+    "working": "Keep working version",
+    "mine": "Keep my version",
+    "theirs": "Keep their version"
+  },
+  "confirm": {
+    "addTitle": "Add to version control",
+    "addDescription": "Add this file to version control?",
+    "revertTitle": "Revert changes",
+    "revertDescription": "Revert SVN changes to this file? Uncommitted content or property changes may be lost and cannot be recovered through SVN.",
+    "deleteTitle": "Delete unversioned file",
+    "deleteDescription": "Permanently delete this unversioned file or directory? Directory contents are deleted too, bypassing the trash; this cannot be undone."
+  },
+  "toast": {
+    "added": "Added to version control",
+    "deleted": "Unversioned file deleted",
+    "reverted": "Reverted",
+    "resolved": "Conflict resolved",
+    "pathCopied": "Path copied",
+    "copyFailed": "Unable to copy path",
+    "failed": "Action failed: {{error}}"
+  }
+}

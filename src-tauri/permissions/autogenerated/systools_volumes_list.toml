@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-volumes-list"
+description = "Enables the systools_volumes_list command without any pre-configured scope."
+commands.allow = ["systools_volumes_list"]
+
+[[permission]]
+identifier = "deny-systools-volumes-list"
+description = "Denies the systools_volumes_list command without any pre-configured scope."
+commands.deny = ["systools_volumes_list"]

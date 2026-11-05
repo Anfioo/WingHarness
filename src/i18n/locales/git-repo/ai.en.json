@@ -1,0 +1,16 @@
+{
+  "actions": {
+    "copy": "Copy",
+    "done": "Done"
+  },
+  "panel": {
+    "stop": "Stop the {{title}}",
+    "expand": "Open {{title}} in full view",
+    "dismiss": "Dismiss {{title}}"
+  },
+  "locateLine": "Show this line in the diff",
+  "toast": {
+    "copied": "Copied",
+    "copyFailed": "Could not copy"
+  }
+}

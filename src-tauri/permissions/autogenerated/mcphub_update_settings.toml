@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-update-settings"
+description = "Enables the mcphub_update_settings command without any pre-configured scope."
+commands.allow = ["mcphub_update_settings"]
+
+[[permission]]
+identifier = "deny-mcphub-update-settings"
+description = "Denies the mcphub_update_settings command without any pre-configured scope."
+commands.deny = ["mcphub_update_settings"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-get-settings"
+description = "Enables the ccs_get_settings command without any pre-configured scope."
+commands.allow = ["ccs_get_settings"]
+
+[[permission]]
+identifier = "deny-ccs-get-settings"
+description = "Denies the ccs_get_settings command without any pre-configured scope."
+commands.deny = ["ccs_get_settings"]

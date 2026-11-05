@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-md-editor-settings-set"
+description = "Enables the md_editor_settings_set command without any pre-configured scope."
+commands.allow = ["md_editor_settings_set"]
+
+[[permission]]
+identifier = "deny-md-editor-settings-set"
+description = "Denies the md_editor_settings_set command without any pre-configured scope."
+commands.deny = ["md_editor_settings_set"]

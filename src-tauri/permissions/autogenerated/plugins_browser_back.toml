@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-browser-back"
+description = "Enables the plugins_browser_back command without any pre-configured scope."
+commands.allow = ["plugins_browser_back"]
+
+[[permission]]
+identifier = "deny-plugins-browser-back"
+description = "Denies the plugins_browser_back command without any pre-configured scope."
+commands.deny = ["plugins_browser_back"]

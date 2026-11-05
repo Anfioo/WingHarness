@@ -1,0 +1,149 @@
+{
+  "mark": {
+    "added": "新增",
+    "modified": "修改",
+    "deleted": "删除",
+    "renamed": "重命名",
+    "conflicted": "冲突"
+  },
+  "row": {
+    "stage": "暂存 {{path}}",
+    "unstage": "取消暂存 {{path}}",
+    "discard": "丢弃 {{path}}"
+  },
+  "list": {
+    "aria": "变更文件",
+    "of": "/ 共 {{total}}"
+  },
+  "filter": {
+    "placeholder": "筛选变更文件…",
+    "none": "没有匹配筛选条件的文件。",
+    "noneUnstaged": "没有匹配筛选条件的变更。",
+    "noneStaged": "没有匹配筛选条件的已暂存文件。"
+  },
+  "clean": {
+    "title": "工作区干净",
+    "description": "没有可提交的内容。你的修改会显示在这里。",
+    "amend": "修补上一次提交…"
+  },
+  "ai": {
+    "label": "AI 生成",
+    "generating": "生成中…",
+    "needProvider": "请先在设置中配置 AI 服务商。",
+    "needStaged": "请先暂存改动。",
+    "failed": "AI 请求失败：{{message}}"
+  },
+  "conflicts": {
+    "title": "冲突",
+    "resolve": "解决",
+    "hint": "解决每个文件后提交，以完成本次{{operation}}。",
+    "merge": "合并",
+    "rebase": "变基",
+    "operation": "操作"
+  },
+  "all": {
+    "title": "全部文件",
+    "counts": "{{total}} 个 · {{changed}} 个已变更",
+    "error": "无法列出文件：{{message}}",
+    "none": "尚无已跟踪的文件。"
+  },
+  "changes": {
+    "title": "变更",
+    "stageAll": "全部暂存",
+    "stageAllFailed": "全部暂存失败",
+    "discardAll": "丢弃所有变更",
+    "discardAllTitle_other": "丢弃全部 {{count}} 项变更？",
+    "discardAllDescription": "所有未暂存的变更都会被还原，未跟踪的文件将被删除。此操作无法撤销 —— 即使是 {{mod}}Z 也不行。",
+    "discardAllConfirm": "全部丢弃",
+    "empty": "工作区干净。"
+  },
+  "staged": {
+    "title": "已暂存",
+    "unstageAll": "全部取消暂存",
+    "unstageAllFailed": "全部取消暂存失败",
+    "discardAll": "丢弃所有已暂存的变更",
+    "discardAllTitle_other": "丢弃全部 {{count}} 项已暂存的变更？",
+    "discardAllDescription": "所有已暂存的文件都会回到上一次提交，这些文件中未暂存的修改也会一并还原，新增文件将被删除。此操作无法撤销 —— 即使是 {{mod}}Z 也不行。",
+    "emptyTitle": "没有已暂存的内容",
+    "emptyDescription": "勾选上方的文件，或点击“全部暂存”，即可将其加入下一次提交。"
+  },
+  "menu": {
+    "selected_other": "已选择 {{count}} 个文件",
+    "stageFile": "暂存文件",
+    "unstageFile": "取消暂存文件",
+    "stageFiles_other": "暂存 {{count}} 个文件",
+    "unstageFiles_other": "取消暂存 {{count}} 个文件",
+    "stashFile": "贮藏此文件…",
+    "stashFiles_other": "贮藏 {{count}} 个文件…",
+    "edit": "编辑文件",
+    "history": "文件历史",
+    "blame": "追溯",
+    "blameDisabled": "追溯（尚无提交）",
+    "openExternal": "用外部应用打开",
+    "reveal": "在文件管理器中显示",
+    "openFailed": "无法打开文件：{{message}}",
+    "revealFailed": "无法在文件管理器中显示文件：{{message}}",
+    "copied": "已复制路径",
+    "copyPath": "复制路径",
+    "copyAbsPath": "复制绝对路径",
+    "absCopied": "已复制绝对路径",
+    "discard": "丢弃修改…",
+    "discardMany_other": "丢弃 {{count}} 个文件中的修改…",
+    "delete": "删除文件…"
+  },
+  "discard": {
+    "title": "丢弃修改？",
+    "manyTitle_other": "丢弃 {{count}} 个文件中的修改？",
+    "descStagedNew": "此文件是新增文件 —— 丢弃会将其从索引中移除并删除文件。此操作无法撤销。",
+    "descStaged": "该文件会回到上一次提交 —— 已暂存和未暂存的修改都会一并还原。此操作无法撤销。",
+    "descUntracked": "此文件是新增文件 —— 丢弃会将其还原并删除文件。此操作无法撤销。",
+    "descUnstaged": "该文件中的所有修改都会被还原。此操作无法撤销。",
+    "descManyStaged": "这些文件会回到上一次提交 —— 已暂存和未暂存的修改都会一并还原。新增文件将被删除。此操作无法撤销。",
+    "descManyUnstaged": "这些文件中的所有修改都会被还原，其中的未跟踪文件将被删除。此操作无法撤销。",
+    "confirm": "丢弃",
+    "failed": "丢弃失败：{{message}}",
+    "allFailed": "全部丢弃失败：{{message}}",
+    "submodule": "“{{path}}” 是子模块 —— 请将它作为单独的仓库打开，以丢弃其中的修改。",
+    "leftoverFile": "无法丢弃 “{{path}}” —— 该修改仍然存在。",
+    "leftover_other": "{{count}} 项变更无法丢弃：{{listed}}",
+    "leftoverSub_other": "{{count}} 项变更无法丢弃 —— 其中有 {{submodules}} 个是子模块。请将它们作为单独的仓库打开以丢弃其中的修改：{{listed}}",
+    "stagedLeftover_other": "{{count}} 项已暂存的变更无法丢弃：{{listed}}",
+    "removeTitle": "删除文件？",
+    "removeUntracked": "该文件未被跟踪 —— 删除后无法撤销。",
+    "removeTracked": "该文件将从工作区中移除。可以通过“丢弃”将其恢复（删除会显示为一项变更）。",
+    "removeConfirm": "删除"
+  },
+  "ops": {
+    "stageFailed": "暂存失败",
+    "unstageFailed": "取消暂存失败",
+    "deleteFailed": "删除失败"
+  },
+  "toast": {
+    "discarded_other": "已丢弃 {{count}} 项变更",
+    "discardedStaged_other": "已丢弃 {{count}} 项已暂存的变更",
+    "amended": "提交已修补",
+    "committed": "已提交",
+    "commitFailed": "提交失败：{{message}}"
+  },
+  "commit": {
+    "summaryPlaceholder": "摘要",
+    "summaryPlaceholderAmend": "新的摘要（留空则保持不变）",
+    "summaryAria": "提交摘要",
+    "summaryLengthTitle": "摘要长度（建议 50，最多 72）",
+    "bodyPlaceholder": "改了什么，以及为什么",
+    "bodyAria": "提交说明",
+    "amend": "修补",
+    "hint": "提交",
+    "stageHint": "请先暂存一个文件",
+    "amendBtn": "修补提交",
+    "button_other": "提交 {{count}} 个文件",
+    "buttonEmpty": "提交",
+    "resize": "调整提交框大小",
+    "resizeTitle": "拖动以调整大小 · 双击以重置",
+    "abortHint": "将工作区重置为合并开始之前的状态",
+    "abortLabel": "中止合并",
+    "abortTitle": "中止合并？",
+    "abortDescription": "将中止合并，并把工作区重置为合并开始之前的状态。此操作无法撤销。",
+    "abortFailed": "中止合并失败：{{message}}"
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-staged-patch"
+description = "Enables the staged_patch command without any pre-configured scope."
+commands.allow = ["staged_patch"]
+
+[[permission]]
+identifier = "deny-staged-patch"
+description = "Denies the staged_patch command without any pre-configured scope."
+commands.deny = ["staged_patch"]

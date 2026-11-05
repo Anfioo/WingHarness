@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-push"
+description = "Enables the remote_push command without any pre-configured scope."
+commands.allow = ["remote_push"]
+
+[[permission]]
+identifier = "deny-remote-push"
+description = "Denies the remote_push command without any pre-configured scope."
+commands.deny = ["remote_push"]

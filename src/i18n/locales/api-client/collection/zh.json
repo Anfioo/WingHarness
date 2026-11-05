@@ -1,0 +1,50 @@
+{
+  "title": "集合",
+  "newCollection": "新建集合",
+  "searchLabel": "搜索请求",
+  "searchPlaceholder": "搜索请求",
+  "menu": {
+    "newRequest": "新建请求",
+    "newFolder": "新建文件夹"
+  },
+  "defaults": {
+    "collection": "新建集合",
+    "folder": "新建文件夹",
+    "request": "新建请求"
+  },
+  "empty": {
+    "noWorkspace": {
+      "title": "未打开工作区",
+      "description": "打开一个工作区以浏览其中的集合与请求。"
+    },
+    "noCollections": {
+      "title": "还没有集合",
+      "description": "先新建一个集合，再往里添加请求；也可以导入 OpenAPI 规范。"
+    },
+    "noMatch": {
+      "title": "没有匹配项",
+      "description": "此工作区中没有与“{{query}}”匹配的内容。"
+    }
+  },
+  "nameDialog": {
+    "newCollectionTitle": "新建集合",
+    "newFolderTitle": "新建文件夹",
+    "renameTitle": "重命名",
+    "newDescription": "为它取一个名字，之后可以随时重命名。",
+    "renameDescription": "输入“{{name}}”的新名称。",
+    "nameLabel": "名称",
+    "namePlaceholder": "名称",
+    "cancel": "取消",
+    "confirm": "确认"
+  },
+  "delete": {
+    "title": "删除",
+    "nodeDescription": "删除“{{name}}”及其中的全部内容？此操作无法撤销。",
+    "requestDescription": "删除“{{name}}”？此操作无法撤销。",
+    "cancel": "取消",
+    "confirm": "删除"
+  },
+  "toast": {
+    "deleted": "已删除“{{name}}”。"
+  }
+}

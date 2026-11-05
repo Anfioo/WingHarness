@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cherry-pick"
+description = "Enables the cherry_pick command without any pre-configured scope."
+commands.allow = ["cherry_pick"]
+
+[[permission]]
+identifier = "deny-cherry-pick"
+description = "Denies the cherry_pick command without any pre-configured scope."
+commands.deny = ["cherry_pick"]

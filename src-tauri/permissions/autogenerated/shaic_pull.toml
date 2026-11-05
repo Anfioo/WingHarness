@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-pull"
+description = "Enables the shaic_pull command without any pre-configured scope."
+commands.allow = ["shaic_pull"]
+
+[[permission]]
+identifier = "deny-shaic-pull"
+description = "Denies the shaic_pull command without any pre-configured scope."
+commands.deny = ["shaic_pull"]

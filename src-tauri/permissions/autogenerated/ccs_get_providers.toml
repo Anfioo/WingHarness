@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-get-providers"
+description = "Enables the ccs_get_providers command without any pre-configured scope."
+commands.allow = ["ccs_get_providers"]
+
+[[permission]]
+identifier = "deny-ccs-get-providers"
+description = "Denies the ccs_get_providers command without any pre-configured scope."
+commands.deny = ["ccs_get_providers"]

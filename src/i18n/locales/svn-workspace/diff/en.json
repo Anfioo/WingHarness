@@ -1,0 +1,31 @@
+{
+  "title": "Diff",
+  "loading": "Loading diff…",
+  "error": "Could not compute the diff.",
+  "noTarget": "No file selected",
+  "noTargetHint": "Pick a file in the changes or log panel to see its diff.",
+  "empty": "No differences",
+  "emptyHint": "This file matches the selected comparison.",
+  "file": "File",
+  "revisionRange": "Revision {{old}} → {{new}}",
+  "workingCopy": "Working copy",
+  "betweenRevisions": "Between revisions",
+  "oldRevision": "Old revision",
+  "newRevision": "New revision",
+  "compare": "Compare",
+  "invalidRevision": "Enter two valid, non-negative revisions.",
+  "copyPath": "Copy path",
+  "reveal": "Reveal in File Explorer",
+  "findText": "Find in diff",
+  "previousMatch": "Previous match",
+  "nextMatch": "Next match",
+  "noMatch": "No match",
+  "copyAll": "Copy diff",
+  "added": "{{count}} added",
+  "removed": "{{count}} removed",
+  "toast": {
+    "pathCopied": "Path copied",
+    "copied": "Diff copied",
+    "copyFailed": "Could not copy"
+  }
+}

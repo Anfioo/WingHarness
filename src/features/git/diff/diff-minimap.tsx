@@ -1,0 +1,192 @@
+import { useEffect, useMemo, useRef } from "react";
+import { pairHunkLines, type FileDiff } from "@/lib/git-core";
+import type { DiffViewMode } from "@/features/git/ui-store";
+import { useAppTranslation } from "@/hooks/use-app-translation";
+
+type RowKind = "header" | "context" | "addition" | "deletion" | "mixed";
+
+function logicalRows(diff: FileDiff, view: DiffViewMode): RowKind[] {
+  const rows: RowKind[] = [];
+  for (const hunk of diff.hunks) {
+    rows.push("header");
+    if (view === "inline") {
+      for (const line of hunk.lines) rows.push(line.kind);
+    } else {
+      for (const pair of pairHunkLines(hunk)) {
+        const leftChange = pair.left != null && pair.left.kind !== "context";
+        const rightChange = pair.right != null && pair.right.kind !== "context";
+        if (leftChange && rightChange) rows.push("mixed");
+        else if (leftChange) rows.push("deletion");
+        else if (rightChange) rows.push("addition");
+        else rows.push("context");
+      }
+    }
+  }
+  return rows;
+}
+
+export interface ChangeBlock {
+  fraction: number;
+  kind: RowKind;
+}
+
+export function changeBlocks(diff: FileDiff, view: DiffViewMode): ChangeBlock[] {
+  const rows = logicalRows(diff, view);
+  const total = Math.max(rows.length, 1);
+  const blocks: ChangeBlock[] = [];
+  let inBlock = false;
+  rows.forEach((kind, index) => {
+    const changed = kind === "addition" || kind === "deletion" || kind === "mixed";
+    if (changed && !inBlock) {
+      blocks.push({ fraction: index / total, kind });
+      inBlock = true;
+    } else if (!changed) {
+      inBlock = false;
+    }
+  });
+  return blocks;
+}
+
+export function scrollToFraction(
+  el: HTMLElement,
+  fraction: number,
+  behavior?: ScrollBehavior
+): void {
+  el.scrollTo({
+    top: Math.max(0, fraction * el.scrollHeight - el.clientHeight * 0.35),
+    behavior: behavior ?? "smooth",
+  });
+}
+
+const MARKER_COLOR: Record<string, string> = {
+  addition: "hsl(var(--success) / 0.5)",
+  deletion: "hsl(var(--diff-del-bg) / 0.5)",
+  mixed: "color-mix(in oklab, var(--primary) 55%, transparent)",
+};
+
+interface MarkerBlock {
+  start: number;
+  end: number;
+  kind: RowKind;
+}
+
+const MAX_MARKERS = 200;
+
+function bucketMarkers(blocks: MarkerBlock[], total: number): MarkerBlock[] {
+  if (blocks.length <= MAX_MARKERS) return blocks;
+  const bucketSize = total / MAX_MARKERS;
+  const merged: MarkerBlock[] = [];
+  let lastBucket = -1;
+  for (const block of blocks) {
+    const bucket = Math.floor(block.start / bucketSize);
+    const last = merged[merged.length - 1];
+    if (last && bucket === lastBucket) {
+      last.end = Math.max(last.end, block.end);
+      if (last.kind !== block.kind) last.kind = "mixed";
+    } else {
+      merged.push({ ...block });
+      lastBucket = bucket;
+    }
+  }
+  return merged;
+}
+
+export function DiffMinimap({
+  diff,
+  view,
+  scrollRef,
+}: {
+  diff: FileDiff;
+  view: DiffViewMode;
+  scrollRef: React.RefObject<HTMLElement | null>;
+}) {
+  const { t } = useAppTranslation();
+  const railRef = useRef<HTMLDivElement>(null);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+
+  const rows = useMemo(() => logicalRows(diff, view), [diff, view]);
+  const total = Math.max(rows.length, 1);
+  const markers = useMemo(() => {
+    const blocks: MarkerBlock[] = [];
+    rows.forEach((kind, index) => {
+      if (kind !== "addition" && kind !== "deletion" && kind !== "mixed") return;
+      const last = blocks[blocks.length - 1];
+      if (last && last.kind === kind && last.end === index) last.end = index + 1;
+      else blocks.push({ start: index, end: index + 1, kind });
+    });
+    return bucketMarkers(blocks, total);
+  }, [rows, total]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    const indicator = indicatorRef.current;
+    if (!el || !indicator) return;
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      if (el.scrollHeight === 0) return;
+      indicator.style.top = `${(el.scrollTop / el.scrollHeight) * 100}%`;
+      indicator.style.height = `${Math.max((el.clientHeight / el.scrollHeight) * 100, 2)}%`;
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(sync);
+    };
+    sync();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new ResizeObserver(onScroll);
+    observer.observe(el);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+    };
+  }, [scrollRef, diff, view]);
+
+  const scrub = (event: React.MouseEvent) => {
+    event.preventDefault();
+    const rail = railRef.current;
+    const el = scrollRef.current;
+    if (!rail || !el) return;
+    const moveTo = (clientY: number) => {
+      const rect = rail.getBoundingClientRect();
+      const fraction = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+      el.scrollTop = Math.max(0, fraction * el.scrollHeight - el.clientHeight * 0.35);
+    };
+    moveTo(event.clientY);
+    const onMove = (e: MouseEvent) => moveTo(e.clientY);
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  if (markers.length === 0) return null;
+
+  return (
+    <div
+      ref={railRef}
+      className="border-border bg-card relative w-3.5 shrink-0 cursor-pointer border-l"
+      onMouseDown={scrub}
+      role="scrollbar"
+      aria-label={t("gitRepo.diff.minimap.label")}
+    >
+      {markers.map(({ kind, start, end }) => (
+        <span
+          key={start}
+          className="absolute right-0.5 left-0.5 rounded-full"
+          style={{
+            top: `${(start / total) * 100}%`,
+            height: `max(2px, ${((end - start) / total) * 100}%)`,
+            background: MARKER_COLOR[kind],
+          }}
+        />
+      ))}
+      <span
+        ref={indicatorRef}
+        className="bg-foreground/15 ring-foreground/20 absolute inset-x-0 rounded-sm ring-1 ring-inset"
+      />
+    </div>
+  );
+}

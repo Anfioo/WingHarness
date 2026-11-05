@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-worktree-prune"
+description = "Enables the worktree_prune command without any pre-configured scope."
+commands.allow = ["worktree_prune"]
+
+[[permission]]
+identifier = "deny-worktree-prune"
+description = "Denies the worktree_prune command without any pre-configured scope."
+commands.deny = ["worktree_prune"]

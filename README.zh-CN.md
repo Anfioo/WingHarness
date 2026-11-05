@@ -7,7 +7,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
 
 一个 Tauri v2 桌面应用模板：外壳与原生部分已经接好，写下的第一段代码就是功能，
 而不是窗口边框。
@@ -55,7 +55,7 @@
 
 ```bash
 pnpm install
-pnpm tauri dev      # Vite 开发服务器在 :11420，同时启动应用
+pnpm tauri dev      # Vite 开发服务器在 :11421，同时启动应用
 ```
 
 ### 构建生产版本
@@ -88,7 +88,7 @@ pnpm check          # prettier --check、eslint、tsc、vite build
 │   ├── src/                  # commands/、config/、fonts/、theme/、plugins/（托盘）
 │   ├── file-preview/         # workspace crate：预览页的字节读取
 │   └── tauri.conf.json       # 窗口、打包与更新配置
-├── docs/                     # 保留功能的说明文档
+├── docs/                     # 跨功能文档；功能文档在 features/ 下
 └── scripts/                  # 版本发布、主题预设、build.ps1
 ```
 
@@ -130,12 +130,40 @@ pnpm dlx shadcn@latest add button
 
 ## 文档
 
+每份文档都写两遍，英文与中文各一版（`X.md` / `X.zh-CN.md`）。跨功能的文档放在
+`docs/` 根目录，只与某一个功能相关的放在 `docs/features/` 下。
+
 | 文档 | 内容 |
 |------|------|
 | [docs/AUTO_UPDATE.md](./docs/AUTO_UPDATE.md) | 更新端点、签名密钥、GitHub Actions 发布流程 |
-| [docs/FILE_PREVIEW.md](./docs/FILE_PREVIEW.md) | 预览子系统、支持的格式、如何新增一种格式 |
 | [docs/GLOBAL_SHORTCUT.md](./docs/GLOBAL_SHORTCUT.md) | 向操作系统注册快捷键 |
 | [docs/I18N.md](./docs/I18N.md) | i18next 配置与新增语言 |
+| [docs/UPSTREAM_PROJECTS.zh-CN.md](./docs/UPSTREAM_PROJECTS.zh-CN.md) | 所有上游项目、各自的许可证，以及移植记录 |
+
+### 功能文档
+
+功能文档随功能一起加入；下面这些同时也是移植时依据的规格，因此有几篇描述的是本
+仓库中尚未落地的页面。
+
+| 文档 | 内容 |
+|------|------|
+| [AI_CONFIG.zh-CN.md](./docs/features/AI_CONFIG.zh-CN.md) | AI 配置同步：一个 git 仓库作为唯一来源，再翻译成各 agent 的目录布局 |
+| [API_CLIENT.zh-CN.md](./docs/features/API_CLIENT.zh-CN.md) | 类 Postman 的 REST 客户端，由 OpenAPI 或 Swagger 文档驱动 |
+| [CC_SWITCH.zh-CN.md](./docs/features/CC_SWITCH.zh-CN.md) | AI 编码 CLI 的供应商管理 |
+| [CLAUDE_CODE.zh-CN.md](./docs/features/CLAUDE_CODE.zh-CN.md) | Claude 对话、历史与工作流三个页面 |
+| [FILE_PREVIEW.zh-CN.md](./docs/features/FILE_PREVIEW.zh-CN.md) | 只读预览、支持的格式、如何新增一种格式 |
+| [FRP.zh-CN.md](./docs/features/FRP.zh-CN.md) | FRP 控制台：生成 `frpc` 配置、子进程与日志 |
+| [GIT.zh-CN.md](./docs/features/GIT.zh-CN.md) | 本地 Git 客户端，每个仓库一个窗口 |
+| [MCP_HUB.zh-CN.md](./docs/features/MCP_HUB.zh-CN.md) | 用一个本地端点聚合本地 MCP 服务器 |
+| [MD_EDITOR.zh-CN.md](./docs/features/MD_EDITOR.zh-CN.md) | 多标签 Markdown 编辑器，文件留在原处 |
+| [NOTES.zh-CN.md](./docs/features/NOTES.zh-CN.md) | 存放在数据目录中的 Markdown 笔记 |
+| [PLUGINS.zh-CN.md](./docs/features/PLUGINS.zh-CN.md) | 插件格式、清单文件，以及自动生成设置界面 |
+| [PROJECT.zh-CN.md](./docs/features/PROJECT.zh-CN.md) | 项目文件浏览与编辑 |
+| [SERVERS.zh-CN.md](./docs/features/SERVERS.zh-CN.md) | SSH / SFTP 服务器管理 |
+| [SVN.zh-CN.md](./docs/features/SVN.zh-CN.md) | 原生 Subversion 工作副本 |
+| [SYSTOOLS.zh-CN.md](./docs/features/SYSTOOLS.zh-CN.md) | Windows 系统维护控制台 |
+| [TERMINAL.zh-CN.md](./docs/features/TERMINAL.zh-CN.md) | 伪终端页面 |
+| [THIRD_PARTY_LICENSES.zh-CN.md](./docs/features/THIRD_PARTY_LICENSES.zh-CN.md) | 关于窗口中的第三方许可对话框 |
 
 ## 发布与自动更新
 
@@ -154,4 +182,16 @@ pnpm release:version
 
 ## 许可证
 
-MIT
+GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）。见 [LICENSE](./LICENSE)。
+
+版权所有 (C) 2026 Anfioo。
+
+第三方组件各自保留其许可证，见
+[THIRD_PARTY_NOTICES.zh-CN.md](./THIRD_PARTY_NOTICES.zh-CN.md)，许可证文本放在
+[licenses/](./licenses/)。每个已移植子系统的来源，以及哪些上游项目不得移植，记录在
+[docs/UPSTREAM_PROJECTS.zh-CN.md](./docs/UPSTREAM_PROJECTS.zh-CN.md)。
+
+## 贡献
+
+欢迎贡献。请先读 [CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md)：开发环境、
+提交信息格式，以及从上游项目移植代码的规则都在那里。

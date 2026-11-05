@@ -1,0 +1,50 @@
+{
+  "title": "Collections",
+  "newCollection": "New collection",
+  "searchLabel": "Search requests",
+  "searchPlaceholder": "Search requests",
+  "menu": {
+    "newRequest": "New request",
+    "newFolder": "New folder"
+  },
+  "defaults": {
+    "collection": "New Collection",
+    "folder": "New Folder",
+    "request": "New Request"
+  },
+  "empty": {
+    "noWorkspace": {
+      "title": "No workspace open",
+      "description": "Open a workspace to browse its collections and requests."
+    },
+    "noCollections": {
+      "title": "No collections yet",
+      "description": "Create a collection, then add requests to it, or import an OpenAPI spec."
+    },
+    "noMatch": {
+      "title": "No matches",
+      "description": "Nothing in this workspace matches “{{query}}”."
+    }
+  },
+  "nameDialog": {
+    "newCollectionTitle": "New collection",
+    "newFolderTitle": "New folder",
+    "renameTitle": "Rename",
+    "newDescription": "Give it a name. You can rename it later.",
+    "renameDescription": "Enter a new name for “{{name}}”.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Name",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
+  },
+  "delete": {
+    "title": "Delete",
+    "nodeDescription": "Delete “{{name}}” and everything inside it? This cannot be undone.",
+    "requestDescription": "Delete “{{name}}”? This cannot be undone.",
+    "cancel": "Cancel",
+    "confirm": "Delete"
+  },
+  "toast": {
+    "deleted": "Deleted “{{name}}”."
+  }
+}

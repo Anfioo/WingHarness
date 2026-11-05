@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-remote-info"
+description = "Enables the svn_remote_info command without any pre-configured scope."
+commands.allow = ["svn_remote_info"]
+
+[[permission]]
+identifier = "deny-svn-remote-info"
+description = "Denies the svn_remote_info command without any pre-configured scope."
+commands.deny = ["svn_remote_info"]

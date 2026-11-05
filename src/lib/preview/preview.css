@@ -6,9 +6,10 @@
  * `.ov-preview` on the preview pane's root: the reference styles the bare
  * `button` element, and unscoped that would restyle every button in the app.
  *
- * The colors are deliberately literal and light. A document, a sheet or a PDF
- * is paper: it should look the same in either theme. The chrome around it is
- * the host's and follows the theme as usual.
+ * Colors come from the app's theme tokens, so the pane follows light and dark
+ * mode instead of painting a light surface over a dark workbench. What a viewer
+ * draws from the file itself — a slide canvas, a PDF, a document's own inline
+ * styles — keeps the colors the file gives it.
  */
 
 .ov-preview button {
@@ -17,19 +18,20 @@
   justify-content: center;
   gap: 6px;
   min-height: 30px;
-  border: 1px solid #cfd5df;
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 5px 10px;
-  color: #202124;
-  background: #ffffff;
+  color: var(--foreground);
+  background: var(--card);
   font: inherit;
   font-size: 13px;
   cursor: pointer;
 }
 
 .ov-preview button:hover {
-  background: #eef3ff;
-  border-color: #aab8d6;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: var(--ring);
 }
 
 .ov-preview button:disabled {
@@ -38,15 +40,17 @@
 }
 
 .ov-preview button.active {
-  background: #e6f0ff;
-  border-color: #7fa3df;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: var(--ring);
 }
 
 .ov-preview .viewer-surface {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  background: #ffffff;
+  color: var(--foreground);
+  background: var(--background);
 }
 
 .ov-preview .empty-view,
@@ -56,11 +60,11 @@
   min-height: 240px;
   place-items: center;
   padding: 24px;
-  color: #747d8c;
+  color: var(--muted-foreground);
 }
 
 .ov-preview .error-view {
-  color: #a12626;
+  color: var(--destructive);
 }
 
 .ov-preview .document-view {
@@ -81,7 +85,7 @@
 
 .ov-preview .document-view td,
 .ov-preview .document-view th {
-  border: 1px solid #cfd5df;
+  border: 1px solid var(--border);
   padding: 5px 8px;
 }
 
@@ -100,8 +104,8 @@
 .ov-preview .word-outline {
   min-height: 0;
   overflow: auto;
-  border-left: 1px solid #d9dde5;
-  background: #fbfcfe;
+  border-left: 1px solid var(--border);
+  background: var(--muted);
   padding: 18px 14px;
 }
 
@@ -112,7 +116,7 @@
 
 .ov-preview .word-outline p {
   margin: 0;
-  color: #7b8493;
+  color: var(--muted-foreground);
 }
 
 .ov-preview .word-outline div {
@@ -124,7 +128,7 @@
 }
 
 .ov-preview .word-outline span {
-  color: #7b8493;
+  color: var(--muted-foreground);
   font-size: 11px;
 }
 
@@ -145,8 +149,8 @@
 .ov-preview .slide-list {
   min-height: 0;
   overflow: auto;
-  border-right: 1px solid #d9dde5;
-  background: #fbfcfe;
+  border-right: 1px solid var(--border);
+  background: var(--muted);
   padding: 10px;
 }
 
@@ -160,14 +164,14 @@
   border-radius: 6px;
   background: transparent;
   padding: 8px;
-  color: #1f2937;
+  color: var(--foreground);
   text-align: left;
   cursor: pointer;
 }
 
 .ov-preview .slide-list button.active {
-  border-color: #4f7cff;
-  background: #eef4ff;
+  border-color: var(--ring);
+  background: var(--accent);
 }
 
 .ov-preview .slide-list span {
@@ -175,9 +179,9 @@
   width: 26px;
   height: 22px;
   place-items: center;
-  border: 1px solid #ccd3df;
+  border: 1px solid var(--border);
   border-radius: 4px;
-  color: #7b8493;
+  color: var(--muted-foreground);
   font-size: 12px;
 }
 
@@ -226,25 +230,25 @@
   z-index: 1;
   display: flex;
   gap: 6px;
-  border-bottom: 1px solid #d9dde5;
-  background: #ffffff;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
   padding: 8px;
 }
 
 .ov-preview .sheet-tabs button {
-  border: 1px solid #ccd3df;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #ffffff;
+  background: var(--card);
   padding: 3px 8px;
-  color: #1f2937;
+  color: var(--foreground);
   font-size: 12px;
   cursor: pointer;
 }
 
 .ov-preview .sheet-tabs button.active {
-  border-color: #4f7cff;
-  background: #eef4ff;
-  color: #2147a8;
+  border-color: var(--ring);
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .ov-preview .sheet-view table {
@@ -255,7 +259,7 @@
 .ov-preview .sheet-view td {
   min-width: 80px;
   max-width: 360px;
-  border: 1px solid #e0e4eb;
+  border: 1px solid var(--border);
   padding: 4px 7px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -277,7 +281,7 @@
 }
 
 .ov-preview .archive-preview {
-  border-left: 1px solid #d9dde5;
+  border-left: 1px solid var(--border);
   padding: 0 0 0 12px;
 }
 
@@ -298,7 +302,7 @@
 
 .ov-preview .archive-preview p {
   margin: 0;
-  color: #7b8493;
+  color: var(--muted-foreground);
 }
 
 .ov-preview .archive-row {
@@ -308,7 +312,7 @@
   gap: 10px;
   align-items: center;
   border: 0;
-  border-bottom: 1px solid #edf0f4;
+  border-bottom: 1px solid var(--border);
   background: transparent;
   padding: 6px 4px;
   color: inherit;
@@ -325,7 +329,7 @@
 }
 
 .ov-preview .archive-row.active {
-  background: #eef4ff;
+  background: var(--accent);
 }
 
 .ov-preview .archive-row strong {
@@ -337,7 +341,7 @@
 
 .ov-preview .archive-row span,
 .ov-preview .archive-row em {
-  color: #7b8493;
+  color: var(--muted-foreground);
   font-style: normal;
 }
 
@@ -345,7 +349,7 @@
   display: grid;
   min-height: 100%;
   place-items: center;
-  background: #f2f4f8;
+  background: var(--muted);
   padding: 20px;
 }
 
@@ -380,8 +384,8 @@
 .ov-preview .pdf-text {
   min-height: 0;
   overflow: auto;
-  border-left: 1px solid #d9dde5;
-  background: #fbfcfe;
+  border-left: 1px solid var(--border);
+  background: var(--muted);
   padding: 14px;
 }
 
@@ -414,8 +418,8 @@
 .ov-preview .text-view {
   margin: 0;
   padding: 18px;
-  color: #1f2937;
-  background: #fbfcfe;
+  color: var(--foreground);
+  background: var(--muted);
   font:
     13px/1.55 ui-monospace,
     Consolas,
@@ -438,7 +442,7 @@
 .ov-preview .book-chapters {
   padding: 20px;
   overflow: auto;
-  border-right: 1px solid #d9dde5;
+  border-right: 1px solid var(--border);
 }
 
 .ov-preview .book-chapters button {
@@ -446,7 +450,7 @@
   width: 100%;
   padding: 10px;
   margin: 6px 0;
-  border: 1px solid #d9dde5;
+  border: 1px solid var(--border);
   border-radius: 6px;
   background: transparent;
   text-align: left;
@@ -455,13 +459,13 @@
 }
 
 .ov-preview .book-chapters button[aria-current] {
-  background: #e8efff;
-  color: #163b85;
+  background: var(--accent);
+  color: var(--accent-foreground);
 }
 
 .ov-preview .email-view > header {
   padding: 20px 32px;
-  border-bottom: 1px solid #d9dde5;
+  border-bottom: 1px solid var(--border);
   overflow-wrap: anywhere;
 }
 

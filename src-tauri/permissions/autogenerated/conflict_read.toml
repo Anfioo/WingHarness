@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-conflict-read"
+description = "Enables the conflict_read command without any pre-configured scope."
+commands.allow = ["conflict_read"]
+
+[[permission]]
+identifier = "deny-conflict-read"
+description = "Denies the conflict_read command without any pre-configured scope."
+commands.deny = ["conflict_read"]

@@ -1,0 +1,125 @@
+import { useState } from "react";
+import { greet, runProgressDemo } from "@/commands";
+import { AppShell } from "@/components/app-shell";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+
+export default function PrivateRegistryPage() {
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
+  const [running, setRunning] = useState(false);
+
+  const handleRunProgress = async () => {
+    setRunning(true);
+    setProgress(0);
+    setProgressMessage("");
+    try {
+      await runProgressDemo((payload) => {
+        setProgress(Math.round((payload.current / payload.total) * 100));
+        setProgressMessage(payload.message);
+        if (payload.current >= payload.total) {
+          setRunning(false);
+        }
+      });
+    } catch (error) {
+      console.error("Failed to run progress demo:", error);
+      setProgressMessage("Failed to run progress demo.");
+      setRunning(false);
+    }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setMessage("Please enter a name first.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await greet({ name: trimmedName });
+      setMessage(result);
+    } catch (error) {
+      console.error("Failed to call greet command:", error);
+      setMessage("Failed to call Rust backend.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <AppShell>
+      <section className="flex w-full flex-col gap-4">
+        <div className="border-border bg-card rounded-xl border p-6 shadow-sm">
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <label htmlFor="greet-name" className="text-sm font-medium">
+                打招呼内容
+              </label>
+              <Input
+                id="greet-name"
+                value={name}
+                onChange={(event) => setName(event.currentTarget.value)}
+                placeholder="例如 WingHarness"
+                disabled={submitting}
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "发送中..." : "发送到 Rust 后端"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting || (!name && !message)}
+                onClick={() => {
+                  setName("");
+                  setMessage("");
+                }}
+              >
+                清空
+              </Button>
+            </div>
+          </form>
+
+          {message && (
+            <div className="bg-muted text-muted-foreground mt-5 rounded-lg p-4 text-sm">
+              <p className="text-foreground mb-1 font-medium">Rust 返回结果</p>
+              <p>{message}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="border-border bg-card rounded-xl border p-6 shadow-sm">
+          <div className="mb-4 space-y-1">
+            <h3 className="text-lg font-semibold">后端进度演示</h3>
+            <p className="text-muted-foreground text-sm">
+              通过 Channel 由 Rust 后端流式推送进度，前端实时渲染进度条。
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button type="button" onClick={handleRunProgress} disabled={running}>
+              {running ? "运行中..." : "开始进度演示"}
+            </Button>
+          </div>
+
+          <div className="mt-5 space-y-2">
+            <Progress value={progress} />
+            <div className="text-muted-foreground flex items-center justify-between text-sm">
+              <span>{progressMessage || "尚未开始"}</span>
+              <span>{progress}%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </AppShell>
+  );
+}

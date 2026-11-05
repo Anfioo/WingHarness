@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-revoke-token"
+description = "Enables the mcphub_revoke_token command without any pre-configured scope."
+commands.allow = ["mcphub_revoke_token"]
+
+[[permission]]
+identifier = "deny-mcphub-revoke-token"
+description = "Denies the mcphub_revoke_token command without any pre-configured scope."
+commands.deny = ["mcphub_revoke_token"]

@@ -7,7 +7,7 @@ English | [简体中文](./README.zh-CN.md)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-green)](./LICENSE)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
 
 A Tauri v2 desktop template: the shell and the native plumbing are already wired,
 so the first feature you write is a feature and not a window frame.
@@ -56,7 +56,7 @@ product:
 
 ```bash
 pnpm install
-pnpm tauri dev      # Vite dev server on :11420 + the app
+pnpm tauri dev      # Vite dev server on :11421 + the app
 ```
 
 ### Build for production
@@ -89,7 +89,7 @@ pnpm check          # prettier --check, eslint, tsc, vite build
 │   ├── src/                  # commands/, config/, fonts/, theme/, plugins/ (tray)
 │   ├── file-preview/         # Workspace crate: the preview page's byte reader
 │   └── tauri.conf.json       # Windows, bundle and updater configuration
-├── docs/                     # Guides for the retained features
+├── docs/                     # Cross-cutting guides; feature guides in features/
 └── scripts/                  # Release versioning, theme presets, build.ps1
 ```
 
@@ -132,12 +132,42 @@ pnpm dlx shadcn@latest add button
 
 ## Documentation
 
+Guides are written twice, English and Chinese (`X.md` / `X.zh-CN.md`). The
+cross-cutting ones sit at the root of `docs/`; everything specific to one
+feature lives under `docs/features/`.
+
 | Guide | What it covers |
 |-------|----------------|
 | [docs/AUTO_UPDATE.md](./docs/AUTO_UPDATE.md) | Update endpoints, signing keys, GitHub Actions release flow |
-| [docs/FILE_PREVIEW.md](./docs/FILE_PREVIEW.md) | The viewer subsystem, supported formats, how to add one |
 | [docs/GLOBAL_SHORTCUT.md](./docs/GLOBAL_SHORTCUT.md) | Registering shortcuts with the OS |
 | [docs/I18N.md](./docs/I18N.md) | i18next setup and how to add a language |
+| [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md) | Every upstream project, its licence, and the porting record |
+
+### Feature guides
+
+A guide is added together with its feature; the ones below are also the
+specification the port follows, so some describe pages that are not in this
+repository yet.
+
+| Guide | What it covers |
+|-------|----------------|
+| [AI_CONFIG.md](./docs/features/AI_CONFIG.md) | AI config sync: one git store, materialised into each agent's layout |
+| [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
+| [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
+| [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |
+| [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | Read-only viewer, supported formats, how to add one |
+| [FRP.md](./docs/features/FRP.md) | FRP console: generated `frpc` configs, child processes, logs |
+| [GIT.md](./docs/features/GIT.md) | Local Git client, one window per repository |
+| [MCP_HUB.md](./docs/features/MCP_HUB.md) | One local endpoint in front of the local MCP servers |
+| [MD_EDITOR.md](./docs/features/MD_EDITOR.md) | Multi-tab Markdown editor over files left in place |
+| [NOTES.md](./docs/features/NOTES.md) | Markdown notes kept in the data directory |
+| [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
+| [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
+| [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
+| [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
+| [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |
+| [TERMINAL.md](./docs/features/TERMINAL.md) | The pseudo-console page |
+| [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) | The About window's third-party licence dialog |
 
 ## Release & Auto-Update
 
@@ -159,4 +189,19 @@ route. CI supplies them as the `TAURI_SIGNING_*` repository secrets.
 
 ## License
 
-MIT
+GNU General Public License, version 3 only (GPL-3.0-only). See
+[LICENSE](./LICENSE).
+
+Copyright (C) 2026 Anfioo.
+
+Third-party components keep their own licenses — see
+[THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md), with the license texts in
+[licenses/](./licenses/). The origin of every ported subsystem, and which
+upstream projects must not be ported, is recorded in
+[docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md).
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) first — it
+covers the development setup, the commit format, and the rules for porting code
+from an upstream project.

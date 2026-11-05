@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-server-host-key-get"
+description = "Enables the server_host_key_get command without any pre-configured scope."
+commands.allow = ["server_host_key_get"]
+
+[[permission]]
+identifier = "deny-server-host-key-get"
+description = "Denies the server_host_key_get command without any pre-configured scope."
+commands.deny = ["server_host_key_get"]

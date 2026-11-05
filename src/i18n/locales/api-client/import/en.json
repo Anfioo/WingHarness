@@ -1,0 +1,52 @@
+{
+  "title": "Import OpenAPI",
+  "description": "Read an OpenAPI 3.x or Swagger 2.0 spec from a file or URL and turn it into a collection of requests.",
+  "source": {
+    "file": "From file",
+    "url": "From URL"
+  },
+  "pathLabel": "Spec file",
+  "pathPlaceholder": "Path to an OpenAPI / Swagger file",
+  "urlLabel": "Spec URL",
+  "urlPlaceholder": "https://example.com/openapi.json",
+  "nameLabel": "Workspace name",
+  "namePlaceholder": "Workspace name",
+  "browse": "Browse…",
+  "specFilter": "OpenAPI spec",
+  "defaultName": "Imported spec",
+  "actions": {
+    "cancel": "Cancel",
+    "preview": "Preview",
+    "reading": "Reading…",
+    "back": "Back",
+    "import": "Import",
+    "importing": "Importing…"
+  },
+  "preview": {
+    "untitled": "Imported API",
+    "folders_one": "{{count}} folder",
+    "folders_other": "{{count}} folders",
+    "requests_one": "{{count}} request",
+    "requests_other": "{{count}} requests",
+    "endpoints": "Included endpoints",
+    "more_one": "+{{count}} more",
+    "more_other": "+{{count}} more",
+    "prefixLabel": "Collection name prefix",
+    "prefixPlaceholder": "e.g. staging-",
+    "prefixHint": "Prepended to the imported collection's name.",
+    "baseUrlLabel": "Base URL",
+    "baseUrlPlaceholder": "https://api.example.com",
+    "baseUrlHint": "Saved to the workspace's Default environment. Leave it empty to set it later.",
+    "useBaseUrlVariable": "Send requests through the base URL variable"
+  },
+  "warnings": {
+    "title_one": "{{count}} note",
+    "title_other": "{{count}} notes"
+  },
+  "toast": {
+    "imported": "Imported {{count}} requests into “{{name}}”.",
+    "readFailed": "Could not read the spec file or URL.",
+    "parseFailed": "Could not parse the spec. Check that it is a valid OpenAPI 3.x or Swagger 2.0 document.",
+    "applyFailed": "Could not apply the import to the workspace."
+  }
+}
