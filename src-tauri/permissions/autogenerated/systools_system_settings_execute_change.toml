@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-system-settings-execute-change"
+description = "Enables the systools_system_settings_execute_change command without any pre-configured scope."
+commands.allow = ["systools_system_settings_execute_change"]
+
+[[permission]]
+identifier = "deny-systools-system-settings-execute-change"
+description = "Denies the systools_system_settings_execute_change command without any pre-configured scope."
+commands.deny = ["systools_system_settings_execute_change"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-remove-server"
+description = "Enables the mcphub_remove_server command without any pre-configured scope."
+commands.allow = ["mcphub_remove_server"]
+
+[[permission]]
+identifier = "deny-mcphub-remove-server"
+description = "Denies the mcphub_remove_server command without any pre-configured scope."
+commands.deny = ["mcphub_remove_server"]

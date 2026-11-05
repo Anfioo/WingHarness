@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-merge-can-ff"
+description = "Enables the merge_can_ff command without any pre-configured scope."
+commands.allow = ["merge_can_ff"]
+
+[[permission]]
+identifier = "deny-merge-can-ff"
+description = "Denies the merge_can_ff command without any pre-configured scope."
+commands.deny = ["merge_can_ff"]

@@ -1,0 +1,13 @@
+{
+  "close": "关闭",
+  "save": "保存",
+  "unsaved": "未保存",
+  "editing": "正在编辑 {{file}}",
+  "contentsOf": "{{file}} 的内容",
+  "couldNotOpen": "无法打开 {{file}}：{{error}}",
+  "saved": "已保存 {{file}}",
+  "saveFailed": "保存失败：{{error}}",
+  "discardTitle": "放弃未保存的修改？",
+  "discardDescription": "该文件有未保存的编辑，不保存直接关闭？",
+  "discardConfirm": "不保存直接关闭"
+}

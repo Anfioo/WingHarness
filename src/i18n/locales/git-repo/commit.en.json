@@ -1,0 +1,163 @@
+{
+  "mark": {
+    "added": "Added",
+    "modified": "Modified",
+    "deleted": "Deleted",
+    "renamed": "Renamed",
+    "conflicted": "Conflicted"
+  },
+  "row": {
+    "stage": "Stage {{path}}",
+    "unstage": "Unstage {{path}}",
+    "discard": "Discard {{path}}"
+  },
+  "list": {
+    "aria": "Changed files",
+    "of": "of {{total}}"
+  },
+  "filter": {
+    "placeholder": "Filter changed files…",
+    "none": "No files match the filter.",
+    "noneUnstaged": "No changes match the filter.",
+    "noneStaged": "No staged files match the filter."
+  },
+  "clean": {
+    "title": "Working tree clean",
+    "description": "Nothing to commit. Edits you make show up here.",
+    "amend": "Amend last commit…"
+  },
+  "ai": {
+    "label": "Generate message",
+    "generating": "Generating…",
+    "needProvider": "Configure an AI provider in Settings first.",
+    "needStaged": "Stage some changes first.",
+    "failed": "AI request failed: {{message}}"
+  },
+  "conflicts": {
+    "title": "Conflicts",
+    "resolve": "Resolve",
+    "hint": "Resolve each file, then commit to finish the {{operation}}.",
+    "merge": "merge",
+    "rebase": "rebase",
+    "operation": "operation"
+  },
+  "all": {
+    "title": "All files",
+    "counts": "{{total}} · {{changed}} changed",
+    "error": "Could not list the files: {{message}}",
+    "none": "No tracked files yet."
+  },
+  "changes": {
+    "title": "Changes",
+    "stageAll": "Stage all",
+    "stageAllFailed": "Stage all failed",
+    "discardAll": "Discard all changes",
+    "discardAllTitle_one": "Discard all {{count}} change?",
+    "discardAllTitle_other": "Discard all {{count}} changes?",
+    "discardAllDescription": "Every unstaged change will be reverted and untracked files will be deleted. This cannot be undone — not even with {{mod}}Z.",
+    "discardAllConfirm": "Discard all",
+    "empty": "Working tree clean."
+  },
+  "staged": {
+    "title": "Staged",
+    "unstageAll": "Unstage all",
+    "unstageAllFailed": "Unstage all failed",
+    "discardAll": "Discard all staged changes",
+    "discardAllTitle_one": "Discard all {{count}} staged change?",
+    "discardAllTitle_other": "Discard all {{count}} staged changes?",
+    "discardAllDescription": "Every staged file goes back to the last commit, unstaged edits to those files included, and new files are deleted. This cannot be undone — not even with {{mod}}Z.",
+    "emptyTitle": "Nothing staged",
+    "emptyDescription": "Tick a file above, or Stage all, to put it in the next commit."
+  },
+  "menu": {
+    "selected_one": "{{count}} file selected",
+    "selected_other": "{{count}} files selected",
+    "stageFile": "Stage file",
+    "unstageFile": "Unstage file",
+    "stageFiles_one": "Stage {{count}} file",
+    "stageFiles_other": "Stage {{count}} files",
+    "unstageFiles_one": "Unstage {{count}} file",
+    "unstageFiles_other": "Unstage {{count}} files",
+    "stashFile": "Stash this file…",
+    "stashFiles_one": "Stash {{count}} file…",
+    "stashFiles_other": "Stash {{count}} files…",
+    "edit": "Edit file",
+    "history": "File history",
+    "blame": "Blame",
+    "blameDisabled": "Blame (no commits yet)",
+    "openExternal": "Open in external app",
+    "reveal": "Show in file manager",
+    "openFailed": "Could not open the file: {{message}}",
+    "revealFailed": "Could not reveal the file: {{message}}",
+    "copied": "Path copied",
+    "copyPath": "Copy path",
+    "copyAbsPath": "Copy absolute path",
+    "absCopied": "Absolute path copied",
+    "discard": "Discard changes…",
+    "discardMany_one": "Discard changes in {{count}} file…",
+    "discardMany_other": "Discard changes in {{count}} files…",
+    "delete": "Delete file…"
+  },
+  "discard": {
+    "title": "Discard changes?",
+    "manyTitle_one": "Discard changes in {{count}} file?",
+    "manyTitle_other": "Discard changes in {{count}} files?",
+    "descStagedNew": "This file is new — discarding removes it from the index and deletes the file. This cannot be undone.",
+    "descStaged": "The file goes back to the last commit — its staged and unstaged changes are both reverted. This cannot be undone.",
+    "descUntracked": "This file is new — discarding reverts it and deletes the file. This cannot be undone.",
+    "descUnstaged": "All changes in this file will be reverted. This cannot be undone.",
+    "descManyStaged": "These files go back to the last commit — staged and unstaged changes alike. New files are deleted. This cannot be undone.",
+    "descManyUnstaged": "All changes in these files will be reverted. Untracked files among them are deleted. This cannot be undone.",
+    "confirm": "Discard",
+    "failed": "Discard failed: {{message}}",
+    "allFailed": "Discard all failed: {{message}}",
+    "submodule": "\"{{path}}\" is a submodule — open it as its own repository to discard the changes inside it.",
+    "leftoverFile": "Could not discard \"{{path}}\" — the change is still present.",
+    "leftover_one": "{{count}} change could not be discarded: {{listed}}",
+    "leftover_other": "{{count}} changes could not be discarded: {{listed}}",
+    "leftoverSub_one": "{{count}} change could not be discarded — {{submodules}} of it is a submodule. Open it as its own repository to discard the changes inside it: {{listed}}",
+    "leftoverSub_other": "{{count}} changes could not be discarded — {{submodules}} of them are submodules. Open them as their own repositories to discard the changes inside: {{listed}}",
+    "stagedLeftover_one": "{{count}} staged change could not be discarded: {{listed}}",
+    "stagedLeftover_other": "{{count}} staged changes could not be discarded: {{listed}}",
+    "removeTitle": "Delete file?",
+    "removeUntracked": "The file is untracked — deleting it cannot be undone.",
+    "removeTracked": "The file will be removed from your working tree. It can be restored with Discard (the deletion shows as a change).",
+    "removeConfirm": "Delete"
+  },
+  "ops": {
+    "stageFailed": "Stage failed",
+    "unstageFailed": "Unstage failed",
+    "deleteFailed": "Delete failed"
+  },
+  "toast": {
+    "discarded_one": "Discarded {{count}} change",
+    "discarded_other": "Discarded {{count}} changes",
+    "discardedStaged_one": "Discarded {{count}} staged change",
+    "discardedStaged_other": "Discarded {{count}} staged changes",
+    "amended": "Commit amended",
+    "committed": "Committed",
+    "commitFailed": "Commit failed: {{message}}"
+  },
+  "commit": {
+    "summaryPlaceholder": "Summary",
+    "summaryPlaceholderAmend": "New summary (leave empty to keep current)",
+    "summaryAria": "Commit summary",
+    "summaryLengthTitle": "Summary length (50 recommended, 72 max)",
+    "bodyPlaceholder": "What changed and why",
+    "bodyAria": "Commit description",
+    "amend": "Amend",
+    "hint": "Commit",
+    "stageHint": "Stage a file to commit",
+    "amendBtn": "Amend commit",
+    "button_one": "Commit {{count}} file",
+    "button_other": "Commit {{count}} files",
+    "buttonEmpty": "Commit",
+    "resize": "Resize commit box",
+    "resizeTitle": "Drag to resize · double-click to reset",
+    "abortHint": "Reset the working copy to the state before the merge started",
+    "abortLabel": "Abort merge",
+    "abortTitle": "Abort merge?",
+    "abortDescription": "The merge will be aborted and the working copy reset to the state before it started. This cannot be undone.",
+    "abortFailed": "Abort merge failed: {{message}}"
+  }
+}

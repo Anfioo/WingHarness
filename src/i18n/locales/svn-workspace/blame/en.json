@@ -1,0 +1,26 @@
+{
+  "title": "Blame",
+  "loading": "Loading blame…",
+  "error": "Could not read the blame.",
+  "noTarget": "No file selected",
+  "noTargetHint": "Pick a file in the changes or log panel to see its line attribution.",
+  "line": "Line",
+  "revision": "Revision",
+  "author": "Author",
+  "content": "Content",
+  "empty": "Nothing to attribute",
+  "emptyHint": "This file has no lines to show.",
+  "copyPath": "Copy path",
+  "reveal": "Reveal in File Explorer",
+  "copyRevision": "Copy revision",
+  "copyAuthor": "Copy author",
+  "openDiff": "View this revision's diff",
+  "toast": {
+    "pathCopied": "Path copied",
+    "revisionCopied": "Revision copied",
+    "authorCopied": "Author copied",
+    "copyFailed": "Could not copy"
+  },
+  "lines_one": "{{count}} line",
+  "lines_other": "{{count}} lines"
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-list-items"
+description = "Enables the shaic_list_items command without any pre-configured scope."
+commands.allow = ["shaic_list_items"]
+
+[[permission]]
+identifier = "deny-shaic-list-items"
+description = "Denies the shaic_list_items command without any pre-configured scope."
+commands.deny = ["shaic_list_items"]

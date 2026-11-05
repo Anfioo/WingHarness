@@ -498,3 +498,9 @@ button {
   animation: none !important;
   opacity: 1;
 }
+
+/* The contributed Git and Commit buttons, marked the way codelet marks its own. */
+.cl-activity-item[data-app-active] {
+  color: hsl(var(--foreground)) !important;
+  box-shadow: inset 2px 0 0 hsl(var(--primary));
+}

@@ -1,0 +1,44 @@
+{
+  "title": "更新",
+  "check": "检查",
+  "revisionPlaceholder": "修订号",
+  "updateToRevision": "更新到指定修订",
+  "updateLatest": "更新到最新",
+  "invalidRevision": "请输入有效的修订号。",
+  "localRevision": "本地修订",
+  "remoteRevision": "远程修订",
+  "incomingCount": "待合入",
+  "localChangeCount": "本地变更",
+  "upToDate": "工作副本已是最新。",
+  "incomingTitle": "待合入修订",
+  "incomingHint": "仓库中比当前工作副本更新的修订",
+  "noIncoming": "没有待合入的修订。",
+  "localTitle": "本地变更",
+  "localHint": "将与待合入修订合并的路径",
+  "noLocalChanges": "没有本地变更。",
+  "output": "输出",
+  "table": {
+    "revision": "修订号",
+    "author": "作者",
+    "date": "日期",
+    "message": "信息",
+    "changedFiles": "文件数",
+    "status": "状态",
+    "file": "文件",
+    "action": "操作"
+  },
+  "confirm": {
+    "title": "更新工作副本",
+    "description": "将此工作副本更新到最新修订？",
+    "descriptionRevision": "将此工作副本更新到修订 r{{revision}}？"
+  },
+  "cleanup": {
+    "label": "清理",
+    "success": "工作副本已清理",
+    "failed": "清理失败：{{error}}"
+  },
+  "toast": {
+    "success": "更新完成",
+    "failed": "更新失败：{{error}}"
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-local-revision"
+description = "Enables the svn_local_revision command without any pre-configured scope."
+commands.allow = ["svn_local_revision"]
+
+[[permission]]
+identifier = "deny-svn-local-revision"
+description = "Denies the svn_local_revision command without any pre-configured scope."
+commands.deny = ["svn_local_revision"]

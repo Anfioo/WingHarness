@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-subscription-remove"
+description = "Enables the clash_subscription_remove command without any pre-configured scope."
+commands.allow = ["clash_subscription_remove"]
+
+[[permission]]
+identifier = "deny-clash-subscription-remove"
+description = "Denies the clash_subscription_remove command without any pre-configured scope."
+commands.deny = ["clash_subscription_remove"]

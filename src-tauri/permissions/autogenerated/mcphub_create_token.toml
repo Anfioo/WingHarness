@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-create-token"
+description = "Enables the mcphub_create_token command without any pre-configured scope."
+commands.allow = ["mcphub_create_token"]
+
+[[permission]]
+identifier = "deny-mcphub-create-token"
+description = "Denies the mcphub_create_token command without any pre-configured scope."
+commands.deny = ["mcphub_create_token"]

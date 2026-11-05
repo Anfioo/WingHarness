@@ -1,11 +1,11 @@
-//! The project's files, served to codelet's `remote` extension.
+//! The project root, served to codelet's `remote` extension.
 //!
 //! The notes page loads every file into memory, which is right for a folder of
-//! a few `.md`. A project is not that: it holds `.git`, `node_modules`, build
-//! output — any of it can run to gigabytes. So the project page reads on demand
-//! instead, one directory level at a time, and these commands are the other end
-//! of that. Every path is relative to the configured root and is refused unless
-//! it stays inside it, and `.git` is never served.
+//! a few `.md`. A project tree is not that: it holds `.git`, `node_modules`,
+//! build output — any of it can run to gigabytes. So the project page reads on
+//! demand instead, one directory level at a time, and these commands are the
+//! other end of that. Every path is relative to the configured root and is
+//! refused unless it stays inside it, and `.git` is never served.
 //!
 //! The shapes match `codelet/dist/_chunks/protocol.d.mts` — the wire between
 //! `codelet/extensions/remote` and its transport.
@@ -76,25 +76,21 @@ pub struct WriteResult {
     pub etag: String,
 }
 
-/// The configured project root, or a message saying it is not set.
-///
-/// An empty root is the normal "no project chosen yet" state rather than an
-/// error, so it is reported the same way as a path that no longer exists.
+/// The configured project root, or a message saying the setting is blank.
 ///
 /// `pub(crate)` so the preview backend's root provider can install it — the
-/// `file-preview` crate is handed this function at startup and calls it fresh
+/// `file-preview-core` crate is handed this function at startup and calls it fresh
 /// on every read.
 pub(crate) fn repo_root() -> Result<std::path::PathBuf, String> {
-    let configured = config::load().workspace.root;
-    let root = configured.trim();
-    if root.is_empty() {
-        return Err("未配置项目路径，请先到「设置 → 项目」填写。".to_string());
+    let repo = config::load()
+        .project_root()
+        .map(str::to_string)
+        .ok_or_else(|| "未配置项目根目录，请先到「设置 → 项目」填写。".to_string())?;
+    let root = std::path::PathBuf::from(&repo);
+    if !root.is_dir() {
+        return Err(format!("项目根目录不存在或不是目录：{repo}"));
     }
-    let path = std::path::PathBuf::from(root);
-    if !path.is_dir() {
-        return Err(format!("项目路径不存在或不是目录：{root}"));
-    }
-    Ok(path)
+    Ok(root)
 }
 
 /// Whether a root-relative path names something never served.
@@ -171,9 +167,9 @@ pub fn project_info() -> Result<RemoteInfo, String> {
         version: 1,
         readonly: false,
         max_file_size: MAX_FILE_SIZE,
-        // No file watcher: a project changes behind the app, and the toolbar
-        // refreshes on demand. A feed would be a second thing to keep alive for
-        // little the reader cannot already ask for.
+        // No file watcher: the tree is refreshed on demand. A feed would be a
+        // second thing to keep alive for little the reader cannot already ask
+        // for.
         features: Vec::<String>::new(),
     })
 }
@@ -182,7 +178,7 @@ pub fn project_info() -> Result<RemoteInfo, String> {
 ///
 /// `content` inlines each text file's body. The page asks for neither by
 /// default — one level, names only — which is what keeps the cost of a large
-/// project to what is actually on screen.
+/// working copy to what is actually on screen.
 #[tauri::command]
 pub fn project_tree(
     path: Option<String>,
@@ -354,7 +350,7 @@ pub fn project_write(path: String, body: String, etag: Option<String>) -> Result
         fs::create_dir_all(parent).map_err(|e| format!("创建 {parent:?} 失败：{e}"))?;
     }
     // The body arrives as LF; restore the endings the file already had so a save
-    // does not turn a CRLF file into LF and show up as a whole-file diff. A
+    // does not turn a CRLF project into LF and show up as a whole-file diff. A
     // file that does not exist yet is written as sent.
     let body = to_lf(&body);
     let body = if fs::read(&target).is_ok_and(|existing| uses_crlf(&existing)) {

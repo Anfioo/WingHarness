@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-apply"
+description = "Enables the clash_apply command without any pre-configured scope."
+commands.allow = ["clash_apply"]
+
+[[permission]]
+identifier = "deny-clash-apply"
+description = "Denies the clash_apply command without any pre-configured scope."
+commands.deny = ["clash_apply"]

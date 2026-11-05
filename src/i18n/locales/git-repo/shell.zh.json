@@ -1,0 +1,73 @@
+{
+  "windowTitle": "Git 仓库",
+  "loading": "正在加载仓库…",
+  "opening": "正在打开 {{name}}…",
+  "openFailed": "无法打开仓库",
+  "toolbar": {
+    "home": "主页",
+    "switchRepository": "切换仓库",
+    "openRepository": "打开仓库",
+    "cloneRepository": "克隆仓库…",
+    "refresh": "刷新",
+    "createBranch": "新建分支",
+    "createTag": "新建标签",
+    "stashChanges": "贮藏更改",
+    "popStash": "弹出最近的贮藏",
+    "openInEditor": "用编辑器打开",
+    "terminal": "切换终端",
+    "toggleSidebar": "显示/隐藏侧栏",
+    "settings": "设置",
+    "more": "更多操作",
+    "palette": "命令面板",
+    "profile": "身份配置",
+    "profileApplied": "已将身份设置为 {{label}}",
+    "undo": "撤销",
+    "redo": "重做",
+    "undoTooltip": "撤销：{{label}}",
+    "redoTooltip": "重做：{{label}}",
+    "stateActions": "{{state}} — 操作",
+    "continueRebase": "继续变基",
+    "abortRebase": "中止变基",
+    "abortMerge": "中止合并",
+    "clearState": "清除状态，保持现状",
+    "abortRebaseTitle": "中止变基？",
+    "abortRebaseDescription": "变基将停止，分支回到开始之前的位置。",
+    "abortRebaseConfirm": "中止变基",
+    "clearStateTitle": "清除状态？",
+    "clearStateDescription": "仅移除进行中的操作标记，不会改动你的文件，HEAD 保持原处。",
+    "clearStateConfirm": "清除状态"
+  },
+  "state": {
+    "rebase": "正在变基",
+    "merge": "正在合并",
+    "cherrypick": "正在拣选提交",
+    "revert": "正在还原",
+    "bisect": "正在二分查找"
+  },
+  "statusBar": {
+    "clean": "工作区干净",
+    "filesChanged_one": "{{count}} 个文件已更改",
+    "filesChanged_other": "{{count}} 个文件已更改",
+    "ahead": "领先 {{count}} 个提交",
+    "behind": "落后 {{count}} 个提交",
+    "conflicts_one": "{{count}} 个冲突文件",
+    "conflicts_other": "{{count}} 个冲突文件",
+    "noRepository": "未打开仓库",
+    "fetched": "已获取于 {{when}}",
+    "fetchFailed": "获取失败：{{remotes}}",
+    "createPullRequest": "创建拉取请求"
+  },
+  "refs": {
+    "detached": "游离 HEAD"
+  },
+  "terminal": {
+    "title": "终端",
+    "close": "关闭终端",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "clear": "清空终端",
+    "exited": "进程已退出",
+    "startFailed": "无法启动终端：{{error}}"
+  }
+}

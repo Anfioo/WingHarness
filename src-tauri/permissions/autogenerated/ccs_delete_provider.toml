@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-delete-provider"
+description = "Enables the ccs_delete_provider command without any pre-configured scope."
+commands.allow = ["ccs_delete_provider"]
+
+[[permission]]
+identifier = "deny-ccs-delete-provider"
+description = "Denies the ccs_delete_provider command without any pre-configured scope."
+commands.deny = ["ccs_delete_provider"]

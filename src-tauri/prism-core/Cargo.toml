@@ -1,0 +1,35 @@
+[package]
+name = "prism-core"
+version = "0.0.1"
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "prism_core"
+crate-type = ["rlib"]
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+# The engine hands configs around as YAML; reading the external controller and
+# the active profile back out needs the same parser it uses internally.
+serde_yaml_ng = "0.10"
+once_cell = "1"
+# Prism itself: a config compiler, not a proxy core. See `host.rs` for the four
+# methods it needs from us.
+clash-prism-extension = "0.1.9"
+# Hot reload goes through mihomo's own REST controller, so there is no second
+# protocol to implement.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+# Waiting for a just-started core to bind its controller, without holding a
+# thread while it does.
+tokio = { version = "1", features = ["time"] }
+
+# The system proxy lives in the registry, where only this platform has it.
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+# Working set and creation time of the core process, for the home page's
+# uptime and memory figures.
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading"] }

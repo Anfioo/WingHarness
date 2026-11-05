@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-apply"
+description = "Enables the shaic_apply command without any pre-configured scope."
+commands.allow = ["shaic_apply"]
+
+[[permission]]
+identifier = "deny-shaic-apply"
+description = "Denies the shaic_apply command without any pre-configured scope."
+commands.deny = ["shaic_apply"]

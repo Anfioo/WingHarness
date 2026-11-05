@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-api-workspace-save"
+description = "Enables the api_workspace_save command without any pre-configured scope."
+commands.allow = ["api_workspace_save"]
+
+[[permission]]
+identifier = "deny-api-workspace-save"
+description = "Denies the api_workspace_save command without any pre-configured scope."
+commands.deny = ["api_workspace_save"]

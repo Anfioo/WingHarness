@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-interrupt-claude"
+description = "Enables the interrupt_claude command without any pre-configured scope."
+commands.allow = ["interrupt_claude"]
+
+[[permission]]
+identifier = "deny-interrupt-claude"
+description = "Denies the interrupt_claude command without any pre-configured scope."
+commands.deny = ["interrupt_claude"]

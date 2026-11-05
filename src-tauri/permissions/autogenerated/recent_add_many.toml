@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-recent-add-many"
+description = "Enables the recent_add_many command without any pre-configured scope."
+commands.allow = ["recent_add_many"]
+
+[[permission]]
+identifier = "deny-recent-add-many"
+description = "Denies the recent_add_many command without any pre-configured scope."
+commands.deny = ["recent_add_many"]

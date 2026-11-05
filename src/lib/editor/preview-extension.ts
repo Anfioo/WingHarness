@@ -3,6 +3,7 @@ import {
   type CustomReadonlyEditorProvider,
   type Extension,
 } from "codelet/extensions";
+import { useEditorTabs } from "@/lib/editor/editor-tabs";
 import { viewerRegistry } from "@/lib/preview/viewers/registry";
 
 /**
@@ -69,26 +70,11 @@ function previewExtensions(): string[] {
 /** The view type the manifest declares and the provider registers under. */
 export const PREVIEW_VIEW_TYPE = "app.filePreview";
 
-export interface PreviewOpenEvent {
-  /** `/`-rooted path in the working copy, as the workbench itself speaks it. */
-  path: string;
-  /** What the tab was named, for the loading state before the file is read. */
-  name: string;
-  /** Closes the tab, which is what disposes the panel and clears the overlay. */
-  close: () => void;
-}
-
 /**
  * @param displayName already localized — codelet localizes a manifest's contributions but
  *   not its wording, so the caller passes the string it wants read.
- * @param onOpen called once per opened tab, after `openCustomDocument` has resolved.
- * @param onClose called when the tab goes away, however it was closed.
  */
-export function createPreviewExtension(options: {
-  displayName: string;
-  onOpen: (event: PreviewOpenEvent) => void;
-  onClose: (path: string) => void;
-}): Extension {
+export function createPreviewExtension(options: { displayName: string }): Extension {
   return defineExtension({
     manifest: {
       name: "app-file-preview",
@@ -111,10 +97,21 @@ export function createPreviewExtension(options: {
         openCustomDocument: (uri) => ({ uri, dispose: () => {} }),
         resolveCustomEditor: (document, panel) => {
           const path = document.uri.path;
-          // The panel outlives this call and cleans its own emitter up on dispose, so the
-          // listener is not something the context has to hold.
-          panel.onDidDispose(() => options.onClose(path));
-          options.onOpen({ path, name: panel.title, close: () => panel.dispose() });
+          const key = `preview:${path}`;
+          const surface = { kind: "preview", path, name: panel.title } as const;
+          // The provider's frame is a blank placeholder: a preview panel without an
+          // `html` string draws no frame at all, and the host lays the viewer over it.
+          panel.webview.html = "";
+          const sync = () => {
+            const tabs = useEditorTabs.getState();
+            if (panel.visible) tabs.show(key, surface);
+            else tabs.hide(key);
+          };
+          panel.onDidChangeViewState(sync);
+          panel.onDidDispose(() => useEditorTabs.getState().hide(key));
+          // The first show happens while the provider is still being resolved, before
+          // this listener exists — the panel is already visible by now.
+          sync();
         },
       };
       context.subscriptions.push(

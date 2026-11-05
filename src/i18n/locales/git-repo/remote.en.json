@@ -1,0 +1,266 @@
+{
+  "actions": {
+    "labels": {
+      "fetch": "Fetch",
+      "pull": "Pull",
+      "push": "Push",
+      "pullMerge": "Pull (merge)",
+      "pullRebase": "Pull (rebase)",
+      "pullFromRemote": "Pull from {{remote}}",
+      "pushForce": "Force push",
+      "pushWithTags": "Push with tags",
+      "pushToRemote": "Push to {{remote}}",
+      "fetchTags": "Fetch tags"
+    },
+    "complete": "{{label}} complete",
+    "failed": "{{label}} failed: {{error}}",
+    "currentBranch": "the current branch",
+    "forcePushConfirm": {
+      "title": "Force push?",
+      "description": "This overwrites {{branch}} on {{remote}} with your local history. Commits that only exist on the remote will be lost.",
+      "confirm": "Force push"
+    },
+    "fetchHint": {
+      "none": "No remotes configured yet.",
+      "all": "Fetch the latest refs from every remote: {{remotes}}",
+      "one": "Fetch the latest refs from {{remote}} without changing your branch."
+    },
+    "pullHint_one": "Pull {{count}} new commit from {{remote}}.",
+    "pullHint_other": "Pull {{count}} new commits from {{remote}}.",
+    "pullHint": "Fast-forward your branch from {{remote}}.",
+    "pushHint_one": "Push {{count}} local commit to {{remote}}.",
+    "pushHint_other": "Push {{count}} local commits to {{remote}}.",
+    "pushHint": "Push your branch to {{remote}}.",
+    "pullHintBehind": "Pull {{count}} new commits from {{remote}} to catch up.",
+    "pushHintAhead": "Push {{count}} local commits to {{remote}}.",
+    "pullOptions": "Pull options",
+    "pushOptions": "Push options",
+    "pullMerge": "Pull with merge",
+    "pullRebase": "Pull with rebase",
+    "pullFrom": "Pull from",
+    "forcePush": "Force push",
+    "pushWithTags": "Push with tags",
+    "pushTo": "Push to",
+    "fetchTags": "Fetch tags",
+    "editRemote": "Edit remote",
+    "editRemoteHint": "Edit this remote's name and URL."
+  },
+  "remoteForm": {
+    "addTitle": "Add remote",
+    "editTitle": "Edit remote",
+    "addDescription": "Link this repository to a remote so you can fetch and push.",
+    "editDescription": "Update the name or URL of this remote.",
+    "name": "Name",
+    "url": "URL",
+    "cancel": "Cancel",
+    "addAction": "Add remote",
+    "saveAction": "Save changes",
+    "addLabel": "Adding remote {{name}}",
+    "updateLabel": "Updating remote {{name}}",
+    "complete": "{{label}} complete"
+  },
+  "clone": {
+    "success": "Repository cloned.",
+    "failed": "Clone failed: {{error}}",
+    "title": "Clone repository",
+    "description": "Clone a remote repository into a local folder.",
+    "branchPlaceholder": "Branch (optional)",
+    "destinationPlaceholder": "Destination folder",
+    "browse": "Browse",
+    "chooseDestination": "Choose destination folder",
+    "connecting": "Connecting…",
+    "progress": "Cloning… {{percent}}%",
+    "cancel": "Cancel",
+    "confirm": "Clone"
+  },
+  "scan": {
+    "added_one": "{{count}} repository added",
+    "added_other": "{{count}} repositories added",
+    "addFailed": "Could not add the repository: {{error}}",
+    "title": "Scan for repositories",
+    "description": "Pick a folder and scan it for Git repositories.",
+    "change": "Change…",
+    "scanning": "Scanning…",
+    "empty": {
+      "title": "No repositories found",
+      "description": "Nothing in this folder has a .git directory. Try a folder higher up, or pick another one."
+    },
+    "found_one": "Found {{count}}",
+    "found_other": "Found {{count}}",
+    "alreadyInRecents_one": "{{count}} already in recents",
+    "alreadyInRecents_other": "{{count}} already in recents",
+    "selectNone": "Select none",
+    "selectAll": "Select all",
+    "addLabel": "Add {{repo}}",
+    "inRecents": "In recents",
+    "truncated_one": "The scan stopped at {{count}} repository. Pick a narrower folder to see the rest.",
+    "truncated_other": "The scan stopped at {{count}} repositories. Pick a narrower folder to see the rest.",
+    "cancel": "Cancel",
+    "add_one": "Add {{count}} repository",
+    "add_other": "Add {{count}} repositories"
+  },
+  "pushRejected": {
+    "title": "Push rejected",
+    "description": "{{target}} has commits you don't have locally. Pull them in, then push again.",
+    "pullRebase": {
+      "title": "Pull with rebase",
+      "description": "Replay your commits on top of the remote."
+    },
+    "forcePush": {
+      "title": "Force push",
+      "description": "Overwrite the remote with your local history."
+    },
+    "cancel": "Cancel"
+  },
+  "profile": {
+    "title": "Use a saved profile?",
+    "description": "Apply a saved identity profile to this repository.",
+    "notNow": "Not now"
+  },
+  "identity": {
+    "ssh": {
+      "title": "SSH key",
+      "description": "Use a key to authenticate with your Git host over SSH.",
+      "useAgent": "Use SSH agent",
+      "useAgentHint": "Let the system SSH agent hold your keys.",
+      "privateKey": "Private key",
+      "browse": "Browse",
+      "browseTitle": "Choose a private key",
+      "showPublicKey": "Show public key",
+      "generate": "Generate key",
+      "copied": "Public key copied.",
+      "copy": "Copy",
+      "created": "SSH key created at {{path}}",
+      "createdHint": "Add the public key to your Git host.",
+      "generateFailed": "Could not generate the key: {{error}}",
+      "showFailed": "Could not read the public key: {{error}}"
+    },
+    "credHelper": {
+      "title": "Credential helper",
+      "description": "Remember credentials so you don't have to re-enter them.",
+      "toggle": "Use credential helper"
+    },
+    "git": {
+      "saved": "Identity saved.",
+      "titleRepo": "Identity for {{repo}}",
+      "titleGlobal": "Global identity",
+      "description": "The name and email attached to your commits.",
+      "name": "Name",
+      "placeholderName": "Jane Doe",
+      "email": "Email",
+      "placeholderEmail": "jane@example.com",
+      "noteRepo": "Applies to this repository only.",
+      "noteGlobal": "Applies to all repositories.",
+      "activeProfile": "Active profile: {{label}}",
+      "save": "Save"
+    },
+    "profiles": {
+      "appliedRepo": "Applied {{label}} to {{repo}}.",
+      "appliedGlobal": "Applied {{label}}.",
+      "removeConfirm": {
+        "title": "Remove {{label}}?",
+        "description": "The saved profile is deleted. Repositories already using it keep their identity.",
+        "confirm": "Remove"
+      },
+      "title": "Profiles",
+      "description": "Save identities and switch between them per repository.",
+      "new": "New profile",
+      "addLabel": "Label",
+      "addName": "Name",
+      "addEmail": "Email",
+      "cancel": "Cancel",
+      "add": "Add",
+      "empty": {
+        "title": "No profiles yet",
+        "description": "Create a profile to reuse an identity across repositories."
+      },
+      "linked_one": "{{count}} of {{total}} account linked",
+      "linked_other": "{{count}} of {{total}} accounts linked",
+      "useForRepo": "Use for this repo",
+      "use": "Use",
+      "remove": "Remove",
+      "linkedHint": "Link hosting accounts so pushes authenticate with the right one.",
+      "linkLabel": "Link {{host}}"
+    }
+  },
+  "accounts": {
+    "provider": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "gitlabSelf": "GitLab (self-hosted)",
+      "bitbucket": "Bitbucket",
+      "other": "Other"
+    },
+    "status": {
+      "unreachable": "Unreachable",
+      "noToken": "No token",
+      "notVerified": "Not verified",
+      "expiredRevoked": "Expired or revoked",
+      "expired": "Expired",
+      "expiresIn": "Expires in {{days}}d"
+    },
+    "hint": {
+      "githubPre": "Create a personal access token with the ",
+      "githubLink": "repo scope",
+      "githubPost": " and paste it here.",
+      "gitlabPre": "Create a personal access token with the ",
+      "gitlabLink": "api scope",
+      "gitlabPost": " and paste it here.",
+      "bitbucketPre": "Create an ",
+      "bitbucketLink": "app password",
+      "bitbucketPost": " and paste it here.",
+      "other": "Enter the host and a token for it."
+    },
+    "usernameHint": {
+      "bitbucket": "Bitbucket requires your username.",
+      "plain": "Your username on this host.",
+      "detected": "Detected from the token."
+    },
+    "toast": {
+      "usernameRequired": "Enter your username for {{host}}.",
+      "unreachable": "Could not reach {{host}}.",
+      "reconnected": "Reconnected {{username}} to {{host}}.",
+      "connected": "Connected {{username}} to {{host}}.",
+      "connectFailed": "Could not connect: {{error}}",
+      "removeFailed": "Could not remove the account: {{error}}",
+      "defaultFailed": "Could not set the default account: {{error}}"
+    },
+    "removeConfirm": {
+      "title": "Remove {{username}} from {{host}}?",
+      "description": "The token is deleted from the keychain. You can add the account again later.",
+      "confirm": "Remove"
+    },
+    "title": "Accounts",
+    "description": "Hosting accounts used to authenticate pushes and API calls.",
+    "add": "Add account",
+    "loadFailed": "Could not load accounts.",
+    "default": "Default",
+    "tokenKeychain": "Token stored in the keychain",
+    "checkedAgo": "Checked {{ago}}",
+    "reconnect": "Reconnect",
+    "menu": "Account options",
+    "makeDefault": "Make default for {{host}}",
+    "reconnectWithToken": "Reconnect with a new token",
+    "remove": "Remove",
+    "form": {
+      "reconnect": "Reconnect {{username}} on {{host}}",
+      "first": "Add your first account",
+      "add": "Add account",
+      "provider": "Provider",
+      "host": "Host",
+      "username": "Username",
+      "token": "Token",
+      "openTokenPage": "Open token page",
+      "cancel": "Cancel",
+      "reconnectAction": "Reconnect",
+      "connect": "Connect"
+    },
+    "error": {
+      "bitbucketEmail": "Bitbucket needs an email or username to verify the token.",
+      "bitbucketRejected": "Bitbucket rejected the token.",
+      "bitbucketStatus": "Bitbucket returned status {{status}}.",
+      "githubStatus": "GitHub returned status {{status}}.",
+      "gitlabStatus": "GitLab returned status {{status}}."
+    }
+  }
+}

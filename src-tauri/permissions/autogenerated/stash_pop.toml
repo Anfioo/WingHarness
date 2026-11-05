@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-stash-pop"
+description = "Enables the stash_pop command without any pre-configured scope."
+commands.allow = ["stash_pop"]
+
+[[permission]]
+identifier = "deny-stash-pop"
+description = "Denies the stash_pop command without any pre-configured scope."
+commands.deny = ["stash_pop"]

@@ -99,7 +99,7 @@ the caller's origin additionally has to match.
 separate so it can be tested and reasoned about without Tauri. It exposes exactly
 two commands, resolves its root through the provider the app installs, and is the
 only backend work the preview page does. See
-[../docs/FILE_PREVIEW.md](../docs/FILE_PREVIEW.md).
+[../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
 
 `plugins/` is the app's own tray — the native icon and, on Windows, its themed
 right-click menu. Not to be confused with Tauri plugins (the `tauri-plugin-*`

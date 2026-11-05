@@ -1,0 +1,47 @@
+{
+  "title": "Log",
+  "subtitle": "Revision history of this working copy",
+  "loading": "Loading revisions…",
+  "error": "Could not read the log.",
+  "authorPlaceholder": "Filter by author",
+  "keywordPlaceholder": "Search commit messages…",
+  "dateRangePlaceholder": "Date range",
+  "query": "Query",
+  "reset": "Reset",
+  "filtered": "Filtered",
+  "revision": "Revision",
+  "author": "Author",
+  "date": "Date",
+  "message": "Message",
+  "changedFiles": "Files",
+  "close": "Close",
+  "empty": {
+    "noLogs": "No revisions",
+    "noLogsHint": "This working copy has no history to show.",
+    "noMatches": "No revisions match the filters",
+    "noMatchesHint": "Adjust the filters and query again."
+  },
+  "previousPage": "Previous",
+  "nextPage": "Next",
+  "pageNumber": "Page {{page}}",
+  "pageSize": "Per page",
+  "detail": {
+    "title": "Revision r{{revision}}",
+    "copyRevision": "Copy revision",
+    "copyMessage": "Copy message",
+    "changedPaths": "Changed paths",
+    "noChangedPaths": "This revision lists no changed paths.",
+    "openDiff": "View diff",
+    "openBlame": "Blame",
+    "reveal": "Reveal in File Explorer"
+  },
+  "toast": {
+    "revisionCopied": "Revision copied",
+    "messageCopied": "Message copied",
+    "copyFailed": "Could not copy"
+  },
+  "loadedCount_one": "{{count}} revision",
+  "loadedCount_other": "{{count}} revisions",
+  "matchedCount_one": "{{count}} matched revision",
+  "matchedCount_other": "{{count}} matched revisions"
+}

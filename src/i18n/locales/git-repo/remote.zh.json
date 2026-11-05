@@ -1,0 +1,266 @@
+{
+  "actions": {
+    "labels": {
+      "fetch": "获取",
+      "pull": "拉取",
+      "push": "推送",
+      "pullMerge": "拉取（合并）",
+      "pullRebase": "拉取（变基）",
+      "pullFromRemote": "从 {{remote}} 拉取",
+      "pushForce": "强制推送",
+      "pushWithTags": "推送并附带标签",
+      "pushToRemote": "推送到 {{remote}}",
+      "fetchTags": "获取标签"
+    },
+    "complete": "{{label}}完成",
+    "failed": "{{label}}失败：{{error}}",
+    "currentBranch": "当前分支",
+    "forcePushConfirm": {
+      "title": "强制推送？",
+      "description": "这会用你的本地历史覆盖 {{remote}} 上的 {{branch}}。仅存在于远端的提交将会丢失。",
+      "confirm": "强制推送"
+    },
+    "fetchHint": {
+      "none": "尚未配置任何远端。",
+      "all": "从所有远端获取最新的引用：{{remotes}}",
+      "one": "从 {{remote}} 获取最新的引用，不改变你的分支。"
+    },
+    "pullHint_one": "从 {{remote}} 拉取 {{count}} 个新提交。",
+    "pullHint_other": "从 {{remote}} 拉取 {{count}} 个新提交。",
+    "pullHint": "从 {{remote}} 快进你的分支。",
+    "pushHint_one": "向 {{remote}} 推送 {{count}} 个本地提交。",
+    "pushHint_other": "向 {{remote}} 推送 {{count}} 个本地提交。",
+    "pushHint": "将你的分支推送到 {{remote}}。",
+    "pullHintBehind": "从 {{remote}} 拉取 {{count}} 个新提交以跟上进度。",
+    "pushHintAhead": "将 {{count}} 个本地提交推送到 {{remote}}。",
+    "pullOptions": "拉取选项",
+    "pushOptions": "推送选项",
+    "pullMerge": "拉取并合并",
+    "pullRebase": "拉取并变基",
+    "pullFrom": "拉取自",
+    "forcePush": "强制推送",
+    "pushWithTags": "推送并附带标签",
+    "pushTo": "推送到",
+    "fetchTags": "获取标签",
+    "editRemote": "编辑远端",
+    "editRemoteHint": "编辑该远端的名称和 URL。"
+  },
+  "remoteForm": {
+    "addTitle": "添加远端",
+    "editTitle": "编辑远端",
+    "addDescription": "将此仓库关联到一个远端，以便获取和推送。",
+    "editDescription": "更新该远端的名称或 URL。",
+    "name": "名称",
+    "url": "URL",
+    "cancel": "取消",
+    "addAction": "添加远端",
+    "saveAction": "保存更改",
+    "addLabel": "正在添加远端 {{name}}",
+    "updateLabel": "正在更新远端 {{name}}",
+    "complete": "{{label}}完成"
+  },
+  "clone": {
+    "success": "仓库已克隆。",
+    "failed": "克隆失败：{{error}}",
+    "title": "克隆仓库",
+    "description": "将远端仓库克隆到本地文件夹。",
+    "branchPlaceholder": "分支（可选）",
+    "destinationPlaceholder": "目标文件夹",
+    "browse": "浏览",
+    "chooseDestination": "选择目标文件夹",
+    "connecting": "正在连接…",
+    "progress": "正在克隆… {{percent}}%",
+    "cancel": "取消",
+    "confirm": "克隆"
+  },
+  "scan": {
+    "added_one": "已添加 {{count}} 个仓库",
+    "added_other": "已添加 {{count}} 个仓库",
+    "addFailed": "无法添加该仓库：{{error}}",
+    "title": "扫描仓库",
+    "description": "选择一个文件夹并扫描其中的 Git 仓库。",
+    "change": "更改…",
+    "scanning": "正在扫描…",
+    "empty": {
+      "title": "未找到仓库",
+      "description": "该文件夹中没有任何带 .git 目录的项目。试试更上一层的文件夹，或另选一个。"
+    },
+    "found_one": "找到 {{count}} 个",
+    "found_other": "找到 {{count}} 个",
+    "alreadyInRecents_one": "{{count}} 个已在最近列表",
+    "alreadyInRecents_other": "{{count}} 个已在最近列表",
+    "selectNone": "全不选",
+    "selectAll": "全选",
+    "addLabel": "添加 {{repo}}",
+    "inRecents": "已在最近列表",
+    "truncated_one": "扫描在 {{count}} 个仓库处停止。请选择更小的文件夹以查看其余部分。",
+    "truncated_other": "扫描在 {{count}} 个仓库处停止。请选择更小的文件夹以查看其余部分。",
+    "cancel": "取消",
+    "add_one": "添加 {{count}} 个仓库",
+    "add_other": "添加 {{count}} 个仓库"
+  },
+  "pushRejected": {
+    "title": "推送被拒绝",
+    "description": "{{target}} 上有你本地没有的提交。请先将它们拉取下来，再重新推送。",
+    "pullRebase": {
+      "title": "拉取并变基",
+      "description": "将你的提交重放到远端之上。"
+    },
+    "forcePush": {
+      "title": "强制推送",
+      "description": "用你的本地历史覆盖远端。"
+    },
+    "cancel": "取消"
+  },
+  "profile": {
+    "title": "使用已保存的配置？",
+    "description": "将已保存的身份配置应用到该仓库。",
+    "notNow": "暂不"
+  },
+  "identity": {
+    "ssh": {
+      "title": "SSH 密钥",
+      "description": "使用密钥通过 SSH 向你的 Git 主机进行身份验证。",
+      "useAgent": "使用 SSH 代理",
+      "useAgentHint": "让系统 SSH 代理保管你的密钥。",
+      "privateKey": "私钥",
+      "browse": "浏览",
+      "browseTitle": "选择私钥",
+      "showPublicKey": "显示公钥",
+      "generate": "生成密钥",
+      "copied": "公钥已复制。",
+      "copy": "复制",
+      "created": "SSH 密钥已创建于 {{path}}",
+      "createdHint": "请将该公钥添加到你的 Git 主机。",
+      "generateFailed": "无法生成密钥：{{error}}",
+      "showFailed": "无法读取公钥：{{error}}"
+    },
+    "credHelper": {
+      "title": "凭据助手",
+      "description": "记住凭据，无需反复输入。",
+      "toggle": "使用凭据助手"
+    },
+    "git": {
+      "saved": "身份已保存。",
+      "titleRepo": "{{repo}} 的身份",
+      "titleGlobal": "全局身份",
+      "description": "附加到你提交上的名称和邮箱。",
+      "name": "名称",
+      "placeholderName": "张三",
+      "email": "邮箱",
+      "placeholderEmail": "jane@example.com",
+      "noteRepo": "仅适用于该仓库。",
+      "noteGlobal": "适用于所有仓库。",
+      "activeProfile": "当前配置：{{label}}",
+      "save": "保存"
+    },
+    "profiles": {
+      "appliedRepo": "已将 {{label}} 应用到 {{repo}}。",
+      "appliedGlobal": "已应用 {{label}}。",
+      "removeConfirm": {
+        "title": "移除 {{label}}？",
+        "description": "已保存的配置将被删除。正在使用它的仓库会保留其身份。",
+        "confirm": "移除"
+      },
+      "title": "配置",
+      "description": "保存身份并在各仓库间切换使用。",
+      "new": "新建配置",
+      "addLabel": "标签",
+      "addName": "名称",
+      "addEmail": "邮箱",
+      "cancel": "取消",
+      "add": "添加",
+      "empty": {
+        "title": "尚无配置",
+        "description": "创建一个配置，以便在各仓库间复用同一身份。"
+      },
+      "linked_one": "已关联 {{count}}/{{total}} 个账号",
+      "linked_other": "已关联 {{count}}/{{total}} 个账号",
+      "useForRepo": "用于此仓库",
+      "use": "使用",
+      "remove": "移除",
+      "linkedHint": "关联托管账号，使推送使用正确的账号进行身份验证。",
+      "linkLabel": "关联 {{host}}"
+    }
+  },
+  "accounts": {
+    "provider": {
+      "github": "GitHub",
+      "gitlab": "GitLab",
+      "gitlabSelf": "GitLab（自托管）",
+      "bitbucket": "Bitbucket",
+      "other": "其他"
+    },
+    "status": {
+      "unreachable": "无法访问",
+      "noToken": "无令牌",
+      "notVerified": "未验证",
+      "expiredRevoked": "已过期或已撤销",
+      "expired": "已过期",
+      "expiresIn": "{{days}} 天后过期"
+    },
+    "hint": {
+      "githubPre": "创建一个具有 ",
+      "githubLink": "repo 权限",
+      "githubPost": " 的个人访问令牌，并粘贴到这里。",
+      "gitlabPre": "创建一个具有 ",
+      "gitlabLink": "api 权限",
+      "gitlabPost": " 的个人访问令牌，并粘贴到这里。",
+      "bitbucketPre": "创建一个 ",
+      "bitbucketLink": "应用密码",
+      "bitbucketPost": "，并粘贴到这里。",
+      "other": "输入主机及对应的令牌。"
+    },
+    "usernameHint": {
+      "bitbucket": "Bitbucket 需要你的用户名。",
+      "plain": "你在该主机上的用户名。",
+      "detected": "已从令牌中检测到。"
+    },
+    "toast": {
+      "usernameRequired": "请输入你在 {{host}} 的用户名。",
+      "unreachable": "无法访问 {{host}}。",
+      "reconnected": "已将 {{username}} 重新连接到 {{host}}。",
+      "connected": "已将 {{username}} 连接到 {{host}}。",
+      "connectFailed": "无法连接：{{error}}",
+      "removeFailed": "无法移除账号：{{error}}",
+      "defaultFailed": "无法设置默认账号：{{error}}"
+    },
+    "removeConfirm": {
+      "title": "从 {{host}} 移除 {{username}}？",
+      "description": "令牌将从钥匙串中删除。你可以稍后重新添加该账号。",
+      "confirm": "移除"
+    },
+    "title": "账号",
+    "description": "用于推送及 API 调用身份验证的托管账号。",
+    "add": "添加账号",
+    "loadFailed": "无法加载账号。",
+    "default": "默认",
+    "tokenKeychain": "令牌已存储于钥匙串",
+    "checkedAgo": "检查于 {{ago}}",
+    "reconnect": "重新连接",
+    "menu": "账号选项",
+    "makeDefault": "设为 {{host}} 的默认账号",
+    "reconnectWithToken": "使用新令牌重新连接",
+    "remove": "移除",
+    "form": {
+      "reconnect": "在 {{host}} 上重新连接 {{username}}",
+      "first": "添加你的第一个账号",
+      "add": "添加账号",
+      "provider": "提供商",
+      "host": "主机",
+      "username": "用户名",
+      "token": "令牌",
+      "openTokenPage": "打开令牌页面",
+      "cancel": "取消",
+      "reconnectAction": "重新连接",
+      "connect": "连接"
+    },
+    "error": {
+      "bitbucketEmail": "Bitbucket 需要邮箱或用户名来验证令牌。",
+      "bitbucketRejected": "Bitbucket 拒绝了该令牌。",
+      "bitbucketStatus": "Bitbucket 返回状态 {{status}}。",
+      "githubStatus": "GitHub 返回状态 {{status}}。",
+      "gitlabStatus": "GitLab 返回状态 {{status}}。"
+    }
+  }
+}

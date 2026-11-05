@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-core-validate"
+description = "Enables the clash_core_validate command without any pre-configured scope."
+commands.allow = ["clash_core_validate"]
+
+[[permission]]
+identifier = "deny-clash-core-validate"
+description = "Denies the clash_core_validate command without any pre-configured scope."
+commands.deny = ["clash_core_validate"]

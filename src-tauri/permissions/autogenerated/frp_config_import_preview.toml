@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-config-import-preview"
+description = "Enables the frp_config_import_preview command without any pre-configured scope."
+commands.allow = ["frp_config_import_preview"]
+
+[[permission]]
+identifier = "deny-frp-config-import-preview"
+description = "Denies the frp_config_import_preview command without any pre-configured scope."
+commands.deny = ["frp_config_import_preview"]

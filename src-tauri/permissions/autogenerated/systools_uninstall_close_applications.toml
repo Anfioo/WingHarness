@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-uninstall-close-applications"
+description = "Enables the systools_uninstall_close_applications command without any pre-configured scope."
+commands.allow = ["systools_uninstall_close_applications"]
+
+[[permission]]
+identifier = "deny-systools-uninstall-close-applications"
+description = "Denies the systools_uninstall_close_applications command without any pre-configured scope."
+commands.deny = ["systools_uninstall_close_applications"]

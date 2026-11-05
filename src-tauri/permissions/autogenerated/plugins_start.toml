@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-plugins-start"
+description = "Enables the plugins_start command without any pre-configured scope."
+commands.allow = ["plugins_start"]
+
+[[permission]]
+identifier = "deny-plugins-start"
+description = "Denies the plugins_start command without any pre-configured scope."
+commands.deny = ["plugins_start"]

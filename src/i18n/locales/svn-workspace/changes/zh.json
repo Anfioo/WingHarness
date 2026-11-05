@@ -1,0 +1,75 @@
+{
+  "title": "变更",
+  "subtitle": "当前工作副本的本地变更",
+  "loading": "正在加载变更…",
+  "cached": "正在显示缓存状态，尚未完成重新扫描。",
+  "error": "无法读取工作副本状态。",
+  "refresh": "刷新",
+  "searchPlaceholder": "搜索文件…",
+  "clearSearch": "清除搜索",
+  "selectAll": "全选",
+  "deselectAll": "取消全选",
+  "selected": "已选 {{count}} 项",
+  "selectedWithHidden": "已选 {{count}} 项，{{hidden}} 项被隐藏",
+  "expandAll": "全部展开",
+  "collapseAll": "全部折叠",
+  "empty": {
+    "noChanges": "当前工作副本没有变更",
+    "noChangesHint": "工作副本与基线版本一致。",
+    "noMatches": "没有符合当前筛选的文件",
+    "noMatchesHint": "请更换筛选条件或清除搜索。"
+  },
+  "filter": {
+    "all": "全部",
+    "modified": "变更",
+    "added": "新增",
+    "deleted": "删除",
+    "unversioned": "未跟踪",
+    "conflicted": "冲突",
+    "missing": "缺失"
+  },
+  "status": {
+    "added": "新增",
+    "modified": "修改",
+    "deleted": "删除",
+    "replaced": "替换",
+    "unversioned": "未跟踪",
+    "missing": "缺失",
+    "conflicted": "冲突",
+    "obstructed": "受阻"
+  },
+  "actions": {
+    "diff": "查看差异",
+    "blame": "逐行追溯",
+    "add": "加入版本控制",
+    "delete": "删除",
+    "revert": "还原",
+    "resolve": "解决冲突",
+    "reveal": "在资源管理器中显示",
+    "copyPath": "复制路径",
+    "copyAbsolutePath": "复制绝对路径",
+    "more": "更多操作"
+  },
+  "resolve": {
+    "working": "保留工作副本版本",
+    "mine": "保留我的版本",
+    "theirs": "保留对方版本"
+  },
+  "confirm": {
+    "addTitle": "加入版本控制",
+    "addDescription": "将此文件加入版本控制？",
+    "revertTitle": "还原变更",
+    "revertDescription": "还原此文件的 SVN 变更？未提交的内容或属性修改可能丢失，且无法通过 SVN 恢复。",
+    "deleteTitle": "删除未跟踪文件",
+    "deleteDescription": "永久删除此未跟踪文件或目录？目录内的全部内容也会删除，不会进入回收站，且无法撤销。"
+  },
+  "toast": {
+    "added": "已加入版本控制",
+    "deleted": "未跟踪文件已删除",
+    "reverted": "已还原",
+    "resolved": "冲突已解决",
+    "pathCopied": "路径已复制",
+    "copyFailed": "复制路径失败",
+    "failed": "操作失败：{{error}}"
+  }
+}

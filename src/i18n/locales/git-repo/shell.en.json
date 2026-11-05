@@ -1,0 +1,73 @@
+{
+  "windowTitle": "Git Repository",
+  "loading": "Loading repository…",
+  "opening": "Opening {{name}}…",
+  "openFailed": "Could not open repository",
+  "toolbar": {
+    "home": "Home",
+    "switchRepository": "Switch repository",
+    "openRepository": "Open repository",
+    "cloneRepository": "Clone repository…",
+    "refresh": "Refresh",
+    "createBranch": "New branch",
+    "createTag": "New tag",
+    "stashChanges": "Stash changes",
+    "popStash": "Pop latest stash",
+    "openInEditor": "Open in editor",
+    "terminal": "Toggle terminal",
+    "toggleSidebar": "Toggle sidebar",
+    "settings": "Settings",
+    "more": "More actions",
+    "palette": "Command palette",
+    "profile": "Profile",
+    "profileApplied": "Profile set to {{label}}",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoTooltip": "Undo: {{label}}",
+    "redoTooltip": "Redo: {{label}}",
+    "stateActions": "{{state}} — actions",
+    "continueRebase": "Continue rebase",
+    "abortRebase": "Abort rebase",
+    "abortMerge": "Abort merge",
+    "clearState": "Clear state, keep everything as is",
+    "abortRebaseTitle": "Abort rebase?",
+    "abortRebaseDescription": "The rebase stops and your branch returns to where it was before it started.",
+    "abortRebaseConfirm": "Abort rebase",
+    "clearStateTitle": "Clear state?",
+    "clearStateDescription": "Removes the in-progress operation marker without touching your files. HEAD stays where it is.",
+    "clearStateConfirm": "Clear state"
+  },
+  "state": {
+    "rebase": "Rebase in progress",
+    "merge": "Merge in progress",
+    "cherrypick": "Cherry-pick in progress",
+    "revert": "Revert in progress",
+    "bisect": "Bisect in progress"
+  },
+  "statusBar": {
+    "clean": "Working tree clean",
+    "filesChanged_one": "{{count}} changed file",
+    "filesChanged_other": "{{count}} changed files",
+    "ahead": "{{count}} ahead",
+    "behind": "{{count}} behind",
+    "conflicts_one": "{{count}} conflicted file",
+    "conflicts_other": "{{count}} conflicted files",
+    "noRepository": "No repository open",
+    "fetched": "Fetched {{when}}",
+    "fetchFailed": "Fetch failed: {{remotes}}",
+    "createPullRequest": "Create pull request"
+  },
+  "refs": {
+    "detached": "detached HEAD"
+  },
+  "terminal": {
+    "title": "Terminal",
+    "close": "Close terminal",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select all",
+    "clear": "Clear terminal",
+    "exited": "process exited",
+    "startFailed": "could not start shell: {{error}}"
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-history-unpushed"
+description = "Enables the history_unpushed command without any pre-configured scope."
+commands.allow = ["history_unpushed"]
+
+[[permission]]
+identifier = "deny-history-unpushed"
+description = "Denies the history_unpushed command without any pre-configured scope."
+commands.deny = ["history_unpushed"]

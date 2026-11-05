@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-uninstall-open-windows-apps"
+description = "Enables the systools_uninstall_open_windows_apps command without any pre-configured scope."
+commands.allow = ["systools_uninstall_open_windows_apps"]
+
+[[permission]]
+identifier = "deny-systools-uninstall-open-windows-apps"
+description = "Denies the systools_uninstall_open_windows_apps command without any pre-configured scope."
+commands.deny = ["systools_uninstall_open_windows_apps"]

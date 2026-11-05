@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-set-config-dir"
+description = "Enables the ccs_set_config_dir command without any pre-configured scope."
+commands.allow = ["ccs_set_config_dir"]
+
+[[permission]]
+identifier = "deny-ccs-set-config-dir"
+description = "Denies the ccs_set_config_dir command without any pre-configured scope."
+commands.deny = ["ccs_set_config_dir"]

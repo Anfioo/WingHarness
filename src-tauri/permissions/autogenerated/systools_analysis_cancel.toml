@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-analysis-cancel"
+description = "Enables the systools_analysis_cancel command without any pre-configured scope."
+commands.allow = ["systools_analysis_cancel"]
+
+[[permission]]
+identifier = "deny-systools-analysis-cancel"
+description = "Denies the systools_analysis_cancel command without any pre-configured scope."
+commands.deny = ["systools_analysis_cancel"]

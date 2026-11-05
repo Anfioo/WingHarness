@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-connection-close"
+description = "Enables the clash_connection_close command without any pre-configured scope."
+commands.allow = ["clash_connection_close"]
+
+[[permission]]
+identifier = "deny-clash-connection-close"
+description = "Denies the clash_connection_close command without any pre-configured scope."
+commands.deny = ["clash_connection_close"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-endpoint-info"
+description = "Enables the mcphub_endpoint_info command without any pre-configured scope."
+commands.allow = ["mcphub_endpoint_info"]
+
+[[permission]]
+identifier = "deny-mcphub-endpoint-info"
+description = "Denies the mcphub_endpoint_info command without any pre-configured scope."
+commands.deny = ["mcphub_endpoint_info"]

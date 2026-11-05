@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-analysis-scan"
+description = "Enables the systools_analysis_scan command without any pre-configured scope."
+commands.allow = ["systools_analysis_scan"]
+
+[[permission]]
+identifier = "deny-systools-analysis-scan"
+description = "Denies the systools_analysis_scan command without any pre-configured scope."
+commands.deny = ["systools_analysis_scan"]

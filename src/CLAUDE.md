@@ -22,7 +22,7 @@ CSS v4 + shadcn/ui.
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
   `main-title-bar.tsx`
-- **Build Tool**: Vite 7, dev port 11420
+- **Build Tool**: Vite 7, dev port 11421
 
 ## Routing
 

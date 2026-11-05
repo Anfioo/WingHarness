@@ -1,0 +1,13 @@
+{
+  "close": "Close",
+  "save": "Save",
+  "unsaved": "unsaved",
+  "editing": "Editing {{file}}",
+  "contentsOf": "Contents of {{file}}",
+  "couldNotOpen": "Could not open {{file}}: {{error}}",
+  "saved": "{{file}} saved",
+  "saveFailed": "Save failed: {{error}}",
+  "discardTitle": "Discard unsaved changes?",
+  "discardDescription": "This file has unsaved edits. Close without saving?",
+  "discardConfirm": "Close without saving"
+}

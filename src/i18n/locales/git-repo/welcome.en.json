@@ -1,0 +1,75 @@
+{
+  "header": {
+    "brand": "Git",
+    "tagline": "Everyday Git, made delightful."
+  },
+  "actions": {
+    "open": "Open repository",
+    "openHint": "From a local folder",
+    "clone": "Clone repository",
+    "cloneHint": "From a remote URL"
+  },
+  "openCard": {
+    "pathLabel": "Repository path",
+    "pathPlaceholder": "Path to a repository",
+    "browse": "Browse…",
+    "open": "Open",
+    "initialize": "Initialize",
+    "initializing": "Initializing…"
+  },
+  "cloneCard": {
+    "urlLabel": "Remote URL",
+    "urlPlaceholder": "https://example.com/user/repo.git",
+    "intoLabel": "Destination folder",
+    "intoPlaceholder": "Where to clone into",
+    "branchLabel": "Branch",
+    "branchPlaceholder": "Default branch",
+    "browse": "Browse…",
+    "clone": "Clone",
+    "cloning": "Cloning…"
+  },
+  "scan": {
+    "open": "Scan a folder for repositories",
+    "close": "Close scan",
+    "rootLabel": "Folder to scan",
+    "rootPlaceholder": "Folder to scan for repositories",
+    "browse": "Browse…",
+    "start": "Scan",
+    "scanning": "Scanning…",
+    "addAll": "Add all to recents",
+    "empty": "No repositories found in this folder.",
+    "truncated": "Only the first results are shown; the folder tree is very large.",
+    "results_one": "{{count}} repository found",
+    "results_other": "{{count}} repositories found"
+  },
+  "recent": {
+    "title": "Recent repositories",
+    "searchLabel": "Search recent repositories",
+    "searchPlaceholder": "Search repositories",
+    "emptyTitle": "No repositories yet",
+    "emptyDescription": "Open a folder that already has a .git directory, scan a folder full of them, or clone one from a URL. Everything you open shows up here.",
+    "emptyOpen": "Open repository",
+    "emptyScan": "Scan folder",
+    "emptyClone": "Clone repository",
+    "noMatch": "No repositories match “{{query}}”.",
+    "open": "Open in new window",
+    "focus": "Focus open window",
+    "reveal": "Show in file manager",
+    "copyPath": "Copy path",
+    "remove": "Remove from recents",
+    "alreadyOpen": "Already open",
+    "missing": "Folder missing",
+    "menuAria": "Actions for {{name}}"
+  },
+  "toast": {
+    "missingFolder": "This folder no longer exists.",
+    "initDone": "Initialized an empty repository.",
+    "initFailed": "Could not initialize the repository.",
+    "cloneDone": "Cloned {{name}}.",
+    "cloneFailed": "Could not clone the repository.",
+    "scanFailed": "Could not scan the folder.",
+    "revealFailed": "Could not show the folder.",
+    "copyFailed": "Could not copy the path.",
+    "copied": "Path copied to the clipboard."
+  }
+}

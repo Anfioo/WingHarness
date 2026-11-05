@@ -5,11 +5,13 @@ import { extensions as extensionsView } from "codelet/extensions/extensions";
 import { markdownPreview } from "codelet/extensions/markdown";
 import { search } from "codelet/extensions/search";
 import { AppShell } from "@/components/app-shell";
-import { PreviewOverlay } from "@/components/file-preview/preview-overlay";
+import { PreviewTab } from "@/components/file-preview/preview-tab";
 import { notesWrite } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { codeletStrings, createDomTranslator, localizeExtensions } from "@/lib/editor/codelet-i18n";
-import { createPreviewExtension, type PreviewOpenEvent } from "@/lib/editor/preview-extension";
+import { WorkbenchSurface } from "@/lib/editor/workbench-surface";
+import { useEditorTabs } from "@/lib/editor/editor-tabs";
+import { createPreviewExtension } from "@/lib/editor/preview-extension";
 import { useEditorAppearance } from "@/lib/editor/use-editor-appearance";
 import { EDITOR_SURFACE_CLASS } from "@/lib/editor/typography";
 import { loadWorkspace, startSync } from "./store";
@@ -41,9 +43,9 @@ export default function NotesPage() {
   const { theme, prefs } = useEditorAppearance();
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  // The tab whose file the preview is covering the editor with, if any. Notes are Markdown
-  // and stay text, so this is normally null — it is here so the two editors behave alike.
-  const [preview, setPreview] = useState<PreviewOpenEvent | null>(null);
+  // Notes are Markdown and stay text, so a preview tab is normally never opened
+  // here — the extension is shared so the two editors behave alike.
+  const surface = useEditorTabs((state) => state.surface);
 
   if (!fsRef.current) fsRef.current = new FileSystem();
 
@@ -98,11 +100,7 @@ export default function NotesPage() {
       search,
       ...(prefs.extensionsView ? [extensionsView] : []),
       markdownPreview,
-      createPreviewExtension({
-        displayName: t("filePreview.title"),
-        onOpen: setPreview,
-        onClose: (path) => setPreview((current) => (current?.path === path ? null : current)),
-      }),
+      createPreviewExtension({ displayName: t("filePreview.title") }),
     ];
     const workbench = new Workbench({
       parent: host,
@@ -124,7 +122,9 @@ export default function NotesPage() {
       domTranslator?.dispose();
       workbench.destroy();
       workbenchRef.current = null;
-      setPreview(null);
+      // The shell took the panel down with it; the overlay it was covering must
+      // not outlive the tab it belonged to.
+      useEditorTabs.getState().reset();
     };
     // `theme` is applied by the effect below, so it is deliberately not a
     // dependency here — it would remount the shell on every light/dark flip.
@@ -143,7 +143,12 @@ export default function NotesPage() {
         {/* Mounted always so the ref is set before init runs; the workbench
             fills it once the notes have loaded. `editor-surface` is what the
             typography override attaches to. */}
-        <div ref={hostRef} className={`min-h-0 flex-1 ${EDITOR_SURFACE_CLASS}`} />
+        <div className="relative min-h-0 flex-1">
+          <div ref={hostRef} className={`h-full ${EDITOR_SURFACE_CLASS}`} />
+          <WorkbenchSurface selector="main.cl-editor iframe" active={surface !== null}>
+            {surface?.kind === "preview" && <PreviewTab path={surface.path} name={surface.name} />}
+          </WorkbenchSurface>
+        </div>
         {(!ready || loadFailed) && (
           <div className="bg-background absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm">
             {loadFailed ? (
@@ -159,7 +164,6 @@ export default function NotesPage() {
             )}
           </div>
         )}
-        {preview && <PreviewOverlay target={preview} />}
       </section>
     </AppShell>
   );

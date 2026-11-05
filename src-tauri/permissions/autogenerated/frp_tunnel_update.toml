@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-tunnel-update"
+description = "Enables the frp_tunnel_update command without any pre-configured scope."
+commands.allow = ["frp_tunnel_update"]
+
+[[permission]]
+identifier = "deny-frp-tunnel-update"
+description = "Denies the frp_tunnel_update command without any pre-configured scope."
+commands.deny = ["frp_tunnel_update"]

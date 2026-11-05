@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-cherry-pick-paths"
+description = "Enables the cherry_pick_paths command without any pre-configured scope."
+commands.allow = ["cherry_pick_paths"]
+
+[[permission]]
+identifier = "deny-cherry-pick-paths"
+description = "Denies the cherry_pick_paths command without any pre-configured scope."
+commands.deny = ["cherry_pick_paths"]

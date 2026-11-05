@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-pull"
+description = "Enables the remote_pull command without any pre-configured scope."
+commands.allow = ["remote_pull"]
+
+[[permission]]
+identifier = "deny-remote-pull"
+description = "Denies the remote_pull command without any pre-configured scope."
+commands.deny = ["remote_pull"]

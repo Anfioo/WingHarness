@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-pull-branch"
+description = "Enables the remote_pull_branch command without any pre-configured scope."
+commands.allow = ["remote_pull_branch"]
+
+[[permission]]
+identifier = "deny-remote-pull-branch"
+description = "Denies the remote_pull_branch command without any pre-configured scope."
+commands.deny = ["remote_pull_branch"]

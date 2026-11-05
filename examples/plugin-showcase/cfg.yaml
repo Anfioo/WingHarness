@@ -1,0 +1,5 @@
+# 配置能力全示例：yaml 源。
+# 注意：yaml 回写会丢失注释（应用会重新序列化整个文档），这里的注释仅供阅读。
+site:
+  tagline: served from YAML
+  retries: 3

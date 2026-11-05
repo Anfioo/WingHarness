@@ -1,0 +1,92 @@
+{
+  "title": "请求",
+  "empty": {
+    "title": "未选择请求",
+    "description": "从左侧集合树中选择一个请求以编辑并发送。"
+  },
+  "send": "发送",
+  "sendShortcut": "发送（Ctrl+Enter）",
+  "resolvedUrl": "实际发送：{{url}}",
+  "urlMissing": "未解析的变量：{{names}}",
+  "urlPlaceholder": "https://api.example.com/v1/users",
+  "variables": {
+    "hint": "这里的变量会覆盖活动环境中的同名变量，可用于 petId 之类的路径参数。",
+    "used": "本请求引用到的变量",
+    "none": "本请求没有引用任何变量。",
+    "source": {
+      "request": "请求级",
+      "environment": "环境",
+      "undefined": "未定义"
+    },
+    "addUndefined": "将 {{name}} 补为请求级变量"
+  },
+  "method": {
+    "label": "请求方法",
+    "search": "搜索方法",
+    "custom": "使用“{{value}}”",
+    "empty": "没有匹配的方法"
+  },
+  "save": {
+    "dirty": "有未保存的更改",
+    "saving": "保存中…"
+  },
+  "settings": {
+    "label": "请求设置",
+    "timeout": "超时（毫秒）",
+    "timeoutPlaceholder": "30000",
+    "timeoutHint": "留空则使用默认的 30 秒。",
+    "followRedirects": "跟随重定向",
+    "followRedirectsHint": "关闭后，3xx 响应会原样返回。",
+    "reset": "恢复默认"
+  },
+  "errors": {
+    "missingVariables": "请先填写这些变量：{{names}}"
+  },
+  "keyValue": {
+    "key": "键",
+    "value": "值",
+    "add": "新增行",
+    "empty": "暂无行",
+    "enable": "启用 {{name}}",
+    "remove": "删除 {{name}}"
+  },
+  "body": {
+    "label": "请求体类型",
+    "kind": {
+      "json": "JSON",
+      "form": "表单（urlencoded）",
+      "multipart": "Multipart",
+      "raw": "原始文本"
+    },
+    "jsonPlaceholder": "{\n  \"key\": \"value\"\n}",
+    "rawPlaceholder": "原始请求体",
+    "contentType": "内容类型",
+    "contentTypePlaceholder": "text/plain",
+    "keyPlaceholder": "字段",
+    "valuePlaceholder": "值",
+    "addField": "新增字段",
+    "file": "选择文件",
+    "fileHint": "请先填写字段名",
+    "clearFile": "清除文件"
+  },
+  "auth": {
+    "label": "认证方式",
+    "kind": {
+      "bearer": "Bearer 令牌",
+      "basic": "Basic 认证",
+      "apiKey": "API Key"
+    },
+    "token": "令牌",
+    "tokenPlaceholder": "粘贴令牌",
+    "username": "用户名",
+    "usernamePlaceholder": "用户名",
+    "password": "密码",
+    "passwordPlaceholder": "密码",
+    "apiKeyName": "请求头名",
+    "apiKeyNamePlaceholder": "X-API-Key",
+    "apiKeyValue": "请求头值",
+    "apiKeyValuePlaceholder": "密钥值",
+    "apiKeyNote": "API Key 会作为请求头发送。",
+    "warning": "此处填写的值会以明文形式保存在请求 JSON 中，请勿用于共享工作区。"
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-history-position"
+description = "Enables the history_position command without any pre-configured scope."
+commands.allow = ["history_position"]
+
+[[permission]]
+identifier = "deny-history-position"
+description = "Denies the history_position command without any pre-configured scope."
+commands.deny = ["history_position"]

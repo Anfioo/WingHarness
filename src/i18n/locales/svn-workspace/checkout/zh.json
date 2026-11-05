@@ -1,0 +1,43 @@
+{
+  "title": "检出",
+  "url": {
+    "label": "仓库地址",
+    "placeholder": "https://svn.example.com/repo/trunk",
+    "required": "请输入仓库地址。",
+    "invalid": "该地址不像是有效的仓库地址。"
+  },
+  "target": {
+    "label": "目标目录",
+    "placeholder": "选择或输入目标目录",
+    "browse": "浏览",
+    "dialogTitle": "选择目标目录",
+    "required": "请输入目标目录。"
+  },
+  "revision": {
+    "label": "修订号",
+    "placeholder": "最新",
+    "hint": "留空则检出最新修订。"
+  },
+  "invalidRevision": "请输入有效的修订号。",
+  "destination": {
+    "label": "目标名称",
+    "none": "将使用仓库名称"
+  },
+  "start": "检出",
+  "checkingOut": "正在检出…",
+  "reset": "重置",
+  "output": "输出",
+  "confirm": {
+    "title": "检出仓库",
+    "description": "将此仓库检出到目标目录？",
+    "descriptionRevision": "将修订 r{{revision}} 检出到目标目录？"
+  },
+  "confirmExisting": {
+    "title": "目标目录已存在",
+    "description": "该目录中已有文件。SVN 将把仓库写入其中；现有内容可能被覆盖，或导致检出失败。是否继续？"
+  },
+  "toast": {
+    "success": "已检出 {{name}}。",
+    "failed": "检出失败：{{error}}"
+  }
+}

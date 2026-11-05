@@ -4,11 +4,68 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag to build, e.g. v0.1.0'
+        required: true
+        type: string
 
 jobs:
-  publish-tauri:
+  # Creates the draft release first, so the build job uploads into it. The body
+  # is generated from the conventional commits since the previous tag instead
+  # of a one-line placeholder, and the release stays a draft for review.
+  create-release:
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # changelogithub walks the tag history, so the full log is required.
+          fetch-depth: 0
+
+      - name: Resolve the release tag
+        id: vars
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/*/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create the tag (manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag -a "${{ steps.vars.outputs.tag }}" -m "Release ${{ steps.vars.outputs.tag }}"
+          git push origin "${{ steps.vars.outputs.tag }}"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Create the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx changelogithub --draft --name "${{ steps.vars.outputs.tag }}"
+
+  publish-tauri:
+    needs: create-release
+    permissions:
+      contents: write
+    # Job-level env so the var survives into the tauri-action step and from
+    # there into `tauri build` -> beforeBuildCommand -> `pnpm build` -> vite.
+    # Step-level env in that step merges with this block, it does not replace it.
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     strategy:
       fail-fast: false
       matrix:
@@ -26,6 +83,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Build the commit the release tag points at, including manual runs.
+          ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -50,6 +110,11 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
+
+      # Records where the heap limit came from, so a future OOM is diagnosable
+      # from the log alone.
+      - name: Show Node build environment
+        run: node -p "process.version + ' | heap limit ' + Math.round(require('node:v8').getHeapStatistics().heap_size_limit/1048576) + ' MB | ram ' + Math.round(require('node:os').totalmem()/1073741824) + ' GB'"
 
       - name: Configure updater
         shell: bash
@@ -81,6 +146,21 @@ jobs:
 
           echo "Updater configured with endpoint: ${ENDPOINT}"
 
+      - name: Resolve the draft release
+        id: draft_release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$RELEASE_TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+          if [ -z "$release_id" ]; then
+            echo "Draft release not found for tag $RELEASE_TAG" >&2
+            exit 1
+          fi
+          echo "id=$release_id" >> "$GITHUB_OUTPUT"
+
       - name: Build the project
         uses: tauri-apps/tauri-action@v0
         id: tauri-action
@@ -89,11 +169,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: false
-          prerelease: false
+          releaseId: ${{ steps.draft_release.outputs.id }}
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}

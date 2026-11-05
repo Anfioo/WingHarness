@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-profiles-list"
+description = "Enables the frp_profiles_list command without any pre-configured scope."
+commands.allow = ["frp_profiles_list"]
+
+[[permission]]
+identifier = "deny-frp-profiles-list"
+description = "Denies the frp_profiles_list command without any pre-configured scope."
+commands.deny = ["frp_profiles_list"]

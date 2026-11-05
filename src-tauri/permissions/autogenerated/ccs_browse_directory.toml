@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-browse-directory"
+description = "Enables the ccs_browse_directory command without any pre-configured scope."
+commands.allow = ["ccs_browse_directory"]
+
+[[permission]]
+identifier = "deny-ccs-browse-directory"
+description = "Denies the ccs_browse_directory command without any pre-configured scope."
+commands.deny = ["ccs_browse_directory"]

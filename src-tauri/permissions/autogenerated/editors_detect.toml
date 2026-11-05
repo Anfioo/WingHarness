@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-editors-detect"
+description = "Enables the editors_detect command without any pre-configured scope."
+commands.allow = ["editors_detect"]
+
+[[permission]]
+identifier = "deny-editors-detect"
+description = "Denies the editors_detect command without any pre-configured scope."
+commands.deny = ["editors_detect"]

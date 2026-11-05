@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-test-url"
+description = "Enables the clash_test_url command without any pre-configured scope."
+commands.allow = ["clash_test_url"]
+
+[[permission]]
+identifier = "deny-clash-test-url"
+description = "Denies the clash_test_url command without any pre-configured scope."
+commands.deny = ["clash_test_url"]

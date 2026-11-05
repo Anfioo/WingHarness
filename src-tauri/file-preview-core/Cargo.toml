@@ -1,0 +1,18 @@
+[package]
+name = "file-preview-core"
+version = "0.0.2"
+description = "Reads files under the configured project root for the file preview page."
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "file_preview_core"
+crate-type = ["rlib"]
+
+[dependencies]
+# The command macro and the raw IPC response type are both core; features are
+# unified with the app crate, so the app's `tray-icon` / `unstable` come along
+# without being asked for here.
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-submodule-list"
+description = "Enables the submodule_list command without any pre-configured scope."
+commands.allow = ["submodule_list"]
+
+[[permission]]
+identifier = "deny-submodule-list"
+description = "Denies the submodule_list command without any pre-configured scope."
+commands.deny = ["submodule_list"]

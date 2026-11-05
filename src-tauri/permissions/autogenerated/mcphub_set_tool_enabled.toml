@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcphub-set-tool-enabled"
+description = "Enables the mcphub_set_tool_enabled command without any pre-configured scope."
+commands.allow = ["mcphub_set_tool_enabled"]
+
+[[permission]]
+identifier = "deny-mcphub-set-tool-enabled"
+description = "Denies the mcphub_set_tool_enabled command without any pre-configured scope."
+commands.deny = ["mcphub_set_tool_enabled"]

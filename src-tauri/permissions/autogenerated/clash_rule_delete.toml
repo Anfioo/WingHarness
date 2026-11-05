@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-rule-delete"
+description = "Enables the clash_rule_delete command without any pre-configured scope."
+commands.allow = ["clash_rule_delete"]
+
+[[permission]]
+identifier = "deny-clash-rule-delete"
+description = "Denies the clash_rule_delete command without any pre-configured scope."
+commands.deny = ["clash_rule_delete"]

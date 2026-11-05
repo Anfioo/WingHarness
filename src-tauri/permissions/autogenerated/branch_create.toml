@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-branch-create"
+description = "Enables the branch_create command without any pre-configured scope."
+commands.allow = ["branch_create"]
+
+[[permission]]
+identifier = "deny-branch-create"
+description = "Denies the branch_create command without any pre-configured scope."
+commands.deny = ["branch_create"]

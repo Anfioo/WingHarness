@@ -1,0 +1,26 @@
+{
+  "title": "追溯",
+  "loading": "正在加载逐行追溯…",
+  "error": "读取追溯信息失败。",
+  "noTarget": "尚未选择文件",
+  "noTargetHint": "请在变更或日志面板中选择文件以查看逐行归属。",
+  "line": "行号",
+  "revision": "版本",
+  "author": "作者",
+  "content": "内容",
+  "empty": "没有可追溯的内容",
+  "emptyHint": "该文件没有可显示的行。",
+  "copyPath": "复制路径",
+  "reveal": "在资源管理器中显示",
+  "copyRevision": "复制版本号",
+  "copyAuthor": "复制作者",
+  "openDiff": "查看该版本的差异",
+  "toast": {
+    "pathCopied": "路径已复制",
+    "revisionCopied": "版本号已复制",
+    "authorCopied": "作者已复制",
+    "copyFailed": "复制失败"
+  },
+  "lines_one": "{{count}} 行",
+  "lines_other": "{{count}} 行"
+}

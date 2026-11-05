@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-push"
+description = "Enables the shaic_push command without any pre-configured scope."
+commands.allow = ["shaic_push"]
+
+[[permission]]
+identifier = "deny-shaic-push"
+description = "Denies the shaic_push command without any pre-configured scope."
+commands.deny = ["shaic_push"]

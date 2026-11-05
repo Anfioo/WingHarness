@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-conflict-list"
+description = "Enables the conflict_list command without any pre-configured scope."
+commands.allow = ["conflict_list"]
+
+[[permission]]
+identifier = "deny-conflict-list"
+description = "Denies the conflict_list command without any pre-configured scope."
+commands.deny = ["conflict_list"]

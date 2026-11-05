@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-repo-open"
+description = "Enables the repo_open command without any pre-configured scope."
+commands.allow = ["repo_open"]
+
+[[permission]]
+identifier = "deny-repo-open"
+description = "Denies the repo_open command without any pre-configured scope."
+commands.deny = ["repo_open"]

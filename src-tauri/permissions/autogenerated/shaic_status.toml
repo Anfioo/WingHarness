@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-status"
+description = "Enables the shaic_status command without any pre-configured scope."
+commands.allow = ["shaic_status"]
+
+[[permission]]
+identifier = "deny-shaic-status"
+description = "Denies the shaic_status command without any pre-configured scope."
+commands.deny = ["shaic_status"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-shaic-item-template"
+description = "Enables the shaic_item_template command without any pre-configured scope."
+commands.allow = ["shaic_item_template"]
+
+[[permission]]
+identifier = "deny-shaic-item-template"
+description = "Denies the shaic_item_template command without any pre-configured scope."
+commands.deny = ["shaic_item_template"]

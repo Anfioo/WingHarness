@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-runtimes-discover"
+description = "Enables the frp_runtimes_discover command without any pre-configured scope."
+commands.allow = ["frp_runtimes_discover"]
+
+[[permission]]
+identifier = "deny-frp-runtimes-discover"
+description = "Denies the frp_runtimes_discover command without any pre-configured scope."
+commands.deny = ["frp_runtimes_discover"]

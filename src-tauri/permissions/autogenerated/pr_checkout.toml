@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-pr-checkout"
+description = "Enables the pr_checkout command without any pre-configured scope."
+commands.allow = ["pr_checkout"]
+
+[[permission]]
+identifier = "deny-pr-checkout"
+description = "Denies the pr_checkout command without any pre-configured scope."
+commands.deny = ["pr_checkout"]

@@ -1,0 +1,43 @@
+{
+  "actions": {
+    "create": "新建",
+    "rename": "重命名",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "search": "搜索",
+    "refresh": "刷新",
+    "close": "关闭",
+    "retry": "重试",
+    "copy": "复制",
+    "copied": "已复制",
+    "loading": "加载中…",
+    "empty": "暂无内容",
+    "error": "错误",
+    "warning": "警告"
+  },
+  "labels": {
+    "request": "请求",
+    "response": "响应",
+    "collection": "集合",
+    "folder": "文件夹",
+    "workspace": "工作区",
+    "method": "请求方法",
+    "url": "URL",
+    "headers": "请求头",
+    "params": "参数",
+    "body": "请求体",
+    "auth": "认证",
+    "variables": "变量",
+    "none": "无"
+  },
+  "validation": {
+    "methodRequired": "请输入请求方法",
+    "urlRequired": "请输入 URL",
+    "urlInvalid": "请输入有效的 http(s) URL",
+    "urlUnresolved": "URL 中还有未解析的变量",
+    "urlNeedsBase": "请输入完整 URL，或先设置 Base URL",
+    "baseUrlInvalid": "Base URL 必须是有效的 http(s) 地址"
+  }
+}

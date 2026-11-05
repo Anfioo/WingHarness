@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-frp-profile-create"
+description = "Enables the frp_profile_create command without any pre-configured scope."
+commands.allow = ["frp_profile_create"]
+
+[[permission]]
+identifier = "deny-frp-profile-create"
+description = "Denies the frp_profile_create command without any pre-configured scope."
+commands.deny = ["frp_profile_create"]

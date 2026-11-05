@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-add"
+description = "Enables the svn_add command without any pre-configured scope."
+commands.allow = ["svn_add"]
+
+[[permission]]
+identifier = "deny-svn-add"
+description = "Denies the svn_add command without any pre-configured scope."
+commands.deny = ["svn_add"]

@@ -1,0 +1,61 @@
+{
+  "id": "hello-plugin",
+  "name": "示例插件",
+  "version": "1.0.0",
+  "description": "把配置文件里的值打印出来，用来确认插件链路是否正常。",
+  "entry": "run.cmd",
+  "configFiles": [
+    {
+      "type": "env",
+      "path": ".env",
+      "startmust": false,
+      "fields": [
+        {
+          "key": "GREETING",
+          "label": "问候语",
+          "type": "string",
+          "default": "你好",
+          "hint": "会出现在脚本输出里。"
+        },
+        {
+          "key": "TIMES",
+          "label": "重复次数",
+          "type": "number",
+          "default": 3,
+          "min": 1,
+          "max": 10
+        },
+        {
+          "key": "LOUD",
+          "label": "大写输出",
+          "type": "boolean",
+          "default": false
+        },
+        {
+          "key": "MODE",
+          "label": "输出格式",
+          "type": "select",
+          "default": "plain",
+          "options": [
+            { "value": "plain", "label": "纯文本" },
+            { "value": "json", "label": "JSON" }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "json",
+      "path": "cfg.json",
+      "startmust": false,
+      "fields": [
+        {
+          "key": "note",
+          "label": "备注",
+          "type": "textarea",
+          "default": "",
+          "hint": "写进 cfg.json，作为多行文本的演示。"
+        }
+      ]
+    }
+  ]
+}

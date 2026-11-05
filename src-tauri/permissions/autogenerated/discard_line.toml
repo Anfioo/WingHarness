@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-discard-line"
+description = "Enables the discard_line command without any pre-configured scope."
+commands.allow = ["discard_line"]
+
+[[permission]]
+identifier = "deny-discard-line"
+description = "Denies the discard_line command without any pre-configured scope."
+commands.deny = ["discard_line"]

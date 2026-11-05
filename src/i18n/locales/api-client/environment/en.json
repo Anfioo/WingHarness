@@ -1,0 +1,18 @@
+{
+  "label": "Environment",
+  "baseUrl": "Base URL",
+  "baseUrlPlaceholder": "https://api.example.com",
+  "baseUrlHint": "Requests with a relative path, such as an imported /pets, are sent against this base URL.",
+  "manage": "Manage environments",
+  "title": "Environments",
+  "description": "Variables resolve the placeholders in requests before they are sent.",
+  "name": "Environment name",
+  "variables": "Variables",
+  "usage": "Used by {{count}} requests",
+  "unused": "Not used by any request",
+  "empty": "No environments yet",
+  "create": "New environment",
+  "newName": "New environment",
+  "delete": "Delete environment",
+  "deleteHint": "Only this variable set is removed; its requests stay in the workspace."
+}

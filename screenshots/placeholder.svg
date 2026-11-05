@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Screenshot placeholder">
+  <rect width="1280" height="720" fill="#f4f4f5"/>
+  <rect x="40" y="40" width="1200" height="640" rx="24" fill="none" stroke="#a1a1aa" stroke-width="4" stroke-dasharray="16 16"/>
+  <g fill="#71717a" font-family="system-ui, -apple-system, Segoe UI, sans-serif" text-anchor="middle">
+    <text x="640" y="345" font-size="40" font-weight="600">Screenshot coming soon</text>
+    <text x="640" y="397" font-size="24">Replace this file with a real capture when the page is ready.</text>
+  </g>
+</svg>

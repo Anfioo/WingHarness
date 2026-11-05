@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-systools-startup-scan"
+description = "Enables the systools_startup_scan command without any pre-configured scope."
+commands.allow = ["systools_startup_scan"]
+
+[[permission]]
+identifier = "deny-systools-startup-scan"
+description = "Denies the systools_startup_scan command without any pre-configured scope."
+commands.deny = ["systools_startup_scan"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-clash-preview"
+description = "Enables the clash_preview command without any pre-configured scope."
+commands.allow = ["clash_preview"]
+
+[[permission]]
+identifier = "deny-clash-preview"
+description = "Denies the clash_preview command without any pre-configured scope."
+commands.deny = ["clash_preview"]

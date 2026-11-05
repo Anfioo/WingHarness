@@ -1,15 +1,27 @@
 [package]
 name = "wingharness"
-version = "0.0.6"
-description = "A Tauri App"
-authors = ["you"]
+version = "0.0.1"
+description = "WingHarness, a local-first desktop workspace built on Tauri."
+authors = ["Anfioo"]
+license = "GPL-3.0-only"
 edition = "2021"
 
 # The preview backend is its own package. The workspace root is this directory,
 # so `Cargo.lock` and `target/` stay put and the Tauri CLI's `src-tauri`
 # convention is unchanged.
 [workspace]
-members = ["file-preview"]
+members = [
+    "file-preview-core",
+    "git-core",
+    "api-core",
+    "svn-core",
+    "shaic-core",
+    "prism-core",
+    "systools-core",
+    "server-core",
+    "frp-core",
+    "md-editor-core",
+]
 resolver = "2"
 
 # No release profile was configured before, so the shipped binary was built at
@@ -38,37 +50,83 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-# build.rs reads `capabilities/default.json` to check it against COMMANDS.
-serde_json = "1"
 
 [dependencies]
-# The preview page's backend: reads the project's raw bytes.
-file-preview = { path = "file-preview" }
-tauri = { version = "2", features = ["tray-icon"] }
+# The preview page's backend: reads the working copy's raw bytes.
+file-preview-core = { path = "file-preview-core" }
+# The standalone Git repository window's engine (libgit2).
+git-core = { path = "git-core" }
+# The API client's request engine and workspace store. Independent of git-core's
+# own http client on purpose: the two have different needs and no shared state.
+api-core = { path = "api-core" }
+# The SVN working-copy engine: spawns the local `svn` CLI and parses its output.
+# Unlike git-core/api-core it implements no protocol of its own.
+svn-core = { path = "svn-core" }
+# The Clash page's engine: Prism compiles a source profile into the config the
+# user-supplied mihomo runs, plus a minimal process manager for that binary.
+prism-core = { path = "prism-core" }
+# The systools page's engine: disk analysis, duplicate/large-file cleanup,
+# startup items, application uninstall, and system settings (Windows only).
+systools-core = { path = "systools-core" }
+# The server manager's engine: the SSH connection pool, interactive shell
+# sessions, SFTP file operations and the transfer queue.
+server-core = { path = "server-core" }
+# The FRP console's engine: server profiles, tunnels, local frpc runtimes and
+# the child-process supervisor behind them.
+frp-core = { path = "frp-core" }
+# The Markdown editor's engine: document I/O with encoding fallback, settings,
+# recent files and the restored session.
+md-editor-core = { path = "md-editor-core" }
+# `unstable` is what unlocks `Window::add_child` — the only way to embed a
+# webview inside an existing window, which is how the plugin page shows a
+# plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
+# multi-webview as unstable, so these APIs can move in a 2.x minor release.
+tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
-# preserve_order keeps the keys of `config.json` in a stable order.
+# preserve_order keeps insertion order (via indexmap) when rewriting JSON configs.
 serde_json = { version = "1", features = ["preserve_order"] }
-# The pseudo-console the terminal page drives, and the base64 its output
-# crosses IPC as.
+# Parses the yaml config sources a plugin can declare. `serde_yaml` is
+# archived; `serde_yml` is its maintained successor and drops straight into
+# the json adapter's shape.
+serde_yml = "0.0.12"
+# CC Switch: parse / serialize the TOML configs of Codex and Grok Build.
+toml = "0.8"
+# TOML structured editing that preserves key order and comments.
+toml_edit = { version = "0.22", features = ["serde"] }
+# Read the official cc-switch SQLite database (~/.cc-switch/cc-switch.db) to
+# import its providers. `bundled` compiles SQLite in, so no system lib is needed.
+rusqlite = { version = "0.31", features = ["bundled"] }
+# Preserve insertion order when rewriting JSON config files.
+indexmap = { version = "2", features = ["serde"] }
 portable-pty = "0.8"
 base64 = "0.22"
-# `font-kit` loads a chosen family into the webview; `fontdb` enumerates the
-# installed families for the appearance settings' pickers. `fontconfig` is what
-# makes that lookup see the same set the desktop does on Linux.
 font-kit = "0.14"
-fontdb = { version = "0.24", default-features = false, features = ["std", "fs", "memmap", "fontconfig"] }
-# The updater's release check and the web font download.
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+regex = "1"
+sha2 = "0.10"
+url = "2"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+once_cell = "1"
+# Unpacks user-installed plugins. Only inflate is needed: plugins are ordinary
+# zip files, and pulling in the default feature set (bzip2, lzma, zstd, aes)
+# would add a large amount of build time for formats nobody ships.
+zip = { version = "4", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# The AI config-sync engine: store, agent adapters and materialize logic,
+# adapted from https://github.com/dariocurr/shaic (MIT). See its `UPSTREAM.md`
+# for what diverges from the original.
+shaic-core = { path = "shaic-core" }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-window-state = "2"
-# Stream combinators for the updater's download.
 futures-util = "0.3"
-# The updater drives that download on a runtime of its own.
+# MCP Hub gateway needs a multi-threaded runtime plus subprocess / TCP / timers.
+# Expanded from the bare "sync" used by the rest of the app — no new crates.
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process", "io-util", "io-std", "net", "time", "signal", "sync", "fs"] }

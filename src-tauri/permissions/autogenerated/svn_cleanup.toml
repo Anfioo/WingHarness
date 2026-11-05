@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-svn-cleanup"
+description = "Enables the svn_cleanup command without any pre-configured scope."
+commands.allow = ["svn_cleanup"]
+
+[[permission]]
+identifier = "deny-svn-cleanup"
+description = "Denies the svn_cleanup command without any pre-configured scope."
+commands.deny = ["svn_cleanup"]
