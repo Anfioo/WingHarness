@@ -123,9 +123,11 @@ export function ResultView(props: ResultViewProps): ReactNode {
     hasMore,
     total: local && !result.hasMore ? totalRows : null,
   });
-  const totalLabel =
-    windowState.total === null ? `${windowState.last + 1}+` : String(windowState.total);
-  const range = `${windowState.first}-${windowState.last} ${t("database.grid.of", { count: totalLabel })}`;
+  // `count` is a number for i18next; a paged result appends `+` to it.
+  const totalCount = windowState.total ?? windowState.last + 1;
+  const range = `${windowState.first}-${windowState.last} ${t("database.grid.of", {
+    count: totalCount,
+  })}${windowState.total === null ? "+" : ""}`;
   const canNext = paging ? paging.hasMore : offset + size < totalRows;
   const lastPage = windowState.lastPage;
 
