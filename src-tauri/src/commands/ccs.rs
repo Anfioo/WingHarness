@@ -144,14 +144,14 @@ pub struct CcsSwitchResult {
 #[tauri::command]
 pub async fn ccs_get_providers(app: String) -> Result<Vec<Provider>, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    Ok(store::list(app))
+    Ok(store::list(app).await)
 }
 
 /// 获取某应用当前生效的供应商 ID。
 #[tauri::command]
 pub async fn ccs_get_current_provider(app: String) -> Result<Option<String>, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    Ok(store::current(app))
+    Ok(store::current(app).await)
 }
 
 /// 新增供应商，返回其 ID。若该应用尚无当前供应商，则设为当前并写入配置文件
@@ -159,9 +159,9 @@ pub async fn ccs_get_current_provider(app: String) -> Result<Option<String>, Str
 #[tauri::command]
 pub async fn ccs_add_provider(app: String, provider: Provider) -> Result<String, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    let id = store::add(app, provider)?;
-    if store::current(app).is_none() {
-        switch::switch(app, &id)?;
+    let id = store::add(app, provider).await?;
+    if store::current(app).await.is_none() {
+        switch::switch(app, &id).await?;
     }
     Ok(id)
 }
@@ -175,11 +175,11 @@ pub async fn ccs_update_provider(
 ) -> Result<bool, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
     let new_id = provider.id.clone();
-    store::update(app, &original_id, provider)?;
+    store::update(app, &original_id, provider).await?;
 
     // 若更新的是当前供应商，重新投影到配置文件（编辑即时生效）。
-    if store::current(app).as_deref() == Some(original_id.as_str()) {
-        switch::switch(app, &new_id)?;
+    if store::current(app).await.as_deref() == Some(original_id.as_str()) {
+        switch::switch(app, &new_id).await?;
     }
     Ok(true)
 }
@@ -189,8 +189,8 @@ pub async fn ccs_update_provider(
 pub async fn ccs_delete_provider(app: String, id: String) -> Result<bool, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
     // 累加式应用：先清理配置文件中的节点。
-    switch::remove_provider_node(app, &id)?;
-    store::delete(app, &id)?;
+    switch::remove_provider_node(app, &id).await?;
+    store::delete(app, &id).await?;
     Ok(true)
 }
 
@@ -198,15 +198,17 @@ pub async fn ccs_delete_provider(app: String, id: String) -> Result<bool, String
 #[tauri::command]
 pub async fn ccs_duplicate_provider(app: String, id: String) -> Result<String, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    store::duplicate(app, &id)
+    store::duplicate(app, &id).await
 }
 
 /// 切换当前供应商并写入配置文件。
 #[tauri::command]
 pub async fn ccs_switch_provider(app: String, id: String) -> Result<CcsSwitchResult, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    let provider = store::get(app, &id).ok_or_else(|| format!("Provider {id} not found"))?;
-    switch::switch(app, &id)?;
+    let provider = store::get(app, &id)
+        .await
+        .ok_or_else(|| format!("Provider {id} not found"))?;
+    switch::switch(app, &id).await?;
     Ok(CcsSwitchResult {
         app: app.as_str().to_string(),
         provider_id: provider.id,
@@ -221,7 +223,7 @@ pub async fn ccs_switch_provider(app: String, id: String) -> Result<CcsSwitchRes
 #[tauri::command]
 pub async fn ccs_update_sort_order(app: String, ordered_ids: Vec<String>) -> Result<bool, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    store::reorder(app, ordered_ids)?;
+    store::reorder(app, ordered_ids).await?;
     Ok(true)
 }
 
@@ -305,7 +307,13 @@ pub async fn ccs_editor_base(
     provider: Option<Provider>,
 ) -> Result<serde_json::Value, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    let provider = provider.or_else(|| store::current(app).and_then(|id| store::get(app, &id)));
+    let provider = match provider {
+        Some(p) => Some(p),
+        None => match store::current(app).await {
+            Some(id) => store::get(app, &id).await,
+            None => None,
+        },
+    };
     let view = crate::ccs::editor::view(app, provider.as_ref())?;
     Ok(serde_json::json!({ "view": view.view, "baseline": view.baseline }))
 }
@@ -358,7 +366,7 @@ pub async fn ccs_fetch_models(
 #[tauri::command]
 pub async fn ccs_import_live_config(app: String) -> Result<bool, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    seed::import_and_activate(app)
+    seed::import_and_activate(app).await
 }
 
 // ============================================================================
@@ -375,11 +383,11 @@ pub async fn ccs_import_preview(
 ) -> Result<Vec<ImportedProvider>, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
     match source.as_str() {
-        "live" => import::preview_live(app),
-        "ccswitch" => import::preview_cc_switch_db(app, db_path),
+        "live" => import::preview_live(app).await,
+        "ccswitch" => import::preview_cc_switch_db(app, db_path).await,
         "json" => {
             let path = db_path.ok_or_else(|| "缺少文件路径".to_string())?;
-            import::preview_json_file(app, &path)
+            import::preview_json_file(app, &path).await
         }
         other => Err(format!("Unknown import source {other}")),
     }
@@ -392,7 +400,7 @@ pub async fn ccs_import_save(
     providers: Vec<ImportedProvider>,
 ) -> Result<usize, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
-    import::save_imported(app, providers)
+    import::save_imported(app, providers).await
 }
 
 /// 弹出文件选择对话框，返回所选文件路径（`.db` / `.json`）。
