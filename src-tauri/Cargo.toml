@@ -21,6 +21,7 @@ members = [
     "server-core",
     "frp-core",
     "md-editor-core",
+    "db-core",
 ]
 resolver = "2"
 
@@ -77,6 +78,9 @@ frp-core = { path = "frp-core" }
 # The Markdown editor's engine: document I/O with encoding fallback, settings,
 # recent files and the restored session.
 md-editor-core = { path = "md-editor-core" }
+# The database page's engine: data sources, live connections (SQLite, PostgreSQL,
+# MySQL), introspection, query execution and table editing.
+db-core = { path = "db-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
@@ -101,6 +105,9 @@ toml_edit = { version = "0.22", features = ["serde"] }
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 # Preserve insertion order when rewriting JSON config files.
 indexmap = { version = "2", features = ["serde"] }
+# Cancels a running database statement (and anything else that needs a
+# cooperative stop signal); the engine crates use it too.
+tokio-util = "0.7"
 portable-pty = "0.8"
 base64 = "0.22"
 font-kit = "0.14"
