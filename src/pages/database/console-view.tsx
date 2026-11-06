@@ -23,6 +23,7 @@ import {
   dbSetManualCommit,
   dbSourceList,
   dbSourceSetPassword,
+  dbStatements,
   databaseErrorCode,
 } from "@/commands";
 import type { DataSourceView, HistoryEntry, QueryResult } from "@/commands";
@@ -171,7 +172,16 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
     setRunning(true);
     setQueryError(null);
     try {
-      setResult(await dbExecute(request, sourceId, text, 0, MAX_ROWS));
+      // The console still runs one statement at a time until the multi-result
+      // view lands; the split itself already comes from the backend.
+      const [first] = await dbStatements(sourceId, text, 0, text.length);
+      if (first) {
+        const [outcome] = await dbExecute(request, sourceId, [first], 0, MAX_ROWS);
+        if (outcome.error) throw outcome.error;
+        setResult(outcome.result);
+      } else {
+        setResult(null);
+      }
       void refreshHistory();
     } catch (failure) {
       setQueryError(

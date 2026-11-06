@@ -9,14 +9,20 @@
 
 import { invokeCommand } from "../../base";
 import type {
+  CompletionModel,
   DataSource,
   DataSourceView,
   Databases,
+  DbObjectKind,
+  DbRowEdit,
   HistoryEntry,
-  QueryResult,
   SchemaObjects,
+  SortKey,
+  SqlStatement,
+  StatementOutcome,
   TableDetails,
   TableInfo,
+  TablePage,
 } from "./types";
 
 /** Every data source of the current project, plus the app-wide ones. */
@@ -86,20 +92,104 @@ export async function dbFinishTransaction(id: string, commit: boolean): Promise<
 }
 
 /**
- * Runs one statement. `request` identifies it for `dbCancel`; `skip` and
- * `maxRows` select a window of the result.
+ * Splits `text` into the statements the editor runs. `from` and `to` are
+ * UTF-16 offsets of a selection; an empty selection means the statement at
+ * the caret.
+ */
+export async function dbStatements(
+  id: string,
+  text: string,
+  from: number,
+  to: number
+): Promise<SqlStatement[]> {
+  return await invokeCommand<
+    { id: string; text: string; from: number; to: number },
+    SqlStatement[]
+  >("db_statements", { id, text, from, to });
+}
+
+/**
+ * Runs a batch of statements in order. `request` identifies the batch for
+ * `dbCancel`; `skip` and `maxRows` select a window of each result. A failing
+ * statement is reported in its own outcome, not thrown.
  */
 export async function dbExecute(
   request: string,
   id: string,
-  statement: string,
+  statements: SqlStatement[],
   skip = 0,
   maxRows = 500
-): Promise<QueryResult> {
+): Promise<StatementOutcome[]> {
   return await invokeCommand<
-    { request: string; id: string; statement: string; skip: number; maxRows: number },
-    QueryResult
-  >("db_execute", { request, id, statement, skip, maxRows });
+    { request: string; id: string; statements: SqlStatement[]; skip: number; maxRows: number },
+    StatementOutcome[]
+  >("db_execute", { request, id, statements, skip, maxRows });
+}
+
+/** One page of a table, ordered and filtered on the server. */
+export async function dbTablePage(
+  request: string,
+  id: string,
+  schema: string,
+  table: string,
+  filter: string | null,
+  sort: SortKey[],
+  offset: number,
+  limit: number
+): Promise<TablePage> {
+  return await invokeCommand<
+    {
+      request: string;
+      id: string;
+      schema: string;
+      table: string;
+      filter: string | null;
+      sort: SortKey[];
+      offset: number;
+      limit: number;
+    },
+    TablePage
+  >("db_table_page", { request, id, schema, table, filter, sort, offset, limit });
+}
+
+/** Applies the pending row edits in one transaction; a rejection rolls them all back. */
+export async function dbApplyEdits(
+  id: string,
+  schema: string,
+  table: string,
+  edits: DbRowEdit[]
+): Promise<number> {
+  return await invokeCommand<
+    { id: string; schema: string; table: string; edits: DbRowEdit[] },
+    number
+  >("db_apply_edits", { id, schema, table, edits });
+}
+
+/** The `CREATE TABLE` statement of a table, read-only. */
+export async function dbDdl(id: string, schema: string, table: string): Promise<string> {
+  return await invokeCommand<{ id: string; schema: string; table: string }, string>("db_ddl", {
+    id,
+    schema,
+    table,
+  });
+}
+
+/** The definition of a routine, trigger or sequence, read-only. */
+export async function dbObjectDdl(
+  id: string,
+  schema: string,
+  kind: DbObjectKind,
+  name: string
+): Promise<string> {
+  return await invokeCommand<
+    { id: string; schema: string; kind: DbObjectKind; name: string },
+    string
+  >("db_object_ddl", { id, schema, kind, name });
+}
+
+/** The tables, columns and foreign keys the SQL editor completes names from. */
+export async function dbCompletion(id: string): Promise<CompletionModel> {
+  return await invokeCommand<{ id: string }, CompletionModel>("db_completion", { id });
 }
 
 /** Asks the statement running as `request` to stop; `false` if it already finished. */
