@@ -77,7 +77,7 @@ pub fn run() {
             // 首次运行：补齐可见应用默认值，并把本机已有的 CLI 配置导入为
             // 供应商、补官方条目。
             ccs::settings::ensure_initialized();
-            ccs::seed::init();
+            tauri::async_runtime::block_on(ccs::seed::init());
             Ok(())
         })
         .manage(commands::updater::UpdateDownloadState::default())

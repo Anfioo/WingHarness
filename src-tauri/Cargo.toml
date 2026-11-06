@@ -1,6 +1,6 @@
 [package]
 name = "wingharness"
-version = "0.0.1"
+version = "0.0.1-beta.1"
 description = "WingHarness, a local-first desktop workspace built on Tauri."
 authors = ["Anfioo"]
 license = "GPL-3.0-only"
@@ -96,9 +96,9 @@ serde_yml = "0.0.12"
 toml = "0.8"
 # TOML structured editing that preserves key order and comments.
 toml_edit = { version = "0.22", features = ["serde"] }
-# Read the official cc-switch SQLite database (~/.cc-switch/cc-switch.db) to
-# import its providers. `bundled` compiles SQLite in, so no system lib is needed.
-rusqlite = { version = "0.31", features = ["bundled"] }
+# CC Switch 的供应商库，以及后续数据库工具页的通用驱动。
+# `sqlite` 特性自带 SQLite（`bundled`），不需要系统库。
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 # Preserve insertion order when rewriting JSON config files.
 indexmap = { version = "2", features = ["serde"] }
 portable-pty = "0.8"

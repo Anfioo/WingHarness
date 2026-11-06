@@ -3,6 +3,7 @@ import type {
   AppId,
   CcsCodexSwitches,
   CcsSettings,
+  CcsSwitchDb,
   FetchedModel,
   ImportedProvider,
   ImportSource,
@@ -101,6 +102,26 @@ export function browseDirectory(app: AppId): Promise<string | null> {
 /** 获取各应用实际生效的配置目录。 */
 export function getResolvedDirs(): Promise<Record<string, string>> {
   return invokeCommand("ccs_get_resolved_dirs", {});
+}
+
+/** 探测官方 cc-switch 数据库（只认默认路径）。 */
+export function getCcSwitchDb(): Promise<CcsSwitchDb> {
+  return invokeCommand("ccs_get_ccswitch_db", {});
+}
+
+/** 开关「切换供应商时同步官方 cc-switch 数据库」。 */
+export function setSyncCcSwitchDb(enabled: boolean): Promise<boolean> {
+  return invokeCommand("ccs_set_sync_ccswitch_db", { enabled });
+}
+
+/** 开关「进入供应商页时采用官方 CC Switch 的当前选择」。 */
+export function setSyncFromCcSwitch(enabled: boolean): Promise<boolean> {
+  return invokeCommand("ccs_set_sync_from_ccswitch", { enabled });
+}
+
+/** 进入供应商页时对齐官方 CC Switch 的当前选择；返回被采用的供应商名称。 */
+export function syncFromCcSwitch(app: AppId): Promise<string | null> {
+  return invokeCommand("ccs_sync_from_ccswitch", { app });
 }
 
 // ============================================================================
