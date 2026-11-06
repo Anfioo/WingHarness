@@ -44,8 +44,8 @@ pub struct ImportedProvider {
 }
 
 impl ImportedProvider {
-    fn from_provider(app: AppType, p: Provider) -> Self {
-        let status = if store::get(app, &p.id).is_some() {
+    async fn from_provider(app: AppType, p: Provider) -> Self {
+        let status = if store::get(app, &p.id).await.is_some() {
             "update"
         } else {
             "new"
@@ -87,11 +87,11 @@ impl ImportedProvider {
 // ============================================================================
 
 /// 预览本机 CLI 配置（Claude / Codex）。文件不存在时返回空列表。
-pub fn preview_live(app: AppType) -> Result<Vec<ImportedProvider>, String> {
+pub async fn preview_live(app: AppType) -> Result<Vec<ImportedProvider>, String> {
     let Some(provider) = read_live(app)? else {
         return Ok(Vec::new());
     };
-    Ok(vec![ImportedProvider::from_provider(app, provider)])
+    Ok(vec![ImportedProvider::from_provider(app, provider).await])
 }
 
 /// 读取本机 live 配置为一条供应商。
@@ -145,7 +145,7 @@ pub fn default_cc_switch_db() -> std::path::PathBuf {
 }
 
 /// 预览 cc-switch 数据库中的供应商。`db_path` 为空时用默认路径。
-pub fn preview_cc_switch_db(
+pub async fn preview_cc_switch_db(
     app: AppType,
     db_path: Option<String>,
 ) -> Result<Vec<ImportedProvider>, String> {
@@ -155,19 +155,20 @@ pub fn preview_cc_switch_db(
     if !path.exists() {
         return Err(format!("cc-switch 数据库不存在：{}", path.display()));
     }
-    read_cc_switch_db(app, &path)
+    read_cc_switch_db(app, &path).await
 }
 
-fn read_cc_switch_db(app: AppType, path: &Path) -> Result<Vec<ImportedProvider>, String> {
+async fn read_cc_switch_db(app: AppType, path: &Path) -> Result<Vec<ImportedProvider>, String> {
     // 直读官方库：表结构与官方 providers 表一致，可复用同一套 DAO 读取。
-    let db = super::db::Database::open_readonly(path)?;
+    let db = super::db::Database::open_readonly(path).await?;
     let providers = db
         .list_providers(app.as_str())
+        .await
         .map_err(|e| format!("读取 providers 表失败：{e}"))?;
 
     let mut out = Vec::new();
     for provider in providers {
-        out.push(ImportedProvider::from_provider(app, provider));
+        out.push(ImportedProvider::from_provider(app, provider).await);
     }
     Ok(out)
 }
@@ -177,7 +178,7 @@ fn read_cc_switch_db(app: AppType, path: &Path) -> Result<Vec<ImportedProvider>,
 // ============================================================================
 
 /// 预览 JSON 文件中的供应商。接受：`{data:{app:{list:[...]}}}` / `[...]` / `{...}`。
-pub fn preview_json_file(app: AppType, path: &str) -> Result<Vec<ImportedProvider>, String> {
+pub async fn preview_json_file(app: AppType, path: &str) -> Result<Vec<ImportedProvider>, String> {
     let text = std::fs::read_to_string(path).map_err(|e| format!("无法读取文件 {path}：{e}"))?;
     let value: Value = serde_json::from_str(&text).map_err(|e| format!("JSON 解析失败：{e}"))?;
 
@@ -201,7 +202,7 @@ pub fn preview_json_file(app: AppType, path: &str) -> Result<Vec<ImportedProvide
 
     let mut out = Vec::new();
     for item in raw {
-        let Some(provider) = parse_provider_value(app, item) else {
+        let Some(provider) = parse_provider_value(app, item).await else {
             continue;
         };
         out.push(provider);
@@ -209,7 +210,7 @@ pub fn preview_json_file(app: AppType, path: &str) -> Result<Vec<ImportedProvide
     Ok(out)
 }
 
-fn parse_provider_value(app: AppType, value: Value) -> Option<ImportedProvider> {
+async fn parse_provider_value(app: AppType, value: Value) -> Option<ImportedProvider> {
     let obj = value.as_object()?;
     let id = obj
         .get("id")
@@ -229,7 +230,7 @@ fn parse_provider_value(app: AppType, value: Value) -> Option<ImportedProvider> 
         .get("meta")
         .and_then(|m| serde_json::from_value::<ProviderMeta>(m.clone()).ok());
     Some(ImportedProvider {
-        status: if store::get(app, &id).is_some() {
+        status: if store::get(app, &id).await.is_some() {
             "update".to_string()
         } else {
             "new".to_string()
@@ -261,15 +262,18 @@ fn parse_provider_value(app: AppType, value: Value) -> Option<ImportedProvider> 
 // ============================================================================
 
 /// 保存勾选的导入条目：按 id 覆盖已有，否则新增。返回处理条数。
-pub fn save_imported(app: AppType, providers: Vec<ImportedProvider>) -> Result<usize, String> {
+pub async fn save_imported(
+    app: AppType,
+    providers: Vec<ImportedProvider>,
+) -> Result<usize, String> {
     let mut count = 0;
     for imp in providers {
         let provider = imp.into_provider();
         let id = provider.id.clone();
-        if store::get(app, &id).is_some() {
-            store::update(app, &id, provider)?;
+        if store::get(app, &id).await.is_some() {
+            store::update(app, &id, provider).await?;
         } else {
-            store::add(app, provider)?;
+            store::add(app, provider).await?;
         }
         count += 1;
     }
@@ -307,8 +311,8 @@ fn now_ms() -> i64 {
 mod tests {
     use super::*;
 
-    #[test]
-    fn parses_json_array_of_providers() {
+    #[tokio::test]
+    async fn parses_json_array_of_providers() {
         let dir = std::env::temp_dir();
         let path = dir.join(format!("ccs-import-{}.json", std::process::id()));
         std::fs::write(
@@ -316,15 +320,17 @@ mod tests {
             r#"[{"id":"x","name":"X","settingsConfig":{"env":{"ANTHROPIC_BASE_URL":"https://x"}}}]"#,
         )
         .unwrap();
-        let out = preview_json_file(AppType::Claude, path.to_str().unwrap()).unwrap();
+        let out = preview_json_file(AppType::Claude, path.to_str().unwrap())
+            .await
+            .unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "x");
         assert_eq!(out[0].status, "new");
         std::fs::remove_file(&path).unwrap();
     }
 
-    #[test]
-    fn parses_store_file_shape() {
+    #[tokio::test]
+    async fn parses_store_file_shape() {
         let dir = std::env::temp_dir();
         let path = dir.join(format!("ccs-store-{}.json", std::process::id()));
         std::fs::write(
@@ -332,7 +338,9 @@ mod tests {
             r#"{"version":1,"data":{"claude":{"current":null,"list":[{"id":"a","name":"A","settingsConfig":{}}]}}}"#,
         )
         .unwrap();
-        let out = preview_json_file(AppType::Claude, path.to_str().unwrap()).unwrap();
+        let out = preview_json_file(AppType::Claude, path.to_str().unwrap())
+            .await
+            .unwrap();
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "a");
         std::fs::remove_file(&path).unwrap();

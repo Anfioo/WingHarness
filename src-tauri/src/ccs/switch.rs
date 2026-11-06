@@ -17,16 +17,17 @@ use super::project::{self, FileTarget};
 use super::store;
 
 /// 切换某应用到指定供应商。
-pub fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
-    let provider =
-        store::get(app, provider_id).ok_or_else(|| format!("Provider {provider_id} not found"))?;
+pub async fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
+    let provider = store::get(app, provider_id)
+        .await
+        .ok_or_else(|| format!("Provider {provider_id} not found"))?;
 
     let targets = project::project(app, &provider)?;
     for target in targets {
         write_target(app, &target)?;
     }
 
-    store::set_current(app, Some(provider_id))?;
+    store::set_current(app, Some(provider_id)).await?;
     Ok(())
 }
 
@@ -66,7 +67,7 @@ fn write_target(app: AppType, target: &FileTarget) -> Result<(), String> {
 /// 删除某供应商在累加式应用配置中的节点（删除供应商时调用）。
 ///
 /// 对切换式应用无意义（其配置随当前供应商整体投影），返回 Ok。
-pub fn remove_provider_node(app: AppType, provider_id: &str) -> Result<(), String> {
+pub async fn remove_provider_node(app: AppType, provider_id: &str) -> Result<(), String> {
     if !app.meta().additive {
         return Ok(());
     }

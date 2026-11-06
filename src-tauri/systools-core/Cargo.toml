@@ -15,7 +15,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 log = "0.4"
-rusqlite = { version = "0.31", features = ["bundled"] }
 blake3 = "1"
 fs2 = "0.4"
 chrono = { version = "0.4", features = ["serde"] }
