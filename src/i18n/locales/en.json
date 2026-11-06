@@ -1259,7 +1259,10 @@
       "submitted": "Changes applied.",
       "discard": "Discard changes?",
       "duplicateKey": "Duplicate primary key.",
-      "importNotSupported": "This driver does not support importing rows."
+      "importNotSupported": "This driver does not support importing rows.",
+      "columns": "Columns",
+      "searchColumns": "Search columns",
+      "noMatchingColumns": "No matching columns"
     },
     "export": {
       "title": "Export",
