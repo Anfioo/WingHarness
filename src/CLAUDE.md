@@ -17,7 +17,7 @@ CSS v4 + shadcn/ui.
 - **Routing**: `lib/router.tsx` (`RouterProvider` + `useRouter()`)
 - **Route table**: `lib/app-routes.ts` (`AppRouteId`, `appRoutes`)
 - **Pages** (`pages/`): `start`, `local-terminal`, `notes`, `file-preview`,
-  `project`
+  `project`, `database`
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
@@ -43,9 +43,9 @@ and render their own frame instead.
 
 1. `src/pages/<name>/index.tsx` — the default export, wrapped in `<AppShell>`
 2. Add the lazy entry to `pageMap` in `src/main.tsx`
-3. Add a row to `appRoutes` in `src/lib/app-routes.ts` (id, path, icon)
-4. Add `routes.<id>.{title,scope,description}` to both locale files — the sidebar,
-   the header and the header's help tip all read from there
+3. Add a row to `appRoutes` in `src/lib/app-routes.ts` (id, path, icon, and the
+   `title` / `navLabel` / `description` / `scope` / `items` strings — these are
+   literal strings in that file, not i18n keys)
 
 ### Adding a window
 
@@ -65,6 +65,7 @@ functions and types — it is the only thing components import:
 | Domain | What it covers |
 |--------|----------------|
 | `config` | the config file, the project root, the data directory |
+| `database` | data sources, connections, transactions, queries and history |
 | `devtools` | opening the webview inspector |
 | `file-preview` | metadata and raw bytes for the preview page |
 | `fonts` | enumerating installed font families |
@@ -113,8 +114,9 @@ function MyComponent() {
 - **Languages**: English (en), Chinese (zh)
 - **Files**: `i18n/locales/{en,zh}.json` — the two must stay key-for-key
   identical, and no key may exist without a caller
-- **Route strings** live under `routes.<id>` and are looked up by
-  `t(\`routes.${id}.title\`)`, so the sidebar and the header can never disagree
+- **Route strings** are the `title`, `navLabel` and `description` fields of the
+  `appRoutes` row, and the sidebar and the header both read them from there, so
+  the two can never disagree
 - See [docs/I18N.md](../docs/I18N.md)
 
 ## Toast Notifications

@@ -2,6 +2,7 @@ import {
   Blocks,
   Bot,
   Building2,
+  Database,
   FolderGit2,
   FolderSync,
   FileSearch,
@@ -43,6 +44,7 @@ export type AppRouteId =
   | "gitRepo"
   | "svnWorkspace"
   | "apiClient"
+  | "database"
   | "systools"
   | "servers"
   | "frp"
@@ -121,6 +123,18 @@ export const appRoutes: AppRoute[] = [
     icon: Send,
     scope: "侧边栏页面 + 一窗口一工作区",
     items: ["导入 OpenAPI / Swagger", "集合与请求树", "请求编辑与发送", "响应查看"],
+  },
+  {
+    id: "database",
+    group: "workspace",
+    path: "/database",
+    title: "数据库",
+    navLabel: "数据库",
+    description:
+      "管理数据库数据源：SQLite、PostgreSQL、MySQL、SQL Server、ClickHouse 与 Oracle。这一页是侧边栏页面，列出数据源并试连；每个数据源在自己的窗口里打开 SQL 控制台、对象树与结果表格，重复打开只会聚焦已开的那个窗口。",
+    icon: Database,
+    scope: "侧边栏页面 + 一窗口一数据源",
+    items: ["数据源管理", "对象树", "SQL 控制台", "结果表格"],
   },
   {
     id: "systools",

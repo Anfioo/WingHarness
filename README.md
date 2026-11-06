@@ -117,8 +117,8 @@ are listed in `standalonePaths` and render their own frame.
 
 1. Create `src/pages/<name>/index.tsx` and render it inside `<AppShell>`
 2. Add a `pageMap` entry in `src/main.tsx`
-3. Add an `appRoutes` row in `src/lib/app-routes.ts` (id, path, icon)
-4. Add `routes.<id>.{title,scope,description}` to both locale files
+3. Add an `appRoutes` row in `src/lib/app-routes.ts` (id, path, icon, and the
+   labels — they are literal strings in that file, not i18n keys)
 
 ### A Tauri command
 
@@ -157,6 +157,7 @@ repository yet.
 | [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
 | [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |
+| [DATABASE.md](./docs/features/DATABASE.md) | Data sources, their windows, and the SQL console |
 | [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | Read-only viewer, supported formats, how to add one |
 | [FRP.md](./docs/features/FRP.md) | FRP console: generated `frpc` configs, child processes, logs |
 | [GIT.md](./docs/features/GIT.md) | Local Git client, one window per repository |

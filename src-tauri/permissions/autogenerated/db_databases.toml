@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-databases"
+description = "Enables the db_databases command without any pre-configured scope."
+commands.allow = ["db_databases"]
+
+[[permission]]
+identifier = "deny-db-databases"
+description = "Denies the db_databases command without any pre-configured scope."
+commands.deny = ["db_databases"]

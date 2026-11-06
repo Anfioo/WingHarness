@@ -1115,6 +1115,173 @@
     "welcomeHint": "选择一个本地仓库，浏览它的分支、提交图、工作区与 Diff。每个仓库一个独立窗口。",
     "openedRepo": "已打开仓库"
   },
+  "database": {
+    "title": "数据库",
+    "subtitle": "连接 SQLite、PostgreSQL、MySQL、SQL Server、ClickHouse 与 Oracle。每个数据源在自己的窗口里打开，带一个 SQL 控制台。",
+    "loading": "正在加载数据源…",
+    "action": {
+      "create": "添加数据源",
+      "edit": "编辑",
+      "duplicate": "复制",
+      "delete": "删除",
+      "test": "测试连接",
+      "refresh": "刷新",
+      "retry": "重试"
+    },
+    "search": {
+      "placeholder": "按名称、驱动或连接目标搜索",
+      "clear": "清空搜索"
+    },
+    "list": {
+      "count": "{{count}} 个数据源",
+      "noResults": "没有符合搜索条件的数据源。",
+      "global": "全局",
+      "project": "项目",
+      "connected": "已连接",
+      "disconnected": "未连接"
+    },
+    "empty": {
+      "title": "还没有数据源",
+      "description": "一个数据源是一台服务器或一个 SQLite 文件。设置保存在数据目录里，只有你明确要求时才会保存密码。",
+      "action": "添加第一个数据源"
+    },
+    "toast": {
+      "reloaded": "数据源已刷新。",
+      "deleted": "已删除 {{name}}。"
+    },
+    "delete": {
+      "title": "删除数据源？",
+      "description": "删除 {{name}} 会同时移除它保存的密码与查询历史，且无法撤销。"
+    },
+    "driver": {
+      "sqlite": "SQLite",
+      "postgres": "PostgreSQL",
+      "mysql": "MySQL",
+      "sqlServer": "SQL Server",
+      "clickhouse": "ClickHouse",
+      "oracle": "Oracle"
+    },
+    "ssl": {
+      "disable": "禁用",
+      "prefer": "优先",
+      "require": "要求",
+      "verifyCa": "校验 CA",
+      "verifyFull": "完整校验"
+    },
+    "color": {
+      "none": "无颜色",
+      "red": "红色",
+      "orange": "橙色",
+      "yellow": "黄色",
+      "green": "绿色",
+      "blue": "蓝色",
+      "violet": "紫色"
+    },
+    "test": {
+      "success": "已连接：{{version}}",
+      "failed": "无法连接：{{error}}"
+    },
+    "error": {
+      "loadFailed": "无法加载数据源。",
+      "openFailed": "无法打开窗口：{{error}}",
+      "saveFailed": "无法保存数据源：{{error}}",
+      "deleteFailed": "无法删除数据源：{{error}}",
+      "not-found": "数据源已不存在。",
+      "invalid": "设置被拒绝。",
+      "auth-failed": "服务器拒绝了这组凭据。",
+      "unreachable": "无法连接到服务器。",
+      "cancelled": "语句已取消。",
+      "protocol": "服务器返回了无法识别的内容。",
+      "internal": "数据库引擎内部出错。"
+    },
+    "form": {
+      "createTitle": "添加数据源",
+      "editTitle": "编辑数据源",
+      "description": "设置保存在数据目录里，只有你明确要求时才会保存密码。",
+      "name": "名称",
+      "namePlaceholder": "本地商城库",
+      "driver": "驱动",
+      "scope": "作用范围",
+      "scopeGlobalHint": "在每个项目里都会列出。",
+      "scopeProjectHint": "只在当前打开的项目里列出。",
+      "scopeNeedsProject": "当前没有打开项目，因此这个数据源是全局的。",
+      "file": "数据库文件",
+      "fileBrowse": "浏览",
+      "fileHint": "相对路径按项目根目录解析。",
+      "urlOnly": "用 URL 连接",
+      "url": "URL",
+      "urlPlaceholder": "postgres://user:password@host:5432/database",
+      "host": "主机",
+      "port": "端口",
+      "database": "数据库",
+      "user": "用户",
+      "sslMode": "SSL",
+      "password": "密码",
+      "passwordSaved": "已保存的密码",
+      "savePassword": "记住密码",
+      "savePasswordHint": "不勾选时，密码只在本次运行期间保存在内存里。",
+      "showPassword": "显示密码",
+      "hidePassword": "隐藏密码",
+      "color": "颜色",
+      "readOnly": "只读",
+      "manualCommit": "手动提交",
+      "comment": "备注",
+      "duplicateName": "{{name}}（副本）",
+      "save": "保存",
+      "cancel": "取消",
+      "validation": {
+        "nameRequired": "请填写名称。",
+        "fileRequired": "请选择数据库文件。",
+        "urlRequired": "请填写 URL。",
+        "portInvalid": "端口需在 1 到 65535 之间。"
+      }
+    },
+    "tree": {
+      "title": "对象",
+      "loading": "正在加载…",
+      "connectFirst": "连接后可浏览此数据源的对象。",
+      "empty": "没有对象。",
+      "emptySchema": "此 schema 中没有表、视图、例程或序列。",
+      "emptyColumns": "此表没有列。",
+      "current": "当前",
+      "insertSelect": "双击插入 SELECT 语句。",
+      "otherDatabase": "该表属于另一个数据库，而控制台连接的是当前数据库。",
+      "folder": {
+        "tables": "表",
+        "views": "视图",
+        "materializedViews": "物化视图",
+        "routines": "例程",
+        "sequences": "序列"
+      }
+    },
+    "window": {
+      "missingTitle": "没有选中数据源",
+      "missingDescription": "该数据源已被删除，或属于另一个项目。",
+      "connect": "连接",
+      "connecting": "正在连接…",
+      "disconnect": "断开",
+      "history": "历史",
+      "clearHistory": "清空历史",
+      "historyEmpty": "执行过的语句会列在这里。",
+      "removeEntry": "从历史中移除",
+      "commit": "提交",
+      "rollback": "回滚",
+      "committed": "事务已提交。",
+      "rolledBack": "事务已回滚。",
+      "cancelled": "语句已取消。",
+      "statementPlaceholder": "-- Ctrl+Enter 执行语句\nSELECT 1;",
+      "run": "执行",
+      "cancel": "取消",
+      "running": "执行中…",
+      "runHint": "Ctrl+Enter 执行语句",
+      "emptyResult": "语句的结果会显示在这里。",
+      "done": "语句已完成。",
+      "affected": "影响 {{count}} 行",
+      "rowCount": "{{count}} 行",
+      "truncated": "还有更多行未显示。",
+      "executionTime": "首行耗时 {{ms}} 毫秒"
+    }
+  },
   "servers": {
     "title": "服务器管理",
     "subtitle": "在本机保存 SSH 服务器档案；凭据存入系统凭据管理器，私钥只记录路径。",

@@ -2,37 +2,13 @@ import { emit } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { API_CLIENT_WINDOW_PATH, API_HOME_EVENT } from "@/lib/api-routes";
 import { createWindow, showWindow } from "@/lib/window";
+import { hashedWindowLabel } from "@/lib/window-label";
 
-/**
- * One window per workspace: the label is derived from the workspace id so
- * opening the same workspace twice focuses the window that is already open
- * instead of stacking duplicates. A window label may only contain
- * alphanumerics and `-`, `/`, `:`, `_` (see `@/lib/plugin-label`), so the id is
- * hashed rather than embedded — that also keeps the label stable if id shapes
- * ever change.
- */
+/** One window per workspace; the id is hashed, see `@/lib/window-label`. */
 const API_WORKSPACE_PREFIX = "api-ws-";
 
-/**
- * FNV-1a over the id, printed as 16 hex chars. Chosen over the usual 32-bit
- * string hash because a collision here would silently focus the wrong
- * workspace's window.
- */
-function hashWorkspaceId(id: string) {
-  let hash = 0xcbf29ce484222325n;
-  const prime = 0x100000001b3n;
-  const mask = 0xffffffffffffffffn;
-
-  for (let i = 0; i < id.length; i += 1) {
-    hash ^= BigInt(id.charCodeAt(i));
-    hash = (hash * prime) & mask;
-  }
-
-  return hash.toString(16).padStart(16, "0");
-}
-
 export function apiWorkspaceWindowLabel(workspaceId: string) {
-  return API_WORKSPACE_PREFIX + hashWorkspaceId(workspaceId);
+  return hashedWindowLabel(API_WORKSPACE_PREFIX, workspaceId);
 }
 
 /**
