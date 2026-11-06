@@ -12,6 +12,7 @@ pub mod conn;
 pub mod error;
 pub mod history;
 pub mod manager;
+pub mod models;
 pub mod objects;
 pub mod paths;
 pub mod secrets;
@@ -23,8 +24,13 @@ pub use conn::{Pool, QueryResult, ResultColumn};
 pub use error::{DbError, DbErrorCode, DbResult};
 pub use history::HistoryEntry;
 pub use manager::{split_target, DbManager};
+pub use models::{
+    CellValue, CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, SortKey, StatementOutcome,
+    TablePage,
+};
 pub use objects::{
     ColumnInfo, Databases, DbObjectKind, DbTableKind, ForeignKey, IndexInfo, RoutineInfo, SchemaObjects,
     SequenceInfo, TableDetails, TableInfo, TriggerInfo,
 };
 pub use source::{DataSource, DbDriver};
+pub use split::SqlStatement;

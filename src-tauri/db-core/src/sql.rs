@@ -3,11 +3,13 @@
 //! unit-tested without a server.
 //!
 //! Ported from `ide_db::sql` of the reference project (Apache-2.0), keeping the
-//! introspection queries. The table paging, row editing and DDL helpers are not
-//! here: those phases are not ported yet. The query builders for SQL Server,
+//! introspection queries. The table paging, row editing and DDL helpers are
+//! declared but not implemented yet. The query builders for SQL Server,
 //! ClickHouse and Oracle are kept as strings (they never run — `Pool::connect`
 //! rejects those drivers) so the match arms stay exhaustive.
 
+use crate::models::{DbRowEdit, SortKey};
+use crate::objects::DbObjectKind;
 use crate::source::DbDriver;
 
 pub fn quote_ident(driver: DbDriver, name: &str) -> String {
@@ -361,6 +363,106 @@ pub fn sequences(driver: DbDriver, schema: &str) -> Option<String> {
         )),
         _ => None,
     }
+}
+
+/// Rows: `name, data type, nullable, default, primary key` of every column of
+/// the catalog, for the completion model.
+pub fn completion_columns(_driver: DbDriver) -> &'static str {
+    ""
+}
+
+/// Rows: `schema, table, column, ref schema, ref table, ref column` of every
+/// foreign key of the catalog, for the completion model.
+pub fn foreign_keys(_driver: DbDriver) -> &'static str {
+    ""
+}
+
+/// The schema a query resolves unqualified names in (PostgreSQL's
+/// `search_path`), where the driver reports one.
+pub fn current_schema(_driver: DbDriver) -> Option<&'static str> {
+    None
+}
+
+/// One page of a table: `SELECT * FROM table [WHERE filter] [ORDER BY …]
+/// LIMIT limit + 1 OFFSET offset`. The extra row tells the caller there is
+/// another page.
+pub fn table_page(
+    _driver: DbDriver,
+    _schema: &str,
+    _table: &str,
+    _filter: Option<&str>,
+    _sort: &[SortKey],
+    _offset: u64,
+    _limit: u64,
+) -> String {
+    String::new()
+}
+
+/// The one statement that applies a row edit (update, insert or delete).
+pub fn edit_statement(
+    _driver: DbDriver,
+    _schema: &str,
+    _table: &str,
+    _edit: &DbRowEdit,
+) -> Result<String, String> {
+    Err("not implemented".into())
+}
+
+/// SQLite keeps the `CREATE TABLE` text in its catalog.
+pub fn sqlite_ddl(_schema: &str, _name: &str) -> String {
+    String::new()
+}
+
+/// PostgreSQL relation lookup by schema and name; the row carries the OID the
+/// column, constraint and index queries are run against.
+pub fn postgres_relation(_schema: &str, _name: &str) -> String {
+    String::new()
+}
+
+/// PostgreSQL column rows of the relation with this OID.
+pub fn postgres_ddl_columns(_oid: u32) -> String {
+    String::new()
+}
+
+/// PostgreSQL constraint rows of the relation with this OID.
+pub fn postgres_ddl_constraints(_oid: u32) -> String {
+    String::new()
+}
+
+/// PostgreSQL index rows of the relation with this OID.
+pub fn postgres_ddl_indexes(_oid: u32) -> String {
+    String::new()
+}
+
+/// One column of a `CREATE TABLE` assembled from PostgreSQL catalog rows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DdlColumn {
+    pub name: String,
+    pub data_type: String,
+    pub not_null: bool,
+    pub default: Option<String>,
+}
+
+/// Assembles `CREATE TABLE` from the catalog rows read for it.
+pub fn postgres_table_ddl(
+    _schema: &str,
+    _name: &str,
+    _columns: &[DdlColumn],
+    _constraints: &[(String, String)],
+    _indexes: &[String],
+) -> String {
+    String::new()
+}
+
+/// The definition of a routine, trigger or sequence, and the column its text
+/// starts at (`None` where the driver has no such object).
+pub fn object_ddl(
+    _driver: DbDriver,
+    _schema: &str,
+    _kind: DbObjectKind,
+    _name: &str,
+) -> Option<(String, usize)> {
+    Some((String::new(), 0))
 }
 
 #[cfg(test)]
