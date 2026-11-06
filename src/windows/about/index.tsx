@@ -9,8 +9,8 @@ import {
   Mail,
   RefreshCw,
   Scale,
-  Workflow,
 } from "lucide-react";
+import logo from "@/assets/app-icons/wingharness-logo.svg";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -187,9 +187,7 @@ export default function AboutPage() {
     >
       <div className="flex flex-col gap-5 px-6 py-5">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="from-primary to-primary/60 flex size-16 items-center justify-center rounded-2xl bg-linear-to-br shadow-sm">
-            <Workflow className="text-primary-foreground size-8" />
-          </div>
+          <img src={logo} alt={t("about.appName")} className="size-16 rounded-2xl shadow-sm" />
           <div className="space-y-2">
             <h2 className="text-xl font-semibold tracking-tight">{t("about.appName")}</h2>
             <div className="flex items-center justify-center gap-2">
