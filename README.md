@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./assets/logo.svg" width="120" height="120" alt="WingHarness logo" />
+
 # WingHarness
 
 English | [简体中文](./README.zh-CN.md)
