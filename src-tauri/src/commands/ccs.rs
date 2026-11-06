@@ -119,6 +119,32 @@ pub async fn ccs_get_resolved_dirs() -> Result<HashMap<String, String>, String> 
     Ok(map)
 }
 
+/// 官方 cc-switch 数据库的探测结果。
+#[derive(Debug, Serialize)]
+pub struct CcsSwitchDb {
+    pub path: String,
+    pub exists: bool,
+}
+
+/// 探测官方 cc-switch 数据库（只认默认路径）。
+#[tauri::command]
+pub async fn ccs_get_ccswitch_db() -> Result<CcsSwitchDb, String> {
+    let path = crate::ccs::ccswitch::default_db_path();
+    Ok(CcsSwitchDb {
+        path: path.to_string_lossy().to_string(),
+        exists: path.is_file(),
+    })
+}
+
+/// 开关「切换供应商时同步官方 cc-switch 数据库」。
+#[tauri::command]
+pub async fn ccs_set_sync_ccswitch_db(enabled: bool) -> Result<bool, String> {
+    let mut s = settings::load();
+    s.sync_cc_switch_db = enabled;
+    settings::save(&s)?;
+    Ok(true)
+}
+
 // ============================================================================
 // 供应商管理
 // ============================================================================

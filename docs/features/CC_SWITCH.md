@@ -120,13 +120,30 @@ The `providers` table matches official cc-switch field for field, which is what
 makes importing from its database a straight read. App-level settings (visible
 apps, config directories) are stored in the app's own `config.json` under `ccs`.
 
+## Syncing with official cc-switch
+
+Settings → CC Switch → Application configuration carries a **Sync the CC Switch
+database** switch. When it is on, every switch also flips the `is_current` flag
+in the official cc-switch database (`~/.cc-switch/cc-switch.db`), so both tools
+show the same current provider.
+
+- The row is disabled until the default database is found;
+  `ccs_get_ccswitch_db` reports its path and whether it exists. Only the default
+  path is supported.
+- The write is skipped when the official database has no provider with the same
+  id for that app — flipping the flag blind would clear its current selection.
+- Sync is one-way: switching inside cc-switch does not update this app, and a
+  later switch there overwrites what was written here.
+- A failed write is logged and otherwise ignored; the CLI config file and this
+  app's current pointer are already written by then.
+
 ## Commands
 
 | Group | Commands |
 | --- | --- |
 | Providers | `ccs_get_providers`, `ccs_get_current_provider`, `ccs_add_provider`, `ccs_update_provider`, `ccs_delete_provider`, `ccs_duplicate_provider`, `ccs_switch_provider`, `ccs_update_sort_order` |
 | Import | `ccs_import_live_config`, `ccs_import_preview`, `ccs_import_save`, `ccs_pick_import_file` |
-| Apps and settings | `ccs_get_tool_versions`, `ccs_get_visible_apps`, `ccs_set_app_visible`, `ccs_get_settings`, `ccs_save_settings`, `ccs_get_config_dir`, `ccs_set_config_dir`, `ccs_browse_directory`, `ccs_get_resolved_dirs` |
+| Apps and settings | `ccs_get_tool_versions`, `ccs_get_visible_apps`, `ccs_set_app_visible`, `ccs_get_settings`, `ccs_save_settings`, `ccs_get_config_dir`, `ccs_set_config_dir`, `ccs_browse_directory`, `ccs_get_resolved_dirs`, `ccs_get_ccswitch_db`, `ccs_set_sync_ccswitch_db` |
 | Editors and extras | `ccs_editor_base`, `ccs_editor_delta`, `ccs_fetch_models`, `ccs_get_claude_switches`, `ccs_set_skip_onboarding`, `ccs_set_plugin_integration`, `ccs_get_codex_switches`, `ccs_set_codex_session_compression` |
 
 `ccs_switch_provider` returns the provider that was applied and the config file
@@ -143,6 +160,9 @@ write somewhere unexpected.
   additive apps need a manual edit.
 - With a config-directory override the CLI may be reading a different file than
   the one that was written.
+- The cc-switch database sync is one-way and only targets the default path; a
+  running cc-switch can hold the write lock, and the sync is then silently
+  skipped.
 
 ## Wiring this module into another app
 

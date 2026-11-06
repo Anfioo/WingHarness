@@ -3,6 +3,7 @@ import { FolderOpen, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import {
   ccsBrowseDirectory,
+  ccsGetCcSwitchDb,
   ccsGetClaudeSwitches,
   ccsGetCodexSwitches,
   ccsGetResolvedDirs,
@@ -12,13 +13,19 @@ import {
   ccsSetConfigDir,
   ccsSetPluginIntegration,
   ccsSetSkipOnboarding,
+  ccsSetSyncCcSwitchDb,
 } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { HelpTip } from "@/components/ui/help-tip";
 import { AppGlyph } from "@/components/icons/app-glyph";
 import { ALL_APP_IDS, APP_DISPLAY } from "@/pages/cc-switch/app-meta";
-import type { AppId, CcsCodexSwitches, ToolVersion } from "@/commands/services/ccs/types";
+import type {
+  AppId,
+  CcsCodexSwitches,
+  CcsSwitchDb,
+  ToolVersion,
+} from "@/commands/services/ccs/types";
 import { cn } from "@/lib/utils";
 import { loadToolVersions } from "./ccs-version-cache";
 
@@ -88,6 +95,8 @@ export function CcsAppConfigSection() {
   const [resolved, setResolved] = useState<Record<string, string>>({});
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [visibleApps, setVisibleApps] = useState<Record<string, boolean>>({});
+  const [ccswitchDb, setCcswitchDb] = useState<CcsSwitchDb | null>(null);
+  const [syncCcSwitchDb, setSyncCcSwitchDb] = useState(false);
   const [versions, setVersions] = useState<Record<string, ToolVersion>>({});
   const [versionsLoading, setVersionsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -98,17 +107,20 @@ export function CcsAppConfigSection() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [claude, codex, dirs, settings] = await Promise.all([
+      const [claude, codex, dirs, settings, ccswitch] = await Promise.all([
         ccsGetClaudeSwitches(),
         ccsGetCodexSwitches(),
         ccsGetResolvedDirs(),
         ccsGetSettings(),
+        ccsGetCcSwitchDb(),
       ]);
       setClaudeSwitches(claude);
       setCodexSwitches(codex);
       setResolved(dirs);
       setOverrides(settings.configDirs ?? {});
       setVisibleApps(settings.visibleApps ?? {});
+      setSyncCcSwitchDb(!!settings.syncCcSwitchDb);
+      setCcswitchDb(ccswitch);
     } catch (error) {
       toast.error(String(error));
     } finally {
@@ -221,6 +233,18 @@ export function CcsAppConfigSection() {
       await refresh();
     } finally {
       setCompressionBusy(false);
+    }
+  };
+
+  const handleToggleSyncCcSwitch = async (next: boolean) => {
+    // 乐观更新。
+    setSyncCcSwitchDb(next);
+    try {
+      await ccsSetSyncCcSwitchDb(next);
+      toast.success("已保存");
+    } catch (error) {
+      toast.error(String(error));
+      await refresh();
     }
   };
 
@@ -358,6 +382,26 @@ export function CcsAppConfigSection() {
           管理各 AI 编程 CLI 的显示开关与配置目录，以及 Claude Code / Codex 的应用专属选项。
           标题右侧的开关控制该应用是否出现在「CC Switch - 供应商」页签中。
         </p>
+      </div>
+
+      <div className="divide-border divide-y rounded-lg border px-3">
+        <SwitchRow
+          label="同步 CC Switch 数据库"
+          help={{
+            title: "同步 CC Switch 数据库",
+            body: "开启后，切换供应商时会顺带把官方 CC Switch 数据库（~/.cc-switch/cc-switch.db）里该应用的「当前供应商」标记改成同一条，两个工具显示的选择保持一致。只有当官方库里存在相同 ID 的供应商时才会写入；官方 CC Switch 正在运行、或它之后自己又切换了供应商，两边的标记可能再次不一致。",
+          }}
+          description={
+            ccswitchDb
+              ? ccswitchDb.exists
+                ? `已检测到 ${ccswitchDb.path}`
+                : `未检测到 ${ccswitchDb.path}，请先安装 CC Switch`
+              : undefined
+          }
+          checked={syncCcSwitchDb}
+          disabled={loading || !ccswitchDb?.exists}
+          onCheckedChange={(v) => void handleToggleSyncCcSwitch(v)}
+        />
       </div>
 
       <div className="space-y-4">
