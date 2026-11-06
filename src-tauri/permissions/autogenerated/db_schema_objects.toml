@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-schema-objects"
+description = "Enables the db_schema_objects command without any pre-configured scope."
+commands.allow = ["db_schema_objects"]
+
+[[permission]]
+identifier = "deny-db-schema-objects"
+description = "Denies the db_schema_objects command without any pre-configured scope."
+commands.deny = ["db_schema_objects"]

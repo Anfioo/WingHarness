@@ -23,6 +23,12 @@ pub struct CcsSettings {
     /// 各应用配置目录覆盖（绝对路径）。未列出的应用用默认目录。
     #[serde(rename = "configDirs")]
     pub config_dirs: HashMap<String, String>,
+    /// 切换供应商时是否同步官方 cc-switch 数据库的「当前」标记。
+    #[serde(rename = "syncCcSwitchDb")]
+    pub sync_cc_switch_db: bool,
+    /// 进入供应商页时是否采用官方 cc-switch 的当前选择。
+    #[serde(rename = "syncFromCcSwitch")]
+    pub sync_from_cc_switch: bool,
 }
 
 impl Default for CcsSettings {
@@ -30,6 +36,8 @@ impl Default for CcsSettings {
         Self {
             visible_apps: HashMap::new(),
             config_dirs: HashMap::new(),
+            sync_cc_switch_db: false,
+            sync_from_cc_switch: false,
         }
     }
 }

@@ -11,7 +11,8 @@ file, and not this app, is the source of truth at runtime.
 
 The module reads the same SQLite schema as
 [cc-switch](https://github.com/farion1231/cc-switch) (MIT) and can import from its
-database. The app never writes to `~/.cc-switch`.
+database. It writes inside `~/.cc-switch` only when the optional sync below is
+switched on.
 
 ## Supported apps
 
@@ -120,13 +121,44 @@ The `providers` table matches official cc-switch field for field, which is what
 makes importing from its database a straight read. App-level settings (visible
 apps, config directories) are stored in the app's own `config.json` under `ccs`.
 
+## Syncing with official cc-switch
+
+Settings → CC Switch → Application configuration has two independent switches
+that keep the current provider in step with the official cc-switch database
+(`~/.cc-switch/cc-switch.db`). Both are disabled while that default database is
+missing; `ccs_get_ccswitch_db` reports its path and whether it exists. Only the
+default path is supported.
+
+**Sync to CC Switch on switch** (`syncCcSwitchDb`) — every switch in this app
+also flips the `is_current` flag in the official database and points
+`~/.cc-switch/settings.json` at the same provider. cc-switch keeps its
+device-level current provider in that file under `currentProvider<App>`
+(`currentProviderClaude`, `currentProviderCodex`, …) and reads it before the
+database column, so writing the column alone changes nothing it displays. The
+write is skipped when the database has no provider with the same id for the app,
+since flipping the flag blind would clear its current selection; a missing
+`settings.json` is left alone for the same reason — cc-switch then falls back to
+the column.
+
+**Adopt the CC Switch selection on open** (`syncFromCcSwitch`) — when the
+provider page opens, or the app tab changes, the app reads the official side's
+current provider — the `settings.json` pointer while that id still exists in the
+database, otherwise the `is_current` column — and, if it differs and this app has
+a provider with the same id, switches to it and writes the CLI config file. This
+direction wins over the local selection: it overwrites this app's current
+provider.
+
+Both directions are best-effort. A failed write is logged and otherwise ignored;
+switching inside cc-switch reaches this app only when the second switch is on
+and the page is opened again.
+
 ## Commands
 
 | Group | Commands |
 | --- | --- |
-| Providers | `ccs_get_providers`, `ccs_get_current_provider`, `ccs_add_provider`, `ccs_update_provider`, `ccs_delete_provider`, `ccs_duplicate_provider`, `ccs_switch_provider`, `ccs_update_sort_order` |
+| Providers | `ccs_get_providers`, `ccs_get_current_provider`, `ccs_add_provider`, `ccs_update_provider`, `ccs_delete_provider`, `ccs_duplicate_provider`, `ccs_switch_provider`, `ccs_sync_from_ccswitch`, `ccs_update_sort_order` |
 | Import | `ccs_import_live_config`, `ccs_import_preview`, `ccs_import_save`, `ccs_pick_import_file` |
-| Apps and settings | `ccs_get_tool_versions`, `ccs_get_visible_apps`, `ccs_set_app_visible`, `ccs_get_settings`, `ccs_save_settings`, `ccs_get_config_dir`, `ccs_set_config_dir`, `ccs_browse_directory`, `ccs_get_resolved_dirs` |
+| Apps and settings | `ccs_get_tool_versions`, `ccs_get_visible_apps`, `ccs_set_app_visible`, `ccs_get_settings`, `ccs_save_settings`, `ccs_get_config_dir`, `ccs_set_config_dir`, `ccs_browse_directory`, `ccs_get_resolved_dirs`, `ccs_get_ccswitch_db`, `ccs_set_sync_ccswitch_db`, `ccs_set_sync_from_ccswitch` |
 | Editors and extras | `ccs_editor_base`, `ccs_editor_delta`, `ccs_fetch_models`, `ccs_get_claude_switches`, `ccs_set_skip_onboarding`, `ccs_set_plugin_integration`, `ccs_get_codex_switches`, `ccs_set_codex_session_compression` |
 
 `ccs_switch_provider` returns the provider that was applied and the config file
@@ -143,6 +175,10 @@ write somewhere unexpected.
   additive apps need a manual edit.
 - With a config-directory override the CLI may be reading a different file than
   the one that was written.
+- The cc-switch sync only targets the default paths; a running cc-switch can hold
+  the database write lock, and the sync is then silently skipped. It also keeps
+  its settings in memory, so a switch made here reaches a running cc-switch only
+  after it restarts, and its next save can overwrite the pointer.
 
 ## Wiring this module into another app
 

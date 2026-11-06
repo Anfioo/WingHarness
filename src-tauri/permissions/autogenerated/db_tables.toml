@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-tables"
+description = "Enables the db_tables command without any pre-configured scope."
+commands.allow = ["db_tables"]
+
+[[permission]]
+identifier = "deny-db-tables"
+description = "Denies the db_tables command without any pre-configured scope."
+commands.deny = ["db_tables"]

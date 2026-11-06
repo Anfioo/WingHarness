@@ -65,6 +65,7 @@ for the project name (2026-11-05).
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` page, `claude_history.rs` | Behaviour port; 1 identical generic helper (`cn.ts`) |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | "Vendored from `@ekaone/use-claude` (MIT)" in headers |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`, `cc-switch` page | Icon assets copied from `src/icons/extracted`; reads its SQLite DB |
+| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`, database pages | Reworked for this app's conventions, no identical files; `db-core/UPSTREAM.md` |
 
 **Notes on this group**
 
@@ -75,8 +76,8 @@ for the project name (2026-11-05).
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
-  `frp-core`, `server-core` and `shaic-core`. The license text of each upstream
-  is in `licenses/`; GPL upstreams point at the project's own `LICENSE`.
+  `frp-core`, `server-core`, `shaic-core` and `db-core`. The license text of each
+  upstream is in `licenses/`; GPL upstreams point at the project's own `LICENSE`.
 
 ### Reference only — no code copied
 
@@ -85,7 +86,6 @@ for the project name (2026-11-05).
 | [clash-verge-rev](https://github.com/clash-verge-rev/clash-verge-rev) | GPL-3.0-only | Clash page design; `prism-core` itself is first-party, built on the `clash-prism-extension` crate |
 | [Rust-Frp](https://github.com/Nu0vo1212/Rust-Frp) | Apache-2.0 | FRP protocol and process behaviour |
 | [Zephyr](https://github.com/Juwan-Hwang/Zephyr) | MIT | Mihomo GUI design |
-| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | Rust IDE and git UI design; design comments in the source |
 
 ## Porting checklist
 
@@ -116,3 +116,6 @@ Use this for every feature carried over.
 | 2026-11-05 | Inventory re-verified by hashing every file under MaBang's `src/`, `src-tauri/` and `scripts/` against each checkout and searching the source for each project name. |
 | 2026-11-05 | WingHarness absorbed the MaBangProjectsWorkflows tree; every pending module is now ported and its status flipped to **Ported**. |
 | 2026-11-05 | Licence audit: upstream license texts added under `licenses/`, attribution headers and `UPSTREAM.md` records added to every ported crate, tweakcn corrected from MIT to Apache-2.0, and the evidence column updated to the current tree. |
+| 2026-11-06 | openidea moved from **Reference** to **Ported**: its `crates/ide-db` became `src-tauri/db-core`, with `db-core/UPSTREAM.md` recording the divergences. |
+| 2026-11-06 | Databases P2: `ide-db`'s introspection (catalog queries from `sql.rs`, DTOs from `lib.rs`) added as `db-core/src/{sql,objects}.rs`, with `db_databases`, `db_schemas`, `db_tables`, `db_table_details` and `db_schema_objects`. |
+

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-schemas"
+description = "Enables the db_schemas command without any pre-configured scope."
+commands.allow = ["db_schemas"]
+
+[[permission]]
+identifier = "deny-db-schemas"
+description = "Denies the db_schemas command without any pre-configured scope."
+commands.deny = ["db_schemas"]

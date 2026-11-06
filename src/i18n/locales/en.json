@@ -1116,6 +1116,173 @@
     "welcomeHint": "Pick a local repository to browse its branches, commit graph, working copy and diffs. Each repository gets a window of its own.",
     "openedRepo": "Repository opened"
   },
+  "database": {
+    "title": "Databases",
+    "subtitle": "Connect to SQLite, PostgreSQL, MySQL, SQL Server, ClickHouse and Oracle. Each data source opens in a window of its own with a SQL console.",
+    "loading": "Loading data sources…",
+    "action": {
+      "create": "Add data source",
+      "edit": "Edit",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "test": "Test connection",
+      "refresh": "Refresh",
+      "retry": "Retry"
+    },
+    "search": {
+      "placeholder": "Search by name, driver or target",
+      "clear": "Clear search"
+    },
+    "list": {
+      "count": "{{count}} data sources",
+      "noResults": "No data sources match your search.",
+      "global": "App-wide",
+      "project": "Project",
+      "connected": "Connected",
+      "disconnected": "Not connected"
+    },
+    "empty": {
+      "title": "No data sources yet",
+      "description": "A data source is one server or one SQLite file. Its settings stay in the data directory; the password is only stored when you ask for it.",
+      "action": "Add your first data source"
+    },
+    "toast": {
+      "reloaded": "Data sources refreshed.",
+      "deleted": "Deleted {{name}}."
+    },
+    "delete": {
+      "title": "Delete data source?",
+      "description": "Deleting {{name}} also removes its saved password and its query history. This cannot be undone."
+    },
+    "driver": {
+      "sqlite": "SQLite",
+      "postgres": "PostgreSQL",
+      "mysql": "MySQL",
+      "sqlServer": "SQL Server",
+      "clickhouse": "ClickHouse",
+      "oracle": "Oracle"
+    },
+    "ssl": {
+      "disable": "Disable",
+      "prefer": "Prefer",
+      "require": "Require",
+      "verifyCa": "Verify CA",
+      "verifyFull": "Verify full"
+    },
+    "color": {
+      "none": "No colour",
+      "red": "Red",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "violet": "Violet"
+    },
+    "test": {
+      "success": "Connected: {{version}}",
+      "failed": "Could not connect: {{error}}"
+    },
+    "error": {
+      "loadFailed": "Could not load the data sources.",
+      "openFailed": "Could not open the window: {{error}}",
+      "saveFailed": "Could not save the data source: {{error}}",
+      "deleteFailed": "Could not delete the data source: {{error}}",
+      "not-found": "The data source no longer exists.",
+      "invalid": "The settings were rejected.",
+      "auth-failed": "The server rejected the credentials.",
+      "unreachable": "The server could not be reached.",
+      "cancelled": "The statement was cancelled.",
+      "protocol": "The server answered with something unexpected.",
+      "internal": "Something went wrong in the database engine."
+    },
+    "form": {
+      "createTitle": "Add data source",
+      "editTitle": "Edit data source",
+      "description": "The settings are stored in the data directory. The password is only stored when you ask for it.",
+      "name": "Name",
+      "namePlaceholder": "Local shop database",
+      "driver": "Driver",
+      "scope": "Scope",
+      "scopeGlobalHint": "Listed in every project.",
+      "scopeProjectHint": "Listed only in the project that is open.",
+      "scopeNeedsProject": "No project is open, so this data source is app-wide.",
+      "file": "Database file",
+      "fileBrowse": "Browse",
+      "fileHint": "A relative path resolves against the project root.",
+      "urlOnly": "Connect with a URL",
+      "url": "URL",
+      "urlPlaceholder": "postgres://user:password@host:5432/database",
+      "host": "Host",
+      "port": "Port",
+      "database": "Database",
+      "user": "User",
+      "sslMode": "SSL",
+      "password": "Password",
+      "passwordSaved": "Stored password",
+      "savePassword": "Remember the password",
+      "savePasswordHint": "Without this, the password is kept in memory for this session only.",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "color": "Colour",
+      "readOnly": "Read only",
+      "manualCommit": "Manual commit",
+      "comment": "Comment",
+      "duplicateName": "{{name}} (copy)",
+      "save": "Save",
+      "cancel": "Cancel",
+      "validation": {
+        "nameRequired": "A name is required.",
+        "fileRequired": "Choose the database file.",
+        "urlRequired": "A URL is required.",
+        "portInvalid": "Use a port between 1 and 65535."
+      }
+    },
+    "tree": {
+      "title": "Objects",
+      "loading": "Loading…",
+      "connectFirst": "Connect to browse the objects of this data source.",
+      "empty": "No objects.",
+      "emptySchema": "This schema has no tables, views, routines or sequences.",
+      "emptyColumns": "This table has no columns.",
+      "current": "Current",
+      "insertSelect": "Double-click to insert a SELECT statement.",
+      "otherDatabase": "That table belongs to another database; the console is connected to a different one.",
+      "folder": {
+        "tables": "Tables",
+        "views": "Views",
+        "materializedViews": "Materialized views",
+        "routines": "Routines",
+        "sequences": "Sequences"
+      }
+    },
+    "window": {
+      "missingTitle": "No data source selected",
+      "missingDescription": "The data source was deleted or belongs to another project.",
+      "connect": "Connect",
+      "connecting": "Connecting…",
+      "disconnect": "Disconnect",
+      "history": "History",
+      "clearHistory": "Clear history",
+      "historyEmpty": "Statements you run are listed here.",
+      "removeEntry": "Remove from history",
+      "commit": "Commit",
+      "rollback": "Roll back",
+      "committed": "Transaction committed.",
+      "rolledBack": "Transaction rolled back.",
+      "cancelled": "The statement was cancelled.",
+      "statementPlaceholder": "-- Ctrl+Enter runs the statement\nSELECT 1;",
+      "run": "Run",
+      "cancel": "Cancel",
+      "running": "Running…",
+      "runHint": "Ctrl+Enter runs the statement",
+      "emptyResult": "The result of the statement appears here.",
+      "done": "Statement completed.",
+      "affected": "{{count}} rows affected",
+      "rowCount": "{{count}} rows",
+      "truncated": "More rows are available.",
+      "executionTime": "{{ms}} ms to first row"
+    }
+  },
   "servers": {
     "title": "Servers",
     "subtitle": "SSH profiles stored on this machine. Credentials go to the system keychain; private keys are referenced by path.",

@@ -82,6 +82,19 @@ Windows-only; macOS and Linux code paths were not carried over.
 `src-tauri/src/mcphub` is adapted from McpHub; every source file keeps its
 attribution header.
 
+### openidea
+
+- Project: [openidea](https://github.com/l0ng-ai/openidea)
+- Version: 0.1.37
+- License: Apache-2.0
+- License text: [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)
+
+`src-tauri/db-core` and the database pages are ported from openidea's
+`crates/ide-db`: data sources, connections, introspection, query execution and
+table editing. The SSH tunnelling, SQL Server, ClickHouse and Oracle paths, the
+`specta` type generation and the keychain password store were not carried over.
+See `src-tauri/db-core/UPSTREAM.md` for the porting record.
+
 ### OrcaSVN
 
 - Project: [OrcaSVN](https://github.com/wustites/OrcaSVN)

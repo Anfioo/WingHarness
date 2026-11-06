@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-connected"
+description = "Enables the db_connected command without any pre-configured scope."
+commands.allow = ["db_connected"]
+
+[[permission]]
+identifier = "deny-db-connected"
+description = "Denies the db_connected command without any pre-configured scope."
+commands.deny = ["db_connected"]

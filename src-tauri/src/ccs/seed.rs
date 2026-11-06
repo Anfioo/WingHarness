@@ -79,12 +79,12 @@ pub fn import_live_config(app: AppType) -> Result<Option<Provider>, String> {
 ///
 /// - 仅当该应用 store 为空时导入 live 为 `default` 并设为当前；
 /// - 官方条目按全局标记文件只播一次，用户删除后不复活。
-pub fn init() {
+pub async fn init() {
     for app in AppType::ALL {
-        import_live_if_empty(app);
+        import_live_if_empty(app).await;
 
         if !seeded_already() {
-            seed_official(app);
+            seed_official(app).await;
         }
     }
     mark_seeded();
@@ -93,41 +93,41 @@ pub fn init() {
 /// 手动把本机配置导入为供应商（空状态「导入当前配置」按钮）。
 ///
 /// 已存在 id 为 `default` 的供应商时返回 `Ok(false)`，不覆盖。
-pub fn import_and_activate(app: AppType) -> Result<bool, String> {
-    if store::get(app, "default").is_some() {
+pub async fn import_and_activate(app: AppType) -> Result<bool, String> {
+    if store::get(app, "default").await.is_some() {
         return Ok(false);
     }
     let Some(provider) = import_live_config(app)? else {
         return Ok(false);
     };
-    let id = store::add(app, provider)?;
-    store::set_current(app, Some(&id))?;
-    super::switch::switch(app, &id)?;
+    let id = store::add(app, provider).await?;
+    store::set_current(app, Some(&id)).await?;
+    super::switch::switch(app, &id).await?;
     Ok(true)
 }
 
 /// 若该应用尚无任何供应商，导入 live 并设为当前。
-fn import_live_if_empty(app: AppType) {
-    if !store::list(app).is_empty() {
+async fn import_live_if_empty(app: AppType) {
+    if !store::list(app).await.is_empty() {
         return;
     }
     if let Ok(Some(provider)) = import_live_config(app) {
-        if let Ok(id) = store::add(app, provider) {
-            let _ = store::set_current(app, Some(&id));
+        if let Ok(id) = store::add(app, provider).await {
+            let _ = store::set_current(app, Some(&id)).await;
         }
     }
 }
 
 /// 追加官方条目（已存在同 id 时跳过）。
-fn seed_official(app: AppType) {
+async fn seed_official(app: AppType) {
     let Some(provider) = official_provider(app) else {
         return;
     };
     let id = provider.id.clone();
-    if store::get(app, &id).is_some() {
+    if store::get(app, &id).await.is_some() {
         return;
     }
-    let _ = store::add(app, provider);
+    let _ = store::add(app, provider).await;
 }
 
 /// 官方条目是否已播种过（标记文件存在即视为已播）。
