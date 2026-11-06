@@ -1,0 +1,37 @@
+[package]
+name = "db-core"
+version = "0.0.1"
+description = "Database engine: data sources, connections, introspection, query execution and table editing."
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "db_core"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Data sources are stored as TOML, like the reference project this is ported from.
+toml = "0.8"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+# Statement cancellation: a long query must not pin the window, and a cancelled
+# statement has to give its connection back to the pool cleanly.
+tokio-util = "0.7"
+# SQLite / PostgreSQL / MySQL are compiled in (no runtime download). TLS goes
+# through rustls, which `reqwest` already links, so there is one TLS stack.
+sqlx = { version = "0.9", default-features = false, features = [
+    "runtime-tokio",
+    "sqlite",
+    "postgres",
+    "mysql",
+    "tls-rustls-ring-webpki",
+] }
+futures-util = "0.3"
+log = "0.4"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio-util = "0.7"
+tempfile = "3"

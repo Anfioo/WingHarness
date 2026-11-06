@@ -2,33 +2,10 @@ import { emit } from "@tauri-apps/api/event";
 import { getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { GIT_HOME_EVENT, GIT_REPO_WINDOW_PATH } from "@/lib/git-routes";
 import { createWindow, showWindow } from "@/lib/window";
+import { hashedWindowLabel } from "@/lib/window-label";
 
-/**
- * One window per repository: the label is derived from the repository path so
- * clicking the same repository twice focuses the window that is already open
- * instead of stacking duplicates. A window label may only contain
- * alphanumerics and `-`, `/`, `:`, `_` (see `@/lib/plugin-label`), so the path
- * is hashed rather than embedded.
- */
+/** One window per repository; the normalized path is hashed, see `@/lib/window-label`. */
 const GIT_REPO_PREFIX = "git-repo-";
-
-/**
- * FNV-1a over the normalized path, printed as 16 hex chars. Chosen over the
- * usual 32-bit string hash because a collision here would silently focus the
- * wrong repository's window.
- */
-function hashRepoPath(path: string) {
-  let hash = 0xcbf29ce484222325n;
-  const prime = 0x100000001b3n;
-  const mask = 0xffffffffffffffffn;
-
-  for (let i = 0; i < path.length; i += 1) {
-    hash ^= BigInt(path.charCodeAt(i));
-    hash = (hash * prime) & mask;
-  }
-
-  return hash.toString(16).padStart(16, "0");
-}
 
 /**
  * Paths that differ only by separator, trailing slash or case are the same
@@ -39,7 +16,7 @@ export function normalizeRepoPath(path: string) {
 }
 
 export function gitRepoWindowLabel(repoPath: string) {
-  return GIT_REPO_PREFIX + hashRepoPath(normalizeRepoPath(repoPath));
+  return hashedWindowLabel(GIT_REPO_PREFIX, normalizeRepoPath(repoPath));
 }
 
 /**
