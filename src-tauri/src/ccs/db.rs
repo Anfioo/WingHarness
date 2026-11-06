@@ -11,75 +11,83 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::sync::{Mutex, MutexGuard, OnceLock};
+use std::sync::OnceLock;
 
-use rusqlite::{Connection, OpenFlags};
 use serde::Deserialize;
+use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
 
 use super::paths;
 use super::provider::Provider;
 
-/// 数据库连接封装。
+/// 数据库连接池。
 ///
-/// `rusqlite::Connection` 不是 `Sync`，用 `Mutex` 包一层才能在 Tauri 的
-/// 多线程 State 中共享。
+/// `SqlitePool` 本身是 `Clone + Send + Sync`，可以直接放进进程内的全局句柄，
+/// 不需要额外的锁。
 pub struct Database {
-    pub(crate) conn: Mutex<Connection>,
+    pub(crate) pool: SqlitePool,
 }
 
 impl Database {
     /// 打开（必要时创建）应用数据库并建表；首次运行会把旧的 `providers.json`
     /// 迁移进来。
-    pub fn init() -> Result<Self, String> {
+    pub async fn init() -> Result<Self, String> {
         let db_path = paths::store_db();
         if let Some(parent) = db_path.parent() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create {}: {e}", parent.display()))?;
         }
 
-        let conn = Connection::open(&db_path)
+        // 单连接：与旧的 `Mutex<Connection>` 一样串行化，避免并发写撞
+        // "database is locked"（桌面应用单连接足够）。
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(&db_path)
+                    .create_if_missing(true)
+                    .foreign_keys(true),
+            )
+            .await
             .map_err(|e| format!("Failed to open {}: {e}", db_path.display()))?;
-        conn.execute("PRAGMA foreign_keys = ON;", [])
-            .map_err(|e| e.to_string())?;
 
-        let db = Self {
-            conn: Mutex::new(conn),
-        };
-        db.create_tables()?;
-        db.migrate_legacy_json()?;
+        let db = Self { pool };
+        db.create_tables().await?;
+        db.migrate_legacy_json().await?;
         Ok(db)
     }
 
     /// 内存数据库（单元测试用）。
-    pub fn memory() -> Result<Self, String> {
-        let conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
-        let db = Self {
-            conn: Mutex::new(conn),
-        };
-        db.create_tables()?;
+    pub async fn memory() -> Result<Self, String> {
+        // `sqlite::memory:` 的每条连接都是独立的空库，因此必须限制为一条。
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(SqliteConnectOptions::new().in_memory(true))
+            .await
+            .map_err(|e| e.to_string())?;
+        let db = Self { pool };
+        db.create_tables().await?;
         Ok(db)
     }
 
     /// 以只读方式打开某个已有的 cc-switch 数据库（用于「从官方库导入」）。
-    pub fn open_readonly(path: &Path) -> Result<Self, String> {
-        let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+    pub async fn open_readonly(path: &Path) -> Result<Self, String> {
+        // 只读打开不能带 `create_if_missing`，否则会试图新建文件。
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::new()
+                    .filename(path)
+                    .read_only(true)
+                    .foreign_keys(true),
+            )
+            .await
             .map_err(|e| format!("无法打开数据库 {}：{e}", path.display()))?;
-        Ok(Self {
-            conn: Mutex::new(conn),
-        })
-    }
-
-    /// 取得连接锁（供 DAO 与导入模块使用）。
-    pub(crate) fn conn(&self) -> Result<MutexGuard<'_, Connection>, String> {
-        self.conn
-            .lock()
-            .map_err(|e| format!("Database lock failed: {e}"))
+        Ok(Self { pool })
     }
 
     /// 建表：`providers` 表与官方 cc-switch 的 DDL 一致。
-    fn create_tables(&self) -> Result<(), String> {
-        let conn = self.conn()?;
-        conn.execute(
+    async fn create_tables(&self) -> Result<(), String> {
+        sqlx::query(
             "CREATE TABLE IF NOT EXISTS providers (
                 id TEXT NOT NULL,
                 app_type TEXT NOT NULL,
@@ -97,8 +105,9 @@ impl Database {
                 in_failover_queue BOOLEAN NOT NULL DEFAULT 0,
                 PRIMARY KEY (id, app_type)
             )",
-            [],
         )
+        .execute(&self.pool)
+        .await
         .map_err(|e| e.to_string())?;
         Ok(())
     }
@@ -107,20 +116,21 @@ impl Database {
     ///
     /// 迁移成功后把旧文件改名为 `providers.json.migrated`（保留可回退），
     /// 不会删除用户数据。
-    fn migrate_legacy_json(&self) -> Result<(), String> {
+    async fn migrate_legacy_json(&self) -> Result<(), String> {
         self.migrate_legacy_json_from(&paths::legacy_store_file())
+            .await
     }
 
     /// 从指定路径迁移旧 JSON（路径可注入，便于测试）。
-    fn migrate_legacy_json_from(&self, legacy: &Path) -> Result<(), String> {
+    async fn migrate_legacy_json_from(&self, legacy: &Path) -> Result<(), String> {
         if !legacy.exists() {
             return Ok(());
         }
 
         {
-            let conn = self.conn()?;
-            let count: i64 = conn
-                .query_row("SELECT COUNT(*) FROM providers", [], |row| row.get(0))
+            let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM providers")
+                .fetch_one(&self.pool)
+                .await
                 .map_err(|e| e.to_string())?;
             // 数据库已有数据则不重复迁移（幂等）。
             if count > 0 {
@@ -143,37 +153,39 @@ impl Database {
                             .unwrap_or(&super::provider::ProviderMeta::default()),
                     )
                     .map_err(|e| e.to_string())?;
-                    conn.execute(
+                    sqlx::query(
                         "INSERT OR REPLACE INTO providers (
                             id, app_type, name, settings_config, website_url, category,
                             created_at, sort_index, notes, icon, icon_color, meta,
                             is_current, in_failover_queue
                         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 0)",
-                        rusqlite::params![
-                            provider.id,
-                            app_id,
-                            provider.name,
-                            settings,
-                            provider.website_url,
-                            provider.category,
-                            provider.created_at,
-                            provider
-                                .sort_index
-                                .map(|v| v as i64)
-                                .unwrap_or(index as i64),
-                            provider.notes,
-                            provider.icon,
-                            provider.icon_color,
-                            meta,
-                            is_current,
-                        ],
                     )
+                    .bind(provider.id.as_str())
+                    .bind(app_id.as_str())
+                    .bind(provider.name.as_str())
+                    .bind(settings)
+                    .bind(provider.website_url.as_deref())
+                    .bind(provider.category.as_deref())
+                    .bind(provider.created_at)
+                    .bind(
+                        provider
+                            .sort_index
+                            .map(|v| v as i64)
+                            .unwrap_or(index as i64),
+                    )
+                    .bind(provider.notes.as_deref())
+                    .bind(provider.icon.as_deref())
+                    .bind(provider.icon_color.as_deref())
+                    .bind(meta)
+                    .bind(is_current)
+                    .execute(&self.pool)
+                    .await
                     .map_err(|e| e.to_string())?;
                 }
             }
         }
 
-        // 迁移完成后再改名（此时连接锁已释放）。
+        // 迁移完成后再改名（此时已不再持有数据库连接）。
         let migrated = legacy.with_extension("json.migrated");
         fs::rename(legacy, &migrated)
             .map_err(|e| format!("Failed to archive {}: {e}", legacy.display()))?;
@@ -185,11 +197,11 @@ impl Database {
 static DB: OnceLock<Database> = OnceLock::new();
 
 /// 取得全局数据库；首次调用时初始化（建表 + 旧 JSON 迁移）。
-pub(crate) fn global() -> Result<&'static Database, String> {
+pub(crate) async fn global() -> Result<&'static Database, String> {
     if let Some(db) = DB.get() {
         return Ok(db);
     }
-    let db = Database::init()?;
+    let db = Database::init().await?;
     let _ = DB.set(db);
     DB.get()
         .ok_or_else(|| "Failed to initialize providers database".to_string())
@@ -217,18 +229,18 @@ struct LegacyApp {
 mod tests {
     use super::*;
 
-    #[test]
-    fn memory_db_creates_providers_table() {
-        let db = Database::memory().unwrap();
-        let conn = db.conn().unwrap();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM providers", [], |row| row.get(0))
+    #[tokio::test]
+    async fn memory_db_creates_providers_table() {
+        let db = Database::memory().await.unwrap();
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM providers")
+            .fetch_one(&db.pool)
+            .await
             .unwrap();
         assert_eq!(count, 0);
     }
 
-    #[test]
-    fn migrates_legacy_json_into_sqlite() {
+    #[tokio::test]
+    async fn migrates_legacy_json_into_sqlite() {
         let dir = std::env::temp_dir().join(format!("ccs-db-migrate-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -242,25 +254,20 @@ mod tests {
         )
         .unwrap();
 
-        let db = Database::memory().unwrap();
-        db.migrate_legacy_json_from(&legacy).unwrap();
+        let db = Database::memory().await.unwrap();
+        db.migrate_legacy_json_from(&legacy).await.unwrap();
 
-        let conn = db.conn().unwrap();
-        let count: i64 = conn
-            .query_row(
-                "SELECT COUNT(*) FROM providers WHERE app_type='claude'",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM providers WHERE app_type='claude'")
+                .fetch_one(&db.pool)
+                .await
+                .unwrap();
         assert_eq!(count, 2);
-        let current: String = conn
-            .query_row(
-                "SELECT id FROM providers WHERE app_type='claude' AND is_current=1",
-                [],
-                |row| row.get(0),
-            )
-            .unwrap();
+        let current: String =
+            sqlx::query_scalar("SELECT id FROM providers WHERE app_type='claude' AND is_current=1")
+                .fetch_one(&db.pool)
+                .await
+                .unwrap();
         assert_eq!(current, "a");
 
         // 迁移后旧文件被改名归档，不再存在。
@@ -270,8 +277,8 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    #[test]
-    fn migration_is_idempotent_when_db_has_rows() {
+    #[tokio::test]
+    async fn migration_is_idempotent_when_db_has_rows() {
         let dir = std::env::temp_dir().join(format!("ccs-db-idem-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
@@ -284,18 +291,19 @@ mod tests {
         )
         .unwrap();
 
-        let db = Database::memory().unwrap();
+        let db = Database::memory().await.unwrap();
         db.save_provider(
             "pi",
             &Provider::new("z".into(), "Z".into(), serde_json::json!({})),
         )
+        .await
         .unwrap();
-        db.migrate_legacy_json_from(&legacy).unwrap();
+        db.migrate_legacy_json_from(&legacy).await.unwrap();
 
         // 库中已有数据：不迁移，旧文件保持原样。
-        let conn = db.conn().unwrap();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM providers", [], |row| row.get(0))
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM providers")
+            .fetch_one(&db.pool)
+            .await
             .unwrap();
         assert_eq!(count, 1);
         assert!(legacy.exists());

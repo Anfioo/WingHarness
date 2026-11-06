@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ccs-sync-from-ccswitch"
+description = "Enables the ccs_sync_from_ccswitch command without any pre-configured scope."
+commands.allow = ["ccs_sync_from_ccswitch"]
+
+[[permission]]
+identifier = "deny-ccs-sync-from-ccswitch"
+description = "Denies the ccs_sync_from_ccswitch command without any pre-configured scope."
+commands.deny = ["ccs_sync_from_ccswitch"]

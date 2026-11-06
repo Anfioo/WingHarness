@@ -1,0 +1,574 @@
+//! Data sources: per-project connection settings and the app-wide ones.
+//!
+//! Ported from `ide_db::source` of the reference project (Apache-2.0), with
+//! three changes: the SSH tunnel settings are gone (this port has no port
+//! forwarding), `specta::Type` is gone (the frontend types are hand-written),
+//! and the file paths come from [`crate::paths`] instead of the reference's
+//! `project_dir` helper. Passwords never go in these files — they live in
+//! [`crate::secrets`].
+
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+
+use crate::error::{DbError, DbResult};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DbDriver {
+    Sqlite,
+    Postgres,
+    /// MySQL and MariaDB.
+    Mysql,
+    /// Microsoft SQL Server.
+    SqlServer,
+    Clickhouse,
+    /// Oracle Database (via Oracle Instant Client).
+    Oracle,
+}
+
+impl DbDriver {
+    pub fn default_port(self) -> Option<u16> {
+        match self {
+            DbDriver::Sqlite => None,
+            DbDriver::Postgres => Some(5432),
+            DbDriver::Mysql => Some(3306),
+            DbDriver::SqlServer => Some(1433),
+            DbDriver::Clickhouse => Some(8123),
+            DbDriver::Oracle => Some(1521),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DbSslMode {
+    Disable,
+    #[default]
+    Prefer,
+    Require,
+    /// Require, and check the server certificate against the CA file.
+    VerifyCa,
+    /// [`DbSslMode::VerifyCa`], and check that the certificate names the host.
+    VerifyFull,
+}
+
+/// IDEA's data source colours (tree node and console tab tint), e.g. red for production.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DbColor {
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Blue,
+    Violet,
+}
+
+/// Transaction control of the data source's consoles.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DbTxMode {
+    #[default]
+    Auto,
+    Manual,
+}
+
+/// Options tab: session settings applied to every connection.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DbOptions {
+    pub transaction: DbTxMode,
+    /// PostgreSQL `search_path` (unqualified names resolve there).
+    pub default_schema: String,
+    /// Session time zone (`TimeZone` / `time_zone`); empty keeps the default.
+    pub time_zone: String,
+    /// Statements run on every new connection.
+    pub startup_script: String,
+    /// Run `SELECT 1` this often while connected.
+    pub keep_alive_secs: Option<u32>,
+    /// Disconnect after this long without statements (enforced by the UI, which sees the activity).
+    pub auto_disconnect_secs: Option<u32>,
+    /// PostgreSQL: show only the configured database, its schemas right under the data source.
+    pub single_database: bool,
+    /// Oracle: directory of the Oracle Instant Client (empty: `ORACLE_HOME` / system search path).
+    pub instant_client: String,
+}
+
+/// Schemas tab: the databases / schemas the tree shows. Names may use `*` and `?`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DbIntrospection {
+    pub all_databases: bool,
+    pub databases: Vec<String>,
+    pub all_schemas: bool,
+    pub schemas: Vec<String>,
+    /// `pg_catalog`, `information_schema`, `mysql`…, and service databases (`rdsadmin`…).
+    pub show_system: bool,
+    /// PostgreSQL template databases (`template0`, `template1`).
+    pub show_templates: bool,
+    /// Object filter: the tree lists only tables, views, routines and sequences matching
+    /// one of these patterns (`*`, `?`; separated by commas or spaces). Empty: all.
+    pub object_filter: String,
+}
+
+impl Default for DbIntrospection {
+    fn default() -> Self {
+        Self {
+            all_databases: true,
+            databases: Vec::new(),
+            all_schemas: true,
+            schemas: Vec::new(),
+            show_system: false,
+            show_templates: false,
+            object_filter: String::new(),
+        }
+    }
+}
+
+/// Advanced tab: a driver property. PostgreSQL: run-time parameters (and
+/// `application_name`); MySQL: session variables (and `charset`, `collation`);
+/// SQLite: pragmas. See [`crate::conn`].
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DbProperty {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DataSource {
+    pub id: String,
+    pub name: String,
+    pub driver: DbDriver,
+    pub host: String,
+    pub port: Option<u16>,
+    pub database: String,
+    pub user: String,
+    /// SQLite database file (absolute, or relative to the project root).
+    pub file: Option<String>,
+    pub ssl: DbSslMode,
+    /// Keep the password in the saved passwords.
+    pub save_password: bool,
+    /// Refuse statements other than queries (enforced by the database session where possible).
+    pub read_only: bool,
+    /// Wire-compatible product preset (`cockroachdb`, `tidb`…; empty: the driver itself).
+    pub vendor: String,
+    pub color: Option<DbColor>,
+    pub comment: String,
+    /// Connect with [`DataSource::url`] instead of the host / port / database fields.
+    pub url_only: bool,
+    pub url: String,
+    /// PEM files; `~/` is the home directory.
+    pub ssl_ca_file: String,
+    pub ssl_cert_file: String,
+    pub ssl_key_file: String,
+    pub options: DbOptions,
+    pub introspection: DbIntrospection,
+    pub properties: Vec<DbProperty>,
+    /// Stored app-wide and listed in every project. Implied by the file it is
+    /// read from, so not written to it.
+    pub global: bool,
+}
+
+impl Default for DataSource {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            driver: DbDriver::Sqlite,
+            host: "localhost".into(),
+            port: None,
+            database: String::new(),
+            user: String::new(),
+            file: None,
+            ssl: DbSslMode::Prefer,
+            save_password: false,
+            read_only: false,
+            vendor: String::new(),
+            color: None,
+            comment: String::new(),
+            url_only: false,
+            url: String::new(),
+            ssl_ca_file: String::new(),
+            ssl_cert_file: String::new(),
+            ssl_key_file: String::new(),
+            options: DbOptions::default(),
+            introspection: DbIntrospection::default(),
+            properties: Vec::new(),
+            global: false,
+        }
+    }
+}
+
+/// The connection settings of a URL (`jdbc:` prefix allowed).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ParsedUrl {
+    pub driver: Option<DbDriver>,
+    pub host: String,
+    pub port: Option<u16>,
+    pub database: String,
+    pub user: String,
+    pub password: Option<String>,
+    /// Query parameters, in order.
+    pub params: Vec<(String, String)>,
+    /// SQLite file.
+    pub file: Option<String>,
+}
+
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    let hex = |i: usize| b.get(i).and_then(|&c| (c as char).to_digit(16));
+    while i < b.len() {
+        if b[i] == b'%' {
+            if let (Some(high), Some(low)) = (hex(i + 1), hex(i + 2)) {
+                out.push((high * 16 + low) as u8);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(b[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// The driver speaking the protocol of URL scheme `scheme` (wire-compatible products included).
+pub fn scheme_driver(scheme: &str) -> Option<DbDriver> {
+    match scheme.to_ascii_lowercase().as_str() {
+        "postgres" | "postgresql" | "pgsql" | "redshift" | "cockroachdb" | "cockroach" | "yugabytedb"
+        | "timescaledb" | "greenplum" => Some(DbDriver::Postgres),
+        "mysql" | "mariadb" | "tidb" | "singlestore" | "memsql" | "oceanbase" => Some(DbDriver::Mysql),
+        "sqlserver" | "mssql" | "mssqlserver" => Some(DbDriver::SqlServer),
+        "sqlite" | "sqlite3" => Some(DbDriver::Sqlite),
+        "clickhouse" | "http" | "https" => Some(DbDriver::Clickhouse),
+        "oracle" | "oracledb" => Some(DbDriver::Oracle),
+        _ => None,
+    }
+}
+
+/// Parses `scheme://[user[:password]@]host[:port][/database][?k=v&…]`, `jdbc:` forms
+/// included, and `sqlite:path`.
+pub fn parse_url(raw: &str) -> DbResult<ParsedUrl> {
+    let bad = || DbError::invalid("invalid database URL");
+    let url = raw.trim();
+    let url = url.strip_prefix("jdbc:").or_else(|| url.strip_prefix("JDBC:")).unwrap_or(url);
+    let (scheme, rest) = url.split_once(':').ok_or_else(bad)?;
+    let driver = scheme_driver(scheme).ok_or_else(bad)?;
+    // JDBC thin URLs: `jdbc:oracle:thin:@//host:port/service` (after the `jdbc:` prefix).
+    let rest = if driver == DbDriver::Oracle {
+        rest.strip_prefix("thin:@").or_else(|| rest.strip_prefix("thin:/@")).unwrap_or(rest)
+    } else {
+        rest
+    };
+    if driver == DbDriver::Sqlite {
+        let file = rest.strip_prefix("//").unwrap_or(rest);
+        let file = file.split('?').next().unwrap_or_default();
+        if file.is_empty() {
+            return Err(bad());
+        }
+        return Ok(ParsedUrl { driver: Some(driver), file: Some(percent_decode(file)), ..Default::default() });
+    }
+    let rest = rest.strip_prefix("//").ok_or_else(bad)?;
+    let (main, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let (authority, database) = main.split_once('/').unwrap_or((main, ""));
+    let (userinfo, hostport) = match authority.rsplit_once('@') {
+        Some((u, h)) => (Some(u), h),
+        None => (None, authority),
+    };
+    // Several hosts (failover lists): the first.
+    let hostport = hostport.split(',').next().unwrap_or_default();
+    let (host, port) = if let Some(v6) = hostport.strip_prefix('[') {
+        let (h, after) = v6.split_once(']').ok_or_else(bad)?;
+        (h.to_owned(), after.strip_prefix(':'))
+    } else {
+        match hostport.rsplit_once(':') {
+            Some((h, p)) => (h.to_owned(), Some(p)),
+            None => (hostport.to_owned(), None),
+        }
+    };
+    let port = match port.filter(|p| !p.is_empty()) {
+        Some(p) => Some(p.parse::<u16>().map_err(|_| bad())?),
+        None => None,
+    };
+    let mut parsed = ParsedUrl {
+        driver: Some(driver),
+        host,
+        port,
+        database: percent_decode(database.trim_end_matches('/')),
+        ..Default::default()
+    };
+    if let Some(u) = userinfo {
+        let (user, password) = match u.split_once(':') {
+            Some((u, p)) => (u, Some(percent_decode(p))),
+            None => (u, None),
+        };
+        parsed.user = percent_decode(user);
+        parsed.password = password;
+    }
+    for pair in query.split('&').filter(|p| !p.is_empty()) {
+        let (k, v) = pair.split_once('=').unwrap_or((pair, ""));
+        let (k, v) = (percent_decode(k), percent_decode(v));
+        match k.as_str() {
+            "user" if parsed.user.is_empty() => parsed.user = v,
+            "password" if parsed.password.is_none() => parsed.password = Some(v),
+            _ => parsed.params.push((k, v)),
+        }
+    }
+    Ok(parsed)
+}
+
+impl DataSource {
+    /// The settings to connect with: with [`DataSource::url_only`], host, port,
+    /// database, user, SSL and driver properties come from the URL (properties
+    /// of the Advanced tab still apply after the URL's).
+    pub fn resolved(&self) -> DbResult<DataSource> {
+        if !self.url_only {
+            return Ok(self.clone());
+        }
+        let u = parse_url(&self.url)?;
+        let mut s = self.clone();
+        if u.driver.is_some_and(|driver| driver != s.driver) {
+            return Err(DbError::invalid(format!("the URL is not for the {:?} driver", s.driver)));
+        }
+        if s.driver == DbDriver::Sqlite {
+            s.file = u.file;
+            return Ok(s);
+        }
+        s.host = u.host;
+        s.port = u.port;
+        s.database = u.database;
+        if !u.user.is_empty() {
+            s.user = u.user;
+        }
+        let mut properties = Vec::new();
+        for (k, v) in u.params {
+            match k.to_ascii_lowercase().as_str() {
+                "sslmode" | "ssl-mode" => {
+                    s.ssl = match v.to_ascii_lowercase().replace('-', "_").as_str() {
+                        "disable" | "disabled" => DbSslMode::Disable,
+                        "require" | "required" => DbSslMode::Require,
+                        "verify_ca" => DbSslMode::VerifyCa,
+                        "verify_full" | "verify_identity" => DbSslMode::VerifyFull,
+                        _ => DbSslMode::Prefer,
+                    }
+                }
+                "sslrootcert" | "ssl-ca" | "sslca" => s.ssl_ca_file = v,
+                "sslcert" | "ssl-cert" => s.ssl_cert_file = v,
+                "sslkey" | "ssl-key" => s.ssl_key_file = v,
+                _ => properties.push(DbProperty { name: k, value: v }),
+            }
+        }
+        properties.append(&mut s.properties);
+        s.properties = properties;
+        if s.driver == DbDriver::Clickhouse {
+            let raw_url = self.url.trim().to_ascii_lowercase();
+            let url = raw_url.strip_prefix("jdbc:").unwrap_or(&raw_url);
+            if url.starts_with("https://") {
+                s.ssl = DbSslMode::VerifyFull;
+            } else if url.starts_with("http://") {
+                s.ssl = DbSslMode::Disable;
+            }
+        }
+        Ok(s)
+    }
+
+    /// The password written in the URL of a [`DataSource::url_only`] data source.
+    pub fn url_password(&self) -> Option<String> {
+        if !self.url_only {
+            return None;
+        }
+        parse_url(&self.url).ok()?.password
+    }
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct SourcesFile {
+    #[serde(default, rename = "data-source")]
+    sources: Vec<DataSource>,
+}
+
+/// Reads the data sources stored at `path` (a missing file is an empty list).
+pub fn load(path: &Path) -> DbResult<Vec<DataSource>> {
+    read(path)
+}
+
+/// Writes the data sources to `path`.
+pub fn save(path: &Path, sources: &[DataSource]) -> DbResult<()> {
+    write(path, sources)
+}
+
+fn read(path: &Path) -> DbResult<Vec<DataSource>> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e.into()),
+    };
+    let file: SourcesFile =
+        toml::from_str(&text).map_err(|e| DbError::invalid(format!("{}: {e}", path.display())))?;
+    Ok(file.sources)
+}
+
+fn write(path: &Path, sources: &[DataSource]) -> DbResult<()> {
+    for s in sources {
+        if s.id.is_empty() || s.name.trim().is_empty() {
+            return Err(DbError::invalid("every data source needs an id and a name"));
+        }
+    }
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let internal = |e: &dyn std::fmt::Display| DbError::internal(e.to_string());
+    let mut value =
+        toml::Value::try_from(SourcesFile { sources: sources.to_vec() }).map_err(|e| internal(&e))?;
+    // `global` is implied by the file a data source was read from, so it is never written.
+    if let Some(list) = value.get_mut("data-source").and_then(toml::Value::as_array_mut) {
+        for table in list.iter_mut().filter_map(toml::Value::as_table_mut) {
+            table.remove("global");
+        }
+    }
+    std::fs::write(path, toml::to_string_pretty(&value).map_err(|e| internal(&e))?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_trips_without_passwords() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("data-sources.toml");
+        assert!(load(&path).unwrap().is_empty());
+        let s = DataSource {
+            id: "a1".into(),
+            name: "local".into(),
+            driver: DbDriver::Postgres,
+            port: Some(5433),
+            database: "app".into(),
+            user: "me".into(),
+            save_password: true,
+            ..Default::default()
+        };
+        save(&path, std::slice::from_ref(&s)).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("password ="), "{text}");
+        assert_eq!(load(&path).unwrap(), vec![s]);
+        assert!(save(&path, &[DataSource::default()]).is_err());
+    }
+
+    #[test]
+    fn reads_configs_written_before_the_new_settings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("data-sources.toml");
+        std::fs::write(
+            &path,
+            "[[data-source]]\nid = \"a\"\nname = \"old\"\ndriver = \"postgres\"\nhost = \"db\"\nssl = \"require\"\n",
+        )
+        .unwrap();
+        let s = load(&path).unwrap().remove(0);
+        assert_eq!(s.ssl, DbSslMode::Require);
+        assert!(s.introspection.all_databases && s.introspection.all_schemas);
+        assert_eq!((s.color, s.url_only, s.options.transaction), (None, false, DbTxMode::Auto));
+    }
+
+    #[test]
+    fn round_trips_the_new_settings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("data-sources.toml");
+        let s = DataSource {
+            id: "b".into(),
+            name: "prod".into(),
+            driver: DbDriver::Mysql,
+            vendor: "tidb".into(),
+            color: Some(DbColor::Red),
+            comment: "careful".into(),
+            ssl: DbSslMode::VerifyFull,
+            ssl_ca_file: "~/ca.pem".into(),
+            options: DbOptions { time_zone: "UTC".into(), keep_alive_secs: Some(60), ..Default::default() },
+            introspection: DbIntrospection { all_schemas: false, schemas: vec!["app*".into()], ..Default::default() },
+            properties: vec![DbProperty { name: "sql_mode".into(), value: "ANSI".into() }],
+            ..Default::default()
+        };
+        save(&path, std::slice::from_ref(&s)).unwrap();
+        assert_eq!(load(&path).unwrap(), vec![s]);
+    }
+
+    #[test]
+    fn sqlserver_defaults() {
+        assert_eq!(DbDriver::SqlServer.default_port(), Some(1433));
+        assert_eq!(scheme_driver("sqlserver"), Some(DbDriver::SqlServer));
+        assert_eq!(scheme_driver("mssql"), Some(DbDriver::SqlServer));
+        assert_eq!(scheme_driver("mssqlserver"), Some(DbDriver::SqlServer));
+    }
+
+    #[test]
+    fn parses_urls() {
+        let u =
+            parse_url("jdbc:postgresql://ann:s%40cret@db.local:5433/shop?sslmode=require&search_path=app").unwrap();
+        assert_eq!(u.driver, Some(DbDriver::Postgres));
+        assert_eq!((u.host.as_str(), u.port, u.database.as_str()), ("db.local", Some(5433), "shop"));
+        assert_eq!((u.user.as_str(), u.password.as_deref()), ("ann", Some("s@cret")));
+        assert_eq!(u.params, vec![("sslmode".into(), "require".into()), ("search_path".into(), "app".into())]);
+        let u = parse_url("mysql://[::1]/app?user=root").unwrap();
+        assert_eq!((u.host.as_str(), u.port, u.user.as_str()), ("::1", None, "root"));
+        assert_eq!(parse_url("jdbc:redshift://r:5439/dev").unwrap().driver, Some(DbDriver::Postgres));
+        assert_eq!(parse_url("tidb://h:4000").unwrap().driver, Some(DbDriver::Mysql));
+        assert_eq!(parse_url("sqlite:/tmp/a.db").unwrap().file.as_deref(), Some("/tmp/a.db"));
+        let u = parse_url("oracle://scott:tiger@db.local:1521/ORCLPDB1").unwrap();
+        assert_eq!(u.driver, Some(DbDriver::Oracle));
+        assert_eq!((u.host.as_str(), u.port, u.database.as_str()), ("db.local", Some(1521), "ORCLPDB1"));
+        assert_eq!((u.user.as_str(), u.password.as_deref()), ("scott", Some("tiger")));
+        assert_eq!(parse_url("oracledb://hr@db.local/hrdb").unwrap().driver, Some(DbDriver::Oracle));
+        assert!(parse_url("postgres://h:99999/db").is_err());
+    }
+
+    #[test]
+    fn url_only_sources_connect_with_the_url() {
+        let s = DataSource {
+            driver: DbDriver::Postgres,
+            user: "fallback".into(),
+            url_only: true,
+            url: "postgres://ann:pw@h:6543/app?sslmode=verify-full&sslrootcert=/ca.pem&statement_timeout=5000".into(),
+            properties: vec![DbProperty { name: "work_mem".into(), value: "64MB".into() }],
+            ..Default::default()
+        };
+        let r = s.resolved().unwrap();
+        assert_eq!((r.host.as_str(), r.port, r.database.as_str(), r.user.as_str()), ("h", Some(6543), "app", "ann"));
+        assert_eq!((r.ssl, r.ssl_ca_file.as_str()), (DbSslMode::VerifyFull, "/ca.pem"));
+        let names: Vec<_> = r.properties.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["statement_timeout", "work_mem"]);
+        assert_eq!(s.url_password().as_deref(), Some("pw"));
+        assert!(DataSource { url: "mysql://h/db".into(), ..s.clone() }.resolved().is_err());
+        assert_eq!(DataSource { url_only: false, ..s }.resolved().unwrap().host, "localhost");
+    }
+
+    #[test]
+    fn clickhouse_urls_resolve_http_https_and_credentials() {
+        assert_eq!(DbDriver::Clickhouse.default_port(), Some(8123));
+        let source = DataSource {
+            driver: DbDriver::Clickhouse,
+            url_only: true,
+            url: "https://reader:s%40cret@db.example:8443/analytics?max_execution_time=30".into(),
+            ..Default::default()
+        };
+        let resolved = source.resolved().unwrap();
+        assert_eq!(resolved.host, "db.example");
+        assert_eq!(resolved.port, Some(8443));
+        assert_eq!(resolved.database, "analytics");
+        assert_eq!(resolved.user, "reader");
+        assert_eq!(resolved.ssl, DbSslMode::VerifyFull);
+        assert_eq!(source.url_password().as_deref(), Some("s@cret"));
+        assert_eq!(resolved.properties[0].name, "max_execution_time");
+        let http = DataSource { url: "http://localhost/default".into(), ..source.clone() }.resolved().unwrap();
+        assert_eq!(http.ssl, DbSslMode::Disable);
+        let jdbc = DataSource { url: "jdbc:clickhouse://localhost/analytics".into(), ..source.clone() };
+        assert_eq!(jdbc.resolved().unwrap().database, "analytics");
+        let secure = DataSource { url: "https://db.example/default?sslmode=disable".into(), ..source };
+        assert_eq!(secure.resolved().unwrap().ssl, DbSslMode::VerifyFull);
+        let error = parse_url("clickhouse://reader:secret@db.example:invalid/default").unwrap_err();
+        assert!(!error.message.contains("secret"));
+    }
+}

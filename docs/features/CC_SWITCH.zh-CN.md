@@ -8,7 +8,8 @@
 是配置文件，而不是本应用。
 
 本模块读取与 [cc-switch](https://github.com/farion1231/cc-switch)（MIT）相同的
-SQLite schema，并可从其数据库导入。应用从不写入 `~/.cc-switch`。
+SQLite schema，并可从其数据库导入。只有开启了下面的同步开关时，它才会写入
+`~/.cc-switch`。
 
 ## 支持的应用
 
@@ -108,13 +109,36 @@ SQLite schema，并可从其数据库导入。应用从不写入 `~/.cc-switch`�
 `providers` 表与官方 cc-switch 逐字段一致，因此从它的数据库导入就是直接读取。
 应用级设置（可见应用、配置目录）存放在应用自己的 `config.json` 的 `ccs` 下。
 
+## 与官方 cc-switch 数据库同步
+
+设置 → CC Switch → 应用配置里有两个互不影响的开关，用来让当前供应商与官方
+cc-switch 数据库（`~/.cc-switch/cc-switch.db`）保持一致。检测不到这个默认库时
+两个开关都置灰；`ccs_get_ccswitch_db` 返回它的路径与是否存在。仅支持默认路径。
+
+**切换时同步到 CC Switch**（`syncCcSwitchDb`）——本软件每次切换供应商，都会把
+官方库里该应用的 `is_current` 标记改成同一条，并把 `~/.cc-switch/settings.json`
+里的指针指向同一个供应商。cc-switch 把设备级的当前供应商存在该文件的
+`currentProvider<App>`（`currentProviderClaude`、`currentProviderCodex`……）里，
+读取时优先于数据库列，因此只改列不会改变它显示的结果。官方库没有相同 ID 的
+供应商时跳过写入——直接置位会清空它的当前选择；`settings.json` 不存在时同样
+不新建，此时 cc-switch 会回退到数据库列。
+
+**进入页面时采用 CC Switch 的选择**（`syncFromCcSwitch`）——打开供应商页面或切换
+应用页签时读取官方一侧的当前供应商：`settings.json` 的指针仍指向库里存在的 ID
+时用它，否则用 `is_current` 列。如果与本软件不同、且本软件有相同 ID 的供应商，
+就切换过去并写入 CLI 配置文件。这个方向以 CC Switch 为准：会覆盖本软件的当前
+供应商。
+
+两个方向都是尽力而为：写入失败只记日志、不影响本地结果；在 cc-switch 里的切换
+只有在第二个开关打开并重新进入页面后才会同步过来。
+
 ## 命令
 
 | 分组 | 命令 |
 | --- | --- |
-| 供应商 | `ccs_get_providers`、`ccs_get_current_provider`、`ccs_add_provider`、`ccs_update_provider`、`ccs_delete_provider`、`ccs_duplicate_provider`、`ccs_switch_provider`、`ccs_update_sort_order` |
+| 供应商 | `ccs_get_providers`、`ccs_get_current_provider`、`ccs_add_provider`、`ccs_update_provider`、`ccs_delete_provider`、`ccs_duplicate_provider`、`ccs_switch_provider`、`ccs_sync_from_ccswitch`、`ccs_update_sort_order` |
 | 导入 | `ccs_import_live_config`、`ccs_import_preview`、`ccs_import_save`、`ccs_pick_import_file` |
-| 应用与设置 | `ccs_get_tool_versions`、`ccs_get_visible_apps`、`ccs_set_app_visible`、`ccs_get_settings`、`ccs_save_settings`、`ccs_get_config_dir`、`ccs_set_config_dir`、`ccs_browse_directory`、`ccs_get_resolved_dirs` |
+| 应用与设置 | `ccs_get_tool_versions`、`ccs_get_visible_apps`、`ccs_set_app_visible`、`ccs_get_settings`、`ccs_save_settings`、`ccs_get_config_dir`、`ccs_set_config_dir`、`ccs_browse_directory`、`ccs_get_resolved_dirs`、`ccs_get_ccswitch_db`、`ccs_set_sync_ccswitch_db`、`ccs_set_sync_from_ccswitch` |
 | 编辑器与杂项 | `ccs_editor_base`、`ccs_editor_delta`、`ccs_fetch_models`、`ccs_get_claude_switches`、`ccs_set_skip_onboarding`、`ccs_set_plugin_integration`、`ccs_get_codex_switches`、`ccs_set_codex_session_compression` |
 
 `ccs_switch_provider` 返回已应用的供应商与写入的配置文件，这是查看覆盖是否把
@@ -126,6 +150,9 @@ SQLite schema，并可从其数据库导入。应用从不写入 `~/.cc-switch`�
 - Hermes、Pi 与 MiniMax Code 的供应商是自由文本；应用无法校验它们。
 - 删除供应商只会为 OpenCode 与 OpenClaw 清除节点；其他追加类应用需要手工编辑。
 - 使用配置目录覆盖时，CLI 读取的文件可能与写入的不是同一个。
+- cc-switch 同步只写默认路径；cc-switch 正在运行时可能持有数据库写锁，此时同步
+  会被静默跳过。它还会把设置缓存在内存里，所以在这里做的切换要等它重启后才会
+  显示，而它下一次保存设置也可能覆盖这个指针。
 
 ## 把本模块接入其他应用
 

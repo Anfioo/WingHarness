@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-remove-history"
+description = "Enables the db_remove_history command without any pre-configured scope."
+commands.allow = ["db_remove_history"]
+
+[[permission]]
+identifier = "deny-db-remove-history"
+description = "Denies the db_remove_history command without any pre-configured scope."
+commands.deny = ["db_remove_history"]

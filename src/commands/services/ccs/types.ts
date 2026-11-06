@@ -57,6 +57,16 @@ export interface ImportedProvider extends Provider {
 export interface CcsSettings {
   visibleApps: Record<string, boolean>;
   configDirs: Record<string, string>;
+  /** 切换供应商时是否同步官方 cc-switch 数据库的「当前」标记。 */
+  syncCcSwitchDb: boolean;
+  /** 进入供应商页时是否采用官方 cc-switch 的当前选择。 */
+  syncFromCcSwitch: boolean;
+}
+
+/// 官方 cc-switch 数据库的探测结果。
+export interface CcsSwitchDb {
+  path: string;
+  exists: boolean;
 }
 
 /// Codex 专属开关状态。

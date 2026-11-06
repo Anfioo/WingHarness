@@ -15,18 +15,28 @@ use super::patch;
 use super::paths;
 use super::project::{self, FileTarget};
 use super::store;
+use super::{ccswitch, settings};
 
 /// 切换某应用到指定供应商。
-pub fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
-    let provider =
-        store::get(app, provider_id).ok_or_else(|| format!("Provider {provider_id} not found"))?;
+pub async fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
+    let provider = store::get(app, provider_id)
+        .await
+        .ok_or_else(|| format!("Provider {provider_id} not found"))?;
 
     let targets = project::project(app, &provider)?;
     for target in targets {
         write_target(app, &target)?;
     }
 
-    store::set_current(app, Some(provider_id))?;
+    store::set_current(app, Some(provider_id)).await?;
+
+    // 同步官方 cc-switch 的「当前」标记。失败不往外抛：配置文件与本应用的当前
+    // 指针都已写好，这只是附加动作。
+    if settings::load().sync_cc_switch_db {
+        if let Err(e) = ccswitch::sync_current(app, provider_id).await {
+            eprintln!("Failed to sync the cc-switch database: {e}");
+        }
+    }
     Ok(())
 }
 
@@ -66,7 +76,7 @@ fn write_target(app: AppType, target: &FileTarget) -> Result<(), String> {
 /// 删除某供应商在累加式应用配置中的节点（删除供应商时调用）。
 ///
 /// 对切换式应用无意义（其配置随当前供应商整体投影），返回 Ok。
-pub fn remove_provider_node(app: AppType, provider_id: &str) -> Result<(), String> {
+pub async fn remove_provider_node(app: AppType, provider_id: &str) -> Result<(), String> {
     if !app.meta().additive {
         return Ok(());
     }
@@ -112,7 +122,7 @@ fn target_format(app: AppType, target_key: &str) -> ConfigFormat {
 }
 
 /// 原子写：先写临时文件，再 rename 覆盖目标。
-fn atomic_write(file: &std::path::Path, content: &str) -> Result<(), String> {
+pub(super) fn atomic_write(file: &std::path::Path, content: &str) -> Result<(), String> {
     let tmp = file.with_extension("ccs.tmp");
     fs::write(&tmp, content).map_err(|e| format!("Failed to write {}: {e}", tmp.display()))?;
     fs::rename(&tmp, file).map_err(|e| format!("Failed to replace {}: {e}", file.display()))
