@@ -164,6 +164,7 @@ export {
   deleteProvider as ccsDeleteProvider,
   getClaudeSwitches as ccsGetClaudeSwitches,
   getCodexSwitches as ccsGetCodexSwitches,
+  getCcSwitchDb as ccsGetCcSwitchDb,
   getConfigDir as ccsGetConfigDir,
   getCurrentProvider as ccsGetCurrentProvider,
   getProviders as ccsGetProviders,
@@ -186,6 +187,7 @@ export {
   setConfigDir as ccsSetConfigDir,
   setPluginIntegration as ccsSetPluginIntegration,
   setSkipOnboarding as ccsSetSkipOnboarding,
+  setSyncCcSwitchDb as ccsSetSyncCcSwitchDb,
   switchProvider as ccsSwitchProvider,
   updateProvider as ccsUpdateProvider,
 } from "./services/ccs";
@@ -193,6 +195,7 @@ export type {
   AppId as CcsAppId,
   CcsCodexSwitches as CcsCodexSwitchesView,
   CcsSettings as CcsSettingsView,
+  CcsSwitchDb as CcsSwitchDbView,
   ImportedProvider as CcsImportedProvider,
   ImportSource as CcsImportSource,
   FetchedModel as CcsFetchedModel,

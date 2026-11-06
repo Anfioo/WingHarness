@@ -15,6 +15,7 @@ use super::patch;
 use super::paths;
 use super::project::{self, FileTarget};
 use super::store;
+use super::{ccswitch, settings};
 
 /// 切换某应用到指定供应商。
 pub async fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
@@ -28,6 +29,14 @@ pub async fn switch(app: AppType, provider_id: &str) -> Result<(), String> {
     }
 
     store::set_current(app, Some(provider_id)).await?;
+
+    // 同步官方 cc-switch 的「当前」标记。失败不往外抛：配置文件与本应用的当前
+    // 指针都已写好，这只是附加动作。
+    if settings::load().sync_cc_switch_db {
+        if let Err(e) = ccswitch::sync_current(app, provider_id).await {
+            eprintln!("Failed to sync the cc-switch database: {e}");
+        }
+    }
     Ok(())
 }
 

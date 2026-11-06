@@ -18,6 +18,7 @@
 //! - [`onboarding`]：onboarding / 插件集成等特殊操作
 
 pub mod app_type;
+pub mod ccswitch;
 pub mod codex_switches;
 pub mod db;
 pub mod editor;
