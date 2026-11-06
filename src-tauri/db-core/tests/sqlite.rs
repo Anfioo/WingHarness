@@ -8,7 +8,7 @@ use db_core::conn::Pool;
 use db_core::error::DbErrorCode;
 use db_core::manager::DbManager;
 use db_core::source::{DataSource, DbDriver};
-use db_core::{DbTableKind, TriggerInfo};
+use db_core::{CellValue, DbRowEdit, DbTableKind, SortKey, SqlStatement, TriggerInfo};
 use tokio_util::sync::CancellationToken;
 
 fn database(dir: &std::path::Path) -> String {
@@ -20,6 +20,14 @@ fn database(dir: &std::path::Path) -> String {
 
 fn source(id: &str, file: String) -> DataSource {
     DataSource { id: id.into(), name: id.into(), driver: DbDriver::Sqlite, file: Some(file), ..Default::default() }
+}
+
+/// A manager whose only data source is the temporary SQLite file of `dir`.
+async fn manager(dir: &std::path::Path) -> DbManager {
+    let manager = DbManager::new(dir.join("db"));
+    manager.set_root(Some(dir.join("project").to_string_lossy().into_owned()));
+    manager.save_sources(vec![source("s", database(dir))]).await.unwrap();
+    manager
 }
 
 #[tokio::test]
@@ -216,6 +224,171 @@ async fn introspects_tables_columns_indexes_keys_and_triggers() {
     // Only PostgreSQL lists databases; a SQLite source says so instead.
     let error = manager.databases("s").await.unwrap_err();
     assert!(error.message.contains("only PostgreSQL"), "{}", error.message);
+}
+
+#[tokio::test]
+async fn pages_a_table() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE item (id INTEGER PRIMARY KEY, name TEXT, amount INTEGER)",
+        "INSERT INTO item (name, amount) VALUES ('a', 10), ('b', 20), ('c', 30)",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    // The page query reads one row past the limit, so `has_more` needs no count.
+    let first = manager.table_page("s", "main", "item", None, &[], 0, 2, &cancel).await.unwrap();
+    assert_eq!(first.offset, 0.0);
+    assert_eq!(first.result.rows.len(), 2);
+    assert!(first.result.has_more);
+    assert_eq!(
+        first.details.columns.iter().map(|column| column.name.as_str()).collect::<Vec<_>>(),
+        ["id", "name", "amount"]
+    );
+    assert_eq!(
+        first.result.columns.iter().map(|column| column.name.as_str()).collect::<Vec<_>>(),
+        ["id", "name", "amount"]
+    );
+
+    let last = manager.table_page("s", "main", "item", None, &[], 2, 2, &cancel).await.unwrap();
+    assert_eq!(last.offset, 2.0);
+    assert_eq!(last.result.rows.len(), 1);
+    assert!(!last.result.has_more);
+
+    let filtered = manager
+        .table_page("s", "main", "item", Some("amount >= 20"), &[], 0, 10, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(filtered.result.rows.iter().map(|row| row[1].as_deref()).collect::<Vec<_>>(), [Some("b"), Some("c")]);
+
+    let sorted = manager
+        .table_page("s", "main", "item", None, &[SortKey { column: "amount".into(), descending: true }], 0, 10, &cancel)
+        .await
+        .unwrap();
+    assert_eq!(sorted.result.rows[0][1], Some("c".into()));
+}
+
+#[tokio::test]
+async fn applies_row_edits_in_one_transaction() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE person (id INTEGER PRIMARY KEY, name TEXT)",
+        "INSERT INTO person (id, name) VALUES (1, 'a')",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let key = |id: &str| vec![CellValue { column: "id".into(), value: Some(id.into()) }];
+    let applied = vec![
+        DbRowEdit::Update { key: key("1"), values: vec![CellValue { column: "name".into(), value: Some("b".into()) }] },
+        DbRowEdit::Insert {
+            values: vec![
+                CellValue { column: "id".into(), value: Some("2".into()) },
+                CellValue { column: "name".into(), value: Some("c".into()) },
+            ],
+        },
+    ];
+    assert_eq!(manager.apply_edits("s", "main", "person", &applied).await.unwrap(), 2.0);
+    let rows = manager.execute("s", "SELECT id, name FROM person ORDER BY id", 10, &cancel).await.unwrap().rows;
+    assert_eq!(rows, [[Some("1".into()), Some("b".into())], [Some("2".into()), Some("c".into())]]);
+
+    // A key that matches no row fails the batch, and the insert before it is
+    // rolled back with it.
+    let failed = vec![
+        DbRowEdit::Delete { key: key("999") },
+        DbRowEdit::Insert {
+            values: vec![
+                CellValue { column: "id".into(), value: Some("3".into()) },
+                CellValue { column: "name".into(), value: Some("d".into()) },
+            ],
+        },
+    ];
+    let error = manager.apply_edits("s", "main", "person", &failed).await.unwrap_err();
+    assert_eq!(error.code, DbErrorCode::Invalid);
+    let count = manager.execute("s", "SELECT count(*) FROM person", 1, &cancel).await.unwrap().rows;
+    assert_eq!(count, [[Some("2".into())]]);
+}
+
+#[tokio::test]
+async fn reads_table_ddl() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE item (id INTEGER PRIMARY KEY, name TEXT NOT NULL)",
+        "CREATE INDEX item_name ON item(name)",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let ddl = manager.ddl("s", "main", "item").await.unwrap();
+    assert!(ddl.contains("CREATE TABLE"), "{ddl}");
+    assert!(ddl.contains("CREATE INDEX"), "{ddl}");
+    assert!(ddl.trim_end().ends_with(';'), "{ddl}");
+
+    let missing = manager.ddl("s", "main", "nope").await.unwrap_err();
+    assert_eq!(missing.code, DbErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn builds_a_completion_model() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE parent (id INTEGER PRIMARY KEY, label TEXT)",
+        "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id), note TEXT)",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let model = manager.completion("s").await.unwrap();
+    assert_eq!(model.default_schema, "main");
+    let names: Vec<&str> = model.tables.iter().map(|table| table.name.as_str()).collect();
+    assert!(names.contains(&"parent") && names.contains(&"child"), "{names:?}");
+
+    let child = model.tables.iter().find(|table| table.name == "child").unwrap();
+    assert_eq!(
+        child.columns.iter().map(|column| column.name.as_str()).collect::<Vec<_>>(),
+        ["id", "parent_id", "note"]
+    );
+    assert!(child.columns[0].primary_key);
+    assert!(child.columns[1].nullable);
+    assert!(child.columns[2].nullable);
+
+    assert_eq!(model.foreign_keys.len(), 1);
+    let key = &model.foreign_keys[0];
+    assert_eq!((key.schema.as_str(), key.table.as_str()), ("main", "child"));
+    assert_eq!((key.ref_schema.as_str(), key.ref_table.as_str()), ("main", "parent"));
+    assert_eq!(key.columns, ["parent_id"]);
+    assert_eq!(key.ref_columns, ["id"]);
+}
+
+#[tokio::test]
+async fn runs_statements_in_order_and_stops_at_the_first_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    let statements: Vec<SqlStatement> = [
+        (0, 8, "SELECT 1"),
+        (10, 17, "SELEC 2"),
+        (19, 27, "SELECT 3"),
+    ]
+    .into_iter()
+    .map(|(from, to, text)| SqlStatement { from, to, text: text.into() })
+    .collect();
+
+    let outcomes = manager.execute_all("s", &statements, 0, 10, &cancel).await.unwrap();
+    assert_eq!(outcomes.len(), 2, "the statement after the failure never runs");
+    assert!(outcomes[0].error.is_none());
+    assert_eq!(outcomes[0].result.as_ref().unwrap().rows, [[Some("1".into())]]);
+    assert_eq!(outcomes[1].statement.text, "SELEC 2");
+    assert!(outcomes[1].result.is_none());
+    assert_eq!(outcomes[1].error.as_ref().unwrap().code, DbErrorCode::Invalid);
 }
 
 fn walk(dir: &std::path::Path) -> Vec<PathBuf> {
