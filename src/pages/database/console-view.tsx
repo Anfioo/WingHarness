@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
+  AlignLeft,
   Check,
   Eraser,
+  FastForward,
   Loader2,
   Play,
   Plug,
@@ -14,6 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   dbCancel,
+  dbCompletion,
   dbConnect,
   dbDisconnect,
   dbExecute,
@@ -26,28 +29,46 @@ import {
   dbStatements,
   databaseErrorCode,
 } from "@/commands";
-import type { DataSourceView, HistoryEntry, QueryResult } from "@/commands";
+import type { CompletionModel, DataSourceView, HistoryEntry, StatementOutcome } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { cn } from "@/lib/utils";
+import { ConsoleEditor, type ConsoleEditorHandle } from "./console-editor";
 import { ObjectTree } from "./object-tree";
+import { ResultView } from "./result-view.tsx";
 
-/** Rows fetched per statement. A larger result is paged; P2 adds "load more". */
+/** Rows fetched per statement. A larger result is paged by the grid. */
 const MAX_ROWS = 500;
+
+/** The result strip selects this pseudo-tab or one statement's result. */
+const OUTPUT = "output";
+const RESULT = "result:";
 
 type Status = "idle" | "connecting" | "connected";
 
+/** The last statement with a result set, else `null`; it is selected after a run. */
+function lastResultKey(outcomes: StatementOutcome[]): string | null {
+  for (let index = outcomes.length - 1; index >= 0; index--) {
+    const result = outcomes[index]!.result;
+    if (result && result.columns.length > 0) return `${RESULT}${index}`;
+  }
+  return null;
+}
+
 /**
- * The SQL console of one data source: connect, run a statement, cancel it, and
- * browse the query history.
+ * The SQL console of one data source: connect, run the statement at the caret
+ * or the selection, cancel it, and browse the query history.
  *
- * Cancellation needs an id for the statement in flight, because the backend
- * registry is keyed by it (`db_cancel`). The id is created per run rather than
- * per console so a cancelled statement and its successor never share one.
+ * A run is one batch: the editor's statement text is split by the engine, then
+ * executed in order. A failing statement stops the batch and is reported in
+ * its own outcome, so the ones before it keep their results. Cancellation
+ * needs an id for the batch in flight, because the backend registry is keyed
+ * by it (`db_cancel`); it is created per run so a cancelled batch and its
+ * successor never share one.
  */
 export function ConsoleView({ sourceId }: { sourceId: string }) {
   const { t } = useAppTranslation();
@@ -63,12 +84,28 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
 
   const [manual, setManual] = useState(false);
   const [statement, setStatement] = useState("");
-  const [result, setResult] = useState<QueryResult | null>(null);
+  const [completion, setCompletion] = useState<CompletionModel | null>(null);
+  const [outcomes, setOutcomes] = useState<StatementOutcome[] | null>(null);
+  const [activeResult, setActiveResult] = useState(OUTPUT);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const requestRef = useRef<string | null>(null);
+  const editorRef = useRef<ConsoleEditorHandle | null>(null);
+
+  const resultTabs = useMemo(
+    () =>
+      (outcomes ?? [])
+        .map((outcome, index) => ({ outcome, index }))
+        .filter((entry) => !!entry.outcome.result && entry.outcome.result.columns.length > 0),
+    [outcomes]
+  );
+  const activeOutcome = activeResult.startsWith(RESULT)
+    ? outcomes?.[Number(activeResult.slice(RESULT.length))]
+    : undefined;
+  const activeResultValue =
+    activeOutcome?.result && activeOutcome.result.columns.length > 0 ? activeOutcome.result : null;
 
   /**
    * Appends a statement generated from the object tree (its SELECT). The
@@ -84,6 +121,7 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
       setStatement((current) =>
         current.trim() ? `${current.replace(/\s+$/, "")}\n\n${sql}` : sql
       );
+      editorRef.current?.focus();
     },
     [sourceId, t]
   );
@@ -110,6 +148,16 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
     }
   }, [sourceId]);
 
+  const loadCompletion = useCallback(async () => {
+    try {
+      setCompletion(await dbCompletion(sourceId));
+    } catch {
+      // Without a model the editor still highlights and formats; it only
+      // loses completion and unresolved-name diagnostics.
+      setCompletion(null);
+    }
+  }, [sourceId]);
+
   const connect = useCallback(
     async (options?: { password?: string; remember?: boolean }) => {
       if (!source) return;
@@ -129,6 +177,7 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
           setManual(true);
         }
         void refreshHistory();
+        void loadCompletion();
       } catch (failure) {
         setStatus("idle");
         setConnectError(describeFailure(failure));
@@ -136,7 +185,7 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
         if (databaseErrorCode(failure) === "auth-failed") setPasswordPrompt(true);
       }
     },
-    [describeFailure, refreshHistory, source]
+    [describeFailure, loadCompletion, refreshHistory, source]
   );
 
   useEffect(() => {
@@ -157,33 +206,46 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
     };
   }, [describeFailure, sourceId, t]);
 
+  // Another data source means another schema model and another result strip.
+  useEffect(() => {
+    setCompletion(null);
+    setOutcomes(null);
+    setActiveResult(OUTPUT);
+    setQueryError(null);
+  }, [sourceId]);
+
   // Connecting is idempotent on the engine side: an open pool is reused, so a
   // window opened twice, or a StrictMode double effect, costs nothing.
   useEffect(() => {
     if (source) void connect();
   }, [connect, source]);
 
-  const run = async () => {
-    const text = statement.trim();
-    if (!text || running || status !== "connected") return;
+  const run = async (all: boolean) => {
+    if (running || status !== "connected") return;
+    const input = all ? statement : (editorRef.current?.currentStatement(-1, -1) ?? "");
+    const text = input.trim();
+    if (!text) return;
 
     const request = crypto.randomUUID();
     requestRef.current = request;
     setRunning(true);
     setQueryError(null);
     try {
-      // The console still runs one statement at a time until the multi-result
-      // view lands; the split itself already comes from the backend.
-      const [first] = await dbStatements(sourceId, text, 0, text.length);
-      if (first) {
-        const [outcome] = await dbExecute(request, sourceId, [first], 0, MAX_ROWS);
-        if (outcome.error) throw outcome.error;
-        setResult(outcome.result);
-      } else {
-        setResult(null);
+      const statements = await dbStatements(sourceId, text, 0, text.length);
+      if (statements.length === 0) {
+        setOutcomes(null);
+        setActiveResult(OUTPUT);
+        return;
       }
+      // The engine stops at the first failure; a statement's error is in its
+      // own outcome, so the array is never truncated here.
+      const batch = await dbExecute(request, sourceId, statements, 0, MAX_ROWS);
+      setOutcomes(batch);
+      setActiveResult(lastResultKey(batch) ?? OUTPUT);
       void refreshHistory();
     } catch (failure) {
+      setOutcomes(null);
+      setActiveResult(OUTPUT);
       setQueryError(
         databaseErrorCode(failure) === "cancelled"
           ? t("database.window.cancelled")
@@ -204,6 +266,8 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
       await dbDisconnect(sourceId);
       setStatus("idle");
       setManual(false);
+      // Names from a closed pool must not linger in completion or diagnostics.
+      setCompletion(null);
     } catch (failure) {
       toast.error(describeFailure(failure));
     }
@@ -426,37 +490,56 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
         )}
 
         <div className="border-b p-3">
-          <Textarea
-            className="min-h-28 font-mono text-xs"
-            value={statement}
-            onChange={(event) => setStatement(event.target.value)}
-            placeholder={t("database.window.statementPlaceholder", {
-              defaultValue: "SELECT * FROM …",
-            })}
-            spellCheck={false}
-            onKeyDown={(event) => {
-              // Ctrl/Cmd+Enter runs, the shortcut every SQL console uses.
-              if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-                event.preventDefault();
-                void run();
-              }
-            }}
-          />
-          <div className="mt-2 flex items-center gap-2">
+          <div className="h-48 overflow-hidden rounded-md border">
+            <ConsoleEditor
+              ref={editorRef}
+              value={statement}
+              onChange={setStatement}
+              model={completion}
+              driver={source.driver}
+              onRun={() => void run(false)}
+              onRunAll={() => void run(true)}
+              onFormat={() => editorRef.current?.format()}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             {running ? (
               <Button variant="destructive" size="sm" onClick={() => void cancel()}>
                 <Square />
                 {t("database.window.cancel", { defaultValue: "Cancel" })}
               </Button>
             ) : (
-              <Button
-                size="sm"
-                disabled={status !== "connected" || !statement.trim()}
-                onClick={() => void run()}
-              >
-                <Play />
-                {t("database.window.run", { defaultValue: "Run" })}
-              </Button>
+              <>
+                <Button
+                  size="sm"
+                  disabled={status !== "connected" || !statement.trim()}
+                  title={`${t("database.console.runAtCursor")} (Ctrl+Enter)`}
+                  onClick={() => void run(false)}
+                >
+                  <Play />
+                  {t("database.console.run")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={status !== "connected" || !statement.trim()}
+                  title={`${t("database.console.runAll")} (Ctrl+Shift+Enter)`}
+                  onClick={() => void run(true)}
+                >
+                  <FastForward />
+                  {t("database.console.runAll")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!statement.trim()}
+                  title={`${t("database.console.format")} (Ctrl+Alt+L)`}
+                  onClick={() => editorRef.current?.format()}
+                >
+                  <AlignLeft />
+                  {t("database.console.format")}
+                </Button>
+              </>
             )}
             {running && (
               <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -470,108 +553,110 @@ export function ConsoleView({ sourceId }: { sourceId: string }) {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="flex min-h-0 flex-1 flex-col">
           {queryError && (
             <div className="border-destructive/40 bg-destructive/5 text-destructive m-3 flex items-start gap-2 rounded-md border px-3 py-2 text-xs">
               <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               <span className="min-w-0 flex-1 break-words whitespace-pre-wrap">{queryError}</span>
             </div>
           )}
-          {result ? (
-            <ResultView result={result} />
-          ) : (
-            !queryError && (
-              <p className="text-muted-foreground p-3 text-xs">
-                {t("database.window.emptyResult", {
-                  defaultValue: "The result of the statement appears here.",
-                })}
-              </p>
-            )
-          )}
+
+          <div className="bg-muted/40 flex shrink-0 items-stretch gap-1 overflow-x-auto border-y px-1 py-1">
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-2 py-1 text-xs",
+                activeResultValue ? "hover:bg-accent/60" : "bg-background shadow-sm"
+              )}
+              onClick={() => setActiveResult(OUTPUT)}
+            >
+              {t("database.console.output")}
+            </button>
+            {resultTabs.map(({ index }, position) => {
+              const key = `${RESULT}${index}`;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={cn(
+                    "rounded-md px-2 py-1 text-xs",
+                    activeResult === key ? "bg-background shadow-sm" : "hover:bg-accent/60"
+                  )}
+                  onClick={() => setActiveResult(key)}
+                >
+                  {t("database.console.result")} {position + 1}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {activeResultValue ? (
+              <ResultView result={activeResultValue} />
+            ) : (
+              <div className="h-full overflow-auto">
+                {outcomes && outcomes.length > 0 ? (
+                  <OutputList outcomes={outcomes} />
+                ) : (
+                  <p className="text-muted-foreground p-3 text-xs">
+                    {t("database.window.emptyResult", {
+                      defaultValue: "The result of the statement appears here.",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/** The grid of one result set, or a one-line summary for a statement without rows. */
-function ResultView({ result }: { result: QueryResult }) {
+/** Every statement of the last batch: its number, text, outcome and timing. */
+function OutputList({ outcomes }: { outcomes: StatementOutcome[] }) {
   const { t } = useAppTranslation();
 
-  if (result.columns.length === 0) {
-    return (
-      <p className="text-muted-foreground p-3 text-xs">
-        {result.affected === null
-          ? t("database.window.done", { defaultValue: "Statement completed." })
-          : t("database.window.affected", {
-              count: result.affected,
-              defaultValue: "{{count}} rows affected",
-            })}
-        {" · "}
-        {Math.round(result.elapsedMs)} ms
-      </p>
-    );
-  }
-
   return (
-    <div className="flex flex-col">
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-[11px]">
-        <span>
-          {t("database.window.rowCount", {
-            count: result.rows.length,
-            defaultValue: "{{count}} rows",
-          })}
-        </span>
-        <span>
-          {Math.round(result.elapsedMs)} ms
-          {result.executionMs < result.elapsedMs
-            ? ` · ${t("database.window.executionTime", {
-                ms: Math.round(result.executionMs),
-              })}`
-            : ""}
-        </span>
-        {result.hasMore && (
-          <span className="text-foreground flex items-center gap-1">
-            <AlertTriangle className="size-3" />
-            {t("database.window.truncated", { defaultValue: "More rows are available." })}
-          </span>
-        )}
+    <div>
+      <div className="text-muted-foreground border-b px-3 py-1 text-[11px]">
+        {t("database.console.statementCount", { count: outcomes.length })}
       </div>
-      <table className="w-full border-collapse text-xs">
-        <thead className="bg-muted/60 sticky top-0">
-          <tr>
-            {result.columns.map((column, index) => (
-              <th
-                key={`${column.name}-${index}`}
-                className="border-b px-2 py-1 text-left font-medium whitespace-nowrap"
-              >
-                <span className="block">{column.name}</span>
-                <span className="text-muted-foreground block text-[10px] font-normal">
-                  {column.typeName}
+      <ul className="divide-border divide-y text-xs">
+        {outcomes.map((outcome, index) => {
+          const preview = outcome.statement.text.replace(/\s+/g, " ").trim();
+          const clipped = preview.length > 80 ? `${preview.slice(0, 80)}…` : preview;
+          const code = outcome.error ? databaseErrorCode(outcome.error) : null;
+          return (
+            <li key={index} className="flex items-start gap-2 px-3 py-1.5">
+              <span className="text-muted-foreground w-6 shrink-0 text-right tabular-nums">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1 font-mono break-all">{clipped}</span>
+              {outcome.error ? (
+                <span className="text-destructive flex max-w-[50%] min-w-0 items-start gap-1">
+                  <AlertTriangle className="mt-0.5 size-3 shrink-0" />
+                  <span className="break-words">
+                    {code
+                      ? t(`database.error.${code}`, { defaultValue: outcome.error.message })
+                      : outcome.error.message}
+                  </span>
                 </span>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {result.rows.map((row, rowIndex) => (
-            <tr key={rowIndex} className="hover:bg-accent/40">
-              {row.map((cell, cellIndex) => (
-                <td
-                  key={cellIndex}
-                  className={
-                    cell === null
-                      ? "text-muted-foreground border-b px-2 py-1 align-top italic"
-                      : "border-b px-2 py-1 align-top font-mono break-all"
-                  }
-                >
-                  {cell ?? "NULL"}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              ) : outcome.result ? (
+                <span className="text-muted-foreground shrink-0 tabular-nums">
+                  {outcome.result.columns.length > 0
+                    ? t("database.window.rowCount", { count: outcome.result.rows.length })
+                    : outcome.result.affected !== null
+                      ? t("database.window.affected", { count: outcome.result.affected })
+                      : t("database.window.done")}
+                  {" · "}
+                  {Math.round(outcome.result.elapsedMs)} ms
+                </span>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
