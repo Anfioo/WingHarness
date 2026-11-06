@@ -122,7 +122,7 @@ fn target_format(app: AppType, target_key: &str) -> ConfigFormat {
 }
 
 /// 原子写：先写临时文件，再 rename 覆盖目标。
-fn atomic_write(file: &std::path::Path, content: &str) -> Result<(), String> {
+pub(super) fn atomic_write(file: &std::path::Path, content: &str) -> Result<(), String> {
     let tmp = file.with_extension("ccs.tmp");
     fs::write(&tmp, content).map_err(|e| format!("Failed to write {}: {e}", tmp.display()))?;
     fs::rename(&tmp, file).map_err(|e| format!("Failed to replace {}: {e}", file.display()))

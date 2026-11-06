@@ -8,6 +8,7 @@ import {
   ccsGetCurrentProvider,
   ccsGetVisibleApps,
   ccsSwitchProvider,
+  ccsSyncFromCcSwitch,
 } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,18 @@ export function ProvidersTab() {
   }, []);
 
   useEffect(() => {
-    if (currentApp) void loadProviders(currentApp);
+    if (!currentApp) return;
+    void (async () => {
+      // 进页面（或换应用页签）时先按设置对齐官方 CC Switch 的选择；
+      // 开关关闭时后端直接返回 null。
+      try {
+        const applied = await ccsSyncFromCcSwitch(currentApp);
+        if (applied) toast.success(`已按 CC Switch 的选择切换到 ${applied}`);
+      } catch (error) {
+        toast.error(String(error));
+      }
+      await loadProviders(currentApp);
+    })();
   }, [currentApp, loadProviders]);
 
   const handleSwitch = async (provider: Provider) => {

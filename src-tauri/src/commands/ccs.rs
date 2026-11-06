@@ -145,6 +145,15 @@ pub async fn ccs_set_sync_ccswitch_db(enabled: bool) -> Result<bool, String> {
     Ok(true)
 }
 
+/// 开关「进入供应商页时采用官方 CC Switch 的当前选择」。
+#[tauri::command]
+pub async fn ccs_set_sync_from_ccswitch(enabled: bool) -> Result<bool, String> {
+    let mut s = settings::load();
+    s.sync_from_cc_switch = enabled;
+    settings::save(&s)?;
+    Ok(true)
+}
+
 // ============================================================================
 // 供应商管理
 // ============================================================================
@@ -178,6 +187,30 @@ pub async fn ccs_get_providers(app: String) -> Result<Vec<Provider>, String> {
 pub async fn ccs_get_current_provider(app: String) -> Result<Option<String>, String> {
     let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
     Ok(store::current(app).await)
+}
+
+/// 打开供应商页时，把本应用的当前供应商对齐到官方 cc-switch 的选择。
+///
+/// 返回被采用的供应商名称；开关关闭、官方库不存在、两边已经一致，或本应用
+/// 没有这条供应商时返回 `None`。
+#[tauri::command]
+pub async fn ccs_sync_from_ccswitch(app: String) -> Result<Option<String>, String> {
+    let app = AppType::from_str(&app).ok_or_else(|| format!("Unknown app {app}"))?;
+    if !settings::load().sync_from_cc_switch {
+        return Ok(None);
+    }
+    let Some(id) = crate::ccs::ccswitch::current_provider(app).await? else {
+        return Ok(None);
+    };
+    if store::current(app).await.as_deref() == Some(id.as_str()) {
+        return Ok(None);
+    }
+    // 两边 ID 不一定对得上：本应用没有这条供应商就没法切。
+    let Some(provider) = store::get(app, &id).await else {
+        return Ok(None);
+    };
+    switch::switch(app, &id).await?;
+    Ok(Some(provider.name))
 }
 
 /// 新增供应商，返回其 ID。若该应用尚无当前供应商，则设为当前并写入配置文件

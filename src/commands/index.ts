@@ -188,7 +188,9 @@ export {
   setPluginIntegration as ccsSetPluginIntegration,
   setSkipOnboarding as ccsSetSkipOnboarding,
   setSyncCcSwitchDb as ccsSetSyncCcSwitchDb,
+  setSyncFromCcSwitch as ccsSetSyncFromCcSwitch,
   switchProvider as ccsSwitchProvider,
+  syncFromCcSwitch as ccsSyncFromCcSwitch,
   updateProvider as ccsUpdateProvider,
 } from "./services/ccs";
 export type {

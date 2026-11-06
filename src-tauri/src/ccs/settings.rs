@@ -26,6 +26,9 @@ pub struct CcsSettings {
     /// 切换供应商时是否同步官方 cc-switch 数据库的「当前」标记。
     #[serde(rename = "syncCcSwitchDb")]
     pub sync_cc_switch_db: bool,
+    /// 进入供应商页时是否采用官方 cc-switch 的当前选择。
+    #[serde(rename = "syncFromCcSwitch")]
+    pub sync_from_cc_switch: bool,
 }
 
 impl Default for CcsSettings {
@@ -34,6 +37,7 @@ impl Default for CcsSettings {
             visible_apps: HashMap::new(),
             config_dirs: HashMap::new(),
             sync_cc_switch_db: false,
+            sync_from_cc_switch: false,
         }
     }
 }
