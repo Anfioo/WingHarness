@@ -114,6 +114,16 @@ export function setSyncCcSwitchDb(enabled: boolean): Promise<boolean> {
   return invokeCommand("ccs_set_sync_ccswitch_db", { enabled });
 }
 
+/** 开关「进入供应商页时采用官方 CC Switch 的当前选择」。 */
+export function setSyncFromCcSwitch(enabled: boolean): Promise<boolean> {
+  return invokeCommand("ccs_set_sync_from_ccswitch", { enabled });
+}
+
+/** 进入供应商页时对齐官方 CC Switch 的当前选择；返回被采用的供应商名称。 */
+export function syncFromCcSwitch(app: AppId): Promise<string | null> {
+  return invokeCommand("ccs_sync_from_ccswitch", { app });
+}
+
 // ============================================================================
 // 供应商管理
 // ============================================================================

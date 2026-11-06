@@ -1,11 +1,13 @@
-//! 与官方 cc-switch 数据库的联动。
+//! Integration with the official cc-switch app.
 //!
-//! 切换供应商时把官方库里该应用的 `is_current` 标记同步过去，让两个工具的
-//! 「当前供应商」保持一致。只认默认路径 `~/.cc-switch/cc-switch.db`；库不存在
-//! 说明用户没装 cc-switch，静默跳过。
+//! cc-switch keeps its provider list in `~/.cc-switch/cc-switch.db`, but the
+//! device-level "current provider" pointer lives in `~/.cc-switch/settings.json`
+//! (`currentProvider<App>`). Its UI reads that pointer first and only falls back
+//! to the database's `is_current` column, so a switch here has to write both.
 //!
-//! 同步是单向的：cc-switch 自己切换时不会回写本应用，两边仍可能漂移。写失败
-//! 也不影响切换本身 —— 此时 CLI 配置文件与本应用的当前指针都已经写好。
+//! Only the default paths are supported. Without the database the user has no
+//! cc-switch installed and every call is a no-op. Writing is best-effort: a
+//! failure never affects this app's own switch.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -15,15 +17,17 @@ use sqlx::SqlitePool;
 
 use super::app_type::AppType;
 use super::import;
+use super::switch::atomic_write;
 
-/// 官方 cc-switch 数据库的默认路径。
+/// Default cc-switch database path (`~/.cc-switch/cc-switch.db`).
 pub fn default_db_path() -> PathBuf {
     import::default_cc_switch_db()
 }
 
-/// 把默认库里该应用的「当前」标记切到 `provider_id`。
+/// Moves the app's "current" marker in the default database to `provider_id`.
 ///
-/// 返回是否真的写入：库不存在，或库里没有这个 ID 时返回 `false`。
+/// Returns whether anything was written: `false` when the database is missing or
+/// holds no provider with that id.
 pub async fn sync_current(app: AppType, provider_id: &str) -> Result<bool, String> {
     let path = default_db_path();
     if !path.is_file() {
@@ -32,39 +36,148 @@ pub async fn sync_current(app: AppType, provider_id: &str) -> Result<bool, Strin
     sync_current_in(app, provider_id, &path).await
 }
 
-/// 同步到指定路径（路径可注入，便于测试）。
-async fn sync_current_in(app: AppType, provider_id: &str, path: &Path) -> Result<bool, String> {
-    // cc-switch 运行时可能正持有写锁：总线等时 800ms，宁可放弃也不要拖住切换。
-    let pool = SqlitePoolOptions::new()
+/// The current provider id of an app in the official database.
+///
+/// Returns `None` when the database is missing.
+pub async fn current_provider(app: AppType) -> Result<Option<String>, String> {
+    let path = default_db_path();
+    if !path.is_file() {
+        return Ok(None);
+    }
+    current_provider_in(app, &path).await
+}
+
+/// `settings.json` that lives next to the database.
+fn settings_path(db_path: &Path) -> PathBuf {
+    db_path.with_file_name("settings.json")
+}
+
+/// cc-switch's `currentProvider*` key for an app.
+///
+/// Pi and MiniMax Code have no pointer: cc-switch tracks them as additive apps.
+fn current_key(app: AppType) -> Option<&'static str> {
+    Some(match app {
+        AppType::Claude => "currentProviderClaude",
+        AppType::Codex => "currentProviderCodex",
+        AppType::Gemini => "currentProviderGemini",
+        AppType::GrokBuild => "currentProviderGrokbuild",
+        AppType::OpenCode => "currentProviderOpencode",
+        AppType::OpenClaw => "currentProviderOpenclaw",
+        AppType::Hermes => "currentProviderHermes",
+        AppType::Pi | AppType::Mcode => return None,
+    })
+}
+
+/// Reads the pointer from `settings.json`. A missing or unreadable file yields
+/// `None`, which makes the database column authoritative.
+fn read_pointer(path: &Path, app: AppType) -> Option<String> {
+    let key = current_key(app)?;
+    let text = std::fs::read_to_string(path).ok()?;
+    let root: serde_json::Value = serde_json::from_str(&text).ok()?;
+    root.get(key)?.as_str().map(str::to_owned)
+}
+
+/// Points `settings.json` at `provider_id`, leaving every other key untouched.
+///
+/// Returns whether the file was changed. A missing file is skipped on purpose:
+/// cc-switch then falls back to the database, which is already written.
+fn write_pointer(path: &Path, app: AppType, provider_id: &str) -> Result<bool, String> {
+    let Some(key) = current_key(app) else {
+        return Ok(false);
+    };
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(format!("Failed to read {}: {e}", path.display())),
+    };
+    let mut root: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
+    let Some(map) = root.as_object_mut() else {
+        return Err(format!("{} is not a JSON object", path.display()));
+    };
+    if map.get(key).and_then(|v| v.as_str()) == Some(provider_id) {
+        return Ok(true);
+    }
+    map.insert(
+        key.to_owned(),
+        serde_json::Value::String(provider_id.to_owned()),
+    );
+    let json = serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?;
+    atomic_write(path, &json)?;
+    Ok(true)
+}
+
+async fn open_read_only(path: &Path) -> Result<SqlitePool, String> {
+    SqlitePoolOptions::new()
         .max_connections(1)
         .acquire_timeout(Duration::from_secs(2))
         .connect_with(
             SqliteConnectOptions::new()
                 .filename(path)
+                .read_only(true)
                 .busy_timeout(Duration::from_millis(800)),
         )
         .await
-        .map_err(|e| format!("Failed to open {}: {e}", path.display()))?;
-
-    let result = write_current(&pool, app, provider_id).await;
-    pool.close().await;
-    result
+        .map_err(|e| format!("Failed to open {}: {e}", path.display()))
 }
 
-async fn write_current(
-    pool: &SqlitePool,
-    app: AppType,
-    provider_id: &str,
-) -> Result<bool, String> {
-    // 库里没有这个 ID 时什么都不做：直接置位会把 cc-switch 的当前选择清空。
-    let exists: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM providers WHERE id = ?1 AND app_type = ?2)")
-            .bind(provider_id)
-            .bind(app.as_str())
-            .fetch_one(pool)
-            .await
-            .map_err(|e| e.to_string())?;
-    if !exists {
+async fn current_provider_in(app: AppType, db_path: &Path) -> Result<Option<String>, String> {
+    let pool = open_read_only(db_path).await?;
+
+    // A pointer that no longer exists in the database is stale: cc-switch itself
+    // clears it and falls back, so do the same.
+    let pointer = read_pointer(&settings_path(db_path), app);
+    let id = match pointer {
+        Some(id) if provider_exists(&pool, app, &id).await? => Some(id),
+        _ => sqlx::query_scalar(
+            "SELECT id FROM providers WHERE app_type = ?1 AND is_current = 1 LIMIT 1",
+        )
+        .bind(app.as_str())
+        .fetch_optional(&pool)
+        .await
+        .map_err(|e| e.to_string())?,
+    };
+    pool.close().await;
+    Ok(id)
+}
+
+async fn provider_exists(pool: &SqlitePool, app: AppType, id: &str) -> Result<bool, String> {
+    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM providers WHERE id = ?1 AND app_type = ?2)")
+        .bind(id)
+        .bind(app.as_str())
+        .fetch_one(pool)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Syncs to an injected path, so tests can use a temporary directory.
+async fn sync_current_in(app: AppType, provider_id: &str, db_path: &Path) -> Result<bool, String> {
+    // A running cc-switch may hold the write lock: wait 800 ms at most rather
+    // than stalling the switch.
+    let pool = SqlitePoolOptions::new()
+        .max_connections(1)
+        .acquire_timeout(Duration::from_secs(2))
+        .connect_with(
+            SqliteConnectOptions::new()
+                .filename(db_path)
+                .busy_timeout(Duration::from_millis(800)),
+        )
+        .await
+        .map_err(|e| format!("Failed to open {}: {e}", db_path.display()))?;
+
+    let written = write_current(&pool, app, provider_id).await;
+    pool.close().await;
+    if !written? {
+        return Ok(false);
+    }
+    write_pointer(&settings_path(db_path), app, provider_id)?;
+    Ok(true)
+}
+
+async fn write_current(pool: &SqlitePool, app: AppType, provider_id: &str) -> Result<bool, String> {
+    // Do nothing when the id is unknown: flipping the flag blind would clear
+    // cc-switch's current selection.
+    if !provider_exists(pool, app, provider_id).await? {
         return Ok(false);
     }
 
@@ -88,7 +201,7 @@ async fn write_current(
 mod tests {
     use super::*;
 
-    /// 建一个只含 `providers` 表的最小库：a 是当前，b 不是。
+    /// A minimal database with a `providers` table: `a` is current, `b` is not.
     async fn temp_db(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("ccswitch-sync-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -131,6 +244,15 @@ mod tests {
         path
     }
 
+    fn write_settings(db_path: &Path, json: &str) {
+        std::fs::write(settings_path(db_path), json).unwrap();
+    }
+
+    fn read_settings(db_path: &Path) -> serde_json::Value {
+        let text = std::fs::read_to_string(settings_path(db_path)).unwrap();
+        serde_json::from_str(&text).unwrap()
+    }
+
     async fn current_ids(path: &Path) -> Vec<String> {
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
@@ -163,5 +285,74 @@ mod tests {
             .unwrap());
         assert_eq!(current_ids(&path).await, vec!["a".to_string()]);
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn updates_the_pointer_and_keeps_the_other_settings() {
+        let path = temp_db("pointer").await;
+        write_settings(
+            &path,
+            r#"{"theme":"dark","currentProviderClaude":"a","webdavSync":{"url":"x"}}"#,
+        );
+
+        assert!(sync_current_in(AppType::Claude, "b", &path).await.unwrap());
+
+        let settings = read_settings(&path);
+        assert_eq!(settings["currentProviderClaude"], "b");
+        assert_eq!(settings["theme"], "dark");
+        assert_eq!(settings["webdavSync"]["url"], "x");
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn reads_the_current_provider() {
+        let path = temp_db("read").await;
+        assert_eq!(
+            current_provider_in(AppType::Claude, &path).await.unwrap(),
+            Some("a".to_string())
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn prefers_the_pointer_over_the_database() {
+        let path = temp_db("read-pointer").await;
+        write_settings(&path, r#"{"currentProviderClaude":"b"}"#);
+        assert_eq!(
+            current_provider_in(AppType::Claude, &path).await.unwrap(),
+            Some("b".to_string())
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn ignores_a_pointer_whose_provider_is_gone() {
+        let path = temp_db("stale-pointer").await;
+        write_settings(&path, r#"{"currentProviderClaude":"deleted"}"#);
+        assert_eq!(
+            current_provider_in(AppType::Claude, &path).await.unwrap(),
+            Some("a".to_string())
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[tokio::test]
+    async fn reads_nothing_for_an_app_without_rows() {
+        let path = temp_db("other-app").await;
+        assert_eq!(
+            current_provider_in(AppType::Codex, &path).await.unwrap(),
+            None
+        );
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+    }
+
+    #[test]
+    fn apps_without_a_pointer_are_skipped() {
+        assert_eq!(current_key(AppType::Pi), None);
+        assert_eq!(current_key(AppType::Mcode), None);
+        assert_eq!(
+            current_key(AppType::OpenCode),
+            Some("currentProviderOpencode")
+        );
     }
 }
