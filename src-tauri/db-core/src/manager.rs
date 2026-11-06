@@ -17,6 +17,7 @@ use tokio_util::sync::CancellationToken;
 use crate::conn::{self, Held, Pool, QueryResult};
 use crate::error::{DbError, DbResult};
 use crate::history::{HistoryEntry, HistoryStore};
+use crate::models::{CompletionModel, DbRowEdit, SortKey, StatementOutcome, TablePage};
 use crate::objects::{
     self, ColumnInfo, Databases, DbObjectKind, DbTableKind, IndexInfo, RoutineInfo, SchemaObjects, SequenceInfo,
     TableDetails, TableInfo, TriggerInfo,
@@ -24,6 +25,7 @@ use crate::objects::{
 use crate::paths;
 use crate::secrets::SecretStore;
 use crate::source::{self, DataSource, DbDriver};
+use crate::split::SqlStatement;
 use crate::sql;
 
 /// Connection target: a data source id (its configured database), or
@@ -585,6 +587,67 @@ impl DbManager {
                 Err(error)
             }
         }
+    }
+
+    /// One page of `schema.table`, ordered and filtered on the server.
+    pub async fn table_page(
+        &self,
+        _id: &str,
+        _schema: &str,
+        _table: &str,
+        _filter: Option<&str>,
+        _sort: &[SortKey],
+        _offset: u64,
+        _limit: u64,
+        _cancel: &CancellationToken,
+    ) -> DbResult<TablePage> {
+        Err(DbError::internal("not implemented"))
+    }
+
+    /// Applies the edits in one transaction and returns the number of rows
+    /// changed. Any failure rolls the whole batch back.
+    pub async fn apply_edits(
+        &self,
+        _id: &str,
+        _schema: &str,
+        _table: &str,
+        _edits: &[DbRowEdit],
+    ) -> DbResult<f64> {
+        Err(DbError::internal("not implemented"))
+    }
+
+    /// The `CREATE TABLE` statement of `schema.name`.
+    pub async fn ddl(&self, _id: &str, _schema: &str, _name: &str) -> DbResult<String> {
+        Err(DbError::internal("not implemented"))
+    }
+
+    /// The definition of a routine, trigger or sequence.
+    pub async fn object_ddl(
+        &self,
+        _id: &str,
+        _schema: &str,
+        _kind: DbObjectKind,
+        _name: &str,
+    ) -> DbResult<String> {
+        Err(DbError::internal("not implemented"))
+    }
+
+    /// The tables, columns and foreign keys the editor completes names from.
+    pub async fn completion(&self, _id: &str) -> DbResult<CompletionModel> {
+        Err(DbError::internal("not implemented"))
+    }
+
+    /// Runs `statements` in order, stopping at the first error. Errors are
+    /// reported per statement; only cancellation fails the whole call.
+    pub async fn execute_all(
+        &self,
+        _id: &str,
+        _statements: &[SqlStatement],
+        _skip: usize,
+        _max_rows: usize,
+        _cancel: &CancellationToken,
+    ) -> DbResult<Vec<StatementOutcome>> {
+        Err(DbError::internal("not implemented"))
     }
 }
 
