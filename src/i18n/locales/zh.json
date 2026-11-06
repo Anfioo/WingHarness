@@ -1258,7 +1258,10 @@
       "submitted": "改动已应用。",
       "discard": "放弃改动？",
       "duplicateKey": "主键重复。",
-      "importNotSupported": "此驱动不支持导入行。"
+      "importNotSupported": "此驱动不支持导入行。",
+      "columns": "列",
+      "searchColumns": "搜索列",
+      "noMatchingColumns": "没有匹配的列"
     },
     "export": {
       "title": "导出",
@@ -1329,6 +1332,9 @@
       "readOnly": "只读",
       "manualCommit": "手动提交",
       "comment": "备注",
+      "vendor": "供应商",
+      "vendorHint": "预设只填写端口、SSL 模式与 URL 方案，不改变连接的建立方式。",
+      "vendorCustom": "自定义",
       "duplicateName": "{{name}}（副本）",
       "save": "保存",
       "cancel": "取消",
