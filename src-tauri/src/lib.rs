@@ -58,6 +58,15 @@ pub fn run() {
                 // `session.json` under `<data dir>/md-editor`, so the whole
                 // feature moves with the data directory.
                 let _ = md_editor_core::paths::CONFIG_DIR.set(config::dir().join("md-editor"));
+                // The database tools keep the data sources, the saved passwords
+                // and the query history under `<data dir>/db`, so the whole
+                // feature moves with the data directory. The manager caches the
+                // project root for relative SQLite paths; the commands refresh
+                // it per call, so a settings change needs no restart.
+                let db = commands::db::DbState::new(db_core::DbManager::new(config::dir().join("db")));
+                db.manager
+                    .set_root(config::load().project_root().map(str::to_owned));
+                app.manage(db);
                 // `frpc` children outlive an abnormal exit; reap the ones a
                 // previous run recorded before this one can spawn new ones.
                 frp_core::orphan::cleanup_startup();
@@ -141,6 +150,11 @@ pub fn run() {
             // start fail with "port already in use".
             if let Some(frp) = app.try_state::<frp_core::FrpState>() {
                 frp.shutdown();
+            }
+            // Database pools hold sockets, and a manual-commit transaction is
+            // still open on the server: close both before the process goes.
+            if let Some(db) = app.try_state::<commands::db::DbState>() {
+                tauri::async_runtime::block_on(db.shutdown());
             }
         }
     });

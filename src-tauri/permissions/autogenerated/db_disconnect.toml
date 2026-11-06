@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-disconnect"
+description = "Enables the db_disconnect command without any pre-configured scope."
+commands.allow = ["db_disconnect"]
+
+[[permission]]
+identifier = "deny-db-disconnect"
+description = "Denies the db_disconnect command without any pre-configured scope."
+commands.deny = ["db_disconnect"]

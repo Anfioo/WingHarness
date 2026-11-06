@@ -61,6 +61,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` 页面、`claude_history.rs` | 行为移植；1 个相同的通用小工具 `cn.ts` |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | 文件头注明 Vendored from `@ekaone/use-claude` (MIT) |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`、`cc-switch` 页面 | 图标取自其 `src/icons/extracted`；读取其 SQLite 数据库 |
+| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`、数据库页面 | 按本项目约定改写，无相同文件；`db-core/UPSTREAM.md` |
 
 **这一组的说明**
 
@@ -69,9 +70,9 @@ WingHarness 源自作者自己的私有工作流应用
 - **cc-switch** 主要是集成而非复制：应用读取 `~/.cc-switch/cc-switch.db`。唯一逐
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
-  `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core` 与
-  `shaic-core`。各上游的许可证文本放在 `licenses/`；GPL 上游指向本项目的
-  `LICENSE`。
+  `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
+  `shaic-core` 与 `db-core`。各上游的许可证文本放在 `licenses/`；GPL 上游指向本项
+  目的 `LICENSE`。
 
 ### 仅参考 —— 未复制代码
 
@@ -80,7 +81,6 @@ WingHarness 源自作者自己的私有工作流应用
 | [clash-verge-rev](https://github.com/clash-verge-rev/clash-verge-rev) | GPL-3.0-only | Clash 页面的设计；`prism-core` 本身是第一方代码，建立在 `clash-prism-extension` crate 之上 |
 | [Rust-Frp](https://github.com/Nu0vo1212/Rust-Frp) | Apache-2.0 | FRP 协议与进程行为 |
 | [Zephyr](https://github.com/Juwan-Hwang/Zephyr) | MIT | Mihomo GUI 设计 |
-| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | Rust IDE 与 git 界面设计；源码中有设计参考注释 |
 
 ## 移植检查清单
 
@@ -109,3 +109,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-05 | 重新核验：对 MaBang `src/`、`src-tauri/`、`scripts/` 下每个文件做哈希并与各检出比对，同时全源码检索每个项目名。 |
 | 2026-11-05 | WingHarness 吸收 MaBangProjectsWorkflows 的代码树；所有待移植模块均已进入本仓库，状态翻转为**已移植**。 |
 | 2026-11-05 | 许可证审查：上游许可证文本补入 `licenses/`，每个已移植 crate 补署名头与 `UPSTREAM.md`，tweakcn 由 MIT 更正为 Apache-2.0，证据列更新为当前代码树状态。 |
+| 2026-11-06 | openidea 由**仅参考**翻转为**已移植**：其 `crates/ide-db` 成为 `src-tauri/db-core`，`db-core/UPSTREAM.md` 记录差异。 |

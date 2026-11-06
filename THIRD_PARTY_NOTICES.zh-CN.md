@@ -74,6 +74,18 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 
 `src-tauri/src/mcphub` 改编自 McpHub；每个源文件都保留了归属声明。
 
+### openidea
+
+- 项目：[openidea](https://github.com/l0ng-ai/openidea)
+- 版本：0.1.37
+- 许可证：Apache-2.0
+- 许可证文本：[licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)
+
+`src-tauri/db-core` 与数据库页面移植自 openidea 的 `crates/ide-db`：数据源、连接、
+元数据浏览、查询执行与表编辑。SSH 隧道、SQL Server、ClickHouse 与 Oracle 分支、
+`specta` 类型生成以及 keychain 密码存储未移植。移植记录见
+`src-tauri/db-core/UPSTREAM.md`。
+
 ### OrcaSVN
 
 - 项目：[OrcaSVN](https://github.com/wustites/OrcaSVN)

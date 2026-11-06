@@ -138,6 +138,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [API_CLIENT.md](./docs/features/API_CLIENT.md) — REST client driven by an OpenAPI or Swagger document
 - [CC_SWITCH.md](./docs/features/CC_SWITCH.md) — provider management for the AI coding CLIs
 - [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) — the Claude chat, history and workflow pages
+- [DATABASE.md](./docs/features/DATABASE.md) — data sources, their windows and the SQL console
 - [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) — the viewer subsystem and how to add a format
 - [FRP.md](./docs/features/FRP.md) — the FRP console, `frpc` processes and generated configs
 - [GIT.md](./docs/features/GIT.md) — the local Git client

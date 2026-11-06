@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-history"
+description = "Enables the db_history command without any pre-configured scope."
+commands.allow = ["db_history"]
+
+[[permission]]
+identifier = "deny-db-history"
+description = "Denies the db_history command without any pre-configured scope."
+commands.deny = ["db_history"]
