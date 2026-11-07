@@ -302,6 +302,10 @@ pub async fn run_child_turn(
             );
             core.confirm_exit(&mut state);
             core.sink.flush();
+            // `send` reserved this run before handing it over; a failed spawn
+            // must release the slot or it stays counted against the
+            // concurrency cap forever.
+            core.registry.remove(&core.run_id);
             return;
         }
     };
