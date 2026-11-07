@@ -12,7 +12,10 @@ crate-type = ["rlib"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# `preserve_order` matches the app crate's declaration: a plan node keeps the key
+# order its dialect emitted, and `cargo test -p db-core` sees the same order the
+# shipped build does.
+serde_json = { version = "1", features = ["preserve_order"] }
 # Data sources are stored as TOML, like the reference project this is ported from.
 toml = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
