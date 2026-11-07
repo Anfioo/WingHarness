@@ -30,7 +30,7 @@ function failureText(error: unknown): string {
  * The tab strip. Tabs scroll sideways rather than wrapping, so the row keeps
  * the height the layout below it was measured against.
  */
-export function TabBar() {
+export function TabBar({ onOpenQuery }: { onOpenQuery(): void }) {
   const { t } = useAppTranslation();
 
   const tabs = useDatabaseStore((state) => state.tabs);
@@ -146,7 +146,7 @@ export function TabBar() {
           size="icon-xs"
           aria-label={t("database.workspace.openQuery")}
           title={t("database.workspace.openQuery")}
-          onClick={newQuery}
+          onClick={onOpenQuery}
         >
           <FolderOpen />
         </Button>

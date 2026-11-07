@@ -227,9 +227,7 @@ export function HistoryDialog({
           {confirmClear ? (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground text-xs">
-                {t("database.history.clearConfirm", {
-                  defaultValue: "Clear the whole history? This cannot be undone.",
-                })}
+                {t("database.history.clearConfirm")}
               </span>
               <Button
                 type="button"
@@ -265,7 +263,7 @@ export function HistoryDialog({
 
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("database.history.close", { defaultValue: "Close" })}
+              {t("database.history.close")}
             </Button>
             <Button
               type="button"

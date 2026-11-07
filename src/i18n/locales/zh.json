@@ -1265,7 +1265,10 @@
       "regex": "正则表达式",
       "filterRows": "过滤行",
       "noMatch": "没有匹配的单元格。",
-      "invalidRegex": "模式不是有效的正则表达式。"
+      "invalidRegex": "模式不是有效的正则表达式。",
+      "closeSearch": "关闭搜索栏",
+      "pastePartial": "只有 {{written}}/{{total}} 个单元格能放下，已粘贴这些。",
+      "countParams": "带参数的语句无法统计行数"
     },
     "panel": {
       "record": "记录",
@@ -1277,7 +1280,8 @@
       "min": "最小值",
       "max": "最大值",
       "count": "计数",
-      "empty": "请选择单元格或区域。"
+      "empty": "请选择单元格或区域。",
+      "close": "关闭面板"
     },
     "plan": {
       "title": "执行计划",
@@ -1363,14 +1367,19 @@
       "remove": "从历史中移除",
       "clear": "清空历史",
       "empty": "还没有执行过语句。",
-      "loading": "正在加载历史…"
+      "loading": "正在加载历史…",
+      "close": "关闭",
+      "clearConfirm": "清空全部历史？此操作无法撤销。"
     },
     "quickDoc": {
       "title": "快速文档",
       "openDdl": "打开 DDL",
       "close": "关闭",
       "loading": "正在加载…",
-      "failed": "无法加载文档：{{error}}"
+      "failed": "无法加载文档：{{error}}",
+      "notFound": "该对象已不存在。",
+      "copy": "复制",
+      "schema": "Schema"
     },
     "params": {
       "title": "参数",
@@ -1421,7 +1430,19 @@
       "keepColumn": "保留列",
       "sqliteAlterHint": "SQLite 只能重命名、添加或删除列。",
       "scriptFailed": "该表没有可供脚本更新的列。",
-      "noChanges": "没有更改。"
+      "noChanges": "没有更改。",
+      "kind": {
+        "table": "表",
+        "view": "视图",
+        "materializedView": "物化视图",
+        "column": "列",
+        "index": "索引",
+        "schema": "Schema",
+        "function": "函数",
+        "procedure": "存储过程",
+        "trigger": "触发器",
+        "sequence": "序列"
+      }
     },
     "ddl": {
       "title": "定义",
@@ -1477,7 +1498,8 @@
         "nameRequired": "请填写名称。",
         "fileRequired": "请选择数据库文件。",
         "urlRequired": "请填写 URL。",
-        "portInvalid": "端口需在 1 到 65535 之间。"
+        "portInvalid": "端口需在 1 到 65535 之间。",
+        "connectTimeoutInvalid": "超时需在 1 到 300 秒之间。"
       }
     },
     "tree": {

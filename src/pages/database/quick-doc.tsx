@@ -60,17 +60,17 @@ function loadDdl(
   }
 }
 
-const KIND_LABELS: Record<DbObjectRef["kind"], { key: string; title: string }> = {
-  table: { key: "database.object.kind.table", title: "Table" },
-  view: { key: "database.object.kind.view", title: "View" },
-  materializedView: { key: "database.object.kind.materializedView", title: "Materialized view" },
-  column: { key: "database.object.kind.column", title: "Column" },
-  index: { key: "database.object.kind.index", title: "Index" },
-  schema: { key: "database.object.kind.schema", title: "Schema" },
-  function: { key: "database.object.kind.function", title: "Function" },
-  procedure: { key: "database.object.kind.procedure", title: "Procedure" },
-  trigger: { key: "database.object.kind.trigger", title: "Trigger" },
-  sequence: { key: "database.object.kind.sequence", title: "Sequence" },
+const KIND_LABELS: Record<DbObjectRef["kind"], string> = {
+  table: "database.object.kind.table",
+  view: "database.object.kind.view",
+  materializedView: "database.object.kind.materializedView",
+  column: "database.object.kind.column",
+  index: "database.object.kind.index",
+  schema: "database.object.kind.schema",
+  function: "database.object.kind.function",
+  procedure: "database.object.kind.procedure",
+  trigger: "database.object.kind.trigger",
+  sequence: "database.object.kind.sequence",
 };
 
 export function QuickDoc({ open, target, object, onOpenChange }: QuickDocProps): ReactNode {
@@ -129,8 +129,6 @@ export function QuickDoc({ open, target, object, onOpenChange }: QuickDocProps):
     }
   };
 
-  const kindLabel = KIND_LABELS[kind];
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -141,12 +139,10 @@ export function QuickDoc({ open, target, object, onOpenChange }: QuickDocProps):
 
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           <dt className="text-muted-foreground">{t("database.object.dataType")}</dt>
-          <dd>{t(kindLabel.key, { defaultValue: kindLabel.title })}</dd>
+          <dd>{t(KIND_LABELS[kind])}</dd>
           {schema && (
             <>
-              <dt className="text-muted-foreground">
-                {t("database.quickDoc.schema", { defaultValue: "Schema" })}
-              </dt>
+              <dt className="text-muted-foreground">{t("database.quickDoc.schema")}</dt>
               <dd className="font-mono text-xs">{schema}</dd>
             </>
           )}
@@ -163,11 +159,7 @@ export function QuickDoc({ open, target, object, onOpenChange }: QuickDocProps):
               </span>
             </div>
           ) : state.status === "missing" ? (
-            <p className="text-muted-foreground py-4 text-sm">
-              {t("database.quickDoc.notFound", {
-                defaultValue: "This object no longer exists.",
-              })}
-            </p>
+            <p className="text-muted-foreground py-4 text-sm">{t("database.quickDoc.notFound")}</p>
           ) : state.status === "failed" ? (
             <div className="flex flex-col items-start gap-2 py-2">
               <p className="text-destructive text-sm">
@@ -193,7 +185,7 @@ export function QuickDoc({ open, target, object, onOpenChange }: QuickDocProps):
         <DialogFooter>
           <Button type="button" variant="outline" disabled={!ddl} onClick={() => void copy()}>
             <Copy />
-            {t("database.quickDoc.copy", { defaultValue: "Copy" })}
+            {t("database.quickDoc.copy")}
           </Button>
           <Button type="button" onClick={() => onOpenChange(false)}>
             {t("database.quickDoc.close")}

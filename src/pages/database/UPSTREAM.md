@@ -30,7 +30,6 @@ files are first-party rewrites or this app's own additions.
 |--------------------|---------------|-----------|
 | `index.tsx` (428) | `DatabasePage.tsx` | Rewritten on shadcn/ui: the picker, its list, add / edit / duplicate / delete and test |
 | `window.tsx` (71) | — | New: the window frame and the connection guard |
-| `window-tabs.tsx` (61) | — | New: the tab model (console singleton, one tab per table, tab key) |
 | `tab-bar.tsx` (51) | — | New: the tab strip |
 | `console-view.tsx` (624) | `console.tsx`, `sqlSupport.ts` | Reference rewrite: output and per-statement result tabs, run / run all / cancel, manual commit, history |
 | `console-editor.tsx` (399) | `console.tsx` | Reference rewrite: CodeMirror 6 with `@codemirror/autocomplete`, `@codemirror/lang-sql` and `@codemirror/lint` |

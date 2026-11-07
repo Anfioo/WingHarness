@@ -35,7 +35,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { openDatabaseWindow } from "@/lib/database-windows";
-import { SourceDialog } from "./source-dialog";
+import { SourceDialog, asSource } from "./source-dialog";
 
 const COLOR_DOTS: Record<DbColor, string> = {
   red: "#e5534b",
@@ -45,14 +45,6 @@ const COLOR_DOTS: Record<DbColor, string> = {
   blue: "#4c8eda",
   violet: "#a371f7",
 };
-
-/** The view carries two fields the stored settings do not; drop them on save. */
-function asSource(view: DataSourceView): DataSource {
-  const source = { ...view } as Partial<DataSourceView>;
-  delete source.connected;
-  delete source.hasSavedPassword;
-  return source as DataSource;
-}
 
 /**
  * Hides the password of a URL-only data source. The full URL is never shown:

@@ -163,8 +163,8 @@ export function DataPanel(props: DataPanelProps) {
         <Button
           variant="ghost"
           size="icon-xs"
-          aria-label={t("database.grid.cancel")}
-          title={t("database.grid.cancel")}
+          aria-label={t("database.panel.close")}
+          title={t("database.panel.close")}
           onClick={() => onPanelChange(null)}
         >
           <X />

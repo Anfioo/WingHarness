@@ -1,10 +1,12 @@
 import {
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 import {
   AlertTriangle,
@@ -233,6 +235,16 @@ export type ObjectTreeProps = {
   onRefresh?: () => void;
   /** The selected node, or null when nothing selectable is selected. */
   onSelect?: (selection: TreeSelection | null) => void;
+  /** Context menu › Disconnect; absent leaves the entry disabled. */
+  onDisconnect?: (target: string) => void;
+};
+
+/** What the window's toolbar may ask the tree to do. */
+export type ObjectTreeHandle = {
+  /** Re-reads the whole tree from the catalog. */
+  refresh(): void;
+  /** Opens the New Table dialog for the selected node's schema. */
+  newTable(): void;
 };
 
 /**
@@ -255,7 +267,9 @@ export function ObjectTree({
   onQuickDoc,
   onRefresh,
   onSelect,
-}: ObjectTreeProps) {
+  onDisconnect,
+  ref,
+}: ObjectTreeProps & { ref?: Ref<ObjectTreeHandle> }): ReactNode {
   const { t } = useAppTranslation();
   const openQuery = useDatabaseStore((state) => state.openQuery);
   const selectTab = useDatabaseStore((state) => state.select);
@@ -288,8 +302,16 @@ export function ObjectTree({
 
   /** Where the last context menu opened, for the documentation popup. */
   const menuAnchor = useRef({ x: 0, y: 0 });
-  const selectRef = useRef(onSelect);
-  selectRef.current = onSelect;
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  /** The selection the toolbar acts on; kept in a ref, not in render state. */
+  const selected = useRef<TreeSelection | null>(null);
+  /** The node last clicked, which still names a schema when it is not selectable. */
+  const lastNode = useRef<TreeMenuTarget | null>(null);
+  const emitSelection = useCallback((selection: TreeSelection | null) => {
+    selected.current = selection;
+    onSelectRef.current?.(selection);
+  }, []);
 
   const describeFailure = useCallback(
     (failure: unknown) => {
@@ -389,8 +411,9 @@ export function ObjectTree({
     setObjects({});
     setDetails({});
     setExpanded(new Set());
-    selectRef.current?.(null);
-  }, [enabled]);
+    lastNode.current = null;
+    emitSelection(null);
+  }, [emitSelection, enabled]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -621,14 +644,19 @@ export function ObjectTree({
             ? "materializedViews"
             : "tables";
       setExpanded((current) => new Set(current).add(schemaKey).add(`${schemaKey}/${folder}`));
-      selectRef.current?.({
+      emitSelection({
         target,
         schema,
         name: table,
         kind: found?.kind === "view" || found?.kind === "materializedView" ? "view" : "table",
+        object: {
+          kind: found?.kind ?? "table",
+          schema,
+          name: table,
+        },
       });
     },
-    [relations, sourceId]
+    [emitSelection, relations, sourceId]
   );
 
   /** Refresh of one node: a table drops only its own cached details. */
@@ -688,6 +716,7 @@ export function ObjectTree({
     drop: (target, object) => setDialog({ kind: "drop", target, object }),
     truncate: (target, schema, table) => setDialog({ kind: "truncate", target, schema, table }),
     refresh: (target) => void refreshTarget(target),
+    disconnect: onDisconnect,
     showDdl: (target) => void showDdl(target),
     ddlToClipboard: (target) => void ddlToClipboard(target),
     ddlToConsole: (target) => void ddlToConsole(target),
@@ -712,6 +741,27 @@ export function ObjectTree({
     },
     importData: (target, schema, table) => void importData(target, schema, table),
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh() {
+        void refresh();
+      },
+      newTable() {
+        const node = lastNode.current;
+        if (node && "schema" in node) {
+          setDialog({ kind: "newTable", target: node.id, schema: node.schema });
+          return;
+        }
+        const selection = selected.current;
+        if (selection) {
+          setDialog({ kind: "newTable", target: selection.target, schema: selection.schema });
+        }
+      },
+    }),
+    [refresh]
+  );
 
   const ensureChildren = (node: TreeNode) => {
     switch (node.kind) {
@@ -1138,27 +1188,42 @@ export function ObjectTree({
 
   const selectionOf = (node: TreeNode): TreeSelection | null => {
     switch (node.kind) {
-      case "table":
+      case "table": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
         return {
           target: node.id,
           schema: node.schema,
           name: node.table.name,
           kind: node.table.kind === "table" ? "table" : "view",
+          object,
         };
-      case "routine":
+      }
+      case "routine": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
         return {
           target: node.id,
           schema: node.schema,
           name: node.routine.name,
           kind: "routine",
+          object,
         };
-      case "sequence":
+      }
+      case "sequence": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
         return {
           target: node.id,
           schema: node.schema,
           name: node.sequence.name,
           kind: "sequence",
+          object,
         };
+      }
       default:
         return null;
     }
@@ -1201,12 +1266,14 @@ export function ObjectTree({
               : undefined
         }
         onClick={() => {
-          selectRef.current?.(selectionOf(node));
+          lastNode.current = menuTargetOf(node);
+          emitSelection(selectionOf(node));
           if (expandable) toggle(node);
         }}
         onContextMenu={(event: ReactMouseEvent<HTMLButtonElement>) => {
           menuAnchor.current = { x: event.clientX, y: event.clientY };
-          selectRef.current?.(selectionOf(node));
+          lastNode.current = menuTargetOf(node);
+          emitSelection(selectionOf(node));
         }}
         onDoubleClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
           if (node.kind !== "table") return;

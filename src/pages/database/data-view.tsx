@@ -355,8 +355,8 @@ export function DataView(props: DataViewProps): ReactNode {
             variant="ghost"
             size="icon-xs"
             className="ml-auto"
-            aria-label={t("database.grid.cancel")}
-            title={t("database.grid.cancel")}
+            aria-label={t("database.result.closeSearch")}
+            title={t("database.result.closeSearch")}
             onClick={closeSearch}
           >
             <X />

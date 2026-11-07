@@ -1266,7 +1266,10 @@
       "regex": "Regular expression",
       "filterRows": "Filter rows",
       "noMatch": "No matching cells.",
-      "invalidRegex": "The pattern is not a valid regular expression."
+      "invalidRegex": "The pattern is not a valid regular expression.",
+      "closeSearch": "Close the search bar",
+      "pastePartial": "Only {{written}} of {{total}} cells fit and were pasted.",
+      "countParams": "COUNT is unavailable for statements with parameters"
     },
     "panel": {
       "record": "Record",
@@ -1278,7 +1281,8 @@
       "min": "Minimum",
       "max": "Maximum",
       "count": "Count",
-      "empty": "Select a cell or a range."
+      "empty": "Select a cell or a range.",
+      "close": "Close the panel"
     },
     "plan": {
       "title": "Execution plan",
@@ -1364,14 +1368,19 @@
       "remove": "Remove from history",
       "clear": "Clear history",
       "empty": "No statements have been run yet.",
-      "loading": "Loading history…"
+      "loading": "Loading history…",
+      "close": "Close",
+      "clearConfirm": "Clear the whole history? This cannot be undone."
     },
     "quickDoc": {
       "title": "Quick documentation",
       "openDdl": "Open DDL",
       "close": "Close",
       "loading": "Loading…",
-      "failed": "Could not load the documentation: {{error}}"
+      "failed": "Could not load the documentation: {{error}}",
+      "notFound": "This object no longer exists.",
+      "copy": "Copy",
+      "schema": "Schema"
     },
     "params": {
       "title": "Parameters",
@@ -1422,7 +1431,19 @@
       "keepColumn": "Keep column",
       "sqliteAlterHint": "SQLite can only rename, add and drop columns.",
       "scriptFailed": "This table has no column the script could update.",
-      "noChanges": "No changes."
+      "noChanges": "No changes.",
+      "kind": {
+        "table": "Table",
+        "view": "View",
+        "materializedView": "Materialized view",
+        "column": "Column",
+        "index": "Index",
+        "schema": "Schema",
+        "function": "Function",
+        "procedure": "Procedure",
+        "trigger": "Trigger",
+        "sequence": "Sequence"
+      }
     },
     "ddl": {
       "title": "Definition",
@@ -1478,7 +1499,8 @@
         "nameRequired": "A name is required.",
         "fileRequired": "Choose the database file.",
         "urlRequired": "A URL is required.",
-        "portInvalid": "Use a port between 1 and 65535."
+        "portInvalid": "Use a port between 1 and 65535.",
+        "connectTimeoutInvalid": "Use a timeout between 1 and 300 seconds."
       }
     },
     "tree": {
