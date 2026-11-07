@@ -197,6 +197,70 @@ export type Databases = {
   names: string[];
 };
 
+/** One statement of a script, with its UTF-16 offsets in the editor text. */
+export type SqlStatement = {
+  from: number;
+  to: number;
+  text: string;
+};
+
+/** One `ORDER BY` term of a table page. */
+export type SortKey = {
+  column: string;
+  descending: boolean;
+};
+
+/** One column of a row edit: the value to write, or part of the row key. */
+export type CellValue = {
+  column: string;
+  /** `null` is SQL NULL. */
+  value: string | null;
+};
+
+/** One pending change of a table editor. */
+export type DbRowEdit =
+  | { kind: "update"; key: CellValue[]; values: CellValue[] }
+  | { kind: "insert"; values: CellValue[] }
+  | { kind: "delete"; key: CellValue[] };
+
+/** One page of a table, with the metadata the editor renders it from. */
+export type TablePage = {
+  result: QueryResult;
+  details: TableDetails;
+  offset: number;
+};
+
+/** One column of the completion model. */
+export type CompletionColumn = {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+  primaryKey: boolean;
+  hasDefault: boolean;
+};
+
+/** One relation of the completion model. */
+export type CompletionTable = {
+  schema: string;
+  name: string;
+  kind: DbTableKind;
+  columns: CompletionColumn[];
+};
+
+/** Everything the SQL editor completes names from, fetched once per connection. */
+export type CompletionModel = {
+  defaultSchema: string;
+  tables: CompletionTable[];
+  foreignKeys: ForeignKey[];
+};
+
+/** What one statement of a batch produced; `error` stays per statement. */
+export type StatementOutcome = {
+  statement: SqlStatement;
+  result: QueryResult | null;
+  error: DatabaseError | null;
+};
+
 /** One statement of a data source's history. */
 export type HistoryEntry = {
   text: string;

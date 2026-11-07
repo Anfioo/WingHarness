@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from "react";
 import {
   AlertTriangle,
   ChevronDown,
@@ -13,9 +20,12 @@ import {
   SquareFunction,
   Table2,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
   databaseErrorCode,
   dbDatabases,
+  dbDdl,
+  dbObjectDdl,
   dbSchemaObjects,
   dbSchemas,
   dbTableDetails,
@@ -34,7 +44,26 @@ import type {
 } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { ObjectDialog, dialogKey, type ObjectDialogState } from "./object-dialogs";
+import { scriptSql, type DbObjectRef, type ScriptKind } from "./object-sql";
+import {
+  SCRIPT_ITEM_PREFIX,
+  buildTreeMenu,
+  type TreeMenuItem,
+  type TreeMenuHandlers,
+  type TreeMenuTarget,
+} from "./tree-menu";
 import {
   listsDatabases,
   objectFilterOf,
@@ -45,6 +74,7 @@ import {
   targetOf,
   type Loaded,
 } from "./tree-model";
+import { useDatabaseTabs } from "./window-tabs";
 
 /** IDEA's folders under a schema. */
 type Folder = "tables" | "views" | "materializedViews" | "routines" | "sequences";
@@ -102,12 +132,57 @@ function tableKindOf(folder: Folder): DbTableKind {
 }
 
 /**
+ * Renders a flat menu, folding the `script.` entries into the SQL Scripts
+ * submenu that follows the Definition item.
+ */
+function TreeMenuList({ items }: { items: TreeMenuItem[] }) {
+  const { t } = useAppTranslation();
+  const scripts = items.filter((item) => item.id.startsWith(SCRIPT_ITEM_PREFIX));
+  const others = items.filter((item) => !item.id.startsWith(SCRIPT_ITEM_PREFIX));
+
+  return (
+    <>
+      {others.map((item, index) => (
+        <Fragment key={item.id}>
+          {(item.id === "drop" || item.id === "refresh") && index > 0 && <ContextMenuSeparator />}
+          <ContextMenuItem
+            disabled={item.disabled}
+            variant={item.destructive ? "destructive" : "default"}
+            onSelect={() => item.run()}
+          >
+            {item.label}
+          </ContextMenuItem>
+          {item.id === "ddl" && scripts.length > 0 && (
+            <ContextMenuSub>
+              <ContextMenuSubTrigger>{t("database.object.scripts")}</ContextMenuSubTrigger>
+              <ContextMenuSubContent>
+                {scripts.map((entry) => (
+                  <ContextMenuItem
+                    key={entry.id}
+                    disabled={entry.disabled}
+                    onSelect={() => entry.run()}
+                  >
+                    {entry.label}
+                  </ContextMenuItem>
+                ))}
+              </ContextMenuSubContent>
+            </ContextMenuSub>
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/**
  * The object tree of one data source: databases (PostgreSQL), schemas, folders
  * of tables / views / routines / sequences, and a table's columns.
  *
  * Every level loads the first time it is expanded; Refresh re-reads every level
  * that is already loaded and keeps the expanded nodes. Double-clicking a table
- * inserts a `SELECT` for it into the console.
+ * opens it in a tab, Ctrl+double-click pastes a `SELECT` into the console, and
+ * the context menu holds the object's management actions. Every action shows
+ * the SQL it will run, and the preview is the confirmation.
  */
 export function ObjectTree({
   source,
@@ -121,6 +196,7 @@ export function ObjectTree({
   onInsertSelect: (target: string, sql: string) => void;
 }) {
   const { t } = useAppTranslation();
+  const { openConsole, openTable } = useDatabaseTabs();
   const sourceId = source.id;
   const showDatabases = listsDatabases(source);
 
@@ -135,6 +211,7 @@ export function ObjectTree({
   const [details, setDetails] = useState<Record<string, Loaded<TableDetails>>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [dialog, setDialog] = useState<ObjectDialogState | null>(null);
 
   const describeFailure = useCallback(
     (failure: unknown) => {
@@ -266,6 +343,112 @@ export function ObjectTree({
     schemas,
     showDatabases,
   ]);
+
+  const insertSql = useCallback(
+    (target: string, sql: string) => {
+      onInsertSelect(target, sql);
+      openConsole();
+    },
+    [onInsertSelect, openConsole]
+  );
+
+  const insertScript = useCallback(
+    async (target: string, kind: ScriptKind, schema: string, table: string) => {
+      try {
+        const details = await dbTableDetails(target, schema, table);
+        // ClickHouse rewrites only non-sorting-key columns; with none there is
+        // nothing the template could set.
+        if (
+          source.driver === "clickhouse" &&
+          kind === "update" &&
+          details.columns.every((column) => column.primaryKey)
+        ) {
+          toast.error(t("database.object.scriptFailed"));
+          return;
+        }
+        insertSql(target, scriptSql(source.driver, kind, schema, table, details.columns));
+      } catch (failure) {
+        toast.error(describeFailure(failure));
+      }
+    },
+    [describeFailure, insertSql, source.driver, t]
+  );
+
+  const showDdl = useCallback(
+    async (target: string, schema: string, object: DbObjectRef) => {
+      const toastId = toast.loading(t("database.tree.loading"));
+      try {
+        let sql: string;
+        switch (object.kind) {
+          case "function":
+          case "procedure":
+          case "trigger":
+          case "sequence":
+            sql = await dbObjectDdl(target, schema, object.kind, object.name);
+            break;
+          default:
+            sql = await dbDdl(target, schema, object.name);
+        }
+        toast.dismiss(toastId);
+        setDialog({ kind: "ddl", target, sql });
+      } catch (failure) {
+        toast.dismiss(toastId);
+        toast.error(t("database.ddl.failed", { error: describeFailure(failure) }));
+      }
+    },
+    [describeFailure, t]
+  );
+
+  const menuTargetOf = (node: TreeNode): TreeMenuTarget | null => {
+    const driver = source.driver;
+    switch (node.kind) {
+      case "source":
+        return { kind: "source", id: sourceId, driver };
+      case "database":
+        return {
+          kind: "database",
+          id: node.id,
+          driver,
+          name: node.name,
+          current: node.current,
+        };
+      case "schema":
+        return { kind: "schema", id: node.id, driver, schema: node.schema };
+      case "folder":
+        return { kind: "folder", id: node.id, driver, schema: node.schema };
+      case "table":
+        return { kind: "table", id: node.id, driver, schema: node.schema, table: node.table };
+      case "routine":
+        return {
+          kind: "routine",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          routine: node.routine,
+        };
+      case "sequence":
+        return {
+          kind: "sequence",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          name: node.sequence.name,
+        };
+      default:
+        return null;
+    }
+  };
+
+  const menuHandlers: TreeMenuHandlers = {
+    newTable: (target, schema) => setDialog({ kind: "newTable", target, schema }),
+    rename: (target, object) => setDialog({ kind: "rename", target, object }),
+    drop: (target, object) => setDialog({ kind: "drop", target, object }),
+    truncate: (target, schema, table) => setDialog({ kind: "truncate", target, schema, table }),
+    modify: (target, schema, table) => setDialog({ kind: "modify", target, schema, table }),
+    showDdl,
+    script: (target, kind, schema, table) => void insertScript(target, kind, schema, table),
+    refresh: () => void refresh(),
+  };
 
   const ensureChildren = (node: TreeNode) => {
     switch (node.kind) {
@@ -529,52 +712,68 @@ export function ObjectTree({
     const open = expanded.has(node.key);
     const expandable = isExpandable(node);
     const detail = detailOf(node);
-    const table = node.kind === "table" ? node.table.name : null;
+    const target = menuTargetOf(node);
+
+    const trigger = (
+      <button
+        type="button"
+        className="hover:bg-accent/60 flex w-full items-center gap-1.5 py-1 pr-2 text-left"
+        style={{ paddingLeft: 8 + depth * 12 }}
+        title={
+          node.kind === "table"
+            ? t("database.tree.openTable")
+            : expandable
+              ? labelOf(node)
+              : undefined
+        }
+        onClick={() => {
+          if (expandable) toggle(node);
+        }}
+        onDoubleClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
+          if (node.kind !== "table") return;
+          if (event.ctrlKey || event.metaKey) {
+            insertSql(node.id, selectSql(source.driver, node.schema, node.table.name));
+            return;
+          }
+          openTable(node.id, node.schema, node.table.name);
+        }}
+      >
+        {expandable ? (
+          open ? (
+            <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
+          ) : (
+            <ChevronRight className="text-muted-foreground size-3.5 shrink-0" />
+          )
+        ) : (
+          <span className="size-3.5 shrink-0" />
+        )}
+        {iconOf(node)}
+        <span className="truncate text-xs">{labelOf(node)}</span>
+        {node.kind === "database" && node.current && (
+          <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px]">
+            {t("database.tree.current")}
+          </Badge>
+        )}
+        {detail && (
+          <span className="text-muted-foreground ml-auto shrink-0 pl-2 font-mono text-[10px]">
+            {detail}
+          </span>
+        )}
+      </button>
+    );
 
     return (
       <div key={node.key} role="treeitem" aria-expanded={expandable ? open : undefined}>
-        <button
-          type="button"
-          className="hover:bg-accent/60 flex w-full items-center gap-1.5 py-1 pr-2 text-left"
-          style={{ paddingLeft: 8 + depth * 12 }}
-          title={
-            table !== null
-              ? t("database.tree.insertSelect")
-              : expandable
-                ? labelOf(node)
-                : undefined
-          }
-          onClick={() => {
-            if (expandable) toggle(node);
-          }}
-          onDoubleClick={() => {
-            if (node.kind === "table") {
-              onInsertSelect(node.id, selectSql(source.driver, node.schema, node.table.name));
-            }
-          }}
-        >
-          {expandable ? (
-            open ? (
-              <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
-            ) : (
-              <ChevronRight className="text-muted-foreground size-3.5 shrink-0" />
-            )
-          ) : (
-            <span className="size-3.5 shrink-0" />
-          )}
-          {iconOf(node)}
-          <span className="truncate text-xs">{labelOf(node)}</span>
-          {node.kind === "database" && node.current && (
-            <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px]">
-              {t("database.tree.current")}
-            </Badge>
-          )}
-          {detail && (
-            <span className="text-muted-foreground ml-auto shrink-0 pl-2 font-mono text-[10px]">
-              {detail}
-            </span>
-          )}
-        </button>
+        {target ? (
+          <ContextMenu>
+            <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
+            <ContextMenuContent className="w-52">
+              <TreeMenuList items={buildTreeMenu(target, (key) => t(key), menuHandlers)} />
+            </ContextMenuContent>
+          </ContextMenu>
+        ) : (
+          trigger
+        )}
         {expandable && open && <div role="group">{renderNodes(childrenOf(node), depth + 1)}</div>}
       </div>
     );
@@ -583,29 +782,41 @@ export function ObjectTree({
   const root: TreeNode = { kind: "source", key: `source:${sourceId}` };
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col" aria-label={t("database.tree.title")}>
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
-        <span className="text-sm font-medium">{t("database.tree.title")}</span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          disabled={!enabled || refreshing}
-          aria-label={t("database.action.refresh")}
-          title={t("database.action.refresh")}
-          onClick={() => void refresh()}
-        >
-          <RefreshCw className={refreshing ? "animate-spin" : undefined} />
-        </Button>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto py-1" role="tree">
-        {enabled ? (
-          renderNodes(childrenOf(root), 0)
-        ) : (
-          <p className="text-muted-foreground px-3 py-2 text-[11px]">
-            {t("database.tree.connectFirst")}
-          </p>
-        )}
-      </div>
-    </section>
+    <>
+      <section className="flex min-h-0 flex-1 flex-col" aria-label={t("database.tree.title")}>
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
+          <span className="text-sm font-medium">{t("database.tree.title")}</span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            disabled={!enabled || refreshing}
+            aria-label={t("database.action.refresh")}
+            title={t("database.action.refresh")}
+            onClick={() => void refresh()}
+          >
+            <RefreshCw className={refreshing ? "animate-spin" : undefined} />
+          </Button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto py-1" role="tree">
+          {enabled ? (
+            renderNodes(childrenOf(root), 0)
+          ) : (
+            <p className="text-muted-foreground px-3 py-2 text-[11px]">
+              {t("database.tree.connectFirst")}
+            </p>
+          )}
+        </div>
+      </section>
+      {dialog && (
+        <ObjectDialog
+          key={dialogKey(dialog)}
+          dialog={dialog}
+          driver={source.driver}
+          onClose={() => setDialog(null)}
+          onChanged={() => void refresh()}
+          onInsertSql={insertSql}
+        />
+      )}
+    </>
   );
 }

@@ -25,12 +25,12 @@ cargo check        # Called from this directory; faster for Rust-only edits
 
 ## Command Surface
 
-48 commands, grouped by module:
+54 commands, grouped by module:
 
 | Module | Commands | Count |
 |--------|----------|-------|
 | `commands/config.rs` | `get_config`, `save_config`, `set_data_dir` | 3 |
-| `commands/db.rs` | `db_cancel`, `db_connect`, `db_connected`, `db_databases`, `db_disconnect`, `db_execute`, `db_finish_transaction`, `db_history`, `db_remove_history`, `db_save_sources`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_sources`, `db_table_details`, `db_tables`, `db_test` | 18 |
+| `commands/db.rs` | `db_apply_edits`, `db_cancel`, `db_completion`, `db_connect`, `db_connected`, `db_databases`, `db_ddl`, `db_disconnect`, `db_execute`, `db_finish_transaction`, `db_history`, `db_object_ddl`, `db_remove_history`, `db_save_sources`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_sources`, `db_statements`, `db_table_details`, `db_table_page`, `db_tables`, `db_test` | 24 |
 | `commands/devtools.rs` | `open_devtools` | 1 |
 | `file-preview/` (crate) | `preview_metadata`, `preview_bytes` | 2 |
 | `fonts/mod.rs` | `fonts_list` | 1 |
@@ -104,8 +104,13 @@ only backend work the preview page does. See
 [../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
 
 `db-core/` is a workspace member: the database engine behind the databases page
-and its data source windows — settings, pools, transactions, query history and
-catalog introspection, with no Tauri state of its own. It is a GPL-compatible port from
+and its data source windows — settings, pools, transactions, statement
+splitting, query history, catalog introspection, table paging and row editing,
+and DDL generation, with no Tauri state of its own. `commands/db.rs` is a thin
+layer over it: it owns `DbState` (the cancellation map) and nothing else. Row
+edits are validated in the engine, not only in the frontend — an update or
+delete on a table without a primary key is refused there too. It is a
+GPL-compatible port from
 [openidea](https://github.com/l0ng-ai/openidea); `db-core/UPSTREAM.md` records
 what differs. See [../docs/features/DATABASE.md](../docs/features/DATABASE.md).
 

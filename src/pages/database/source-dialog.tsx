@@ -26,10 +26,14 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { vendorById, vendorOptions, vendorUrlPrefix } from "./vendors";
 
 const DRIVERS: DbDriver[] = ["sqlite", "postgres", "mysql", "sqlServer", "clickhouse", "oracle"];
 const SSL_MODES: DbSslMode[] = ["disable", "prefer", "require", "verifyCa", "verifyFull"];
 const COLORS: DbColor[] = ["red", "orange", "yellow", "green", "blue", "violet"];
+
+/** The vendor select's value when no preset is picked. Never stored. */
+const CUSTOM_VENDOR = "custom";
 
 type FieldName = "name" | "file" | "port" | "url";
 
@@ -106,7 +110,38 @@ export function SourceDialog({
     const nextDefault = defaultPort(driver);
     // Follow the port to the new driver's default, unless it was set by hand.
     const port = draft.port === null || draft.port === previousDefault ? nextDefault : draft.port;
-    update({ driver, port, urlOnly: driver === "sqlite" ? false : draft.urlOnly });
+    // A preset belongs to one driver: another driver makes it stale.
+    update({ driver, port, vendor: "", urlOnly: driver === "sqlite" ? false : draft.urlOnly });
+    setPortText(port === null ? "" : String(port));
+  };
+
+  /**
+   * Applies a vendor preset: its driver, port, SSL requirement and URL scheme.
+   * Only defaults are written — the host, database and user the user typed stay,
+   * and so does a port or URL that no longer matches the last preset.
+   */
+  const changeVendor = (id: string) => {
+    if (id === CUSTOM_VENDOR) {
+      update({ vendor: "" });
+      return;
+    }
+    const vendor = vendorById(id);
+    if (!vendor) return;
+
+    const previous = vendorById(draft.vendor);
+    const previousPort = previous?.port ?? defaultPort(draft.driver);
+    const port = draft.port === null || draft.port === previousPort ? vendor.port : draft.port;
+    const previousPrefix = previous ? vendorUrlPrefix(previous) : "";
+    const typedUrl = draft.url.trim();
+    const url = typedUrl && typedUrl !== previousPrefix ? draft.url : vendorUrlPrefix(vendor);
+    const patch: Partial<DataSource> = {
+      vendor: vendor.id,
+      driver: vendor.driver,
+      port,
+      url,
+    };
+    if (vendor.ssl) patch.ssl = vendor.ssl;
+    update(patch);
     setPortText(port === null ? "" : String(port));
   };
 
@@ -203,6 +238,9 @@ export function SourceDialog({
 
   const editing = source !== null;
   const sqlite = draft.driver === "sqlite";
+  // An unknown vendor id (a preset dropped since the source was saved) reads as
+  // a custom setup; the stored value is left alone until the user picks one.
+  const vendorValue = vendorById(draft.vendor)?.id ?? CUSTOM_VENDOR;
 
   return (
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
@@ -255,6 +293,24 @@ export function SourceDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="database-form-vendor">{t("database.form.vendor")}</Label>
+            <Select value={vendorValue} onValueChange={changeVendor}>
+              <SelectTrigger id="database-form-vendor" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={CUSTOM_VENDOR}>{t("database.form.vendorCustom")}</SelectItem>
+                {vendorOptions().map((vendor) => (
+                  <SelectItem key={vendor.id} value={vendor.id}>
+                    {vendor.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">{t("database.form.vendorHint")}</p>
           </div>
 
           <div className="flex items-center justify-between gap-4">

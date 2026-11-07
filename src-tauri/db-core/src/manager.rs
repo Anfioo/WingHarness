@@ -14,16 +14,20 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use crate::conn::{self, Held, Pool, QueryResult};
+use crate::conn::{self, Held, Pool, QueryResult, ResultColumn};
 use crate::error::{DbError, DbResult};
 use crate::history::{HistoryEntry, HistoryStore};
+use crate::models::{
+    CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, SortKey, StatementOutcome, TablePage,
+};
 use crate::objects::{
-    self, ColumnInfo, Databases, DbObjectKind, DbTableKind, IndexInfo, RoutineInfo, SchemaObjects, SequenceInfo,
-    TableDetails, TableInfo, TriggerInfo,
+    self, ColumnInfo, Databases, DbObjectKind, DbTableKind, ForeignKey, IndexInfo, RoutineInfo, SchemaObjects,
+    SequenceInfo, TableDetails, TableInfo, TriggerInfo,
 };
 use crate::paths;
 use crate::secrets::SecretStore;
 use crate::source::{self, DataSource, DbDriver};
+use crate::split::SqlStatement;
 use crate::sql;
 
 /// Connection target: a data source id (its configured database), or
@@ -586,6 +590,300 @@ impl DbManager {
             }
         }
     }
+
+    /// One page of `schema.table`, ordered and filtered on the server. The page
+    /// query fetches one row beyond `limit`, so `result.has_more` says whether
+    /// another page exists without counting the table.
+    pub async fn table_page(
+        &self,
+        id: &str,
+        schema: &str,
+        table: &str,
+        filter: Option<&str>,
+        sort: &[SortKey],
+        offset: u64,
+        limit: u64,
+        cancel: &CancellationToken,
+    ) -> DbResult<TablePage> {
+        let details = self.table_details(id, schema, table).await?;
+        let pool = self.pool(id).await?;
+        let query = sql::table_page(pool.driver(), schema, table, filter, sort, offset, limit);
+        let mut result = pool.execute(&query, limit as usize, cancel).await?;
+        // A driver that does not describe an empty result's columns gets them
+        // from the table's own metadata.
+        if result.columns.is_empty() {
+            result.columns = details
+                .columns
+                .iter()
+                .map(|column| ResultColumn { name: column.name.clone(), type_name: column.data_type.clone() })
+                .collect();
+        }
+        Ok(TablePage { result, details, offset: offset as f64 })
+    }
+
+    /// Applies the edits in one transaction and returns the number of rows
+    /// changed. Any failure rolls the whole batch back; a statement that
+    /// matches no row fails the batch with `invalid`.
+    pub async fn apply_edits(
+        &self,
+        id: &str,
+        schema: &str,
+        table: &str,
+        edits: &[DbRowEdit],
+    ) -> DbResult<f64> {
+        let pool = self.pool(id).await?;
+        let driver = pool.driver();
+        // Update and delete locate one row by its primary key. A table without a
+        // key is read only, the same rule the table editor shows, and the check
+        // has to happen here too: the command is reachable without that editor.
+        if edits.iter().any(|edit| !matches!(edit, DbRowEdit::Insert { .. })) {
+            let details = self.table_details(id, schema, table).await?;
+            if !details.columns.iter().any(|column| column.primary_key) {
+                return Err(DbError::invalid(format!(
+                    "{schema}.{table} has no primary key, so its rows cannot be edited"
+                )));
+            }
+        }
+        let statements = edits
+            .iter()
+            .map(|edit| {
+                let statement = sql::edit_statement(driver, schema, table, edit).map_err(DbError::invalid)?;
+                // An update or delete locates one row by its key; an insert does not.
+                Ok((statement, !matches!(edit, DbRowEdit::Insert { .. })))
+            })
+            .collect::<DbResult<Vec<_>>>()?;
+        let changed = pool.transaction(&statements).await?;
+        Ok(changed as f64)
+    }
+
+    /// The `CREATE TABLE` statement of `schema.name`: SQLite's stored text,
+    /// MySQL's `SHOW CREATE TABLE`, or PostgreSQL's generated from the catalog.
+    /// A relation the catalog does not describe is `not_found`, never a partial
+    /// statement.
+    pub async fn ddl(&self, id: &str, schema: &str, name: &str) -> DbResult<String> {
+        let pool = self.pool(id).await?;
+        let driver = pool.driver();
+        let missing = || DbError::not_found(format!("{schema}.{name}"));
+        let cells = |rows: Vec<Vec<Option<String>>>, index: usize| -> Vec<String> {
+            rows.into_iter().filter_map(|row| row.into_iter().nth(index).flatten()).collect()
+        };
+        match driver {
+            DbDriver::Sqlite => {
+                let statements = cells(pool.rows(&sql::sqlite_ddl(schema, name), MAX_META_ROWS).await?, 0);
+                if statements.is_empty() {
+                    return Err(missing());
+                }
+                Ok(statements
+                    .iter()
+                    .map(|statement| format!("{};\n", statement.trim_end().trim_end_matches(';')))
+                    .collect::<Vec<_>>()
+                    .join("\n"))
+            }
+            DbDriver::Mysql => {
+                let query = format!("SHOW CREATE TABLE {}", sql::qualified(driver, schema, name));
+                let ddl = cells(pool.rows(&query, 1).await?, 1).into_iter().next();
+                ddl.map(|ddl| format!("{ddl};\n")).ok_or_else(missing)
+            }
+            DbDriver::Postgres => {
+                let relation = pool.rows(&sql::postgres_relation(schema, name), 1).await?.into_iter().next();
+                let (oid, kind) = match relation.as_deref() {
+                    Some([Some(oid), Some(kind)]) => {
+                        (oid.parse::<u32>().map_err(|error| DbError::invalid(error.to_string()))?, kind.clone())
+                    }
+                    _ => return Err(missing()),
+                };
+                if kind == "v" || kind == "m" {
+                    let body = cells(pool.rows(&format!("SELECT pg_get_viewdef({oid}, true)"), 1).await?, 0)
+                        .into_iter()
+                        .next()
+                        .ok_or_else(missing)?;
+                    let what = if kind == "m" { "materialized view" } else { "view" };
+                    let target = sql::qualified(driver, schema, name);
+                    return Ok(format!("create {what} {target} as\n{};\n", body.trim_end().trim_end_matches(';')));
+                }
+                let columns = pool
+                    .rows(&sql::postgres_ddl_columns(oid), MAX_META_ROWS)
+                    .await?
+                    .into_iter()
+                    .filter_map(|row| {
+                        let mut cells = row.into_iter();
+                        Some(sql::DdlColumn {
+                            name: cells.next().flatten()?,
+                            data_type: cells.next().flatten().unwrap_or_default(),
+                            not_null: objects::flag(&cells.next().flatten()),
+                            default: cells.next().flatten(),
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                let constraints = pool
+                    .rows(&sql::postgres_ddl_constraints(oid), MAX_META_ROWS)
+                    .await?
+                    .into_iter()
+                    .filter_map(|row| {
+                        let mut cells = row.into_iter();
+                        Some((cells.next().flatten()?, cells.next().flatten()?))
+                    })
+                    .collect::<Vec<_>>();
+                let indexes = cells(pool.rows(&sql::postgres_ddl_indexes(oid), MAX_META_ROWS).await?, 0);
+                Ok(sql::postgres_table_ddl(schema, name, &columns, &constraints, &indexes))
+            }
+            DbDriver::SqlServer | DbDriver::Clickhouse | DbDriver::Oracle => {
+                Err(DbError::invalid(format!("{driver:?} data sources are not supported yet")))
+            }
+        }
+    }
+
+    /// The definition of a routine, trigger or sequence; `not_found` when the
+    /// catalog has no such object.
+    pub async fn object_ddl(
+        &self,
+        id: &str,
+        schema: &str,
+        kind: DbObjectKind,
+        name: &str,
+    ) -> DbResult<String> {
+        let pool = self.pool(id).await?;
+        let (query, column) = sql::object_ddl(pool.driver(), schema, kind, name)
+            .ok_or_else(|| DbError::invalid(format!("no {kind:?} objects in this database")))?;
+        let definitions: Vec<String> = pool
+            .rows(&query, MAX_META_ROWS)
+            .await?
+            .into_iter()
+            .filter_map(|row| row.into_iter().nth(column).flatten())
+            .map(|definition| format!("{};\n", definition.trim_end().trim_end_matches(';')))
+            .collect();
+        if definitions.is_empty() {
+            return Err(DbError::not_found(format!("{schema}.{name}")));
+        }
+        Ok(definitions.join("\n"))
+    }
+
+    /// The tables, columns and foreign keys the editor completes names from,
+    /// fetched once per connection.
+    pub async fn completion(&self, id: &str) -> DbResult<CompletionModel> {
+        let pool = self.pool(id).await?;
+        let driver = pool.driver();
+        let mut tables: Vec<CompletionTable> = Vec::new();
+        for row in pool.rows(sql::completion_columns(driver), MAX_META_ROWS).await? {
+            let mut cells = row.into_iter().map(Option::unwrap_or_default);
+            let mut next = || cells.next().unwrap_or_default();
+            let (schema, name, kind) = (next(), next(), next());
+            let column = CompletionColumn {
+                name: next(),
+                data_type: next(),
+                nullable: objects::flag(&Some(next())),
+                primary_key: objects::flag(&Some(next())),
+                has_default: objects::flag(&Some(next())),
+            };
+            if name.is_empty() || column.name.is_empty() {
+                continue;
+            }
+            // The catalog query orders by schema, relation and column position.
+            match tables.last_mut() {
+                Some(table) if table.schema == schema && table.name == name => table.columns.push(column),
+                _ => tables.push(CompletionTable {
+                    schema,
+                    name,
+                    kind: DbTableKind::from_catalog(Some(&kind)),
+                    columns: vec![column],
+                }),
+            }
+        }
+        // Foreign keys only sharpen JOIN completion: a catalog query the server
+        // refuses still leaves a usable model.
+        let fk_rows = pool.rows(sql::foreign_keys(driver), MAX_META_ROWS).await.unwrap_or_else(|error| {
+            log::warn!("foreign keys: {}", error.message);
+            Vec::new()
+        });
+        let foreign_keys = group_foreign_keys(fk_rows, &tables);
+        let default_schema = match sql::current_schema(driver) {
+            None => "main".to_owned(),
+            Some(query) => pool
+                .rows(query, 1)
+                .await?
+                .into_iter()
+                .next()
+                .and_then(|row| row.into_iter().next().flatten())
+                .unwrap_or_default(),
+        };
+        Ok(CompletionModel { default_schema, tables, foreign_keys })
+    }
+
+    /// Runs `statements` in order, stopping at the first error. Errors are
+    /// reported per statement, so the results of the statements before it
+    /// survive; only cancellation (which takes the connection with it) fails
+    /// the whole call.
+    pub async fn execute_all(
+        &self,
+        id: &str,
+        statements: &[SqlStatement],
+        skip: usize,
+        max_rows: usize,
+        cancel: &CancellationToken,
+    ) -> DbResult<Vec<StatementOutcome>> {
+        let mut out = Vec::with_capacity(statements.len());
+        for statement in statements {
+            match self.execute_from(id, &statement.text, skip, max_rows.max(1), cancel).await {
+                Ok(result) => out.push(StatementOutcome { statement: statement.clone(), result: Some(result), error: None }),
+                Err(error) if error.is_cancelled() => return Err(error),
+                Err(error) => {
+                    out.push(StatementOutcome { statement: statement.clone(), result: None, error: Some(error) });
+                    break;
+                }
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// Groups foreign-key rows by constraint, then fills in the references that
+/// name no target column (SQLite's implicit reference to the primary key) from
+/// the tables of the model. A key whose columns cannot be matched is dropped.
+fn group_foreign_keys(rows: Vec<Vec<Option<String>>>, tables: &[CompletionTable]) -> Vec<ForeignKey> {
+    let mut keys: Vec<(String, ForeignKey)> = Vec::new();
+    for row in rows {
+        let mut cells = row.into_iter();
+        let mut next = || cells.next().flatten();
+        let (Some(schema), Some(table), Some(constraint), Some(column), ref_schema, Some(ref_table), ref_column) =
+            (next(), next(), next(), next(), next(), next(), next())
+        else {
+            continue;
+        };
+        let ref_schema = ref_schema.unwrap_or_else(|| schema.clone());
+        let same = |(name, key): &(String, ForeignKey)| {
+            *name == constraint && key.schema == schema && key.table == table
+        };
+        if !keys.last().is_some_and(same) {
+            keys.push((
+                constraint.clone(),
+                ForeignKey {
+                    schema,
+                    table,
+                    columns: Vec::new(),
+                    ref_schema,
+                    ref_table,
+                    ref_columns: Vec::new(),
+                },
+            ));
+        }
+        let key = &mut keys.last_mut().expect("pushed above").1;
+        key.columns.push(column);
+        key.ref_columns.extend(ref_column);
+    }
+    keys.into_iter()
+        .filter_map(|(_, mut key)| {
+            if key.ref_columns.is_empty() {
+                let target = tables.iter().find(|table| table.schema == key.ref_schema && table.name == key.ref_table)?;
+                key.ref_columns = target
+                    .columns
+                    .iter()
+                    .filter(|column| column.primary_key)
+                    .map(|column| column.name.clone())
+                    .collect();
+            }
+            (key.ref_columns.len() == key.columns.len()).then_some(key)
+        })
+        .collect()
 }
 
 /// The statement Test Connection runs to show what it reached.

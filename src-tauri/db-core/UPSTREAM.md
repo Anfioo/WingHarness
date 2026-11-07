@@ -27,10 +27,12 @@ all.
 | `src/history.rs` | `src/history.rs` | Keyed by data source id; the upstream project key is gone |
 | `src/conn.rs` | `src/conn.rs` | SQLite, PostgreSQL and MySQL paths only |
 | `src/split.rs` | `src/split.rs` | Statement splitting; the Oracle PL/SQL rules are gone |
-| `src/manager.rs` | `src/lib.rs` | `DbManager`, without the SSH tunnels or the global/project password split |
+| `src/manager.rs` | `src/lib.rs` | `DbManager`, without the SSH tunnels or the global/project password split; paging, row editing, DDL and completion live here |
+| `src/models.rs` | `src/lib.rs` (model types) | The wire model of paging and the console: `SortKey`, `CellValue`, `DbRowEdit`, `TablePage`, `CompletionCatalog`, `StatementOutcome` |
 | `src/objects.rs` | `src/lib.rs` | The introspection DTOs (`Databases`, `TableInfo`, `TableDetails`…) and the foreign-key grouping |
-| `src/sql.rs` | `src/sql.rs` | The introspection queries only: catalogs, columns, indexes, foreign keys, triggers, routines, sequences |
+| `src/sql.rs` | `src/sql.rs` | The introspection queries, the table page query, the row-edit statements and the DDL builders: catalogs, columns, indexes, foreign keys, triggers, routines, sequences |
 | `src/paths.rs` | — | New: where the feature writes, below the app's data directory |
+| `src/error.rs` | `src/lib.rs` (error type) | `DbError` / `DbErrorCode`, replacing `IdeError` |
 
 ## Divergences from upstream
 
@@ -48,12 +50,24 @@ all.
   `DbDriver` variants remain so the stored settings stay readable, but
   `Pool::connect` rejects them with a clear error. `sql.rs` keeps those query
   builders as strings for exhaustive matches; they never run.
-- **Table paging, row editing and DDL generation are not ported yet.** `sql.rs`
-  therefore has no `table_page`, `edit_statement` or `postgres_table_ddl`, and
-  `DbManager` has no `table_page`, `apply_edits`, `ddl`, `object_ddl`,
-  `explain`, `completion` or `export`. Introspection (`databases`, `schemas`,
-  `tables`, `table_details`, `schema_objects`) is ported and used by the object
-  tree.
+- **Table paging and row editing are ported with one rule added.** `sql.rs` has
+  the page query (one row beyond the limit, so `hasMore` needs no `COUNT(*)`)
+  and the `update` / `insert` / `delete` builders; `DbManager` has
+  `table_page` and `apply_edits`. `apply_edits` runs the whole batch in one
+  transaction of its own and refuses an update or delete on a table without a
+  primary key. Upstream left that check to its editor; here the command is
+  reachable without the editor, so the engine enforces it too.
+- **DDL generation is ported read-only.** `DbManager::ddl` returns a table's or
+  view's definition (SQLite stored text, MySQL `SHOW CREATE`, PostgreSQL catalog
+  assembly) and `object_ddl` does the same for routines, triggers and
+  sequences. Generating new-table and alter statements lives in the frontend
+  (`object-sql.ts`), because it is pure string work with no connection.
+- **Completion is ported as a catalog.** `DbManager::completion` returns the
+  tables, columns and routines of the connection once; resolving names, CTEs and
+  aliases from them is done in `src/pages/database/sql/`, which keeps the Rust
+  side free of a parser.
+- **Still absent:** `explain` and `export`. Query plans and file export were not
+  carried over; export goes through the app's existing `save_text_file`.
 - **Error type.** `ide_core::IdeError { kind, message, data }` became
   `DbError { code, message }` (`DbErrorCode` is `kebab-case` on the wire), and
   the SQL Server authentication codes became `AuthFailed`.
@@ -64,7 +78,9 @@ all.
 - **History writing** is synchronous instead of going through a recorder thread.
 - **Command surface.** Upstream's commands are driven by its host's request
   registry and per-workbench lists; this crate holds neither, so `commands/db.rs`
-  adds `db_cancel` (cancellation keyed on a frontend-chosen request id, kept in
+  has 24 commands, six of them added here: `db_statements`, `db_table_page`,
+  `db_apply_edits`, `db_ddl`, `db_object_ddl` and `db_completion`, alongside
+  `db_cancel` (cancellation keyed on a frontend-chosen request id, kept in
   `DbState`), `db_sources` and `db_connected`. The SSH commands are absent. The
   full list is in [`docs/features/DATABASE.md`](../../docs/features/DATABASE.md).
 
