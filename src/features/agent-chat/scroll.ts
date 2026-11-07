@@ -14,12 +14,22 @@ export interface ScrollFollowOptions {
 export interface ScrollFollow {
   atBottom: boolean;
   scrollToBottom: (behavior?: ScrollBehavior) => void;
+  /** Restores a remembered offset; `null` means "pin to the bottom". */
+  restore: (offset: number | null) => void;
 }
 
 const BOTTOM_SLACK_PX = 48;
 /** Ignore the intermediate scroll positions a programmatic pin reports. */
 const AUTO_PIN_GUARD_MS = 160;
 const SMOOTH_PIN_GUARD_MS = 800;
+
+export function isNearBottom(element: HTMLElement): boolean {
+  return isNearBottomAt(element, element.scrollTop);
+}
+
+function isNearBottomAt(element: HTMLElement, offset: number): boolean {
+  return element.scrollHeight - offset - element.clientHeight <= BOTTOM_SLACK_PX;
+}
 
 export function useScrollFollow({ scrollerRef, itemCount }: ScrollFollowOptions): ScrollFollow {
   const [atBottom, setAtBottom] = useState(true);
@@ -40,6 +50,24 @@ export function useScrollFollow({ scrollerRef, itemCount }: ScrollFollowOptions)
     [scrollerRef]
   );
 
+  const restore = useCallback(
+    (offset: number | null) => {
+      const element = scrollerRef.current;
+      if (!element) return;
+      if (offset == null || isNearBottomAt(element, offset)) {
+        scrollToBottom("auto");
+        return;
+      }
+      // The tab is still scrolled up: leave follow mode off until the user
+      // returns to the bottom, and let the frame pin below respect that.
+      followingRef.current = false;
+      setAtBottom(false);
+      guardUntilRef.current = performance.now() + AUTO_PIN_GUARD_MS;
+      element.scrollTop = offset;
+    },
+    [scrollerRef, scrollToBottom]
+  );
+
   useEffect(() => {
     const element = scrollerRef.current;
     if (!element) return;
@@ -50,8 +78,7 @@ export function useScrollFollow({ scrollerRef, itemCount }: ScrollFollowOptions)
         frameRef.current = null;
         const node = scrollerRef.current;
         if (!node) return;
-        const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
-        const atEnd = distance <= BOTTOM_SLACK_PX;
+        const atEnd = isNearBottom(node);
         if (!atEnd && performance.now() < guardUntilRef.current) return;
         followingRef.current = atEnd;
         setAtBottom(atEnd);
@@ -88,9 +115,13 @@ export function useScrollFollow({ scrollerRef, itemCount }: ScrollFollowOptions)
       guardUntilRef.current = performance.now() + AUTO_PIN_GUARD_MS;
       element.scrollTop = element.scrollHeight;
     }
-    const frame = requestAnimationFrame(() => scrollToBottom("auto"));
+    const frame = requestAnimationFrame(() => {
+      // A tab switch may have restored an older offset in between; never
+      // override a deliberate scroll-up with the deferred pin.
+      if (followingRef.current) scrollToBottom("auto");
+    });
     return () => cancelAnimationFrame(frame);
   }, [itemCount, scrollToBottom, scrollerRef]);
 
-  return { atBottom, scrollToBottom };
+  return { atBottom, scrollToBottom, restore };
 }

@@ -5,7 +5,7 @@ import { ArrowDown, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useScrollFollow } from "@/features/agent-chat/scroll";
+import { isNearBottom, useScrollFollow } from "@/features/agent-chat/scroll";
 import { useAgentChatStore } from "@/features/agent-chat/store";
 import type { AgentMessageRow as AgentMessageRowData } from "@/features/agent-chat/types";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -34,8 +34,14 @@ export function AgentTranscriptView(): JSX.Element {
   const send = useAgentChatStore((state) => state.send);
 
   const scrollerRef = useRef<HTMLDivElement | null>(null);
+  // One transcript stays mounted across tab switches, so each tab's reading
+  // position has to be remembered here instead of by the DOM.
+  const scrollStateRef = useRef(new Map<string, { offset: number; atBottom: boolean }>());
   const rows = tab?.messages ?? EMPTY_ROWS;
-  const { atBottom, scrollToBottom } = useScrollFollow({ scrollerRef, itemCount: rows.length });
+  const { atBottom, scrollToBottom, restore } = useScrollFollow({
+    scrollerRef,
+    itemCount: rows.length,
+  });
 
   // Expansion lives here because virtual rows unmount as they leave the window.
   const [expanded, setExpanded] = useState<Map<number, boolean>>(() => new Map());
@@ -61,8 +67,22 @@ export function AgentTranscriptView(): JSX.Element {
   });
 
   useLayoutEffect(() => {
-    scrollToBottom("auto");
-  }, [activeTabId, scrollToBottom]);
+    const element = scrollerRef.current;
+    if (!element || !activeTabId) return;
+    const remember = () => {
+      scrollStateRef.current.set(activeTabId, {
+        offset: element.scrollTop,
+        atBottom: isNearBottom(element),
+      });
+    };
+    element.addEventListener("scroll", remember, { passive: true });
+    return () => element.removeEventListener("scroll", remember);
+  }, [activeTabId]);
+
+  useLayoutEffect(() => {
+    const saved = activeTabId ? scrollStateRef.current.get(activeTabId) : undefined;
+    restore(saved?.atBottom ? null : (saved?.offset ?? null));
+  }, [activeTabId, restore]);
 
   const lastUser = useMemo(() => {
     for (let index = rows.length - 1; index >= 0; index -= 1) {
