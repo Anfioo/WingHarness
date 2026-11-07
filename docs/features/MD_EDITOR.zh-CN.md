@@ -83,6 +83,11 @@ macOS 上 `Ctrl` 为 `Cmd`。
 - 超过 **500 KB 或 10 000 行**时暂停预览，面板给出提示；编辑与保存不受影响。
 - 链接通过 opener 插件在外部打开，仅允许 `http` / `https`。
 
+这套管线并不只属于本页：[笔记](./NOTES.md)与[项目](./PROJECT.md)页面的
+「打开预览」标签同样用 `renderMarkdown` + `PreviewPane` + 大纲渲染，取代了
+codelet 依赖网络的 `markdownPreview` 扩展。阅读者可用标签右上角的图标隐藏
+大纲。
+
 ## 导出
 
 三种目标，工具栏菜单与两个右键菜单都可发起：

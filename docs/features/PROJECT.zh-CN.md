@@ -5,8 +5,9 @@
 同一个编辑器——区别只在于文件的来源。
 
 它构建在 [codelet](https://www.npmjs.com/package/codelet) 之上：一个作为依赖
-而非框架的代码编辑器。页面承载一个 `Workbench` 并向它提供 transport。其余
-部分——标签页、编辑器、搜索、Markdown 预览——都来自 codelet。
+而非框架的代码编辑器。页面承载一个 `Workbench` 并向它提供 transport。标签页、
+编辑器与搜索来自 codelet；Markdown 预览则是应用自己的（见
+[阅读 Markdown 文件](#阅读-markdown-文件)）。
 
 ## 工作原理
 
@@ -75,6 +76,20 @@ workbench 带有一个 Git 活动视图（修饰标记、状态、提交面板�
 或 `.png` 会作为预览标签打开，而不是 transport 会返回的占位内容。文本扩展名
 保留其文本标签。
 
+### 阅读 Markdown 文件
+
+`.md` 文件仍由 codelet 的文本编辑器打开，编辑方式不变。编辑器标签栏上的
+「打开预览」会打开第二个标签，用 [Markdown 编辑器](./MD_EDITOR.md) 自身的
+渲染链路渲染文档——`renderMarkdown` + `PreviewPane` + `OutlinePanel`，全部随
+应用打包，不从 CDN 拉取任何东西，也不下载 wasm。「打开源代码」回到文本标签，
+预览右上角的图标用于显示或隐藏大纲。
+
+该扩展是
+[`markdown-preview-extension.ts`](../../src/lib/editor/markdown-preview-extension.ts)，
+与[笔记](./NOTES.md)页面共用；它取代了 codelet 依赖网络的 `markdownPreview`。
+文本经由 `useMarkdownPreviewDocs` 传给标签，文档中的图片按配置的
+`projectRoot` 解析。
+
 ## 限制
 
 - **没有默认根目录。** 新装时 `projectRoot` 为空，页面保持空状态，直到在
@@ -90,8 +105,8 @@ workbench 带有一个 Git 活动视图（修饰标记、状态、提交面板�
    `invoke.rs`、`build.rs` 与 `capabilities/default.json` 注册这七个命令。
 2. 确保 `config::load().project_root()` 能解析——页面、文件预览与 AI 配置同步
    共用这一个设置。
-3. 拷贝 `src/lib/editor/`（transport、标签存储、预览扩展）与
-   `src/pages/project`。
+3. 拷贝 `src/lib/editor/`（transport、标签存储、预览扩展、Markdown 预览扩展）
+   与 `src/pages/project`。
 4. 启动时把文件预览提供者指向同一个根目录，使 `preview_metadata` /
    `preview_bytes` 与编辑器一致。
 

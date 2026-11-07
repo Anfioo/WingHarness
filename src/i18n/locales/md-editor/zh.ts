@@ -92,6 +92,8 @@ export default {
     title: "大纲",
     empty: "这篇文档还没有标题。",
     filterLevel: "显示层级",
+    show: "显示大纲",
+    hide: "隐藏大纲",
   },
   export: {
     title: "导出",
