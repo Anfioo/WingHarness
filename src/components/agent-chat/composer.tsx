@@ -108,6 +108,19 @@ export function AgentComposer(): JSX.Element {
 
   return (
     <div className="flex shrink-0 flex-col gap-2 border-t p-3">
+      {engine && !engineAvailable ? (
+        <div
+          role="alert"
+          className="border-destructive/40 bg-destructive/5 flex flex-col gap-1 rounded-lg border px-3 py-2 text-xs"
+        >
+          <span className="text-destructive font-medium">
+            {t("agentChat.error.engineUnavailable")}
+          </span>
+          <code className="text-muted-foreground font-mono break-all">
+            {t(`agentChat.install.${engine.id}`)}
+          </code>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <AgentEnginePicker />
         <AgentModelPicker />
