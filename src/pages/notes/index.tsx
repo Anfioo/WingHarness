@@ -1,20 +1,23 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Loader2, NotebookPen } from "lucide-react";
 import { FileSystem, Workbench } from "codelet/workbench";
 import { extensions as extensionsView } from "codelet/extensions/extensions";
-import { markdownPreview } from "codelet/extensions/markdown";
 import { search } from "codelet/extensions/search";
 import { AppShell } from "@/components/app-shell";
 import { PreviewTab } from "@/components/file-preview/preview-tab";
-import { notesWrite } from "@/commands";
+import { getConfig, notesWrite } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { codeletStrings, createDomTranslator, localizeExtensions } from "@/lib/editor/codelet-i18n";
 import { WorkbenchSurface } from "@/lib/editor/workbench-surface";
 import { useEditorTabs } from "@/lib/editor/editor-tabs";
+import { createMarkdownPreviewExtension } from "@/lib/editor/markdown-preview-extension";
 import { createPreviewExtension } from "@/lib/editor/preview-extension";
 import { useEditorAppearance } from "@/lib/editor/use-editor-appearance";
 import { EDITOR_SURFACE_CLASS } from "@/lib/editor/typography";
 import { loadWorkspace, startSync } from "./store";
+
+/** Loaded on first preview, so marked, KaTeX and highlight.js stay off this page's first paint. */
+const MarkdownPreviewTab = lazy(() => import("@/lib/editor/markdown-preview-tab"));
 
 /** Opens with one note so the first run is not a blank rectangle. */
 const WELCOME_PATH = "/welcome.md";
@@ -43,8 +46,9 @@ export default function NotesPage() {
   const { theme, prefs } = useEditorAppearance();
   const [ready, setReady] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
-  // Notes are Markdown and stay text, so a preview tab is normally never opened
-  // here — the extension is shared so the two editors behave alike.
+  /** Absolute notes directory, for the preview's asset reads; empty until config loads. */
+  const [notesRoot, setNotesRoot] = useState("");
+  // Only one host-drawn tab is visible at a time, and the workbench says which.
   const surface = useEditorTabs((state) => state.surface);
 
   if (!fsRef.current) fsRef.current = new FileSystem();
@@ -58,7 +62,11 @@ export default function NotesPage() {
 
     const init = async () => {
       try {
-        await loadWorkspace(fs);
+        const [, config] = await Promise.all([loadWorkspace(fs), getConfig()]);
+        if (disposed) return;
+        // `<dataDir>/notes` is what the backend reads a note's path against, and
+        // what the preview needs to turn a relative image into a readable path.
+        setNotesRoot(`${config.dataDir.replace(/[\\/]+$/, "")}/notes`);
       } catch (err) {
         console.error("notes load:", err);
         if (!disposed) setLoadFailed(true);
@@ -99,7 +107,7 @@ export default function NotesPage() {
     const extensions = [
       search,
       ...(prefs.extensionsView ? [extensionsView] : []),
-      markdownPreview,
+      createMarkdownPreviewExtension(),
       createPreviewExtension({ displayName: t("filePreview.title") }),
     ];
     const workbench = new Workbench({
@@ -147,6 +155,11 @@ export default function NotesPage() {
           <div ref={hostRef} className={`h-full ${EDITOR_SURFACE_CLASS}`} />
           <WorkbenchSurface selector="main.cl-editor iframe" active={surface !== null}>
             {surface?.kind === "preview" && <PreviewTab path={surface.path} name={surface.name} />}
+            {surface?.kind === "markdown" && (
+              <Suspense fallback={null}>
+                <MarkdownPreviewTab path={surface.path} root={notesRoot} />
+              </Suspense>
+            )}
           </WorkbenchSurface>
         </div>
         {(!ready || loadFailed) && (

@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderGit2, Loader2 } from "lucide-react";
 import { Workbench } from "codelet/workbench";
 import { remote } from "codelet/extensions/remote";
 import { extensions as extensionsView } from "codelet/extensions/extensions";
-import { markdownPreview } from "codelet/extensions/markdown";
 import { search } from "codelet/extensions/search";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { AppShell } from "@/components/app-shell";
@@ -29,6 +28,7 @@ import {
   createGitActivityExtension,
   type GitActivityHandle,
 } from "@/lib/editor/git-activity-extension";
+import { createMarkdownPreviewExtension } from "@/lib/editor/markdown-preview-extension";
 import { createPreviewExtension } from "@/lib/editor/preview-extension";
 import { useEditorAppearance } from "@/lib/editor/use-editor-appearance";
 import { useVcsStatus } from "@/lib/editor/use-vcs-status";
@@ -39,6 +39,9 @@ import {
 } from "@/lib/editor/vcs-decorations";
 import { createProjectTransport } from "@/lib/editor/project-transport";
 import { EDITOR_SURFACE_CLASS } from "@/lib/editor/typography";
+
+/** Loaded on first preview, so marked, KaTeX and highlight.js stay off this page's first paint. */
+const MarkdownPreviewTab = lazy(() => import("@/lib/editor/markdown-preview-tab"));
 
 /**
  * The project root, opened as an editor.
@@ -65,6 +68,8 @@ export default function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   // The working copy the page is showing; the file tree's git colours come from it.
   const [repo, setRepo] = useState<string | null>(null);
+  // The configured root as it is written; the Markdown preview resolves images against it.
+  const [projectRoot, setProjectRoot] = useState("");
   const { kinds, refresh } = useVcsStatus(repo);
   // Which editor tab is a host-drawn view, and which view it is.
   const surface = useEditorTabs((state) => state.surface);
@@ -89,6 +94,7 @@ export default function ProjectPage() {
       .then((view) => {
         if (!alive) return;
         const root = view.config.projectRoot.trim();
+        setProjectRoot(root);
         if (!root) {
           setRepo(null);
           return;
@@ -182,7 +188,7 @@ export default function ProjectPage() {
       vcs.extension,
       search,
       ...(prefs.extensionsView ? [extensionsView] : []),
-      markdownPreview,
+      createMarkdownPreviewExtension(),
       remote({
         url: "tauri://project",
         transport,
@@ -295,6 +301,11 @@ export default function ProjectPage() {
               {surface?.kind === "diff" && <DiffTab repo={repo} target={surface.target} />}
               {surface?.kind === "preview" && (
                 <PreviewTab path={surface.path} name={surface.name} />
+              )}
+              {surface?.kind === "markdown" && (
+                <Suspense fallback={null}>
+                  <MarkdownPreviewTab path={surface.path} root={projectRoot} />
+                </Suspense>
               )}
               {surface?.kind === "compare" && (
                 <CompareTab

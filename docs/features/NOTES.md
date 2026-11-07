@@ -60,8 +60,29 @@ but has to handle the children that move with the folder.
 ## What the page offers
 
 The codelet workbench with search, the extensions view, the Markdown preview and
-the file preview extension — the same set as the Project page. A file tree on the
-left, tabs in the middle, draggable panes. The first note opens by default.
+the file preview extension. A file tree on the left, tabs in the middle,
+draggable panes. The first note opens by default.
+
+### Reading a note
+
+A `.md` file opens in codelet's text editor, so editing is unchanged. **Open
+Preview** on the editor tab strip opens a second tab that renders the same
+document, and **Open Source** returns to the text one.
+
+The rendering is the [Markdown editor](./MD_EDITOR.md)'s own: `renderMarkdown`
+(marked + DOMPurify + highlight.js) and `PreviewPane` (KaTeX, Mermaid, local
+images), with the document outline beside it. All of it ships with the app, so
+the preview needs no network. It replaces codelet's `markdownPreview`, which
+fetched `md4x` and its wasm from `esm.sh` at runtime.
+
+The preview follows the buffer while it is edited: the extension
+(`src/lib/editor/markdown-preview-extension.ts`) writes each open document's text
+into `useMarkdownPreviewDocs` on every change, and the tab
+(`src/lib/editor/markdown-preview-tab.tsx`) renders it after a 150 ms pause. The
+text travels through that store rather than through the tab's surface descriptor
+so a keystroke does not rebuild the tab strip. Images resolve against
+`<data dir>/notes`, and the icon in the preview's top-right corner shows or hides
+the outline.
 
 The workbench keeps open and active tabs in refs, so toggling the extensions view
 or switching the UI language — both of which remount the shell — does not lose a
@@ -86,8 +107,9 @@ with the Project page and kept in the `editor-prefs` `localStorage` key.
 
 1. Add `notes.rs` to the commands module and register the five commands through
    `invoke.rs`, `build.rs` and `capabilities/default.json`.
-2. Copy `src/pages/notes` — it depends on `src/lib/editor` and the codelet
-   preview extension, both of which the Project page needs as well.
+2. Copy `src/pages/notes` — it depends on `src/lib/editor`, the file preview
+   extension and the Markdown preview extension, all of which the Project page
+   needs as well.
 3. Nothing else: the folder is created on demand under the data directory.
 
 ## Troubleshooting
