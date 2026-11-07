@@ -2,8 +2,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, Eye, EyeOff, FolderOpen, Loader2, PlugZap, Save } from "lucide-react";
 import { toast } from "sonner";
-import { dbSourceTest, databaseErrorCode, defaultPort, emptyDataSource } from "@/commands";
-import type { DataSource, DataSourceView, DbColor, DbDriver, DbSslMode } from "@/commands";
+import {
+  dbSourceTest,
+  databaseErrorCode,
+  defaultPort,
+  emptyDataSource,
+  newProjectSourceId,
+} from "@/commands";
+import type { DataSource, DbColor, DbDriver, DbSslMode } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -50,6 +56,13 @@ export type SourceDialogProps = {
   source: DataSource | null;
   /** Whether a project is open: project-scoped sources need one. */
   hasProject: boolean;
+  /**
+   * The scope the caller owns. `"project"` is the project page's own workspace:
+   * the scope switch is hidden, the source is project-scoped, and a new source
+   * gets the `whp-` id the backend routes by. Left out, the dialog lets the
+   * user choose, as the database windows do.
+   */
+  scope?: "app" | "project";
   onOpenChange: (open: boolean) => void;
   /**
    * Saves the edited data source and the password typed, if any. It rejects
@@ -64,12 +77,7 @@ function FieldError({ message }: { message?: string }) {
 }
 
 /** The view carries two fields the stored settings do not; drop them on save. */
-export function asSource(view: DataSourceView): DataSource {
-  const source = { ...view } as Partial<DataSourceView>;
-  delete source.connected;
-  delete source.hasSavedPassword;
-  return source as DataSource;
-}
+export { asSource } from "./model";
 
 /** The value of one driver property, or an empty string when it is not set. */
 function propertyValue(source: DataSource, name: string): string {
@@ -88,10 +96,15 @@ export function SourceDialog({
   open,
   source,
   hasProject,
+  scope,
   onOpenChange,
   onSaved,
 }: SourceDialogProps) {
   const { t } = useAppTranslation();
+  // A project dialog always has one by construction: the panel only exists
+  // while a project root is configured.
+  const projectScope = scope === "project";
+  const projectOpen = projectScope || hasProject;
 
   const [draft, setDraft] = useState<DataSource>(() => emptyDataSource());
   const [password, setPassword] = useState("");
@@ -110,7 +123,13 @@ export function SourceDialog({
     const next = source ? structuredClone(source) : emptyDataSource();
     // A project-scoped source needs an open project; default to the app-wide
     // list when there is none, so a first data source can always be saved.
-    if (!source && !hasProject) next.global = true;
+    if (!source && !projectOpen) next.global = true;
+    if (!source && projectScope) {
+      // The backend routes a project source by this prefix; the id is fixed
+      // before saving so "Test" already hits the project manager.
+      next.id = newProjectSourceId();
+      next.global = false;
+    }
     setDraft(next);
     setPassword("");
     setShowPassword(false);
@@ -123,7 +142,7 @@ export function SourceDialog({
     // `source` is read here on purpose but keyed on its id: a parent refresh
     // hands over a new object with the same id and must not reset the draft.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, source?.id, hasProject]);
+  }, [open, source?.id, projectOpen, projectScope]);
 
   const update = (patch: Partial<DataSource>) => setDraft((current) => ({ ...current, ...patch }));
 
@@ -333,29 +352,31 @@ export function SourceDialog({
             <p className="text-muted-foreground text-xs">{t("database.form.vendorHint")}</p>
           </div>
 
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <Label htmlFor="database-form-global">{t("database.form.scope")}</Label>
-              <p className="text-muted-foreground text-xs">
-                {draft.global
-                  ? t("database.form.scopeGlobalHint")
-                  : hasProject
-                    ? t("database.form.scopeProjectHint")
-                    : t("database.form.scopeNeedsProject")}
-              </p>
+          {!projectScope && (
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="database-form-global">{t("database.form.scope")}</Label>
+                <p className="text-muted-foreground text-xs">
+                  {draft.global
+                    ? t("database.form.scopeGlobalHint")
+                    : projectOpen
+                      ? t("database.form.scopeProjectHint")
+                      : t("database.form.scopeNeedsProject")}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">
+                  {draft.global ? t("database.list.global") : t("database.list.project")}
+                </span>
+                <Switch
+                  id="database-form-global"
+                  checked={draft.global}
+                  disabled={!projectOpen}
+                  onCheckedChange={(checked) => update({ global: checked })}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">
-                {draft.global ? t("database.list.global") : t("database.list.project")}
-              </span>
-              <Switch
-                id="database-form-global"
-                checked={draft.global}
-                disabled={!hasProject}
-                onCheckedChange={(checked) => update({ global: checked })}
-              />
-            </div>
-          </div>
+          )}
 
           <Separator />
 

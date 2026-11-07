@@ -65,7 +65,7 @@ functions and types — it is the only thing components import:
 | Domain | What it covers |
 |--------|----------------|
 | `config` | the config file, the project root, the data directory |
-| `database` | data sources, connections, transactions, multi-statement queries, query files and persisted window tabs, execution plans, table paging and row editing, DDL, completion and history |
+| `database` | data sources, connections, transactions, multi-statement queries, query files and persisted window tabs, execution plans, table paging and row editing, DDL, completion and history. Ids prefixed `whp-` route to the project-scoped engine, and the list / query-file / settings commands take an optional `scope` |
 | `devtools` | opening the webview inspector |
 | `file-preview` | metadata and raw bytes for the preview page |
 | `fonts` | enumerating installed font families |
@@ -85,6 +85,10 @@ import { getConfig, projectTree } from "@/commands";
 - `lib/` — `router.tsx`, `app-routes.ts`, `shortcut.ts`, `window.ts`,
   `updater.ts`, `utils.ts`, plus the `editor/`, `preview/`, `fonts/`,
   `terminal/` and `theme/` subsystems
+- `features/` — one directory per feature that is larger than one page's own
+  components: `api-client/`, `database/project/` (the project page's database
+  panel, its store, tabs and results dock), `git/` (the project page's Git
+  views), `md-editor/`, `svn-workspace/`
 - `hooks/` — `use-app-translation` (use this one, not `useTranslation`
   directly: it also listens for the cross-window language change event),
   `use-config-draft`, `use-maximized`, `use-mobile`, `use-updater`

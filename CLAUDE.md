@@ -86,7 +86,10 @@ A command must be named in four hand-maintained lists, not one — `invoke.rs`,
 ### Persisted data
 
 Anything the app writes at runtime goes under `config::dir()` (the configurable
-data directory). Never the config directory root, never `localStorage`.
+data directory). Never the config directory root, never `localStorage`. The one
+deliberate exception is the project page's database workspace, which belongs to
+the project: `<project root>/.wh/db`. Its passwords still live in the data
+directory — see [docs/features/DATABASE.md](./docs/features/DATABASE.md).
 
 ### Internationalization
 

@@ -20,8 +20,10 @@ use crate::commands::fs_guard::{relative_posix, safe_join};
 use crate::config;
 
 /// Refused: serving it would carry the whole history in a listing, and nothing
-/// downstream wants it. Mirrors the `remote` extension's own default.
-const EXCLUDE: &[&str] = &[".git"];
+/// downstream wants it. Mirrors the `remote` extension's own default. `.wh` is
+/// the project's own metadata (data sources, query files, settings); the
+/// database panel reads it through its own commands.
+const EXCLUDE: &[&str] = &[".git", ".wh"];
 
 /// Bytes a file may have and still be offered as text. The same 4 MiB the
 /// protocol's own server defaults to; past it the entry is listed, not read.
@@ -423,6 +425,15 @@ mod tests {
         assert!(!excluded("src/main.rs"));
         assert!(!excluded(".gitignore"));
         assert!(!excluded("src/.git/hooks"));
+    }
+
+    #[test]
+    fn refuses_the_project_database_workspace() {
+        assert!(excluded(".wh"));
+        assert!(excluded(".wh/db/data-sources.toml"));
+        assert!(excluded(".wh/db/query/a.sql"));
+        assert!(!excluded(".whale/x"));
+        assert!(!excluded("src/.wh/x"));
     }
 
     #[test]

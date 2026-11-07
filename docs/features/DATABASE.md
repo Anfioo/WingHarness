@@ -9,6 +9,9 @@ crate of [openidea](https://github.com/l0ng-ai/openidea) (Apache-2.0);
 [`db-core/UPSTREAM.md`](../../src-tauri/db-core/UPSTREAM.md) records what was
 carried over and what was not.
 
+The same widgets are embedded in the [project page](./PROJECT.md) as a
+project-scoped panel with its own storage; see [Project scope](#project-scope).
+
 ## Windows and routes
 
 | Route | Renders |
@@ -76,13 +79,16 @@ moves the feature:
 ├── history.json                             # query history, by data source id
 ├── query/<source name> <n>.sql              # query files, plain UTF-8
 ├── windows.json                             # the tabs of every window
-└── settings.json                            # row limits
+└── settings.json                            # row limit and page size
 ```
 
 `secrets.json` is **not** encrypted and is not in the OS keychain — that is a
 deliberate divergence from upstream, and the dialog's checkbox says so. The
 `<slug>-<hash>` folder name keeps projects whose paths slug the same apart
 (`c:\work\app` and `d:\work\app` are different folders).
+
+The project panel's own storage is `<project root>/.wh/db`, laid out the same
+way and described in [Project scope](#project-scope).
 
 **Query files** are created beside each other with the data source's name and
 the first free number: `local 1.sql`, `local 2.sql`. A name must be non-empty,
@@ -99,16 +105,51 @@ reset to `null`. Saving one window replaces only that source's record — the
 others are kept as they are, and the read-modify-write is serialised within the
 process.
 
-**`settings.json`** holds the console row limit and the table page size. Both
-are clamped on write: `consoleRows` in [100, 50000], `tablePageSize` in
-[100, 5000]; a value outside the range is `invalid`. On read a stored value
-outside the range falls back to the default (500) instead of failing the window.
+**`settings.json`** holds the console row limit and the table page size, shared
+by every data source and window. Both are clamped on write: `consoleRows` in
+[100, 50000], `tablePageSize` in [100, 5000]; a value outside the range is
+`invalid`. On read a stored value outside the range falls back to the default
+(500) instead of failing the window.
 
 **Every JSON write is atomic**: `<file>.tmp`, then write, `sync_all` and
 `rename`. A file that does not parse is copied to `<file>.bak-<unix seconds>`
 and replaced by the defaults, with a warning in the log; a version this build
 does not know is treated the same way rather than guessed at. A query file that
 is not valid UTF-8 is reported as `not-found` and left alone.
+
+## Project scope
+
+The [project page](./PROJECT.md) embeds a second, isolated copy of this feature:
+its **Database** button opens a data-source panel of the open project instead of
+the app. The widgets are the same; nothing else is.
+
+| | App scope (`/database`) | Project scope (project page) |
+| --- | --- | --- |
+| Source list | `<data dir>/db/data-sources.toml`, plus `<data dir>/db/projects/<slug>-<hash>/` for the project sources the page can own | `<project root>/.wh/db/data-sources.toml` |
+| Query files, history, settings | `<data dir>/db/…` | `<project root>/.wh/db/…` |
+| Saved passwords | `<data dir>/db/secrets.json` | the same file, keyed by the `whp-` id |
+| Engine | `DbState::app` | `DbState::project()`, rebuilt when the root changes |
+
+**The id carries the scope.** Every id the panel creates starts with `whp-`
+(`PROJECT_ID_PREFIX`), and `DbState` routes on that prefix: an id-bearing command
+reaches the project manager, everything else the app's. The commands that have no
+id to route by — the source list, the query files, the settings — take an
+optional `scope: "app" | "project"` and default to `app`. No command name was
+added, so the four ACL lists did not change.
+
+**A password never enters the project directory.** The panel's sources save to
+`secrets.json` under the app's data directory, exactly as the app-wide ones do;
+`.wh` only ever holds the source definitions. A failure message never repeats a
+password — it names the driver's own error.
+
+**Nothing is restored across a restart.** The panel keeps its tabs in memory and
+does not write `windows.json`; only the query files, the source list, the history
+and the row limits persist. Closing the page disposes the tabs but leaves the
+connections open, so coming back is instant.
+
+**`.wh` is outside the project's file tree.** `project_fs` refuses it at the root
+and the workbench's `remote` extension is given it in `exclude`, so editing a
+query file from the tree cannot race the workspace writing it.
 
 ## Connecting
 
@@ -181,7 +222,8 @@ tab whose file has disappeared since it was saved is skipped.
   one). The model comes from `db_completion` once per connection and is shared
   with the table editor's filter box.
 - **Rows** — the toolbar's row select caps how many rows one result keeps; the
-  value is stored in `settings.json` and applies to every query tab.
+  value is stored in `settings.json` and applies to every query tab in every
+  window.
 - **Cancel** stops a running batch. Cancellation is cooperative: `db_execute`
   registers a `CancellationToken` under a request id the frontend chose,
   `db_cancel` triggers it, and the engine uses `tokio::select!` (plus
@@ -243,12 +285,13 @@ JSON, SQL or Markdown through the native save dialog and the existing
 A table tab shows one page of `db_table_page`, fetched with `LIMIT limit + 1`:
 the extra row decides `hasMore` without a `COUNT(*)`.
 
-Its toolbar holds the page size (100, 500, 1000 or 5000, remembered per data
-source), a `WHERE` filter that applies on Enter, an `ORDER BY` that is parsed and
-sent on Enter and marked red without being sent when it does not parse, import
-and export, the grid's search bar and panel, and the draft actions (add row,
-delete and restore rows, **Submit**, **Revert**). The status line shows the
-visible range, how many rows are pending and, for a read-only table, why.
+Its toolbar holds the page size (100, 500, 1000 or 5000, stored in
+`settings.json` and therefore shared by every window), a `WHERE` filter that
+applies on Enter, an `ORDER BY` that is parsed and sent on Enter and marked red
+without being sent when it does not parse, import and export, the grid's search
+bar and panel, and the draft actions (add row, delete and restore rows,
+**Submit**, **Revert**). The status line shows the visible range, how many rows
+are pending and, for a read-only table, why.
 
 **Editing needs a primary key.** Without one — a table with no key, or a view —
 the grid is read only and the toolbar says why; the backend refuses an update or
@@ -410,3 +453,5 @@ contain a literal credential.
 | A window opens with fewer tabs than before | A saved tab's query file or table no longer exists, so it is skipped |
 | A query tab is empty after switching windows | The file is re-read on restore; text is written as you type, 800 ms after the last keystroke |
 | `invalid` when saving settings | The row limit is outside [100, 50000] or the page size outside [100, 5000] |
+| A source added in the project panel is missing from this page | The two scopes keep separate source lists |
+| `.wh` does not appear in the project tree | Excluded; the panel owns it |

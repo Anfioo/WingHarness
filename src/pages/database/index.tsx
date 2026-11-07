@@ -97,7 +97,7 @@ export default function DatabasePage() {
         setSources(loaded);
         setProjectRoot(config.config.projectRoot);
         if (announce) {
-          toast.success(t("database.toast.reloaded", { defaultValue: "Data sources refreshed." }));
+          toast.success(t("database.toast.reloaded"));
         }
       } catch (failure) {
         setError(describeFailure(failure));
@@ -131,7 +131,6 @@ export default function DatabasePage() {
     } catch (failure) {
       toast.error(
         t("database.error.openFailed", {
-          defaultValue: "Could not open the window: {{error}}",
           error: describeFailure(failure),
         })
       );
@@ -151,7 +150,6 @@ export default function DatabasePage() {
     } catch (failure) {
       toast.error(
         t("database.error.saveFailed", {
-          defaultValue: "Could not save the data source: {{error}}",
           error: describeFailure(failure),
         })
       );
@@ -166,7 +164,6 @@ export default function DatabasePage() {
       id: crypto.randomUUID(),
       name: t("database.form.duplicateName", {
         name: source.name,
-        defaultValue: "{{name}} (copy)",
       }),
     };
     try {
@@ -175,7 +172,6 @@ export default function DatabasePage() {
     } catch (failure) {
       toast.error(
         t("database.error.saveFailed", {
-          defaultValue: "Could not save the data source: {{error}}",
           error: describeFailure(failure),
         })
       );
@@ -188,14 +184,11 @@ export default function DatabasePage() {
     setBusyId(source.id);
     try {
       const version = await dbSourceTest(asSource(source), null);
-      toast.success(
-        t("database.test.success", { version, defaultValue: "Connected: {{version}}" })
-      );
+      toast.success(t("database.test.success", { version }));
     } catch (failure) {
       toast.error(
         t("database.test.failed", {
           error: describeFailure(failure),
-          defaultValue: "Could not connect: {{error}}",
         })
       );
     } finally {
@@ -214,7 +207,6 @@ export default function DatabasePage() {
     } catch (failure) {
       toast.error(
         t("database.error.deleteFailed", {
-          defaultValue: "Could not delete the data source: {{error}}",
           error: describeFailure(failure),
         })
       );
@@ -256,19 +248,15 @@ export default function DatabasePage() {
               className="pr-8 pl-8"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={t("database.search.placeholder", {
-                defaultValue: "Search by name, driver or target",
-              })}
-              aria-label={t("database.search.placeholder", {
-                defaultValue: "Search by name, driver or target",
-              })}
+              placeholder={t("database.search.placeholder")}
+              aria-label={t("database.search.placeholder")}
             />
             {query && (
               <Button
                 variant="ghost"
                 size="icon-xs"
                 className="absolute top-1/2 right-1.5 -translate-y-1/2"
-                aria-label={t("database.search.clear", { defaultValue: "Clear search" })}
+                aria-label={t("database.search.clear")}
                 onClick={() => setQuery("")}
               >
                 <X />
@@ -323,7 +311,7 @@ export default function DatabasePage() {
           <Search className="size-6" />
           <p className="text-foreground font-medium">{t("database.list.noResults")}</p>
           <Button variant="ghost" size="sm" onClick={() => setQuery("")}>
-            {t("database.search.clear", { defaultValue: "Clear search" })}
+            {t("database.search.clear")}
           </Button>
         </div>
       ) : (

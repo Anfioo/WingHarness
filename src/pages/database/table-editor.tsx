@@ -26,6 +26,7 @@ import {
   databaseErrorCode,
   dbApplyEdits,
   dbCancel,
+  dbScopeOf,
   dbSourceList,
   dbTablePage,
   saveTextFile,
@@ -65,7 +66,6 @@ import { FilterInput } from "./filter-input";
 import { ImportDialog } from "./import-dialog";
 import { pageWindow } from "./result-view";
 import type { GridColumn } from "./result-grid";
-import { useDatabaseStore } from "./store";
 import {
   addRow,
   applyCell,
@@ -83,7 +83,14 @@ import {
   type PendingEdits,
 } from "./table-editor-model";
 
-export type TableEditorProps = { target: string; schema: string; table: string };
+export type TableEditorProps = {
+  target: string;
+  schema: string;
+  table: string;
+  pageSize: number;
+  /** The caller owns the row limit — it is a per-workspace setting. */
+  onPageSizeChange: (size: number) => void;
+};
 
 /** The page sizes the toolbar offers; the store remembers the last one. */
 const PAGE_SIZES = [100, 500, 1000, 5000];
@@ -91,10 +98,14 @@ const PAGE_SIZES = [100, 500, 1000, 5000];
 /** A loaded page plus the parameter key it belongs to; a stale key means "loading". */
 type LoadedPage = { key: string; page: TablePage | null; error: string | null };
 
-export function TableEditor({ target, schema, table }: TableEditorProps) {
+export function TableEditor({
+  target,
+  schema,
+  table,
+  pageSize,
+  onPageSizeChange,
+}: TableEditorProps) {
   const { t } = useAppTranslation();
-  const pageSize = useDatabaseStore((state) => state.settings.tablePageSize);
-  const setTablePageSize = useDatabaseStore((state) => state.setTablePageSize);
 
   const [source, setSource] = useState<DataSourceView | null>(null);
   const [offset, setOffset] = useState(0);
@@ -131,7 +142,8 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
     let cancelled = false;
     void (async () => {
       try {
-        const list = await dbSourceList();
+        // A project table pages from the project's own engine.
+        const list = await dbSourceList(dbScopeOf(target.split(":")[0]));
         if (!cancelled) setSource(list.find((entry) => entry.id === target.split(":")[0]) ?? null);
       } catch {
         // The driver falls back to SQLite quoting; editing stays enabled.
@@ -286,9 +298,7 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
   const changePageSize = (value: string) => {
     setOffset(0);
     setOrderDraft(null);
-    setTablePageSize(Number(value)).catch((failure: unknown) => {
-      toast.error(describeFailure(failure));
-    });
+    onPageSizeChange(Number(value));
   };
 
   const changeCell = (row: number, column: number, value: string | null) => {
