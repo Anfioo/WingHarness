@@ -138,7 +138,6 @@ export function SourceDialog({
       vendor: vendor.id,
       driver: vendor.driver,
       port,
-      urlOnly: true,
       url,
     };
     if (vendor.ssl) patch.ssl = vendor.ssl;
