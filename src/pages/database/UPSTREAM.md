@@ -21,8 +21,8 @@ break every import. Take changes by hand.
 
 ## File map
 
-Line counts are from the end of phase 2 (2026-11-07); they move, but they show
-where the weight sits. Every *ported* file starts with
+Line counts are from the workspace baseline (2026-11-07); they move, but they
+show where the weight sits. Every *ported* file starts with
 `Ported from the openidea project (Apache-2.0) — see ./UPSTREAM.md.`; the other
 files are first-party rewrites or this app's own additions.
 
@@ -52,11 +52,25 @@ files are first-party rewrites or this app's own additions.
 | `vendors.ts` (103) | `vendors.ts` | Trimmed port: only the presets the SQLite, PostgreSQL and MySQL drivers can connect to |
 | `source-dialog.tsx` (583) | `SourceDialog.tsx` | Not carried over: the local flat form stays; phase 2 only adds the vendor presets |
 | `sql/lexer.ts` (159), `sql/dialect.ts` (454), `sql/analyze.ts` (571), `sql/resolve.ts` (322), `sql/complete.ts` (576), `sql/format.ts` (269), `sql/params.ts` (65), `sql/readOnly.ts` (35) | `sql/*.ts` | Ported, with `@/platform/ipc` and upstream's types replaced by this app's |
+| `store.ts` (617) | `store.ts` | Reference rewrite: a window-level zustand store (tabs, query documents, results, output, settings, connection); upstream's semantics for the result-tab and output-line caps are kept, the code is first-party |
+| `tab-model.ts` (43) | — | New: tab key, tab label and restoring the stored tab records |
+| `query-tab.tsx` (15) | `console.tsx` | New stub: the editor and result tabs of one query file |
+| `data-view.tsx` (42) | `DataView.tsx` | New stub: the editable grid a table tab and a query result share |
+| `data-panel.tsx` (22) | `DataView.tsx` (panel half) | New stub: the record / value / aggregates panel |
+| `plan-view.tsx` (17) | `plan.ts` | New stub: the execution plan tree and its property panel |
+| `result-tabs.tsx` (16) | `ResultsView.tsx` | New stub: one tab per statement plus the output console |
+| `result-actions.ts` (24) | — | New stub: rerun, page and count actions of a result tab |
+| `tree-toolbar.tsx` (25) | — | New stub: the toolbar above the object tree |
+| `history-dialog.tsx` (16) | `Dialogs.tsx` (history half) | New stub: the query history dialog |
+| `quick-doc.tsx` (18) | — | New stub: the quick documentation popup |
+| `params-dialog.tsx` (16) | — | New stub: the parameter values a script needs before it runs |
+| `import-dialog.tsx` (19) | `DataDialogs.tsx` (import half) | New stub: the CSV import dialog |
 
-Deliberately not carried over: `store.ts` (this app keeps no global database
-store), `ChartView.tsx` and the chart series, the import half of
-`DataDialogs.tsx`, `Database.module.css`, and everything behind `plan.ts`,
-ClickHouse and Oracle.
+Deliberately not carried over: `ChartView.tsx` and the chart series,
+`Database.module.css`, and the parts of `plan.ts`, ClickHouse and Oracle that
+the app does not drive. Upstream's `store.ts` was not carried over either — the
+window-level store here is a first-party rewrite that reuses only its cap
+semantics.
 
 ## Taking an upstream change
 
