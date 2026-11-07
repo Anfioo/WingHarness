@@ -1283,7 +1283,13 @@
       "passwordTitle": "Password required",
       "passwordLabel": "Password",
       "passwordSubmit": "Connect",
-      "resultsEmpty": "Run a statement to see its result."
+      "resultsEmpty": "Run a statement to see its result.",
+      "context": {
+        "copy": "Copy",
+        "paste": "Paste",
+        "find": "Find",
+        "run": "Run selected SQL"
+      }
     },
     "result": {
       "output": "Output",
