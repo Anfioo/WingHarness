@@ -3,7 +3,7 @@ import { open as pickFile } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, Eye, EyeOff, FolderOpen, Loader2, PlugZap, Save } from "lucide-react";
 import { toast } from "sonner";
 import { dbSourceTest, databaseErrorCode, defaultPort, emptyDataSource } from "@/commands";
-import type { DataSource, DbColor, DbDriver, DbSslMode } from "@/commands";
+import type { DataSource, DataSourceView, DbColor, DbDriver, DbSslMode } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -61,6 +61,14 @@ export type SourceDialogProps = {
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-destructive text-xs">{message}</p>;
+}
+
+/** The view carries two fields the stored settings do not; drop them on save. */
+export function asSource(view: DataSourceView): DataSource {
+  const source = { ...view } as Partial<DataSourceView>;
+  delete source.connected;
+  delete source.hasSavedPassword;
+  return source as DataSource;
 }
 
 /** The value of one driver property, or an empty string when it is not set. */
@@ -189,9 +197,7 @@ export function SourceDialog({
     if (timeout) {
       const parsed = Number(timeout);
       if (!Number.isInteger(parsed) || parsed < 1 || parsed > 300) {
-        next.connectTimeout = t("database.form.validation.connectTimeoutInvalid", {
-          defaultValue: "Use a timeout between 1 and 300 seconds.",
-        });
+        next.connectTimeout = t("database.form.validation.connectTimeoutInvalid");
       }
     }
     setErrors(next);

@@ -59,16 +59,13 @@ import { analyze } from "./sql/analyze";
 import { findParams } from "./sql/params";
 import type { ResultTab } from "./store";
 
-export type ResultViewProps =
-  | {
-      tabKey: string;
-      tab: ResultTab;
-      sourceId: string;
-      target: string;
-      onRerun(): void;
-    }
-  // The console page's own result view, until that page moves to `ResultTabs`.
-  | { result: QueryResult };
+export type ResultViewProps = {
+  tabKey: string;
+  tab: ResultTab;
+  sourceId: string;
+  target: string;
+  onRerun(): void;
+};
 
 const PAGE_SIZES = [100, 500, 1000];
 
@@ -131,73 +128,7 @@ async function saveExport(data: ExportData, format: ExportFormat): Promise<void>
 }
 
 export function ResultView(props: ResultViewProps): ReactNode {
-  if ("result" in props) return <LegacyResultView result={props.result} />;
   return <TabResultView {...props} />;
-}
-
-/** The console page's result: read-only, no server paging. */
-function LegacyResultView({ result }: { result: QueryResult }): ReactNode {
-  const { t } = useAppTranslation();
-  const columns = useMemo(() => columnsOf(result), [result]);
-
-  return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex flex-wrap items-center gap-1 border-b px-2 py-1 text-xs">
-        <span className="text-muted-foreground">
-          {t("database.grid.rows", { count: result.rows.length })}
-        </span>
-        <span className="text-muted-foreground/60">·</span>
-        <span className="text-muted-foreground">
-          {t("database.window.executionTime", { ms: result.executionMs })}
-        </span>
-        <span className="flex-1" />
-        <Button
-          variant="ghost"
-          size="xs"
-          title={t("database.grid.copyTsv")}
-          onClick={() => void copyAll(result, "tsv")}
-        >
-          <Copy className="size-3" />
-          {t("database.grid.copyTsv")}
-        </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          title={t("database.grid.copyCsv")}
-          onClick={() => void copyAll(result, "csv")}
-        >
-          {t("database.grid.copyCsv")}
-        </Button>
-        <ExportMenu
-          data={{
-            columns: result.columns,
-            rows: result.rows,
-            table: exportTable(result.statement),
-          }}
-        />
-      </div>
-
-      {columns.length === 0 ? (
-        <div className="text-muted-foreground p-3 text-sm">
-          {result.affected !== null
-            ? t("database.window.affected", { count: result.affected })
-            : t("database.console.resultsEmpty")}
-        </div>
-      ) : (
-        <div className="min-h-0 flex-1">
-          <DataView
-            columns={columns}
-            rows={result.rows}
-            rowCount={result.rows.length}
-            panel={null}
-            onPanelChange={() => undefined}
-            searchOpen={false}
-            onSearchOpenChange={() => undefined}
-          />
-        </div>
-      )}
-    </div>
-  );
 }
 
 function TabResultView(props: {
@@ -438,13 +369,7 @@ function TabResultView(props: {
               size="xs"
               className="ml-1"
               disabled={tab.busy || countBlocked}
-              title={
-                countBlocked
-                  ? t("database.result.countParams", {
-                      defaultValue: "COUNT is unavailable for statements with parameters",
-                    })
-                  : t("database.result.count")
-              }
+              title={countBlocked ? t("database.result.countParams") : t("database.result.count")}
               onClick={() => void countResult(tabKey, tab.id)}
             >
               {tab.busy ? t("database.result.counting") : t("database.result.count")}

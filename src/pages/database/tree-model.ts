@@ -9,6 +9,7 @@ import type {
   IndexInfo,
   TableDetails,
 } from "@/commands";
+import type { DbObjectRef } from "./object-sql";
 
 /** A node's loaded children, or the reason there are none. */
 export type Loaded<T> =
@@ -28,6 +29,8 @@ export type TreeSelection = {
   schema: string;
   name: string;
   kind: "table" | "view" | "routine" | "sequence";
+  /** The exact object, so the toolbar can read its DDL without re-deriving a kind. */
+  object: DbObjectRef;
 };
 
 /** The columns that make up a table's primary key. */

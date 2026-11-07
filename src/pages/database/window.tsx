@@ -5,7 +5,7 @@
 // store out and owns the two things the store cannot hold: the data source
 // record the tree renders, and the password prompt.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   Check,
   Database,
@@ -18,7 +18,14 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { dbSourceList, type DataSourceView } from "@/commands";
+import {
+  dbSourceList,
+  dbSourceSave,
+  dbSourceSetPassword,
+  getConfig,
+  type DataSource,
+  type DataSourceView,
+} from "@/commands";
 import { TitleBar } from "@/components/title-bar";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,15 +43,16 @@ import { WindowFrame } from "@/components/window-frame";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useRouter } from "@/lib/router";
 import { cn } from "@/lib/utils";
-import { ObjectTree } from "./object-tree";
-import { QueryTab } from "./query-tab";
+import { ObjectTree, type ObjectTreeHandle } from "./object-tree";
+import type { DbObjectRef } from "./object-sql";
+import { QuickDoc } from "./quick-doc";
+import { QueryTab, type QueryTabHandle } from "./query-tab";
+import { SourceDialog, asSource } from "./source-dialog";
 import { DatabaseStoreProvider, tabKey, useDatabaseStore } from "./store";
 import { TabBar } from "./tab-bar";
 import { TableEditor } from "./table-editor";
-import { TreeToolbar } from "./tree-toolbar";
-// ObjectTree still reads the legacy tab context. F4 rewires it to the store in
-// W2; this provider and window-tabs.tsx go at the same time.
-import { DatabaseTabsProvider } from "./window-tabs";
+import { OpenQueryDialog, TreeToolbar } from "./tree-toolbar";
+import type { TreeSelection } from "./tree-model";
 
 /** The data source this window was opened for, taken from its own URL. */
 function sourceFromUrl(search: string) {
@@ -68,12 +76,6 @@ function isTypingTarget(target: EventTarget | null): boolean {
     target.closest(".cm-editor") !== null
   );
 }
-
-/**
- * The tree actions that need a selected node, and the insert-a-SELECT target
- * that needs an editor. F4 and F6 own both; nothing here can answer them yet.
- */
-const deferred = () => {};
 
 /** Opens a new query file and reports a write the workspace refused. */
 function useNewQuery() {
@@ -286,7 +288,7 @@ function PasswordDialog() {
 }
 
 /** The right column while nothing is open: the two ways to get a first tab. */
-function EmptyWorkspace() {
+function EmptyWorkspace({ onOpenQuery }: { onOpenQuery(): void }) {
   const { t } = useAppTranslation();
   const newQuery = useNewQuery();
 
@@ -302,9 +304,7 @@ function EmptyWorkspace() {
           <FilePlus2 />
           {t("database.workspace.newQuery")}
         </Button>
-        {/* Until the tree toolbar's "Open query…" picker lands, this creates a
-            file too rather than sitting there dead. */}
-        <Button variant="outline" size="sm" onClick={newQuery}>
+        <Button variant="outline" size="sm" onClick={onOpenQuery}>
           <FolderOpen />
           {t("database.workspace.openQuery")}
         </Button>
@@ -314,7 +314,15 @@ function EmptyWorkspace() {
 }
 
 /** The body of the active tab, or the empty workspace when there is none. */
-function TabBody({ sourceId }: { sourceId: string }) {
+function TabBody({
+  sourceId,
+  onOpenQuery,
+  queryRef,
+}: {
+  sourceId: string;
+  onOpenQuery(): void;
+  queryRef: RefObject<QueryTabHandle | null>;
+}) {
   const tabs = useDatabaseStore((state) => state.tabs);
   const active = useDatabaseStore((state) => state.active);
   const tab = tabs.find((entry) => tabKey(entry) === active);
@@ -322,9 +330,9 @@ function TabBody({ sourceId }: { sourceId: string }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {!tab ? (
-        <EmptyWorkspace />
+        <EmptyWorkspace onOpenQuery={onOpenQuery} />
       ) : tab.kind === "query" ? (
-        <QueryTab sourceId={sourceId} tabKey={tabKey(tab)} file={tab.file} />
+        <QueryTab ref={queryRef} sourceId={sourceId} tabKey={tabKey(tab)} file={tab.file} />
       ) : (
         <TableEditor target={tab.target} schema={tab.schema} table={tab.table} />
       )}
@@ -338,7 +346,15 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
 
   const [source, setSource] = useState<DataSourceView | null>(null);
   const [listed, setListed] = useState(false);
+  const [hasProject, setHasProject] = useState(false);
   const [treeOpen, setTreeOpen] = useState(false);
+  const [selection, setSelection] = useState<TreeSelection | null>(null);
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [openQueryOpen, setOpenQueryOpen] = useState(false);
+  const [quickDoc, setQuickDoc] = useState<{ target: string; object: DbObjectRef } | null>(null);
+  const [pendingInsert, setPendingInsert] = useState<string | null>(null);
+  const treeRef = useRef<ObjectTreeHandle>(null);
+  const queryRef = useRef<QueryTabHandle>(null);
 
   const hydrate = useDatabaseStore((state) => state.hydrate);
   const hydrated = useDatabaseStore((state) => state.hydrated);
@@ -346,6 +362,10 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
   const disconnect = useDatabaseStore((state) => state.disconnect);
   const close = useDatabaseStore((state) => state.close);
   const active = useDatabaseStore((state) => state.active);
+  const tabs = useDatabaseStore((state) => state.tabs);
+  const select = useDatabaseStore((state) => state.select);
+  const openTable = useDatabaseStore((state) => state.openTable);
+  const openQueryFile = useDatabaseStore((state) => state.openQuery);
   const connected = useDatabaseStore((state) => state.connection.status === "connected");
   const newQuery = useNewQuery();
 
@@ -363,12 +383,21 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
     void connect();
   }, [hydrated, connect]);
 
+  const loadSources = useCallback(async () => {
+    const [list, config] = await Promise.all([dbSourceList(), getConfig()]);
+    setSource(list.find((entry) => entry.id === sourceId) ?? null);
+    setHasProject(Boolean(config.config.projectRoot));
+  }, [sourceId]);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const list = await dbSourceList();
-        if (!cancelled) setSource(list.find((entry) => entry.id === sourceId) ?? null);
+        const [list, config] = await Promise.all([dbSourceList(), getConfig()]);
+        if (!cancelled) {
+          setSource(list.find((entry) => entry.id === sourceId) ?? null);
+          setHasProject(Boolean(config.config.projectRoot));
+        }
       } catch {
         // Without the record the tree has nothing to render; the tabs still work.
         if (!cancelled) setSource(null);
@@ -380,6 +409,26 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
       cancelled = true;
     };
   }, [sourceId]);
+
+  const saveSource = useCallback(
+    async (next: DataSource, password: string) => {
+      try {
+        const stored = (await dbSourceList()).map(asSource);
+        const exists = stored.some((entry) => entry.id === next.id);
+        await dbSourceSave(
+          exists ? stored.map((entry) => (entry.id === next.id ? next : entry)) : [...stored, next]
+        );
+        if (password) {
+          await dbSourceSetPassword(next.id, password, next.savePassword);
+        }
+        await loadSources();
+      } catch (failure) {
+        toast.error(failureText(failure));
+        throw failure;
+      }
+    },
+    [loadSources]
+  );
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -395,6 +444,51 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [active, close, newQuery]);
 
+  const jumpToConsole = () => {
+    const query = tabs.find((tab) => tab.kind === "query");
+    if (query) select(tabKey(query));
+    else newQuery();
+  };
+
+  const editData = () => {
+    if (!selection) return;
+    if (selection.kind !== "table" && selection.kind !== "view") return;
+    openTable(selection.target, selection.schema, selection.name);
+  };
+
+  const showDdl = () => {
+    if (!selection) return;
+    setQuickDoc({ target: selection.target, object: selection.object });
+  };
+
+  /** Appends SQL the tree generated; a table of another database is refused. */
+  const insertSql = useCallback(
+    (target: string, sql: string) => {
+      if (target !== sourceId) {
+        toast.info(t("database.tree.otherDatabase"));
+        return;
+      }
+      if (queryRef.current) {
+        queryRef.current.insertSql(sql);
+        return;
+      }
+      // No query tab is mounted: open one and hand the statement over once the
+      // editor of the new tab exists.
+      setPendingInsert(sql);
+      openQueryFile().catch((failure: unknown) => {
+        setPendingInsert(null);
+        toast.error(failureText(failure));
+      });
+    },
+    [openQueryFile, sourceId, t]
+  );
+
+  useEffect(() => {
+    if (!pendingInsert || !queryRef.current) return;
+    queryRef.current.insertSql(pendingInsert);
+    setPendingInsert(null);
+  }, [pendingInsert, active]);
+
   return (
     <>
       <div className="flex min-h-0 flex-1">
@@ -406,21 +500,29 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
             disabled={!connected}
             connected={connected}
             onNewQuery={newQuery}
-            onOpenQuery={newQuery}
-            onNewTable={deferred}
-            onProperties={deferred}
-            onRefresh={deferred}
+            onOpenQuery={() => setOpenQueryOpen(true)}
+            onNewTable={() => treeRef.current?.newTable()}
+            onProperties={() => setPropertiesOpen(true)}
+            onRefresh={() => treeRef.current?.refresh()}
             onDisconnect={() => void disconnect()}
-            onJumpToConsole={deferred}
-            onEditData={deferred}
-            onShowDdl={deferred}
-            canEditData={false}
-            canShowDdl={false}
+            onJumpToConsole={jumpToConsole}
+            onEditData={editData}
+            onShowDdl={showDdl}
+            canEditData={selection?.kind === "table" || selection?.kind === "view"}
+            canShowDdl={selection !== null}
           />
           {source ? (
-            <DatabaseTabsProvider sourceId={sourceId}>
-              <ObjectTree source={source} enabled={connected} onInsertSelect={deferred} />
-            </DatabaseTabsProvider>
+            <ObjectTree
+              ref={treeRef}
+              source={source}
+              enabled={connected}
+              onInsertSelect={insertSql}
+              onOpenTable={openTable}
+              onSelect={setSelection}
+              onDisconnect={() => void disconnect()}
+              onShowDdl={(target, _schema, object) => setQuickDoc({ target, object })}
+              onQuickDoc={(target, object) => setQuickDoc({ target, object })}
+            />
           ) : (
             <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 p-3 text-center text-xs">
               {listed ? (
@@ -448,12 +550,36 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
               <PanelLeft />
             </Button>
           </div>
-          <TabBar />
-          <TabBody sourceId={sourceId} />
+          <TabBar onOpenQuery={() => setOpenQueryOpen(true)} />
+          <TabBody
+            sourceId={sourceId}
+            onOpenQuery={() => setOpenQueryOpen(true)}
+            queryRef={queryRef}
+          />
         </div>
       </div>
 
       <PasswordDialog />
+      <OpenQueryDialog open={openQueryOpen} onOpenChange={setOpenQueryOpen} />
+      {source && (
+        <SourceDialog
+          open={propertiesOpen}
+          source={source}
+          hasProject={hasProject}
+          onOpenChange={setPropertiesOpen}
+          onSaved={saveSource}
+        />
+      )}
+      {quickDoc && (
+        <QuickDoc
+          open
+          target={quickDoc.target}
+          object={quickDoc.object}
+          onOpenChange={(open) => {
+            if (!open) setQuickDoc(null);
+          }}
+        />
+      )}
     </>
   );
 }

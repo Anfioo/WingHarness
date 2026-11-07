@@ -360,7 +360,6 @@ export function ResultGrid(props: ResultGridProps) {
         t("database.result.pastePartial", {
           written,
           total,
-          defaultValue: "Only {{written}} of {{total}} cells fit and were pasted.",
         })
       );
     }
