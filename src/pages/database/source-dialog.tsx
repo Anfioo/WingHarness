@@ -241,16 +241,9 @@ export function SourceDialog({
     setTesting(true);
     try {
       const version = await dbSourceTest(candidate, password || null);
-      toast.success(
-        t("database.test.success", { version, defaultValue: "Connected: {{version}}" })
-      );
+      toast.success(t("database.test.success", { version }));
     } catch (failure) {
-      toast.error(
-        t("database.test.failed", {
-          error: describeFailure(failure),
-          defaultValue: "Could not connect: {{error}}",
-        })
-      );
+      toast.error(t("database.test.failed", { error: describeFailure(failure) }));
     } finally {
       setTesting(false);
     }
@@ -283,16 +276,9 @@ export function SourceDialog({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
-            {editing
-              ? t("database.form.editTitle", { defaultValue: "Edit data source" })
-              : t("database.form.createTitle", { defaultValue: "Add data source" })}
+            {editing ? t("database.form.editTitle") : t("database.form.createTitle")}
           </DialogTitle>
-          <DialogDescription>
-            {t("database.form.description", {
-              defaultValue:
-                "Settings are stored in the data directory. The password is only stored when you ask for it.",
-            })}
-          </DialogDescription>
+          <DialogDescription>{t("database.form.description")}</DialogDescription>
         </DialogHeader>
 
         <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
@@ -304,9 +290,7 @@ export function SourceDialog({
                 value={draft.name}
                 aria-invalid={errors.name ? true : undefined}
                 onChange={(event) => update({ name: event.target.value })}
-                placeholder={t("database.form.namePlaceholder", {
-                  defaultValue: "Local shop database",
-                })}
+                placeholder={t("database.form.namePlaceholder")}
                 autoFocus
               />
               <FieldError message={errors.name} />
@@ -354,16 +338,10 @@ export function SourceDialog({
               <Label htmlFor="database-form-global">{t("database.form.scope")}</Label>
               <p className="text-muted-foreground text-xs">
                 {draft.global
-                  ? t("database.form.scopeGlobalHint", {
-                      defaultValue: "Listed in every project.",
-                    })
+                  ? t("database.form.scopeGlobalHint")
                   : hasProject
-                    ? t("database.form.scopeProjectHint", {
-                        defaultValue: "Listed only in the project that is open.",
-                      })
-                    : t("database.form.scopeNeedsProject", {
-                        defaultValue: "No project is open, so this data source is app-wide.",
-                      })}
+                    ? t("database.form.scopeProjectHint")
+                    : t("database.form.scopeNeedsProject")}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -396,18 +374,14 @@ export function SourceDialog({
                 <Button
                   type="button"
                   variant="secondary"
-                  aria-label={t("database.form.fileBrowse", { defaultValue: "Browse" })}
-                  title={t("database.form.fileBrowse", { defaultValue: "Browse" })}
+                  aria-label={t("database.form.fileBrowse")}
+                  title={t("database.form.fileBrowse")}
                   onClick={() => void browseFile()}
                 >
                   <FolderOpen />
                 </Button>
               </div>
-              <p className="text-muted-foreground text-xs">
-                {t("database.form.fileHint", {
-                  defaultValue: "A relative path resolves against the project root.",
-                })}
-              </p>
+              <p className="text-muted-foreground text-xs">{t("database.form.fileHint")}</p>
               <FieldError message={errors.file} />
             </div>
           ) : (
@@ -431,9 +405,7 @@ export function SourceDialog({
                     value={draft.url}
                     aria-invalid={errors.url ? true : undefined}
                     onChange={(event) => update({ url: event.target.value })}
-                    placeholder={t("database.form.urlPlaceholder", {
-                      defaultValue: "postgres://user:password@host:5432/database",
-                    })}
+                    placeholder={t("database.form.urlPlaceholder")}
                     spellCheck={false}
                   />
                   <FieldError message={errors.url} />
@@ -498,11 +470,7 @@ export function SourceDialog({
                     autoComplete="new-password"
                     className="pr-10"
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder={
-                      draft.savePassword
-                        ? t("database.form.passwordSaved", { defaultValue: "Stored password" })
-                        : undefined
-                    }
+                    placeholder={draft.savePassword ? t("database.form.passwordSaved") : undefined}
                   />
                   <Button
                     type="button"
@@ -511,8 +479,8 @@ export function SourceDialog({
                     className="absolute top-1/2 right-1.5 -translate-y-1/2"
                     aria-label={
                       showPassword
-                        ? t("database.form.hidePassword", { defaultValue: "Hide password" })
-                        : t("database.form.showPassword", { defaultValue: "Show password" })
+                        ? t("database.form.hidePassword")
+                        : t("database.form.showPassword")
                     }
                     onClick={() => setShowPassword((current) => !current)}
                   >
@@ -530,10 +498,7 @@ export function SourceDialog({
                   </Label>
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  {t("database.form.savePasswordHint", {
-                    defaultValue:
-                      "Without this, the password is kept in memory for this session only.",
-                  })}
+                  {t("database.form.savePasswordHint")}
                 </p>
               </div>
             </>
