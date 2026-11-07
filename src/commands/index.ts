@@ -721,6 +721,18 @@ export {
   emptyDataSource,
   isDatabaseError,
 } from "./services/database/types";
+export {
+  dbProjectQueries,
+  dbProjectQueryRead,
+  dbProjectQueryWrite,
+  dbProjectSaveSettings,
+  dbProjectSettings,
+  dbProjectSourceList,
+  dbProjectSourceSave,
+  dbScopeOf,
+  newProjectSourceId,
+} from "./services/database/project";
+export type { DbScope } from "./services/database";
 export type {
   CellValue,
   ColumnInfo,

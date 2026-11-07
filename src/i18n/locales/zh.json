@@ -1098,6 +1098,55 @@
       "ignored": "已忽略"
     }
   },
+  "projectDb": {
+    "activityTitle": "项目数据库",
+    "sqlEditor": "SQL 编辑器",
+    "panel": {
+      "title": "数据库",
+      "addSource": "添加数据源",
+      "refresh": "刷新数据源",
+      "collapseAll": "全部收起",
+      "emptyTitle": "还没有数据源",
+      "emptyDescription": "添加一个数据源，即可浏览本项目的数据库并对它执行 SQL。"
+    },
+    "source": {
+      "actions": "数据源操作",
+      "connect": "连接",
+      "disconnect": "断开",
+      "connected": "已连接",
+      "connecting": "连接中…",
+      "error": "连接失败",
+      "disconnected": "未连接",
+      "newQuery": "新建查询",
+      "openQuery": "打开查询…",
+      "refresh": "刷新对象",
+      "edit": "编辑数据源…",
+      "duplicate": "复制",
+      "delete": "删除",
+      "deleteTitle": "删除数据源",
+      "deleteDescription": "将从本项目的数据源列表中移除「{{name}}」，数据库本身不受影响。"
+    },
+    "sql": {
+      "sourceLabel": "数据源",
+      "noSource": "未选择数据源",
+      "noSourceHint": "选择一个数据源后才能执行这条查询。",
+      "saving": "保存中…",
+      "saved": "已保存到项目",
+      "conflict": "此文件在打开后已被外部修改。",
+      "reload": "重新载入",
+      "overwrite": "覆盖保存"
+    },
+    "results": {
+      "empty": "执行语句后，结果会显示在这里。",
+      "close": "关闭结果"
+    },
+    "error": {
+      "noProject": "尚未配置项目根目录。",
+      "openSettings": "打开设置",
+      "loadSources": "无法读取项目数据源：{{error}}",
+      "saveSources": "无法保存项目数据源：{{error}}"
+    }
+  },
   "filePreview": {
     "title": "文件预览",
     "treeTitle": "项目",

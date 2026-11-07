@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import {
   databaseErrorCode,
+  dbScopeOf,
   dbSourceList,
   saveTextFile,
   type DbDriver,
@@ -148,7 +149,7 @@ function TabResultView(props: {
   // the neutral driver is a safe fallback when the list cannot be read.
   useEffect(() => {
     let live = true;
-    dbSourceList()
+    dbSourceList(dbScopeOf(sourceId))
       .then((sources) => {
         if (!live) return;
         const found = sources.find((source) => source.id === sourceId)?.driver;
