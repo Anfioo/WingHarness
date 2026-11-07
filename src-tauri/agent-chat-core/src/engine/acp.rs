@@ -1,7 +1,7 @@
 //! ACP driver: one send = one `qodercli --acp` child speaking JSON-RPC over
 //! stdio.
 //!
-//! Adapted from desktop-cc-gui (MIT), https://github.com/zhukunpenglinyutong/ccgui-next.
+//! Adapted from desktop-cc-gui (MIT), https://github.com/zhukunpenglinyutong/desktop-cc-gui.
 //! Copyright (c) 2026 zhukunpenglinyutong
 //! Licensed under the MIT License. See licenses/desktop-cc-gui-LICENSE.txt.
 //!
