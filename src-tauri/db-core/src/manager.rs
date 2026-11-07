@@ -18,7 +18,7 @@ use crate::conn::{self, Held, Pool, QueryResult, ResultColumn};
 use crate::error::{DbError, DbResult};
 use crate::history::{HistoryEntry, HistoryStore};
 use crate::models::{
-    CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, SortKey, StatementOutcome, TablePage,
+    CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, PlanNode, SortKey, StatementOutcome, TablePage,
 };
 use crate::objects::{
     self, ColumnInfo, Databases, DbObjectKind, DbTableKind, ForeignKey, IndexInfo, RoutineInfo, SchemaObjects,
@@ -833,6 +833,12 @@ impl DbManager {
             }
         }
         Ok(out)
+    }
+
+    /// The execution plan of `statement`, as the tree the Plan tab renders.
+    pub async fn explain(&self, id: &str, statement: &str) -> DbResult<Vec<PlanNode>> {
+        let _ = (id, statement);
+        Err(DbError::internal("not implemented"))
     }
 }
 
