@@ -1,10 +1,12 @@
 import {
-  Fragment,
   useCallback,
   useEffect,
+  useImperativeHandle,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 import {
   AlertTriangle,
@@ -14,11 +16,15 @@ import {
   Database as DatabaseIcon,
   Eye,
   FolderClosed,
+  KeyRound,
+  Link2,
   ListOrdered,
+  ListTree,
   Loader2,
   RefreshCw,
   SquareFunction,
   Table2,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,11 +42,14 @@ import type {
   DataSourceView,
   Databases,
   DbTableKind,
+  ForeignKey,
+  IndexInfo,
   RoutineInfo,
   SchemaObjects,
   SequenceInfo,
   TableDetails,
   TableInfo,
+  TriggerInfo,
 } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,31 +64,37 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { ImportDialog } from "./import-dialog";
 import { ObjectDialog, dialogKey, type ObjectDialogState } from "./object-dialogs";
-import { scriptSql, type DbObjectRef, type ScriptKind } from "./object-sql";
+import { reference, scriptSql, type DbObjectRef, type ScriptKind } from "./object-sql";
+import { tabKey, useDatabaseStore } from "./store";
 import {
-  SCRIPT_ITEM_PREFIX,
   buildTreeMenu,
+  objectOf,
+  type TreeFolder,
   type TreeMenuItem,
   type TreeMenuHandlers,
   type TreeMenuTarget,
 } from "./tree-menu";
 import {
+  foreignKeyLabel,
+  groupSize,
+  groupsOf,
+  indexLabel,
   listsDatabases,
   objectFilterOf,
   passesObjectFilter,
   selectSql,
   shownDatabases,
   shownSchemas,
+  splitTarget,
   targetOf,
   type Loaded,
+  type TreeGroup,
+  type TreeSelection,
 } from "./tree-model";
-import { useDatabaseTabs } from "./window-tabs";
 
-/** IDEA's folders under a schema. */
-type Folder = "tables" | "views" | "materializedViews" | "routines" | "sequences";
-
-const FOLDERS: readonly Folder[] = [
+const FOLDERS: readonly TreeFolder[] = [
   "tables",
   "views",
   "materializedViews",
@@ -93,11 +108,55 @@ type TreeNode =
   | { kind: "source"; key: string }
   | { kind: "database"; key: string; id: string; name: string; current: boolean }
   | { kind: "schema"; key: string; id: string; schema: string }
-  | { kind: "folder"; key: string; id: string; schema: string; folder: Folder }
+  | { kind: "folder"; key: string; id: string; schema: string; folder: TreeFolder }
   | { kind: "table"; key: string; id: string; schema: string; table: TableInfo }
+  | {
+      kind: "group";
+      key: string;
+      id: string;
+      schema: string;
+      table: string;
+      view: boolean;
+      group: TreeGroup;
+    }
+  | {
+      kind: "column";
+      key: string;
+      id: string;
+      schema: string;
+      table: string;
+      view: boolean;
+      column: ColumnInfo;
+    }
+  | {
+      kind: "index";
+      key: string;
+      id: string;
+      schema: string;
+      table: string;
+      view: boolean;
+      index: IndexInfo;
+    }
+  | {
+      kind: "foreignKey";
+      key: string;
+      id: string;
+      schema: string;
+      table: string;
+      view: boolean;
+      foreignKey: ForeignKey;
+    }
+  | {
+      kind: "trigger";
+      key: string;
+      id: string;
+      schema: string;
+      table: string;
+      view: boolean;
+      trigger: TriggerInfo;
+    }
   | { kind: "routine"; key: string; id: string; schema: string; routine: RoutineInfo }
   | { kind: "sequence"; key: string; id: string; schema: string; sequence: SequenceInfo }
-  | { kind: "column"; key: string; id: string; schema: string; table: string; column: ColumnInfo }
   | { kind: "message"; key: string; text: string; error?: boolean; loading?: boolean };
 
 const relationsKey = (target: string, schema: string) => `${target}\u0000${schema}`;
@@ -119,84 +178,106 @@ function isExpandable(node: TreeNode): boolean {
     case "schema":
     case "folder":
     case "table":
+    case "group":
       return true;
     default:
       return false;
   }
 }
 
-function tableKindOf(folder: Folder): DbTableKind {
+function tableKindOf(folder: TreeFolder): DbTableKind {
   if (folder === "views") return "view";
   if (folder === "materializedViews") return "materializedView";
   return "table";
 }
 
-/**
- * Renders a flat menu, folding the `script.` entries into the SQL Scripts
- * submenu that follows the Definition item.
- */
+/** Renders a menu, recursing into submenus. */
 function TreeMenuList({ items }: { items: TreeMenuItem[] }) {
-  const { t } = useAppTranslation();
-  const scripts = items.filter((item) => item.id.startsWith(SCRIPT_ITEM_PREFIX));
-  const others = items.filter((item) => !item.id.startsWith(SCRIPT_ITEM_PREFIX));
-
   return (
     <>
-      {others.map((item, index) => (
-        <Fragment key={item.id}>
-          {(item.id === "drop" || item.id === "refresh") && index > 0 && <ContextMenuSeparator />}
+      {items.map((item) =>
+        item.separator ? (
+          <ContextMenuSeparator key={item.id} />
+        ) : item.children && item.children.length > 0 ? (
+          <ContextMenuSub key={item.id}>
+            <ContextMenuSubTrigger disabled={item.disabled}>{item.label}</ContextMenuSubTrigger>
+            <ContextMenuSubContent className="w-56">
+              <TreeMenuList items={item.children} />
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        ) : (
           <ContextMenuItem
+            key={item.id}
             disabled={item.disabled}
             variant={item.destructive ? "destructive" : "default"}
             onSelect={() => item.run()}
           >
             {item.label}
           </ContextMenuItem>
-          {item.id === "ddl" && scripts.length > 0 && (
-            <ContextMenuSub>
-              <ContextMenuSubTrigger>{t("database.object.scripts")}</ContextMenuSubTrigger>
-              <ContextMenuSubContent>
-                {scripts.map((entry) => (
-                  <ContextMenuItem
-                    key={entry.id}
-                    disabled={entry.disabled}
-                    onSelect={() => entry.run()}
-                  >
-                    {entry.label}
-                  </ContextMenuItem>
-                ))}
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-          )}
-        </Fragment>
-      ))}
+        )
+      )}
     </>
   );
 }
 
-/**
- * The object tree of one data source: databases (PostgreSQL), schemas, folders
- * of tables / views / routines / sequences, and a table's columns.
- *
- * Every level loads the first time it is expanded; Refresh re-reads every level
- * that is already loaded and keeps the expanded nodes. Double-clicking a table
- * opens it in a tab, Ctrl+double-click pastes a `SELECT` into the console, and
- * the context menu holds the object's management actions. Every action shows
- * the SQL it will run, and the preview is the confirmation.
- */
-export function ObjectTree({
-  source,
-  enabled,
-  onInsertSelect,
-}: {
+export type ObjectTreeProps = {
   source: DataSourceView;
   /** The console is connected; introspection needs a pool. */
   enabled: boolean;
   /** `target` is the connection the table lives on (`<id>` or `<id>:<database>`). */
   onInsertSelect: (target: string, sql: string) => void;
-}) {
+  /** Double-clicking a table opens its data tab. */
+  onOpenTable?: (target: string, schema: string, table: string) => void;
+  /** Navigation › Go to DDL; takes over the built-in definition dialog. */
+  onShowDdl?: (target: string, schema: string, object: DbObjectRef) => void;
+  onQuickDoc?: (target: string, object: DbObjectRef, anchor: { x: number; y: number }) => void;
+  /** Called after the tree refreshed a node from the catalog. */
+  onRefresh?: () => void;
+  /** The selected node, or null when nothing selectable is selected. */
+  onSelect?: (selection: TreeSelection | null) => void;
+  /** Context menu › Disconnect; absent leaves the entry disabled. */
+  onDisconnect?: (target: string) => void;
+};
+
+/** What the window's toolbar may ask the tree to do. */
+export type ObjectTreeHandle = {
+  /** Re-reads the whole tree from the catalog. */
+  refresh(): void;
+  /** Opens the New Table dialog for the selected node's schema. */
+  newTable(): void;
+};
+
+/**
+ * The object tree of one data source: databases (PostgreSQL), schemas, folders
+ * of tables / views / routines / sequences, and — under a table — the five
+ * groups of its definition.
+ *
+ * Every level loads the first time it is expanded; Refresh re-reads the node it
+ * was invoked on. Double-clicking a table opens it in a data tab,
+ * Ctrl+double-click pastes a `SELECT` into the console, and the context menu
+ * holds the object's management actions. Every action shows the SQL it will
+ * run, and the preview is the confirmation.
+ */
+export function ObjectTree({
+  source,
+  enabled,
+  onInsertSelect,
+  onOpenTable,
+  onShowDdl,
+  onQuickDoc,
+  onRefresh,
+  onSelect,
+  onDisconnect,
+  ref,
+}: ObjectTreeProps & { ref?: Ref<ObjectTreeHandle> }): ReactNode {
   const { t } = useAppTranslation();
-  const { openConsole, openTable } = useDatabaseTabs();
+  const openQuery = useDatabaseStore((state) => state.openQuery);
+  const selectTab = useDatabaseStore((state) => state.select);
+  const firstQueryKey = useDatabaseStore((state) => {
+    const tab = state.tabs.find((entry) => entry.kind === "query");
+    return tab ? tabKey(tab) : null;
+  });
+
   const sourceId = source.id;
   const showDatabases = listsDatabases(source);
 
@@ -207,11 +288,30 @@ export function ObjectTree({
   const [relations, setRelations] = useState<Record<string, Loaded<TableInfo[]>>>({});
   /** Same key as `relations` → its routines and sequences. */
   const [objects, setObjects] = useState<Record<string, SchemaObjects>>({});
-  /** `${target}\u0000${schema}\u0000${table}` → its columns and keys. */
+  /** `${target}\u0000${schema}\u0000${table}` → its columns, keys, indexes and triggers. */
   const [details, setDetails] = useState<Record<string, Loaded<TableDetails>>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [dialog, setDialog] = useState<ObjectDialogState | null>(null);
+  const [importing, setImporting] = useState<{
+    target: string;
+    schema: string;
+    table: string;
+    columns: string[];
+  } | null>(null);
+
+  /** Where the last context menu opened, for the documentation popup. */
+  const menuAnchor = useRef({ x: 0, y: 0 });
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+  /** The selection the toolbar acts on; kept in a ref, not in render state. */
+  const selected = useRef<TreeSelection | null>(null);
+  /** The node last clicked, which still names a schema when it is not selectable. */
+  const lastNode = useRef<TreeMenuTarget | null>(null);
+  const emitSelection = useCallback((selection: TreeSelection | null) => {
+    selected.current = selection;
+    onSelectRef.current?.(selection);
+  }, []);
 
   const describeFailure = useCallback(
     (failure: unknown) => {
@@ -275,20 +375,30 @@ export function ObjectTree({
   );
 
   const loadDetails = useCallback(
-    async (target: string, schema: string, table: string) => {
+    async (target: string, schema: string, table: string): Promise<TableDetails | null> => {
       const key = detailsKey(target, schema, table);
       setDetails((current) => ({ ...current, [key]: { status: "loading" } }));
       try {
         const value = await dbTableDetails(target, schema, table);
         setDetails((current) => ({ ...current, [key]: { status: "ok", value } }));
+        return value;
       } catch (failure) {
         setDetails((current) => ({
           ...current,
           [key]: { status: "error", message: describeFailure(failure) },
         }));
+        return null;
       }
     },
     [describeFailure]
+  );
+
+  const detailsFor = useCallback(
+    (target: string, schema: string, table: string): TableDetails | null => {
+      const loaded = details[detailsKey(target, schema, table)];
+      return loaded?.status === "ok" ? loaded.value : null;
+    },
+    [details]
   );
 
   // The first level loads as soon as there is a pool; a disconnect clears the
@@ -301,7 +411,9 @@ export function ObjectTree({
     setObjects({});
     setDetails({});
     setExpanded(new Set());
-  }, [enabled]);
+    lastNode.current = null;
+    emitSelection(null);
+  }, [emitSelection, enabled]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -347,15 +459,25 @@ export function ObjectTree({
   const insertSql = useCallback(
     (target: string, sql: string) => {
       onInsertSelect(target, sql);
-      openConsole();
     },
-    [onInsertSelect, openConsole]
+    [onInsertSelect]
   );
+
+  const openNewQuery = useCallback(() => {
+    openQuery().catch((failure: unknown) => toast.error(describeFailure(failure)));
+  }, [describeFailure, openQuery]);
+
+  /** IDEA's "Jump to Query Console": focus a query tab, creating one when none is open. */
+  const jumpToConsole = useCallback(() => {
+    if (firstQueryKey) selectTab(firstQueryKey);
+    else openNewQuery();
+  }, [firstQueryKey, openNewQuery, selectTab]);
 
   const insertScript = useCallback(
     async (target: string, kind: ScriptKind, schema: string, table: string) => {
       try {
-        const details = await dbTableDetails(target, schema, table);
+        const details =
+          detailsFor(target, schema, table) ?? (await dbTableDetails(target, schema, table));
         // ClickHouse rewrites only non-sorting-key columns; with none there is
         // nothing the template could set.
         if (
@@ -371,84 +493,275 @@ export function ObjectTree({
         toast.error(describeFailure(failure));
       }
     },
-    [describeFailure, insertSql, source.driver, t]
+    [describeFailure, detailsFor, insertSql, source.driver, t]
+  );
+
+  /** The DDL of a node: one object, or every relation a schema / folder holds. */
+  const ddlOf = useCallback(
+    async (node: TreeMenuTarget): Promise<string | null> => {
+      switch (node.kind) {
+        case "table":
+          return dbDdl(node.id, node.schema, node.table.name);
+        case "group":
+        case "column":
+        case "index":
+        case "foreignKey":
+          return dbDdl(node.id, node.schema, node.table);
+        case "trigger":
+          return dbObjectDdl(node.id, node.schema, "trigger", node.trigger.name);
+        case "routine":
+          return dbObjectDdl(node.id, node.schema, node.routine.kind, node.routine.name);
+        case "sequence":
+          return dbObjectDdl(node.id, node.schema, "sequence", node.name);
+        case "schema":
+        case "folder": {
+          const key = relationsKey(node.id, node.schema);
+          const loaded = relations[key];
+          const tables =
+            loaded?.status === "ok" ? loaded.value : await dbTables(node.id, node.schema);
+          const kind = node.kind === "folder" ? tableKindOf(node.folder) : null;
+          const picked =
+            node.kind === "schema" ? tables : tables.filter((table) => table.kind === kind);
+          // Tables before views: views select from them.
+          picked.sort((a, b) => Number(a.kind !== "table") - Number(b.kind !== "table"));
+          const parts: string[] = [];
+          for (const table of picked) parts.push(await dbDdl(node.id, node.schema, table.name));
+          if (node.kind === "folder" && node.folder === "routines") {
+            for (const routine of objects[key]?.routines ?? []) {
+              parts.push(await dbObjectDdl(node.id, node.schema, routine.kind, routine.name));
+            }
+          }
+          if (node.kind === "folder" && node.folder === "sequences") {
+            for (const sequence of objects[key]?.sequences ?? []) {
+              parts.push(await dbObjectDdl(node.id, node.schema, "sequence", sequence.name));
+            }
+          }
+          return parts.length ? parts.join("\n") : null;
+        }
+        default:
+          return null;
+      }
+    },
+    [objects, relations]
   );
 
   const showDdl = useCallback(
-    async (target: string, schema: string, object: DbObjectRef) => {
+    async (node: TreeMenuTarget) => {
+      const object = objectOf(node);
+      if (object && onShowDdl) {
+        onShowDdl(node.id, "schema" in node ? node.schema : "", object);
+        return;
+      }
       const toastId = toast.loading(t("database.tree.loading"));
       try {
-        let sql: string;
-        switch (object.kind) {
-          case "function":
-          case "procedure":
-          case "trigger":
-          case "sequence":
-            sql = await dbObjectDdl(target, schema, object.kind, object.name);
-            break;
-          default:
-            sql = await dbDdl(target, schema, object.name);
-        }
+        const sql = await ddlOf(node);
         toast.dismiss(toastId);
-        setDialog({ kind: "ddl", target, sql });
+        if (sql) setDialog({ kind: "ddl", target: node.id, sql });
+        else toast.error(t("database.ddl.failed", { error: t("database.tree.empty") }));
       } catch (failure) {
         toast.dismiss(toastId);
         toast.error(t("database.ddl.failed", { error: describeFailure(failure) }));
       }
     },
-    [describeFailure, t]
+    [ddlOf, describeFailure, onShowDdl, t]
   );
 
-  const menuTargetOf = (node: TreeNode): TreeMenuTarget | null => {
-    const driver = source.driver;
-    switch (node.kind) {
-      case "source":
-        return { kind: "source", id: sourceId, driver };
-      case "database":
-        return {
-          kind: "database",
-          id: node.id,
-          driver,
-          name: node.name,
-          current: node.current,
-        };
-      case "schema":
-        return { kind: "schema", id: node.id, driver, schema: node.schema };
-      case "folder":
-        return { kind: "folder", id: node.id, driver, schema: node.schema };
-      case "table":
-        return { kind: "table", id: node.id, driver, schema: node.schema, table: node.table };
-      case "routine":
-        return {
-          kind: "routine",
-          id: node.id,
-          driver,
-          schema: node.schema,
-          routine: node.routine,
-        };
-      case "sequence":
-        return {
-          kind: "sequence",
-          id: node.id,
-          driver,
-          schema: node.schema,
-          name: node.sequence.name,
-        };
-      default:
-        return null;
-    }
-  };
+  const ddlToClipboard = useCallback(
+    async (node: TreeMenuTarget) => {
+      const toastId = toast.loading(t("database.tree.loading"));
+      try {
+        const sql = await ddlOf(node);
+        toast.dismiss(toastId);
+        if (!sql) {
+          toast.error(t("database.ddl.failed", { error: t("database.tree.empty") }));
+          return;
+        }
+        await navigator.clipboard.writeText(sql);
+        toast.success(t("database.ddl.copied"));
+      } catch (failure) {
+        toast.dismiss(toastId);
+        toast.error(t("database.ddl.failed", { error: describeFailure(failure) }));
+      }
+    },
+    [ddlOf, describeFailure, t]
+  );
+
+  const ddlToConsole = useCallback(
+    async (node: TreeMenuTarget) => {
+      const toastId = toast.loading(t("database.tree.loading"));
+      try {
+        const sql = await ddlOf(node);
+        toast.dismiss(toastId);
+        if (sql) insertSql(node.id, sql);
+        else toast.error(t("database.ddl.failed", { error: t("database.tree.empty") }));
+      } catch (failure) {
+        toast.dismiss(toastId);
+        toast.error(t("database.ddl.failed", { error: describeFailure(failure) }));
+      }
+    },
+    [ddlOf, describeFailure, insertSql, t]
+  );
+
+  const copyReference = useCallback(
+    async (node: TreeMenuTarget) => {
+      const object = objectOf(node);
+      const text =
+        node.kind === "source"
+          ? source.name
+          : node.kind === "database"
+            ? node.name
+            : object
+              ? reference(source.driver, object)
+              : null;
+      if (text === null) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.success(t("database.ddl.copied"));
+      } catch {
+        toast.error(t("database.grid.copyFailed"));
+      }
+    },
+    [source.driver, source.name, t]
+  );
+
+  /** Expands the tree down to a table another node refers to. */
+  const revealTable = useCallback(
+    async (target: string, schema: string, table: string) => {
+      const database = splitTarget(target).database;
+      const parent = database ? `source:${sourceId}/db/${database}` : `source:${sourceId}`;
+      const schemaKey = `${parent}/schema/${schema}`;
+      const key = relationsKey(target, schema);
+      const loaded = relations[key];
+      const list = loaded?.status === "ok" ? loaded.value : await dbTables(target, schema);
+      if (loaded?.status !== "ok") {
+        setRelations((current) => ({ ...current, [key]: { status: "ok", value: list } }));
+      }
+      const found = list.find((entry) => entry.name === table);
+      const folder: TreeFolder =
+        found?.kind === "view"
+          ? "views"
+          : found?.kind === "materializedView"
+            ? "materializedViews"
+            : "tables";
+      setExpanded((current) => new Set(current).add(schemaKey).add(`${schemaKey}/${folder}`));
+      emitSelection({
+        target,
+        schema,
+        name: table,
+        kind: found?.kind === "view" || found?.kind === "materializedView" ? "view" : "table",
+        object: {
+          kind: found?.kind ?? "table",
+          schema,
+          name: table,
+        },
+      });
+    },
+    [emitSelection, relations, sourceId]
+  );
+
+  /** Refresh of one node: a table drops only its own cached details. */
+  const refreshTarget = useCallback(
+    async (node: TreeMenuTarget) => {
+      switch (node.kind) {
+        case "table":
+        case "group":
+        case "column":
+        case "index":
+        case "foreignKey":
+        case "trigger": {
+          const table = node.kind === "table" ? node.table.name : node.table;
+          const key = detailsKey(node.id, node.schema, table);
+          setDetails((current) => {
+            const next = { ...current };
+            delete next[key];
+            return next;
+          });
+          await loadDetails(node.id, node.schema, table);
+          break;
+        }
+        case "source":
+          await refresh();
+          break;
+        case "database":
+          await loadSchemas(node.id);
+          break;
+        default:
+          await loadRelations(node.id, node.schema);
+          break;
+      }
+      onRefresh?.();
+    },
+    [loadDetails, loadRelations, loadSchemas, onRefresh, refresh]
+  );
+
+  const importData = useCallback(
+    async (target: string, schema: string, table: string) => {
+      const value = detailsFor(target, schema, table) ?? (await loadDetails(target, schema, table));
+      setImporting({
+        target,
+        schema,
+        table,
+        columns: value?.columns.map((column) => column.name) ?? [],
+      });
+    },
+    [detailsFor, loadDetails]
+  );
 
   const menuHandlers: TreeMenuHandlers = {
+    newQuery: openNewQuery,
     newTable: (target, schema) => setDialog({ kind: "newTable", target, schema }),
+    newColumn: (target, schema, table) => setDialog({ kind: "modify", target, schema, table }),
+    modify: (target, schema, table) => setDialog({ kind: "modify", target, schema, table }),
     rename: (target, object) => setDialog({ kind: "rename", target, object }),
     drop: (target, object) => setDialog({ kind: "drop", target, object }),
     truncate: (target, schema, table) => setDialog({ kind: "truncate", target, schema, table }),
-    modify: (target, schema, table) => setDialog({ kind: "modify", target, schema, table }),
-    showDdl,
+    refresh: (target) => void refreshTarget(target),
+    disconnect: onDisconnect,
+    showDdl: (target) => void showDdl(target),
+    ddlToClipboard: (target) => void ddlToClipboard(target),
+    ddlToConsole: (target) => void ddlToConsole(target),
     script: (target, kind, schema, table) => void insertScript(target, kind, schema, table),
-    refresh: () => void refresh(),
+    copyReference: (target) => void copyReference(target),
+    jumpToConsole: () => jumpToConsole(),
+    quickDoc: onQuickDoc
+      ? (target) => {
+          const object = objectOf(target);
+          if (object) onQuickDoc(target.id, object, menuAnchor.current);
+        }
+      : undefined,
+    editData: onOpenTable
+      ? (target, schema, table) => {
+          onOpenTable(target, schema, table);
+        }
+      : undefined,
+    goToReferencedTable: (target) => {
+      if (target.kind === "foreignKey") {
+        void revealTable(target.id, target.foreignKey.refSchema, target.foreignKey.refTable);
+      }
+    },
+    importData: (target, schema, table) => void importData(target, schema, table),
   };
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh() {
+        void refresh();
+      },
+      newTable() {
+        const node = lastNode.current;
+        if (node && "schema" in node) {
+          setDialog({ kind: "newTable", target: node.id, schema: node.schema });
+          return;
+        }
+        const selection = selected.current;
+        if (selection) {
+          setDialog({ kind: "newTable", target: selection.target, schema: selection.schema });
+        }
+      },
+    }),
+    [refresh]
+  );
 
   const ensureChildren = (node: TreeNode) => {
     switch (node.kind) {
@@ -509,7 +822,7 @@ export function ObjectTree({
   const folderSize = (
     tables: readonly TableInfo[],
     schemaObjects: SchemaObjects,
-    folder: Folder,
+    folder: TreeFolder,
     visible: (name: string) => boolean
   ): number => {
     if (folder === "routines")
@@ -599,17 +912,68 @@ export function ObjectTree({
         const loaded = details[detailsKey(node.id, node.schema, node.table.name)];
         if (!loaded || loaded.status === "loading") return [loadingNode(node.key)];
         if (loaded.status === "error") return [messageNode(node.key, loaded.message, true)];
-        if (loaded.value.columns.length === 0) {
-          return [messageNode(node.key, t("database.tree.emptyColumns"))];
-        }
-        return loaded.value.columns.map((column) => ({
-          kind: "column" as const,
-          key: `${node.key}/${column.name}`,
+        const groups = groupsOf(loaded.value);
+        if (groups.length === 0) return [messageNode(node.key, t("database.tree.emptyColumns"))];
+        return groups.map((group) => ({
+          kind: "group" as const,
+          key: `${node.key}/${group}`,
           id: node.id,
           schema: node.schema,
           table: node.table.name,
-          column,
+          view: node.table.kind !== "table",
+          group,
         }));
+      }
+      case "group": {
+        const value = detailsFor(node.id, node.schema, node.table);
+        if (!value) return [];
+        const columnsOf = (columns: ColumnInfo[]): TreeNode[] =>
+          columns.map((column) => ({
+            kind: "column" as const,
+            key: `${node.key}/${column.name}`,
+            id: node.id,
+            schema: node.schema,
+            table: node.table,
+            view: node.view,
+            column,
+          }));
+        switch (node.group) {
+          case "columns":
+            return columnsOf(value.columns);
+          case "primaryKeys":
+            return columnsOf(value.columns.filter((column) => column.primaryKey));
+          case "foreignKeys":
+            return value.foreignKeys.map((foreignKey, position) => ({
+              kind: "foreignKey" as const,
+              key: `${node.key}/${position}`,
+              id: node.id,
+              schema: node.schema,
+              table: node.table,
+              view: node.view,
+              foreignKey,
+            }));
+          case "indexes":
+            return value.indexes.map((index, position) => ({
+              kind: "index" as const,
+              key: `${node.key}/${position}`,
+              id: node.id,
+              schema: node.schema,
+              table: node.table,
+              view: node.view,
+              index,
+            }));
+          case "triggers":
+            return value.triggers.map((trigger, position) => ({
+              kind: "trigger" as const,
+              key: `${node.key}/${position}`,
+              id: node.id,
+              schema: node.schema,
+              table: node.table,
+              view: node.view,
+              trigger,
+            }));
+        }
+        return [];
       }
       default:
         return [];
@@ -628,12 +992,20 @@ export function ObjectTree({
         return t(`database.tree.folder.${node.folder}`);
       case "table":
         return node.table.name;
+      case "group":
+        return t(`database.tree.group.${node.group}`);
+      case "column":
+        return node.column.name;
+      case "index":
+        return indexLabel(node.index);
+      case "foreignKey":
+        return foreignKeyLabel(node.foreignKey);
+      case "trigger":
+        return node.trigger.name;
       case "routine":
         return node.routine.name;
       case "sequence":
         return node.sequence.name;
-      case "column":
-        return node.column.name;
       case "message":
         return node.text;
     }
@@ -641,12 +1013,20 @@ export function ObjectTree({
 
   const detailOf = (node: TreeNode): string | undefined => {
     switch (node.kind) {
+      case "group": {
+        const value = detailsFor(node.id, node.schema, node.table);
+        return value ? String(groupSize(value, node.group)) : undefined;
+      }
+      case "column":
+        return node.column.primaryKey ? `${node.column.dataType} · PK` : node.column.dataType;
+      case "index":
+        return node.index.columns.join(", ") || undefined;
+      case "trigger":
+        return `${node.trigger.timing} ${node.trigger.events}`.trim() || undefined;
       case "routine":
         return `(${node.routine.arguments})${node.routine.returns ? `: ${node.routine.returns}` : ""}`;
       case "sequence":
         return node.sequence.dataType;
-      case "column":
-        return node.column.primaryKey ? `${node.column.dataType} · PK` : node.column.dataType;
       default:
         return undefined;
     }
@@ -665,10 +1045,20 @@ export function ObjectTree({
         ) : (
           <Eye className="size-3.5 shrink-0" />
         );
-      case "routine":
-        return <SquareFunction className="size-3.5 shrink-0" />;
-      case "sequence":
-        return <ListOrdered className="size-3.5 shrink-0" />;
+      case "group":
+        switch (node.group) {
+          case "columns":
+            return <Columns3 className="size-3.5 shrink-0" />;
+          case "primaryKeys":
+            return <KeyRound className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />;
+          case "foreignKeys":
+            return <Link2 className="size-3.5 shrink-0" />;
+          case "indexes":
+            return <ListTree className="size-3.5 shrink-0" />;
+          case "triggers":
+            return <Zap className="size-3.5 shrink-0" />;
+        }
+        return null;
       case "column":
         return (
           <Columns3
@@ -679,12 +1069,161 @@ export function ObjectTree({
             }
           />
         );
+      case "index":
+        return <ListTree className="size-3.5 shrink-0" />;
+      case "foreignKey":
+        return <Link2 className="size-3.5 shrink-0" />;
+      case "trigger":
+        return <Zap className="size-3.5 shrink-0" />;
+      case "routine":
+        return <SquareFunction className="size-3.5 shrink-0" />;
+      case "sequence":
+        return <ListOrdered className="size-3.5 shrink-0" />;
       case "message":
         return node.loading ? (
           <Loader2 className="size-3 shrink-0 animate-spin" />
         ) : node.error ? (
           <AlertTriangle className="text-destructive size-3 shrink-0" />
         ) : null;
+      default:
+        return null;
+    }
+  };
+
+  const menuTargetOf = (node: TreeNode): TreeMenuTarget | null => {
+    const driver = source.driver;
+    switch (node.kind) {
+      case "source":
+        return { kind: "source", id: sourceId, driver };
+      case "database":
+        return {
+          kind: "database",
+          id: node.id,
+          driver,
+          name: node.name,
+          current: node.current,
+        };
+      case "schema":
+        return { kind: "schema", id: node.id, driver, schema: node.schema };
+      case "folder":
+        return {
+          kind: "folder",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          folder: node.folder,
+        };
+      case "table":
+        return { kind: "table", id: node.id, driver, schema: node.schema, table: node.table };
+      case "group":
+        return {
+          kind: "group",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          table: node.table,
+          view: node.view,
+          group: node.group,
+        };
+      case "column":
+        return {
+          kind: "column",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          table: node.table,
+          view: node.view,
+          column: node.column,
+        };
+      case "index":
+        return {
+          kind: "index",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          table: node.table,
+          view: node.view,
+          index: node.index,
+        };
+      case "foreignKey":
+        return {
+          kind: "foreignKey",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          table: node.table,
+          view: node.view,
+          foreignKey: node.foreignKey,
+        };
+      case "trigger":
+        return {
+          kind: "trigger",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          table: node.table,
+          view: node.view,
+          trigger: node.trigger,
+        };
+      case "routine":
+        return {
+          kind: "routine",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          routine: node.routine,
+        };
+      case "sequence":
+        return {
+          kind: "sequence",
+          id: node.id,
+          driver,
+          schema: node.schema,
+          name: node.sequence.name,
+        };
+      default:
+        return null;
+    }
+  };
+
+  const selectionOf = (node: TreeNode): TreeSelection | null => {
+    switch (node.kind) {
+      case "table": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
+        return {
+          target: node.id,
+          schema: node.schema,
+          name: node.table.name,
+          kind: node.table.kind === "table" ? "table" : "view",
+          object,
+        };
+      }
+      case "routine": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
+        return {
+          target: node.id,
+          schema: node.schema,
+          name: node.routine.name,
+          kind: "routine",
+          object,
+        };
+      }
+      case "sequence": {
+        const target = menuTargetOf(node);
+        const object = target ? objectOf(target) : null;
+        if (!object) return null;
+        return {
+          target: node.id,
+          schema: node.schema,
+          name: node.sequence.name,
+          kind: "sequence",
+          object,
+        };
+      }
       default:
         return null;
     }
@@ -727,7 +1266,14 @@ export function ObjectTree({
               : undefined
         }
         onClick={() => {
+          lastNode.current = menuTargetOf(node);
+          emitSelection(selectionOf(node));
           if (expandable) toggle(node);
+        }}
+        onContextMenu={(event: ReactMouseEvent<HTMLButtonElement>) => {
+          menuAnchor.current = { x: event.clientX, y: event.clientY };
+          lastNode.current = menuTargetOf(node);
+          emitSelection(selectionOf(node));
         }}
         onDoubleClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
           if (node.kind !== "table") return;
@@ -735,7 +1281,7 @@ export function ObjectTree({
             insertSql(node.id, selectSql(source.driver, node.schema, node.table.name));
             return;
           }
-          openTable(node.id, node.schema, node.table.name);
+          onOpenTable?.(node.id, node.schema, node.table.name);
         }}
       >
         {expandable ? (
@@ -767,7 +1313,7 @@ export function ObjectTree({
         {target ? (
           <ContextMenu>
             <ContextMenuTrigger asChild>{trigger}</ContextMenuTrigger>
-            <ContextMenuContent className="w-52">
+            <ContextMenuContent className="w-54">
               <TreeMenuList items={buildTreeMenu(target, (key) => t(key), menuHandlers)} />
             </ContextMenuContent>
           </ContextMenu>
@@ -815,6 +1361,29 @@ export function ObjectTree({
           onClose={() => setDialog(null)}
           onChanged={() => void refresh()}
           onInsertSql={insertSql}
+        />
+      )}
+      {importing && (
+        <ImportDialog
+          open
+          target={importing.target}
+          schema={importing.schema}
+          table={importing.table}
+          columns={importing.columns}
+          onOpenChange={(next) => {
+            if (!next) setImporting(null);
+          }}
+          onImported={(count) => {
+            setImporting(null);
+            toast.success(t("database.table.imported", { count }));
+            void refreshTarget({
+              kind: "table",
+              id: importing.target,
+              driver: source.driver,
+              schema: importing.schema,
+              table: { name: importing.table, kind: "table" },
+            });
+          }}
         />
       )}
     </>

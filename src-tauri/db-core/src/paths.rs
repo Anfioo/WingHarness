@@ -46,6 +46,21 @@ pub fn history(data_dir: &Path) -> PathBuf {
     data_dir.join("history.json")
 }
 
+/// The `.sql` files the workspace's query tabs are backed by.
+pub fn query_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("query")
+}
+
+/// The tabs of every data source window, one entry per source.
+pub fn windows(data_dir: &Path) -> PathBuf {
+    data_dir.join("windows.json")
+}
+
+/// The row limits the console and the table editor remember.
+pub fn settings(data_dir: &Path) -> PathBuf {
+    data_dir.join("settings.json")
+}
+
 /// FNV-1a: stable across runs and platforms, which is all the folder name needs.
 fn hash(value: &str) -> u32 {
     let mut hash: u32 = 0x811c_9dc5;

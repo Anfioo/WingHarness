@@ -15,15 +15,18 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 import { cellPreview } from "./cell-preview";
+import type { GridMenuItem } from "./data-view";
 import { toCsv, toTsv } from "./export";
 import { compareCells, isNumericColumn, type Cell } from "./result-view";
 
@@ -36,13 +39,29 @@ export type ResultGridProps = {
   onChange?: (row: number, column: number, value: string | null) => void;
   /** Row overlays: unchanged | updated | inserted | deleted. */
   rowState?: (row: number) => "unchanged" | "updated" | "inserted" | "deleted";
-  /** Sort keys shown on the header; clicking a header calls this. */
+  /** A cell changed but not yet committed (table editor). */
+  isModified?: (row: number, column: number) => boolean;
+  /** Sort keys shown on the header; clicking a header calls `onSort` (`add`: the user held Shift). */
   sort?: { column: string; descending: boolean }[];
-  onSort?: (column: string) => void;
+  onSort?: (column: string, add: boolean) => void;
   /** Text filter per column, shown in a popover. */
   filter?: (column: string, value: string | null) => boolean;
   onFilterChange?: (column: string, patterns: Set<string> | null) => void;
   onRowDeleted?: (row: number) => void;
+  /** Extra context-menu entries for the selected rows, after the built-in ones. */
+  rowMenu?: (rows: number[]) => GridMenuItem[];
+  /** Search hits, and the one currently stepped to. */
+  isMatch?: (row: number, column: number) => boolean;
+  currentMatch?: { row: number; col: number } | null;
+  /** Ctrl+F / F3 inside the grid. */
+  onFind?: () => void;
+  /** The selection changed (`null`: nothing selected). */
+  onSelectionChange?: (range: GridRange | null) => void;
+  /** The number shown in a row's header; the grid's position in the whole result by default. */
+  rowNumber?: (row: number) => number;
+  /** Rows the column filter lists its values from, when `rows` is already shaped. */
+  filterRows?: (string | null)[][];
+  ariaLabel?: string;
 };
 
 const ROW_H = 28;
@@ -102,6 +121,47 @@ function cellText(value: string, numeric: boolean): string {
 }
 
 /**
+ * A pasted block as a rectangle of cells. Tabs win over commas, so Excel and
+ * a spreadsheet's CSV both land right; without either the text is one cell.
+ * Quotes protect a delimiter or a line break, as in RFC 4180.
+ */
+export function parseBlock(text: string): Cell[][] {
+  const clean = text.replace(/\r\n?/g, "\n");
+  const delimiter = clean.includes("\t") ? "\t" : clean.includes(",") ? "," : null;
+  if (!delimiter) return [[clean.endsWith("\n") ? clean.slice(0, -1) : clean]];
+  const rows: Cell[][] = [];
+  let row: Cell[] = [];
+  let field = "";
+  let quoted = false;
+  for (let index = 0; index < clean.length; index++) {
+    const char = clean[index]!;
+    if (quoted) {
+      if (char !== '"') field += char;
+      else if (clean[index + 1] === '"') {
+        field += '"';
+        index++;
+      } else quoted = false;
+      continue;
+    }
+    if (char === '"' && field === "") quoted = true;
+    else if (char === delimiter) {
+      row.push(field);
+      field = "";
+    } else if (char === "\n") {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = "";
+    } else field += char;
+  }
+  row.push(field);
+  rows.push(row);
+  // A trailing newline ends the last row instead of adding an empty one.
+  if (clean.endsWith("\n")) rows.pop();
+  return rows;
+}
+
+/**
  * The result grid: virtualised rows, resizable columns, rectangular cell
  * selection (click, shift-click, arrows, Ctrl+A), copy as TSV / CSV, NULL
  * rendering, sortable headers, a per-column local filter and in-place editing
@@ -113,14 +173,35 @@ function cellText(value: string, numeric: boolean): string {
  * the input and lose an IME composition (plan R7).
  */
 export function ResultGrid(props: ResultGridProps) {
-  const { columns, rows, onChange, rowState, sort, onSort, filter, onFilterChange, onRowDeleted } =
-    props;
+  const {
+    columns,
+    rows,
+    onChange,
+    rowState,
+    isModified,
+    sort,
+    onSort,
+    filter,
+    onFilterChange,
+    onRowDeleted,
+    rowMenu,
+    isMatch,
+    currentMatch,
+    onFind,
+    onSelectionChange,
+    rowNumber,
+    filterRows,
+    ariaLabel,
+  } = props;
   const { t } = useAppTranslation();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const [selection, setSelection] = useState<GridRange | null>(null);
   const [editing, setEditing] = useState<{ row: number; col: number; text: string } | null>(null);
+  const [multiEdit, setMultiEdit] = useState<{ row: number; col: number; text: string } | null>(
+    null
+  );
   const [preview, setPreview] = useState<{ row: number; col: number } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; row: number; col: number } | null>(null);
 
@@ -172,12 +253,56 @@ export function ResultGrid(props: ResultGridProps) {
   const box = selection ? normalized(selection) : null;
   const isSelected = (row: number, col: number) =>
     box !== null && row >= box.top && row <= box.bottom && col >= box.left && col <= box.right;
+  const menuRows = box
+    ? Array.from({ length: box.bottom - box.top + 1 }, (_, index) => box.top + index)
+    : menu
+      ? [menu.row]
+      : [];
 
-  const writeClipboard = async (text: string) => {
+  // The side panel follows the selection; the parent owns the range it renders.
+  useEffect(() => {
+    onSelectionChange?.(selection);
+  }, [onSelectionChange, selection]);
+
+  // Another page or a filtered row set can shrink the grid under the selection.
+  useEffect(() => {
+    setSelection((current) => {
+      if (!current) return current;
+      const fits =
+        rows.length > 0 &&
+        columns.length > 0 &&
+        current.r0 < rows.length &&
+        current.r1 < rows.length &&
+        current.c0 < columns.length &&
+        current.c1 < columns.length;
+      return fits ? current : null;
+    });
+  }, [columns.length, rows.length]);
+
+  const matchRow = currentMatch?.row ?? null;
+  const matchCol = currentMatch?.col ?? null;
+  useEffect(() => {
+    if (matchRow === null || matchCol === null || matchRow >= rows.length) return;
+    virtualizer.scrollToIndex(matchRow, { align: "auto" });
+    const element = scrollRef.current;
+    if (!element) return;
+    const left =
+      ROW_NUMBER_WIDTH + widths.slice(0, matchCol).reduce((sum, width) => sum + width, 0);
+    const right = left + (widths[matchCol] ?? 0);
+    if (left < element.scrollLeft) element.scrollLeft = left;
+    else if (right > element.scrollLeft + element.clientWidth)
+      element.scrollLeft = right - element.clientWidth;
+    // Scrolling follows the current hit only; the virtualizer is a fresh object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchRow, matchCol]);
+
+  const writeClipboard = async (text: string): Promise<boolean> => {
     try {
       await navigator.clipboard.writeText(text);
+      return true;
     } catch {
       toast.error(t("database.grid.copyFailed"));
+      return false;
     }
   };
 
@@ -189,6 +314,55 @@ export function ResultGrid(props: ResultGridProps) {
       body.push(cols.map((col) => rows[row]?.[col] ?? null));
     const head = header ? cols.map((col) => columns[col]?.name ?? "") : null;
     void writeClipboard(format === "tsv" ? toTsv(head, body) : toCsv(head, body));
+  };
+
+  /** Copies whole rows: every column of the rows the selection covers. */
+  const copyRows = (format: "tsv" | "csv", header: boolean) => {
+    if (!box) return;
+    const body: Cell[][] = [];
+    for (let row = box.top; row <= box.bottom; row++)
+      body.push(columns.map((_, col) => rows[row]?.[col] ?? null));
+    const head = header ? columns.map((column) => column.name) : null;
+    void writeClipboard(format === "tsv" ? toTsv(head, body) : toCsv(head, body)).then((ok) => {
+      if (ok) toast.success(t("database.result.copied"));
+    });
+  };
+
+  /**
+   * Writes a pasted block from the active cell on. The part that does not fit
+   * the grid is dropped rather than failing the whole paste.
+   */
+  const pasteBlock = async () => {
+    if (!onChange || !selection) return;
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      toast.error(t("database.result.pasteFailed"));
+      return;
+    }
+    const block = parseBlock(text);
+    let written = 0;
+    let total = 0;
+    for (let r = 0; r < block.length; r++) {
+      for (let c = 0; c < block[r]!.length; c++) {
+        total++;
+        const row = selection.r1 + r;
+        const col = selection.c1 + c;
+        if (row >= rows.length || col >= columns.length) continue;
+        if (rowState?.(row) === "deleted") continue;
+        onChange(row, col, block[r]![c]!);
+        written++;
+      }
+    }
+    if (written < total) {
+      toast.warning(
+        t("database.result.pastePartial", {
+          written,
+          total,
+        })
+      );
+    }
   };
 
   const commitEdit = () => {
@@ -222,9 +396,19 @@ export function ResultGrid(props: ResultGridProps) {
     if (editing) return;
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key.toLowerCase();
+    if ((mod && key === "f") || event.key === "F3") {
+      event.preventDefault();
+      onFind?.();
+      return;
+    }
     if (mod && key === "c") {
       event.preventDefault();
       copySelection(event.shiftKey ? "csv" : "tsv", false);
+      return;
+    }
+    if (mod && key === "v" && onChange) {
+      event.preventDefault();
+      void pasteBlock();
       return;
     }
     if (mod && key === "a") {
@@ -235,6 +419,12 @@ export function ResultGrid(props: ResultGridProps) {
       return;
     }
     if (!selection) return;
+    if (event.key === "Enter" && event.shiftKey && onChange) {
+      const cell = { row: selection.r1, col: selection.c1 };
+      event.preventDefault();
+      setMultiEdit({ ...cell, text: rows[cell.row]?.[cell.col] ?? "" });
+      return;
+    }
     if ((event.key === "Enter" || event.key === "F2") && onChange) {
       event.preventDefault();
       startEdit(selection.r1, selection.c1);
@@ -328,6 +518,7 @@ export function ResultGrid(props: ResultGridProps) {
       ref={scrollRef}
       role="grid"
       tabIndex={0}
+      aria-label={ariaLabel}
       aria-rowcount={rows.length}
       aria-colcount={columns.length}
       className="bg-background relative h-full overflow-auto outline-none"
@@ -351,7 +542,7 @@ export function ResultGrid(props: ResultGridProps) {
                 key={`${column.name}\u0000${col}`}
                 role="columnheader"
                 title={`${column.name}: ${column.typeName}`}
-                onClick={onSort ? () => onSort(column.name) : undefined}
+                onClick={onSort ? (event) => onSort(column.name, event.shiftKey) : undefined}
                 className={cn(
                   "bg-muted/50 relative flex h-full min-w-0 items-center gap-1 border-r border-b px-2 text-xs font-medium select-none",
                   onSort && "hover:bg-accent cursor-pointer"
@@ -368,7 +559,7 @@ export function ResultGrid(props: ResultGridProps) {
                   <ColumnFilter
                     column={column}
                     columnIndex={col}
-                    rows={rows}
+                    rows={filterRows ?? rows}
                     filter={filter}
                     onChange={(patterns) => onFilterChange(column.name, patterns)}
                   />
@@ -423,7 +614,7 @@ export function ResultGrid(props: ResultGridProps) {
                   openContextMenu(event, row, 0);
                 }}
               >
-                {state === "inserted" ? "+" : row + 1}
+                {state === "inserted" ? "+" : (rowNumber?.(row) ?? row + 1)}
               </div>
               {columns.map((column, col) => {
                 if (editing && editing.row === row && editing.col === col) {
@@ -441,7 +632,16 @@ export function ResultGrid(props: ResultGridProps) {
                         onKeyDown={(event) => {
                           event.stopPropagation();
                           if (event.nativeEvent.isComposing) return;
-                          if (event.key === "Enter") {
+                          if (event.key === "Enter" && event.shiftKey) {
+                            event.preventDefault();
+                            const cell = {
+                              row: editing.row,
+                              col: editing.col,
+                              text: editing.text,
+                            };
+                            commitEdit();
+                            setMultiEdit(cell);
+                          } else if (event.key === "Enter") {
                             event.preventDefault();
                             commitEdit();
                           } else if (event.key === "Escape") {
@@ -455,6 +655,8 @@ export function ResultGrid(props: ResultGridProps) {
                   );
                 }
                 const value = rows[row]?.[col] ?? null;
+                const matched = isMatch?.(row, col) ?? false;
+                const hit = currentMatch?.row === row && currentMatch.col === col;
                 return (
                   <div
                     key={col}
@@ -462,7 +664,10 @@ export function ResultGrid(props: ResultGridProps) {
                     className={cn(
                       "border-border/60 flex min-w-0 items-center overflow-hidden border-r border-b px-2 text-xs",
                       numeric[col] && "justify-end tabular-nums",
-                      isSelected(row, col) && "bg-primary/20"
+                      matched && "bg-amber-200/60 dark:bg-amber-300/20",
+                      isModified?.(row, col) && "bg-amber-500/15",
+                      isSelected(row, col) && "bg-primary/20",
+                      hit && "ring-2 ring-amber-500 ring-inset"
                     )}
                     onMouseDown={(event) => onCellMouseDown(event, row, col)}
                     onMouseEnter={() => {
@@ -526,6 +731,46 @@ export function ResultGrid(props: ResultGridProps) {
         </Dialog>
       )}
 
+      {multiEdit && onChange && (
+        <Dialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setMultiEdit(null);
+          }}
+        >
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>{t("database.grid.editDialogTitle")}</DialogTitle>
+              <DialogDescription>{t("database.grid.editDialogHint")}</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              autoFocus
+              className="min-h-40 font-mono text-xs"
+              value={multiEdit.text}
+              onChange={(event) => setMultiEdit({ ...multiEdit, text: event.target.value })}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMultiEdit(null)}>
+                {t("database.grid.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  onChange(
+                    multiEdit.row,
+                    multiEdit.col,
+                    multiEdit.text === "" ? null : multiEdit.text
+                  );
+                  setMultiEdit(null);
+                  scrollRef.current?.focus({ preventScroll: true });
+                }}
+              >
+                {t("database.grid.save")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {menu && (
         <>
           <div
@@ -557,6 +802,32 @@ export function ResultGrid(props: ResultGridProps) {
             >
               {t("database.grid.copyCsv")}
             </MenuItem>
+            <div className="bg-border -mx-1 my-1 h-px" />
+            <MenuItem
+              onClick={() => {
+                copyRows("tsv", true);
+                setMenu(null);
+              }}
+            >
+              {t("database.result.copyWithHeader")}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                copyRows("tsv", false);
+                setMenu(null);
+              }}
+            >
+              {t("database.result.copyRowsTsv")}
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                copyRows("csv", false);
+                setMenu(null);
+              }}
+            >
+              {t("database.result.copyRowsCsv")}
+            </MenuItem>
+            <div className="bg-border -mx-1 my-1 h-px" />
             {onChange && (
               <MenuItem
                 onClick={() => {
@@ -585,6 +856,24 @@ export function ResultGrid(props: ResultGridProps) {
                 {t("database.table.deleteRow")}
               </MenuItem>
             )}
+            {rowMenu && menuRows.length > 0 && (
+              <>
+                <div className="bg-border -mx-1 my-1 h-px" />
+                {rowMenu(menuRows).map((item) => (
+                  <MenuItem
+                    key={item.id}
+                    disabled={item.disabled}
+                    destructive={item.destructive}
+                    onClick={() => {
+                      item.run();
+                      setMenu(null);
+                    }}
+                  >
+                    {item.label}
+                  </MenuItem>
+                ))}
+              </>
+            )}
           </div>
         </>
       )}
@@ -592,12 +881,23 @@ export function ResultGrid(props: ResultGridProps) {
   );
 }
 
-function MenuItem({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+function MenuItem(props: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  destructive?: boolean;
+}) {
+  const { children, onClick, disabled, destructive } = props;
   return (
     <button
       type="button"
       role="menuitem"
-      className="hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs"
+      disabled={disabled}
+      className={cn(
+        "hover:bg-accent hover:text-accent-foreground flex w-full items-center rounded-sm px-2 py-1.5 text-left text-xs",
+        destructive && "text-destructive",
+        disabled && "pointer-events-none opacity-50"
+      )}
       onClick={onClick}
     >
       {children}

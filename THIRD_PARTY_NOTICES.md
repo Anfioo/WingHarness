@@ -90,17 +90,18 @@ attribution header.
 - License text: [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)
 
 Portions of the database feature — the SQL lexer, dialect, analysis, completion,
-formatting, DDL generation, result grid and export helpers — are adapted from
-openidea. Copyright (c) the openidea authors, licensed under the Apache License,
-Version 2.0.
+formatting, DDL generation, the result grid with its search bar and side panel,
+the object tree's groups and context menus, the workspace tab strip and query
+plans — are adapted from openidea. Copyright (c) the openidea authors, licensed
+under the Apache License, Version 2.0.
 
 `src-tauri/db-core` and the database pages are ported from openidea's
 `crates/ide-db`: data sources, connections, introspection, multi-statement query
-execution, table paging and row editing, DDL generation and completion. The SSH
-tunnelling, SQL Server, ClickHouse and Oracle paths, the `specta` type generation
-and the keychain password store were not carried over. See
-`src-tauri/db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` for the
-porting record.
+execution, table paging and row editing, DDL generation, completion and query
+plans. The SSH tunnelling, SQL Server, ClickHouse and Oracle paths, the `specta`
+type generation, the keychain password store and the chart view were not carried
+over. See `src-tauri/db-core/UPSTREAM.md` and
+`src/pages/database/UPSTREAM.md` for the porting record.
 
 ### OrcaSVN
 
