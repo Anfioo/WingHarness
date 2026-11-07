@@ -62,9 +62,16 @@ pub fn run() {
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The manager caches the
                 // project root for relative SQLite paths; the commands refresh
-                // it per call, so a settings change needs no restart.
-                let db = commands::db::DbState::new(db_core::DbManager::new(config::dir().join("db")));
-                db.manager
+                // it per call, so a settings change needs no restart. A project
+                // scoped engine is built on demand under `<project>/.wh/db`;
+                // its saved passwords still go in the app's `secrets.json`.
+                let dir = config::dir().join("db");
+                let db = commands::db::DbState::new(
+                    db_core::DbManager::new(dir.clone()),
+                    db_core::Workspace::new(dir.clone()),
+                    dir.join("secrets.json"),
+                );
+                db.app
                     .set_root(config::load().project_root().map(str::to_owned));
                 app.manage(db);
                 // `frpc` children outlive an abnormal exit; reap the ones a

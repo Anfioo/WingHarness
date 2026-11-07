@@ -1,13 +1,83 @@
 // Pure helpers for the object tree: catalog-name filtering, connection
 // targets, and the SQL a table's SELECT inserts.
 
-import type { DataSourceView, DbDriver } from "@/commands";
+import type {
+  ColumnInfo,
+  DataSourceView,
+  DbDriver,
+  ForeignKey,
+  IndexInfo,
+  TableDetails,
+} from "@/commands";
+import type { DbObjectRef } from "./object-sql";
 
 /** A node's loaded children, or the reason there are none. */
 export type Loaded<T> =
   | { status: "loading" }
   | { status: "ok"; value: T }
   | { status: "error"; message: string };
+
+/** IDEA's groups under a table. */
+export type TreeGroup = "columns" | "primaryKeys" | "foreignKeys" | "indexes" | "triggers";
+
+/**
+ * The node the tree toolbar acts on. Only the kinds whose object can be opened
+ * or edited produce one; every other node reports `null`.
+ */
+export type TreeSelection = {
+  target: string;
+  schema: string;
+  name: string;
+  kind: "table" | "view" | "routine" | "sequence";
+  /** The exact object, so the toolbar can read its DDL without re-deriving a kind. */
+  object: DbObjectRef;
+};
+
+/** The columns that make up a table's primary key. */
+export function primaryKeysOf(details: Pick<TableDetails, "columns">): ColumnInfo[] {
+  return details.columns.filter((column) => column.primaryKey);
+}
+
+/** The groups a table shows, in order; empty groups are left out. */
+export function groupsOf(details: TableDetails): TreeGroup[] {
+  const groups: TreeGroup[] = [];
+  if (details.columns.length) groups.push("columns");
+  if (primaryKeysOf(details).length) groups.push("primaryKeys");
+  if (details.foreignKeys.length) groups.push("foreignKeys");
+  if (details.indexes.length) groups.push("indexes");
+  if (details.triggers.length) groups.push("triggers");
+  return groups;
+}
+
+/** How many members a group holds. */
+export function groupSize(details: TableDetails, group: TreeGroup): number {
+  switch (group) {
+    case "columns":
+      return details.columns.length;
+    case "primaryKeys":
+      return primaryKeysOf(details).length;
+    case "foreignKeys":
+      return details.foreignKeys.length;
+    case "indexes":
+      return details.indexes.length;
+    case "triggers":
+      return details.triggers.length;
+  }
+}
+
+/** `columns → refTable(refColumns)`; the target's columns are left out when unknown. */
+export function foreignKeyLabel(foreignKey: ForeignKey): string {
+  const source = foreignKey.columns.join(", ");
+  const target = foreignKey.refColumns.length
+    ? `${foreignKey.refTable}(${foreignKey.refColumns.join(", ")})`
+    : foreignKey.refTable;
+  return `${source} → ${target}`;
+}
+
+/** `name`, marked when the index is unique. */
+export function indexLabel(index: IndexInfo): string {
+  return `${index.name}${index.unique ? " · unique" : ""}`;
+}
 
 /** `*` / `?` wildcard match (case-sensitive, like the server's names). */
 export function matchesPattern(name: string, pattern: string): boolean {

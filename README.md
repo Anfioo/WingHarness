@@ -157,7 +157,7 @@ repository yet.
 | [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
 | [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |
-| [DATABASE.md](./docs/features/DATABASE.md) | Data sources, their windows, and the SQL console |
+| [DATABASE.md](./docs/features/DATABASE.md) | Data sources, tabbed data-source windows with persisted query files and tabs, SQL console, execution plans, table data and object management |
 | [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | Read-only viewer, supported formats, how to add one |
 | [FRP.md](./docs/features/FRP.md) | FRP console: generated `frpc` configs, child processes, logs |
 | [GIT.md](./docs/features/GIT.md) | Local Git client, one window per repository |

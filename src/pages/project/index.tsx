@@ -1,14 +1,20 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderGit2, Loader2 } from "lucide-react";
 import { Workbench } from "codelet/workbench";
 import { remote } from "codelet/extensions/remote";
 import { extensions as extensionsView } from "codelet/extensions/extensions";
-import { markdownPreview } from "codelet/extensions/markdown";
 import { search } from "codelet/extensions/search";
 import { Group, Panel, Separator } from "react-resizable-panels";
 import { AppShell } from "@/components/app-shell";
 import { PreviewTab } from "@/components/file-preview/preview-tab";
 import { getConfig } from "@/commands";
+import { createProjectDbActivityExtension } from "@/features/database/project/activity-extension";
+import { ProjectResultsDock } from "@/features/database/project/results-dock";
+import { ProjectDatabaseSidebar } from "@/features/database/project/sidebar";
+import { createSqlEditorExtension } from "@/features/database/project/sql-extension";
+import { ProjectSqlTab } from "@/features/database/project/sql-tab";
+import { ProjectTableTab } from "@/features/database/project/table-tab";
+import { useProjectDb, projectTabTitle } from "@/features/database/project/view-store";
 import { CommitPane } from "@/features/git/project/commit-pane";
 import { CompareTab } from "@/features/git/project/compare-tab";
 import { DiffTab } from "@/features/git/project/diff-tab";
@@ -29,6 +35,7 @@ import {
   createGitActivityExtension,
   type GitActivityHandle,
 } from "@/lib/editor/git-activity-extension";
+import { createMarkdownPreviewExtension } from "@/lib/editor/markdown-preview-extension";
 import { createPreviewExtension } from "@/lib/editor/preview-extension";
 import { useEditorAppearance } from "@/lib/editor/use-editor-appearance";
 import { useVcsStatus } from "@/lib/editor/use-vcs-status";
@@ -39,6 +46,19 @@ import {
 } from "@/lib/editor/vcs-decorations";
 import { createProjectTransport } from "@/lib/editor/project-transport";
 import { EDITOR_SURFACE_CLASS } from "@/lib/editor/typography";
+
+/** Loaded on first preview, so marked, KaTeX and highlight.js stay off this page's first paint. */
+const MarkdownPreviewTab = lazy(() => import("@/lib/editor/markdown-preview-tab"));
+
+/**
+ * The content of a database tab. codelet only says which tab is in front, so
+ * this is where the store decides whether that is a SQL editor or a table.
+ */
+function ProjectDbTabView({ tabId }: { tabId: string }) {
+  const tab = useProjectDb((state) => state.tabs.find((entry) => entry.id === tabId) ?? null);
+  if (!tab) return null;
+  return tab.kind === "table" ? <ProjectTableTab tab={tab} /> : <ProjectSqlTab tab={tab} />;
+}
 
 /**
  * The project root, opened as an editor.
@@ -65,12 +85,16 @@ export default function ProjectPage() {
   const [error, setError] = useState<string | null>(null);
   // The working copy the page is showing; the file tree's git colours come from it.
   const [repo, setRepo] = useState<string | null>(null);
+  // The configured root as it is written; the Markdown preview resolves images against it.
+  const [projectRoot, setProjectRoot] = useState("");
   const { kinds, refresh } = useVcsStatus(repo);
   // Which editor tab is a host-drawn view, and which view it is.
   const surface = useEditorTabs((state) => state.surface);
   const panelOpen = useGitView((state) => state.panelOpen);
   const changesOpen = useGitView((state) => state.changesOpen);
   const refreshToken = useGitView((state) => state.refreshToken);
+  const dbPanelOpen = useProjectDb((state) => state.panelOpen);
+  const dbDockOpen = useProjectDb((state) => state.dockOpen);
 
   // Callbacks captured by the mount effect, which must not re-run for them.
   const refreshRef = useRef(refresh);
@@ -89,6 +113,7 @@ export default function ProjectPage() {
       .then((view) => {
         if (!alive) return;
         const root = view.config.projectRoot.trim();
+        setProjectRoot(root);
         if (!root) {
           setRepo(null);
           return;
@@ -168,6 +193,10 @@ export default function ProjectPage() {
         const name = t("projectGit.fileHistory.tabTitle", { name: basename(surface.path) });
         return surface.fromOid ? `${name} @ ${surface.fromOid.slice(0, 7)}` : name;
       }
+      if (surface.kind === "dbTab") {
+        const tab = useProjectDb.getState().tabs.find((entry) => entry.id === surface.tabId);
+        return tab ? projectTabTitle(tab) : t("projectDb.activityTitle");
+      }
       return surface.name;
     };
     const activity = createGitActivityExtension({
@@ -178,16 +207,27 @@ export default function ProjectPage() {
     });
     activityRef.current = activity;
 
+    const dbActivity = createProjectDbActivityExtension({
+      parent: host,
+      label: t("projectDb.activityTitle"),
+      title: (tab) => projectTabTitle(tab),
+    });
+    const sqlEditor = createSqlEditorExtension({
+      displayName: t("projectDb.sqlEditor"),
+      adopt: dbActivity.adopt,
+    });
+
     const extensions = [
       vcs.extension,
       search,
       ...(prefs.extensionsView ? [extensionsView] : []),
-      markdownPreview,
+      createMarkdownPreviewExtension(),
       remote({
         url: "tauri://project",
         transport,
-        // The working copy's own `.git` is never served, matching the backend.
-        exclude: [".git"],
+        // The working copy's own `.git` is never served, matching the backend;
+        // `.wh` is the project database's workspace and is the panel's alone.
+        exclude: [".git", ".wh"],
         // Names on expand, bodies on open — the lazy end of the protocol.
         preload: "none",
         watch: false,
@@ -195,9 +235,14 @@ export default function ProjectPage() {
       // Formats the text editor can only render as gibberish are claimed here, and their
       // tabs become a preview drawn by the host instead — see `preview-extension`.
       createPreviewExtension({ displayName: t("filePreview.title") }),
+      // Any `.sql` file is claimed by the database's own editor, which carries
+      // the data-source picker, Run and the results dock.
+      sqlEditor,
       // Last on purpose: codelet lists contributed containers in extension order, so
       // this is what puts the Git and Commit buttons below Extensions.
       activity.extension,
+      // After Git: the database button sits below Commit in the activity bar.
+      dbActivity.extension,
     ];
     // Nothing to translate in English, and then the extensions go in as they
     // came — which is what keeps the untranslated page free of copies.
@@ -240,6 +285,9 @@ export default function ProjectPage() {
       // The shell took the tabs down with it; the views they were showing must
       // not outlive them.
       useEditorTabs.getState().reset();
+      // The database tabs and results go with the shell too; the connections
+      // stay open, as they do in the database windows.
+      useProjectDb.getState().resetView();
       useGitView.getState().reset();
     };
     // `theme` is applied by the effect below, so it is deliberately not a
@@ -296,6 +344,11 @@ export default function ProjectPage() {
               {surface?.kind === "preview" && (
                 <PreviewTab path={surface.path} name={surface.name} />
               )}
+              {surface?.kind === "markdown" && (
+                <Suspense fallback={null}>
+                  <MarkdownPreviewTab path={surface.path} root={projectRoot} />
+                </Suspense>
+              )}
               {surface?.kind === "compare" && (
                 <CompareTab
                   repo={repo}
@@ -318,6 +371,7 @@ export default function ProjectPage() {
                   openers={openers}
                 />
               )}
+              {surface?.kind === "dbTab" && <ProjectDbTabView tabId={surface.tabId} />}
             </WorkbenchSurface>
             {/* The commit button's view covers the file tree, not the editor. */}
             <WorkbenchSurface selector="aside.cl-sidebar" active={changesOpen}>
@@ -327,6 +381,11 @@ export default function ProjectPage() {
                 onClose={() => useGitView.getState().closeChanges()}
               />
             </WorkbenchSurface>
+            {/* The database button's panel covers the same tree; the two are
+                mutually exclusive, so only one surface is ever active. */}
+            <WorkbenchSurface selector="aside.cl-sidebar" active={dbPanelOpen && !changesOpen}>
+              <ProjectDatabaseSidebar />
+            </WorkbenchSurface>
           </Panel>
 
           {panelOpen && (
@@ -334,6 +393,15 @@ export default function ProjectPage() {
               <Separator className="bg-border h-px" />
               <Panel id="git" defaultSize="34" minSize="12" className="overflow-hidden">
                 <GitToolWindow repo={repo} openers={openers} />
+              </Panel>
+            </>
+          )}
+
+          {dbDockOpen && (
+            <>
+              <Separator className="bg-border h-px" />
+              <Panel id="db-results" defaultSize="30" minSize="12" className="overflow-hidden">
+                <ProjectResultsDock />
               </Panel>
             </>
           )}
