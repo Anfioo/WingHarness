@@ -1,5 +1,5 @@
 // Helpers the tab bar and the workspace share: the key that identifies a tab,
-// the label it shows, and the stored records read back into open tabs.
+// the label and icon it shows, and the stored records read back into open tabs.
 //
 // The key rule is the one `store.ts` persists `windows.json` with, so the two
 // can never disagree about what a stored `active` value names.
@@ -12,13 +12,18 @@ export type TabKey = string;
 
 export { tabKey };
 
-/** A query tab shows its file name without the extension; a table tab its name. */
+/** A query tab shows its file name without the extension; a table tab its qualified name. */
 export function tabLabel(tab: DatabaseTab, t: (key: string) => string): string {
   if (tab.kind === "query") {
     const name = tab.file.replace(/\.sql$/i, "");
     return name || t("database.tab.untitled");
   }
-  return tab.table;
+  return `${tab.schema}.${tab.table}`;
+}
+
+/** A query tab reads as a file, a table tab as a grid. */
+export function tabIcon(tab: DatabaseTab): "file-code" | "table" {
+  return tab.kind === "query" ? "file-code" : "table";
 }
 
 /**
