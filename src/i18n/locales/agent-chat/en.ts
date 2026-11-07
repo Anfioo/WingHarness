@@ -6,6 +6,7 @@ export default {
   newChat: "New chat",
   refresh: "Refresh",
   search: "Search sessions",
+  scrollToBottom: "Scroll to bottom",
   empty: {
     title: "No conversation open",
     hint: "Pick a session in the sidebar, or start a new one.",
@@ -13,6 +14,9 @@ export default {
   },
   sidebar: {
     title: "Sessions",
+    today: "Today",
+    yesterday: "Yesterday",
+    earlier: "Earlier",
     empty: "No sessions to browse yet.",
     untitled: "Untitled session",
     loading: "Loading sessions…",
@@ -29,6 +33,7 @@ export default {
   engine: {
     label: "Engine",
     unavailable: "Not installed",
+    newTab: "Opened {{engine}} in a new tab",
     claude: "Claude Code",
     codex: "Codex",
     qoder: "Qoder",
@@ -58,6 +63,9 @@ export default {
     placeholder: "Choose a folder",
     change: "Change",
     hint: "Changing the directory starts a new tab.",
+    invalid: "Enter an absolute path.",
+    confirm: "Apply directory",
+    cancel: "Cancel",
   },
   composer: {
     placeholder: "Send a message…",
@@ -117,6 +125,9 @@ export default {
     empty: "No native sessions found.",
     loadEarlier: "Load earlier",
     loadFailed: "Could not load earlier messages.",
+  },
+  markdown: {
+    tooLarge: "This message is too long to format; showing plain text.",
   },
   error: {
     send: "Failed to send.",

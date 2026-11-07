@@ -6,6 +6,7 @@ export default {
   newChat: "新建对话",
   refresh: "刷新",
   search: "搜索会话",
+  scrollToBottom: "滚动到底部",
   empty: {
     title: "还没有打开的对话",
     hint: "在左侧选择一个会话，或新建一个。",
@@ -13,6 +14,9 @@ export default {
   },
   sidebar: {
     title: "会话",
+    today: "今天",
+    yesterday: "昨天",
+    earlier: "更早",
     empty: "还没有可浏览的会话。",
     untitled: "未命名会话",
     loading: "正在加载会话…",
@@ -29,6 +33,7 @@ export default {
   engine: {
     label: "引擎",
     unavailable: "未安装",
+    newTab: "已在新标签中使用 {{engine}}",
     claude: "Claude Code",
     codex: "Codex",
     qoder: "Qoder",
@@ -58,6 +63,9 @@ export default {
     placeholder: "选择一个文件夹",
     change: "修改",
     hint: "修改目录会新建一个标签。",
+    invalid: "请输入绝对路径。",
+    confirm: "应用目录",
+    cancel: "取消",
   },
   composer: {
     placeholder: "输入消息…",
@@ -117,6 +125,9 @@ export default {
     empty: "没有找到本地会话文件。",
     loadEarlier: "加载更早",
     loadFailed: "加载更早的消息失败。",
+  },
+  markdown: {
+    tooLarge: "消息过长，已按纯文本显示。",
   },
   error: {
     send: "发送失败。",

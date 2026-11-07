@@ -147,5 +147,5 @@ export type AgentUiState = {
   recentWorkspaces: string[];
 };
 
-/** Question answers keyed by question id; `null` means "skip". */
+/** Question answers keyed by the question text; `null` means "skip". */
 export type AgentAnswerMap = Record<string, string | string[]>;

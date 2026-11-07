@@ -86,8 +86,8 @@ export function AgentCwdControl(): JSX.Element {
           variant="ghost"
           size="icon-sm"
           onClick={confirm}
-          aria-label={t("agentChat.question.submit")}
-          title={t("agentChat.cwd.change")}
+          aria-label={t("agentChat.cwd.confirm")}
+          title={t("agentChat.cwd.confirm")}
         >
           <Check />
         </Button>
@@ -95,12 +95,13 @@ export function AgentCwdControl(): JSX.Element {
           variant="ghost"
           size="icon-sm"
           onClick={cancel}
-          aria-label={t("agentChat.grant.dismiss")}
+          aria-label={t("agentChat.cwd.cancel")}
+          title={t("agentChat.cwd.cancel")}
         >
           <X />
         </Button>
         {invalid ? (
-          <span className="text-destructive text-xs">{t("agentChat.cwd.placeholder")}</span>
+          <span className="text-destructive text-xs">{t("agentChat.cwd.invalid")}</span>
         ) : null}
       </div>
     );

@@ -6,6 +6,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
+import { useAppTranslation } from "@/hooks/use-app-translation";
 // KaTeX ships its own layout rules; our overrides in `preview.css` come after.
 import "katex/dist/katex.min.css";
 
@@ -73,9 +74,12 @@ const COMPONENTS: Components = {
 };
 
 function AgentMarkdownBodyBase({ text }: { text: string }): JSX.Element {
+  const { t } = useAppTranslation();
+
   if (text.length > MAX_MARKDOWN_CHARS) {
     return (
       <div className="agent-chat-md">
+        <p className="text-muted-foreground text-xs">{t("agentChat.markdown.tooLarge")}</p>
         <pre className="font-mono text-xs break-words whitespace-pre-wrap">{text}</pre>
       </div>
     );

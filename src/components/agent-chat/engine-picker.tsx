@@ -65,7 +65,7 @@ export function AgentEnginePicker(): JSX.Element {
     newTab(next, tab.workspacePath);
     // `newTab` refuses at the tab limit and shows its own message.
     if (useAgentChatStore.getState().activeTabId !== previousTabId) {
-      toast.info(t("agentChat.newChat"));
+      toast.info(t("agentChat.engine.newTab", { engine: target.label }));
     }
   }
 
