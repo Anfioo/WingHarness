@@ -1198,8 +1198,7 @@
     "tab": {
       "console": "SQL console",
       "table": "Table",
-      "close": "Close tab",
-      "closeOthers": "Close other tabs"
+      "close": "Close tab"
     },
     "console": {
       "run": "Run",
@@ -1209,38 +1208,23 @@
       "output": "Output",
       "result": "Result",
       "resultsEmpty": "Run a statement to see its result.",
-      "statementCount": "{{count}} statements",
-      "stopOnError": "Stop on error",
-      "lineColumn": "Ln {{line}}, Col {{column}}",
-      "formatFailed": "Could not format the SQL: {{error}}"
+      "statementCount": "{{count}} statements"
     },
     "grid": {
       "rows": "{{count}} rows",
-      "page": "Page {{page}}",
       "first": "First page",
       "last": "Last page",
       "of": "of {{count}}",
       "next": "Next page",
       "prev": "Previous page",
-      "more": "Load more",
-      "search": "Search",
       "filter": "Filter",
-      "sortAsc": "Sort ascending",
-      "sortDesc": "Sort descending",
-      "clearSort": "Clear sort",
       "copy": "Copy",
       "copyTsv": "Copy as TSV",
       "copyCsv": "Copy as CSV",
       "copyFailed": "Could not copy to the clipboard.",
       "null": "NULL",
       "preview": "Preview",
-      "column": "Column",
-      "aggregate": "Aggregate",
-      "sum": "Sum",
-      "avg": "Average",
-      "min": "Minimum",
-      "max": "Maximum",
-      "count": "Count"
+      "column": "Column"
     },
     "table": {
       "readOnly": "This table is read only.",
@@ -1250,16 +1234,11 @@
       "submit": "Submit changes",
       "revert": "Revert changes",
       "changed": "{{count}} changed rows",
-      "pending": "Unsaved changes",
       "filterPlaceholder": "WHERE fragment",
-      "orderPlaceholder": "ORDER BY fragment",
       "refresh": "Refresh",
       "confirmSubmit": "Apply changes?",
       "confirmSubmitBody": "{{count}} rows will be changed in {{table}}.",
       "submitted": "Changes applied.",
-      "discard": "Discard changes?",
-      "duplicateKey": "Duplicate primary key.",
-      "importNotSupported": "This driver does not support importing rows.",
       "columns": "Columns",
       "searchColumns": "Search columns",
       "noMatchingColumns": "No matching columns"
@@ -1271,9 +1250,6 @@
       "json": "JSON",
       "sql": "SQL",
       "markdown": "Markdown",
-      "header": "Include column names",
-      "rowHeader": "Include row numbers",
-      "transpose": "Transpose",
       "save": "Save",
       "saved": "Saved {{name}}.",
       "failed": "Could not export: {{error}}"
@@ -1288,15 +1264,31 @@
       "scripts": "Generate script",
       "refresh": "Refresh",
       "selectAll": "Select all",
-      "selectFirst": "Select first 100",
+      "selectFirst": "Select first 10",
       "insert": "Insert",
       "update": "Update",
-      "delete": "Delete"
+      "delete": "Delete",
+      "preview": "Preview",
+      "ifExists": "If exists",
+      "cascade": "Cascade",
+      "restartIdentity": "Restart identity",
+      "renameBody": "Rename {{name}}.",
+      "dropBody": "Drop {{name}}? This cannot be undone.",
+      "truncateBody": "Delete every row of {{table}}.",
+      "dataType": "Type",
+      "notNull": "Not null",
+      "defaultValue": "Default",
+      "primaryKey": "Primary key",
+      "addColumn": "Add column",
+      "dropColumn": "Drop column",
+      "keepColumn": "Keep column",
+      "sqliteAlterHint": "SQLite can only rename, add and drop columns.",
+      "scriptFailed": "This table has no column the script could update.",
+      "noChanges": "No changes."
     },
     "ddl": {
       "title": "Definition",
       "description": "The statement that recreates this object.",
-      "execute": "Execute",
       "openInConsole": "Open in console",
       "copied": "Copied to the clipboard.",
       "failed": "Could not read the definition: {{error}}"
@@ -1354,7 +1346,7 @@
       "emptySchema": "This schema has no tables, views, routines or sequences.",
       "emptyColumns": "This table has no columns.",
       "current": "Current",
-      "insertSelect": "Double-click to insert a SELECT statement.",
+      "openTable": "Double-click to open; Ctrl+double-click to insert a SELECT.",
       "otherDatabase": "That table belongs to another database; the console is connected to a different one.",
       "folder": {
         "tables": "Tables",
@@ -1379,8 +1371,6 @@
       "committed": "Transaction committed.",
       "rolledBack": "Transaction rolled back.",
       "cancelled": "The statement was cancelled.",
-      "statementPlaceholder": "-- Ctrl+Enter runs the statement\nSELECT 1;",
-      "run": "Run",
       "cancel": "Cancel",
       "running": "Running…",
       "runHint": "Ctrl+Enter runs the statement",
@@ -1388,7 +1378,6 @@
       "done": "Statement completed.",
       "affected": "{{count}} rows affected",
       "rowCount": "{{count}} rows",
-      "truncated": "More rows are available.",
       "executionTime": "{{ms}} ms to first row"
     }
   },
