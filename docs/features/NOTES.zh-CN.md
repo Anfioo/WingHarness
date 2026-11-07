@@ -54,8 +54,25 @@ fs.onDidChange ── debounce 500 ms ──▶ reconcileOnce(fs)
 
 ## 页面提供的内容
 
-带搜索、扩展视图、Markdown 预览与文件预览扩展的 codelet workbench——与项目
-页面相同的一套。左侧文件树，中间标签页，面板可拖动。默认打开第一条笔记。
+带搜索、扩展视图、Markdown 预览与文件预览扩展的 codelet workbench。左侧文件
+树，中间标签页，面板可拖动。默认打开第一条笔记。
+
+### 阅读笔记
+
+`.md` 文件仍由 codelet 的文本编辑器打开，编辑方式不变。编辑器标签栏上的
+「打开预览」会打开第二个标签渲染同一文档，「打开源代码」则回到文本标签。
+
+渲染用的是 [Markdown 编辑器](./MD_EDITOR.md) 自身的那一套：`renderMarkdown`
+（marked + DOMPurify + highlight.js）与 `PreviewPane`（KaTeX、Mermaid、本地
+图片），旁边是文档大纲。这些都随应用一起打包，因此预览不需要网络。它取代了
+codelet 的 `markdownPreview`——后者在运行时从 `esm.sh` 拉取 `md4x` 及其
+wasm。
+
+编辑时预览会跟随缓冲区：扩展（`src/lib/editor/markdown-preview-extension.ts`）
+在每次变更时把每个已打开文档的文本写入 `useMarkdownPreviewDocs`，标签页
+（`src/lib/editor/markdown-preview-tab.tsx`）在 150 ms 停顿后渲染。文本经由
+该 store 而不是标签页的 surface 描述符传递，因此一次按键不会重建标签栏。图片
+按 `<data dir>/notes` 解析，预览右上角的图标用于显示或隐藏大纲。
 
 workbench 把打开与激活的标签保存在 refs 中，因此切换扩展视图或切换 UI 语言
 （两者都会重新挂载外壳）不会丢失缓冲区。编辑器偏好（字体、主题、行号、扩展
@@ -76,8 +93,8 @@ workbench 把打开与激活的标签保存在 refs 中，因此切换扩展视�
 
 1. 把 `notes.rs` 加入 commands 模块，并通过 `invoke.rs`、`build.rs` 与
    `capabilities/default.json` 注册这五个命令。
-2. 拷贝 `src/pages/notes`——它依赖 `src/lib/editor` 与 codelet 预览扩展，
-   而项目页面同样需要这两者。
+2. 拷贝 `src/pages/notes`——它依赖 `src/lib/editor`、文件预览扩展与 Markdown
+   预览扩展，而项目页面同样需要这些。
 3. 没有别的步骤：文件夹会在数据目录下按需创建。
 
 ## 常见问题

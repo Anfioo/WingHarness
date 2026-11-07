@@ -32,7 +32,9 @@ export type EditorTabSurface =
   /** Every file a revision holds, as a browsable list. */
   | { kind: "revisionTree"; oid: string }
   /** A file's commits, newest first, optionally starting at a revision. */
-  | { kind: "fileHistory"; path: string; fromOid?: string };
+  | { kind: "fileHistory"; path: string; fromOid?: string }
+  /** A Markdown document rendered for reading, with its outline. */
+  | { kind: "markdown"; path: string; name: string };
 
 interface EditorTabsState {
   /** Identity of the panel that reported itself visible. */

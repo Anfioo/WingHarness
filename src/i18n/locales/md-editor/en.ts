@@ -92,6 +92,8 @@ export default {
     title: "Outline",
     empty: "This document has no headings yet.",
     filterLevel: "Show levels",
+    show: "Show outline",
+    hide: "Hide outline",
   },
   export: {
     title: "Export",
