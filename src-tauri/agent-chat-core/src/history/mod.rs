@@ -27,8 +27,7 @@ pub fn list_sessions(
     workspace: Option<&Path>,
     limit: usize,
 ) -> Result<Vec<AgentSessionMeta>, AgentChatError> {
-    let _ = (engine, workspace, limit);
-    Err(AgentChatError::not_implemented())
+    scanner::list_sessions(engine, workspace, limit)
 }
 
 /// Reads one page of a native session transcript.
@@ -39,8 +38,7 @@ pub fn load_session(
     limit: usize,
     before_seq: Option<i64>,
 ) -> Result<AgentSessionPage, AgentChatError> {
-    let _ = (engine, session_id, workspace, limit, before_seq);
-    Err(AgentChatError::not_implemented())
+    reader::load_session(engine, session_id, workspace, limit, before_seq)
 }
 
 /// Parse a timestamp that is either Unix seconds/milliseconds or RFC3339.

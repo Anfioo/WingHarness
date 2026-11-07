@@ -124,7 +124,7 @@ impl AppServer {
         label: &str,
         expect: Expect,
         deadline: Option<Instant>,
-        on_message: &mut dyn FnMut(&Value) -> Handled,
+        on_message: &mut (dyn FnMut(&Value) -> Handled + Send),
     ) -> Result<Option<Value>, AgentChatError> {
         loop {
             let frame = match deadline {
@@ -272,17 +272,20 @@ async fn drive(
     // child were signalled, so the registry keeps the real pid for tree kills.
     let pid = child.id().unwrap_or(virtual_pid);
     let child = Arc::new(TokioMutex::new(child));
-    core.registry.insert(
-        core.run_id.clone(),
-        ChildEntry {
-            child: Some(child.clone()),
-            pid,
-            run_id: core.run_id.clone(),
-            killed: killed.clone(),
-            stdin: Some(stdin.clone()),
-            questions: questions.clone(),
-        },
-    );
+    let entry = ChildEntry {
+        child: Some(child.clone()),
+        pid,
+        run_id: core.run_id.clone(),
+        killed: killed.clone(),
+        stdin: Some(stdin.clone()),
+        questions: questions.clone(),
+    };
+    core.registry.insert(core.run_id.clone(), entry.clone());
+    // A resumed session is keyed up front, so an interrupt by conversation id
+    // routes before the protocol re-announces it.
+    if let Some(session_id) = req.session_id.as_deref() {
+        core.registry.insert(session_id.to_string(), entry);
+    }
     let mut server = AppServer::new(LineRpc::new(stdin, stdout));
     let result = handshake_and_turn(&mut server, core, state, view, req).await;
     let result = match result {

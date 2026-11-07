@@ -75,6 +75,19 @@ impl ProcessRegistry {
         }
     }
 
+    /// Live runs, counting each run once even though a session alias holds a
+    /// second copy of the same entry.
+    pub fn active_run_count(&self) -> usize {
+        let Ok(entries) = self.entries.lock() else {
+            return 0;
+        };
+        entries
+            .values()
+            .map(|entry| entry.run_id.as_str())
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+    }
+
     /// The subset of `run_ids` still mid-turn. Matched on the entry's run id,
     /// not the map key, so a session alias never hides a live run.
     pub fn live_run_ids(&self, run_ids: &[String]) -> Vec<String> {
@@ -263,6 +276,20 @@ mod tests {
         assert!(registry.kill("session-1"));
         assert!(killed.load(Ordering::SeqCst));
         assert!(!registry.kill("unknown"));
+    }
+
+    #[test]
+    fn active_run_count_ignores_session_aliases() {
+        let registry = ProcessRegistry::new();
+        assert_eq!(registry.active_run_count(), 0);
+        registry.insert("run-1".to_string(), entry("run-1", 0));
+        let alias = registry.get("run-1").expect("run entry");
+        registry.insert("session-1".to_string(), alias);
+        assert_eq!(registry.active_run_count(), 1);
+        registry.insert("run-2".to_string(), entry("run-2", 0));
+        assert_eq!(registry.active_run_count(), 2);
+        registry.remove("run-1");
+        assert_eq!(registry.active_run_count(), 1);
     }
 
     #[test]

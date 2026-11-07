@@ -6,6 +6,11 @@ export default {
   newChat: "新建对话",
   refresh: "刷新",
   search: "搜索会话",
+  empty: {
+    title: "还没有打开的对话",
+    hint: "在左侧选择一个会话，或新建一个。",
+    newTab: "新建对话",
+  },
   sidebar: {
     title: "会话",
     empty: "还没有可浏览的会话。",

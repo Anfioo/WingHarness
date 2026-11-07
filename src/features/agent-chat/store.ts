@@ -104,7 +104,7 @@ function toUiState(store: AgentChatStore): AgentUiState {
   };
 }
 
-function persist(): void {
+export function persist(): void {
   saveUiState(toUiState(useAgentChatStore.getState()));
 }
 

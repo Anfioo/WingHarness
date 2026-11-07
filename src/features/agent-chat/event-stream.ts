@@ -7,7 +7,7 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 import type { AgentRunEvent } from "@/commands/services/agent-chat/types";
-import { useAgentChatStore } from "./store";
+import { persist, useAgentChatStore } from "./store";
 import { applyRunEvent } from "./store/engine-events";
 
 /** Event name emitted by `agent-chat-core::engine::sink`. */
@@ -27,6 +27,7 @@ export async function startAgentEventStream(): Promise<UnlistenFn> {
     }
 
     const byTab = { ...state.byTab };
+    const announced = new Map<string, string>();
     let changed = false;
     for (const item of batch) {
       const tabId = runToTab.get(item.runId);
@@ -35,8 +36,22 @@ export async function startAgentEventStream(): Promise<UnlistenFn> {
       if (!current) continue;
       byTab[tabId] = applyRunEvent(current, item);
       changed = true;
+      // The tab's own session id is store data, not part of the fold: a new
+      // native session only exists once the engine announces it.
+      if (item.kind === "session" && typeof item.data === "string" && item.data.trim()) {
+        announced.set(tabId, item.data.trim());
+      }
     }
+    if (!changed) return;
 
-    if (changed) useAgentChatStore.setState({ byTab });
+    const tabs = announced.size
+      ? state.tabs.map((tab) => {
+          const sessionId = announced.get(tab.tabId);
+          return sessionId && tab.sessionId !== sessionId ? { ...tab, sessionId } : tab;
+        })
+      : state.tabs;
+    useAgentChatStore.setState({ tabs, byTab });
+    // Persist right away: a restart reopens the tab by this native session id.
+    if (announced.size) persist();
   });
 }

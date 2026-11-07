@@ -185,18 +185,21 @@ async fn drive_turn(
     // signalled, so the registry keeps the real pid for tree kills.
     let pid = child.id().unwrap_or(virtual_pid);
     let child = Arc::new(TokioMutex::new(child));
-    core.registry.insert(
-        core.run_id.clone(),
-        ChildEntry {
-            child: Some(Arc::clone(&child)),
-            pid,
-            run_id: core.run_id.clone(),
-            killed: Arc::clone(killed),
-            stdin: Some(Arc::clone(&stdin)),
-            // ACP permission requests are auto-allowed; nothing is parked.
-            questions: Arc::new(Mutex::new(HashMap::new())),
-        },
-    );
+    let entry = ChildEntry {
+        child: Some(Arc::clone(&child)),
+        pid,
+        run_id: core.run_id.clone(),
+        killed: Arc::clone(killed),
+        stdin: Some(Arc::clone(&stdin)),
+        // ACP permission requests are auto-allowed; nothing is parked.
+        questions: Arc::new(Mutex::new(HashMap::new())),
+    };
+    core.registry.insert(core.run_id.clone(), entry.clone());
+    // A resumed session is keyed up front, so an interrupt by conversation id
+    // routes before the protocol re-announces it.
+    if let Some(session_id) = req.session_id.as_deref() {
+        core.registry.insert(session_id.to_string(), entry);
+    }
 
     let mut acp = AcpProcess::new(LineRpc::new(stdin, stdout), Arc::clone(killed));
     let result = handshake_and_prompt(&mut acp, core, state, view, req, killed).await;
@@ -657,7 +660,7 @@ impl AcpProcess {
         params: Value,
         timeout_dur: Option<Duration>,
         killed: &AtomicBool,
-        on_notification: &mut dyn FnMut(&Value),
+        on_notification: &mut (dyn FnMut(&Value) + Send),
     ) -> Result<Value, AgentChatError> {
         let id = LineRpc::next_id();
         let expected = id.to_string();

@@ -6,6 +6,11 @@ export default {
   newChat: "New chat",
   refresh: "Refresh",
   search: "Search sessions",
+  empty: {
+    title: "No conversation open",
+    hint: "Pick a session in the sidebar, or start a new one.",
+    newTab: "New conversation",
+  },
   sidebar: {
     title: "Sessions",
     empty: "No sessions to browse yet.",
