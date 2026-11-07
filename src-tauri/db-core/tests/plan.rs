@@ -82,3 +82,16 @@ async fn the_manager_explains_and_refuses_the_drivers_without_a_plan() {
     // An unknown target is reported before any plan is read.
     assert_eq!(manager.explain("gone", "SELECT 1").await.unwrap_err().code, DbErrorCode::NotFound);
 }
+
+#[tokio::test]
+async fn a_statement_the_server_rejects_comes_back_as_an_invalid_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = DbManager::new(dir.path().join("db"));
+    manager.set_root(Some(dir.path().join("project").to_string_lossy().into_owned()));
+    manager.save_sources(vec![sqlite_source("local", database(dir.path()))]).await.unwrap();
+
+    // The driver rejects the statement before there is an `EXPLAIN` answer to
+    // parse, so the error is the server's, not a plan parser failure.
+    let error = manager.explain("local", "SELEC 1").await.unwrap_err();
+    assert_eq!(error.code, DbErrorCode::Invalid, "{error:?}");
+}
