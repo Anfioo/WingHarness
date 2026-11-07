@@ -26,6 +26,7 @@ static LOCK: Mutex<()> = Mutex::new(());
 
 /// The query directory, the window tab records and the settings of one data
 /// directory.
+#[derive(Clone)]
 pub struct Workspace {
     data_dir: PathBuf,
 }

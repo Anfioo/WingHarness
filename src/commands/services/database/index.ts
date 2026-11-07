@@ -29,14 +29,23 @@ import type {
   WindowTabs,
 } from "./types";
 
-/** Every data source of the current project, plus the app-wide ones. */
-export async function dbSourceList(): Promise<DataSourceView[]> {
-  return await invokeCommand<Record<string, never>, DataSourceView[]>("db_sources", {});
+/**
+ * Which of the two engines a scope-aware command works on: the app-wide one
+ * behind the `/database` page, or the one belonging to the open project.
+ */
+export type DbScope = "app" | "project";
+
+/** Every data source of the scope. */
+export async function dbSourceList(scope: DbScope = "app"): Promise<DataSourceView[]> {
+  return await invokeCommand<{ scope: DbScope }, DataSourceView[]>("db_sources", { scope });
 }
 
 /** Replaces the stored list. Ids must be unique; the order is preserved. */
-export async function dbSourceSave(sources: DataSource[]): Promise<void> {
-  await invokeCommand<{ sources: DataSource[] }, void>("db_save_sources", { sources });
+export async function dbSourceSave(sources: DataSource[], scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ sources: DataSource[]; scope: DbScope }, void>("db_save_sources", {
+    sources,
+    scope,
+  });
 }
 
 /**
@@ -256,20 +265,31 @@ export async function dbSchemaObjects(id: string, schema: string): Promise<Schem
 }
 
 /** The `.sql` files of the query directory. */
-export async function dbQueries(): Promise<QueryFile[]> {
-  return await invokeCommand<Record<string, never>, QueryFile[]>("db_queries", {});
+export async function dbQueries(scope: DbScope = "app"): Promise<QueryFile[]> {
+  return await invokeCommand<{ scope: DbScope }, QueryFile[]>("db_queries", { scope });
 }
 
-export async function dbQueryRead(name: string): Promise<string> {
-  return await invokeCommand<{ name: string }, string>("db_query_read", { name });
+export async function dbQueryRead(name: string, scope: DbScope = "app"): Promise<string> {
+  return await invokeCommand<{ name: string; scope: DbScope }, string>("db_query_read", {
+    name,
+    scope,
+  });
 }
 
-export async function dbQueryWrite(name: string, text: string): Promise<void> {
-  await invokeCommand<{ name: string; text: string }, void>("db_query_write", { name, text });
+export async function dbQueryWrite(
+  name: string,
+  text: string,
+  scope: DbScope = "app"
+): Promise<void> {
+  await invokeCommand<{ name: string; text: string; scope: DbScope }, void>("db_query_write", {
+    name,
+    text,
+    scope,
+  });
 }
 
-export async function dbQueryDelete(name: string): Promise<void> {
-  await invokeCommand<{ name: string }, void>("db_query_delete", { name });
+export async function dbQueryDelete(name: string, scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ name: string; scope: DbScope }, void>("db_query_delete", { name, scope });
 }
 
 /** The tabs `source` had when its window last closed; `null` if it saved none. */
@@ -281,12 +301,15 @@ export async function dbSaveWindowTabs(tabs: WindowTabs): Promise<void> {
   await invokeCommand<{ tabs: WindowTabs }, void>("db_save_window_tabs", { tabs });
 }
 
-export async function dbSettings(): Promise<DbSettings> {
-  return await invokeCommand<Record<string, never>, DbSettings>("db_settings", {});
+export async function dbSettings(scope: DbScope = "app"): Promise<DbSettings> {
+  return await invokeCommand<{ scope: DbScope }, DbSettings>("db_settings", { scope });
 }
 
-export async function dbSaveSettings(settings: DbSettings): Promise<void> {
-  await invokeCommand<{ settings: DbSettings }, void>("db_save_settings", { settings });
+export async function dbSaveSettings(settings: DbSettings, scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ settings: DbSettings; scope: DbScope }, void>("db_save_settings", {
+    settings,
+    scope,
+  });
 }
 
 /** The execution plan of `statement`, as the tree the Plan tab renders. */

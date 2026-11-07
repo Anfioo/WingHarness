@@ -34,7 +34,13 @@ export type EditorTabSurface =
   /** A file's commits, newest first, optionally starting at a revision. */
   | { kind: "fileHistory"; path: string; fromOid?: string }
   /** A Markdown document rendered for reading, with its outline. */
-  | { kind: "markdown"; path: string; name: string };
+  | { kind: "markdown"; path: string; name: string }
+  /**
+   * A tab of the project page's database panel: a query file, a project `.sql`
+   * file, or a table's data. One kind rather than three — what the tab holds is
+   * already in `useProjectDb`, and the panel looks it up by id.
+   */
+  | { kind: "dbTab"; tabId: string };
 
 interface EditorTabsState {
   /** Identity of the panel that reported itself visible. */

@@ -104,12 +104,14 @@ only backend work the preview page does. See
 [../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
 
 `db-core/` is a workspace member: the database engine behind the databases page
-and its data source windows — settings, pools, transactions, statement
-splitting, query history, catalog introspection, table paging and row editing,
-DDL generation, execution plans, and the window workspace (query files,
-persisted tabs and row limits), with no Tauri state of its own.
-`commands/db.rs` is a thin layer over it: it owns `DbState` (the engine, the
-workspace and the cancellation map) and nothing else. Row edits are validated
+and its data source windows, and behind the project page's database panel —
+settings, pools, transactions, statement splitting, query history, catalog
+introspection, table paging and row editing, DDL generation, execution plans, and
+the workspace (query files, persisted tabs and row limits), with no Tauri state
+of its own. `commands/db.rs` is a thin layer over it: it owns `DbState` (the
+app-wide engine, the project-scoped engine, the workspace and the cancellation
+map) and nothing else — an id prefixed `whp-` selects the project engine, and the
+commands with no id take an optional `scope`. Row edits are validated
 in the engine, not only in the frontend — an update or delete on a table without
 a primary key is refused there too. It is a GPL-compatible port from
 [openidea](https://github.com/l0ng-ai/openidea); `db-core/UPSTREAM.md` records

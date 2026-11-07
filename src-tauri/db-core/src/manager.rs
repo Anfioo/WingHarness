@@ -53,6 +53,9 @@ pub struct DbManager {
     /// The open project, whose data sources are listed next to the global ones
     /// and whose root resolves relative SQLite paths.
     root: Mutex<Option<String>>,
+    /// Every source lives in one file below [`Self::data_dir`], with no
+    /// app-wide list and no per-project folders: the project-scoped manager.
+    standalone: bool,
     pools: Mutex<HashMap<String, Arc<Pool>>>,
     secrets: SecretStore,
     history: Arc<HistoryStore>,
@@ -105,10 +108,21 @@ impl DbManager {
             history: Arc::new(HistoryStore::new(paths::history(&data_dir))),
             data_dir,
             root: Mutex::new(None),
+            standalone: false,
             pools: Mutex::new(HashMap::new()),
             session_passwords: Mutex::new(HashMap::new()),
             sessions: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// A project-scoped manager: every source lives in `<data_dir>/data-sources.toml`,
+    /// history in `<data_dir>/history.json`, and saved passwords in `secrets_path`
+    /// (the app-wide file, shared by id prefix).
+    pub fn new_project(data_dir: PathBuf, secrets_path: PathBuf) -> Self {
+        let mut manager = Self::new(data_dir);
+        manager.secrets = SecretStore::new(secrets_path);
+        manager.standalone = true;
+        manager
     }
 
     /// Sets the open project (`None` when no project is open).
@@ -121,8 +135,11 @@ impl DbManager {
     }
 
     /// The project's data sources, then the global ones (a project one wins on
-    /// the same id).
+    /// the same id). A standalone manager lists only its own file.
     pub fn sources(&self) -> DbResult<Vec<DataSource>> {
+        if self.standalone {
+            return source::load(&paths::global_sources(&self.data_dir));
+        }
         let mut all = match self.root() {
             Some(root) => source::load(&paths::project_sources(&self.data_dir, &root))?,
             None => Vec::new(),
@@ -165,15 +182,20 @@ impl DbManager {
 
     /// Saves the data source list; connections of removed or changed sources
     /// are closed. Global ones go to the app-wide list, the others to the
-    /// project's (which needs an open project).
+    /// project's (which needs an open project). A standalone manager writes all
+    /// of them to its single file and ignores the `global` flag.
     pub async fn save_sources(&self, sources: Vec<DataSource>) -> DbResult<()> {
         let old = self.sources().unwrap_or_default();
-        let (global, project): (Vec<_>, Vec<_>) = sources.iter().cloned().partition(|source| source.global);
-        source::save(&paths::global_sources(&self.data_dir), &global)?;
-        match self.root() {
-            Some(root) => source::save(&paths::project_sources(&self.data_dir, &root), &project)?,
-            None if project.is_empty() => {}
-            None => return Err(DbError::invalid("Project data sources need an open project")),
+        if self.standalone {
+            source::save(&paths::global_sources(&self.data_dir), &sources)?;
+        } else {
+            let (global, project): (Vec<_>, Vec<_>) = sources.iter().cloned().partition(|source| source.global);
+            source::save(&paths::global_sources(&self.data_dir), &global)?;
+            match self.root() {
+                Some(root) => source::save(&paths::project_sources(&self.data_dir, &root), &project)?,
+                None if project.is_empty() => {}
+                None => return Err(DbError::invalid("Project data sources need an open project")),
+            }
         }
         for previous in old {
             match sources.iter().find(|source| source.id == previous.id) {
@@ -1020,5 +1042,43 @@ mod tests {
         let source = db.source("url:other").unwrap();
         assert_eq!((source.host.as_str(), source.database.as_str()), ("db.local", "other"));
         assert_eq!(db.password(&source).as_deref(), Some("pw"));
+    }
+
+    #[tokio::test]
+    async fn a_standalone_manager_writes_only_its_own_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let data_dir = paths::project_data_dir(tmp.path().to_str().unwrap());
+        let db = DbManager::new_project(data_dir.clone(), tmp.path().join("app-secrets.json"));
+        db.set_root(Some(tmp.path().to_string_lossy().into_owned()));
+        db.save_sources(vec![source("whp-a", false), source("whp-b", true)]).await.unwrap();
+
+        // The `global` flag is ignored: there is nowhere else for a source to go.
+        assert_eq!(
+            db.sources().unwrap().into_iter().map(|source| (source.id, source.global)).collect::<Vec<_>>(),
+            [("whp-a".into(), false), ("whp-b".into(), false)]
+        );
+        assert!(paths::global_sources(&data_dir).is_file());
+        assert!(!data_dir.join("projects").exists());
+        // Passwords belong to the app directory, not the project one.
+        assert!(!data_dir.join("secrets.json").exists());
+    }
+
+    #[test]
+    fn the_app_and_project_managers_share_the_saved_passwords() {
+        let tmp = tempfile::tempdir().unwrap();
+        let app_dir = tmp.path().join("db");
+        let app = DbManager::new(app_dir.clone());
+        let project =
+            DbManager::new_project(paths::project_data_dir(tmp.path().to_str().unwrap()), paths::secrets(&app_dir));
+
+        project.set_password("whp-a", Some("project pw".into()), true).unwrap();
+        app.set_password("app-a", Some("app pw".into()), true).unwrap();
+        assert_eq!(app.password(&source("whp-a", false)).as_deref(), Some("project pw"));
+        assert_eq!(project.password(&source("app-a", false)).as_deref(), Some("app pw"));
+
+        // Forgetting one id leaves the other, whichever manager removes it.
+        project.set_password("whp-a", None, true).unwrap();
+        assert_eq!(app.password(&source("whp-a", false)), None);
+        assert_eq!(app.password(&source("app-a", false)).as_deref(), Some("app pw"));
     }
 }

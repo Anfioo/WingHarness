@@ -67,7 +67,6 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { ImportDialog } from "./import-dialog";
 import { ObjectDialog, dialogKey, type ObjectDialogState } from "./object-dialogs";
 import { reference, scriptSql, type DbObjectRef, type ScriptKind } from "./object-sql";
-import { tabKey, useDatabaseStore } from "./store";
 import {
   buildTreeMenu,
   objectOf,
@@ -237,6 +236,12 @@ export type ObjectTreeProps = {
   onSelect?: (selection: TreeSelection | null) => void;
   /** Context menu › Disconnect; absent leaves the entry disabled. */
   onDisconnect?: (target: string) => void;
+  /** Whether the tree draws its own title bar with a Refresh button. */
+  showHeader?: boolean;
+  /** Opens a query for this data source; absent leaves the entry inert. */
+  onNewQuery?: () => void;
+  /** Focuses an existing query tab; absent falls back to `onNewQuery`. */
+  onJumpToConsole?: () => void;
 };
 
 /** What the window's toolbar may ask the tree to do. */
@@ -268,15 +273,12 @@ export function ObjectTree({
   onRefresh,
   onSelect,
   onDisconnect,
+  showHeader = true,
+  onNewQuery,
+  onJumpToConsole,
   ref,
 }: ObjectTreeProps & { ref?: Ref<ObjectTreeHandle> }): ReactNode {
   const { t } = useAppTranslation();
-  const openQuery = useDatabaseStore((state) => state.openQuery);
-  const selectTab = useDatabaseStore((state) => state.select);
-  const firstQueryKey = useDatabaseStore((state) => {
-    const tab = state.tabs.find((entry) => entry.kind === "query");
-    return tab ? tabKey(tab) : null;
-  });
 
   const sourceId = source.id;
   const showDatabases = listsDatabases(source);
@@ -464,14 +466,14 @@ export function ObjectTree({
   );
 
   const openNewQuery = useCallback(() => {
-    openQuery().catch((failure: unknown) => toast.error(describeFailure(failure)));
-  }, [describeFailure, openQuery]);
+    onNewQuery?.();
+  }, [onNewQuery]);
 
   /** IDEA's "Jump to Query Console": focus a query tab, creating one when none is open. */
   const jumpToConsole = useCallback(() => {
-    if (firstQueryKey) selectTab(firstQueryKey);
-    else openNewQuery();
-  }, [firstQueryKey, openNewQuery, selectTab]);
+    if (onJumpToConsole) onJumpToConsole();
+    else onNewQuery?.();
+  }, [onJumpToConsole, onNewQuery]);
 
   const insertScript = useCallback(
     async (target: string, kind: ScriptKind, schema: string, table: string) => {
@@ -1330,19 +1332,21 @@ export function ObjectTree({
   return (
     <>
       <section className="flex min-h-0 flex-1 flex-col" aria-label={t("database.tree.title")}>
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
-          <span className="text-sm font-medium">{t("database.tree.title")}</span>
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            disabled={!enabled || refreshing}
-            aria-label={t("database.action.refresh")}
-            title={t("database.action.refresh")}
-            onClick={() => void refresh()}
-          >
-            <RefreshCw className={refreshing ? "animate-spin" : undefined} />
-          </Button>
-        </div>
+        {showHeader && (
+          <div className="flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2">
+            <span className="text-sm font-medium">{t("database.tree.title")}</span>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              disabled={!enabled || refreshing}
+              aria-label={t("database.action.refresh")}
+              title={t("database.action.refresh")}
+              onClick={() => void refresh()}
+            >
+              <RefreshCw className={refreshing ? "animate-spin" : undefined} />
+            </Button>
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-auto py-1" role="tree">
           {enabled ? (
             renderNodes(childrenOf(root), 0)
