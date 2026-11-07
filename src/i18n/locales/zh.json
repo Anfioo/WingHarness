@@ -1197,8 +1197,7 @@
     "tab": {
       "console": "SQL 控制台",
       "table": "表",
-      "close": "关闭页签",
-      "closeOthers": "关闭其他页签"
+      "close": "关闭页签"
     },
     "console": {
       "run": "执行",
@@ -1208,38 +1207,23 @@
       "output": "输出",
       "result": "结果",
       "resultsEmpty": "执行一条语句后在这里查看结果。",
-      "statementCount": "{{count}} 条语句",
-      "stopOnError": "出错即停",
-      "lineColumn": "第 {{line}} 行，第 {{column}} 列",
-      "formatFailed": "无法格式化 SQL：{{error}}"
+      "statementCount": "{{count}} 条语句"
     },
     "grid": {
       "rows": "{{count}} 行",
-      "page": "第 {{page}} 页",
       "first": "首页",
       "last": "末页",
       "of": "共 {{count}}",
       "next": "下一页",
       "prev": "上一页",
-      "more": "加载更多",
-      "search": "搜索",
       "filter": "过滤",
-      "sortAsc": "升序排列",
-      "sortDesc": "降序排列",
-      "clearSort": "清除排序",
       "copy": "复制",
       "copyTsv": "复制为 TSV",
       "copyCsv": "复制为 CSV",
       "copyFailed": "无法复制到剪贴板。",
       "null": "NULL",
       "preview": "预览",
-      "column": "列",
-      "aggregate": "聚合",
-      "sum": "求和",
-      "avg": "平均值",
-      "min": "最小值",
-      "max": "最大值",
-      "count": "计数"
+      "column": "列"
     },
     "table": {
       "readOnly": "此表为只读。",
@@ -1249,16 +1233,11 @@
       "submit": "提交改动",
       "revert": "撤销改动",
       "changed": "{{count}} 行已改动",
-      "pending": "有未保存的改动",
       "filterPlaceholder": "WHERE 片段",
-      "orderPlaceholder": "ORDER BY 片段",
       "refresh": "刷新",
       "confirmSubmit": "应用改动？",
       "confirmSubmitBody": "将改动 {{table}} 中的 {{count}} 行。",
       "submitted": "改动已应用。",
-      "discard": "放弃改动？",
-      "duplicateKey": "主键重复。",
-      "importNotSupported": "此驱动不支持导入行。",
       "columns": "列",
       "searchColumns": "搜索列",
       "noMatchingColumns": "没有匹配的列"
@@ -1270,9 +1249,6 @@
       "json": "JSON",
       "sql": "SQL",
       "markdown": "Markdown",
-      "header": "包含列名",
-      "rowHeader": "包含行号",
-      "transpose": "转置",
       "save": "保存",
       "saved": "已保存 {{name}}。",
       "failed": "导出失败：{{error}}"
@@ -1287,15 +1263,31 @@
       "scripts": "生成脚本",
       "refresh": "刷新",
       "selectAll": "查询全部",
-      "selectFirst": "查询前 100 行",
+      "selectFirst": "查询前 10 行",
       "insert": "插入",
       "update": "更新",
-      "delete": "删除"
+      "delete": "删除",
+      "preview": "预览",
+      "ifExists": "如果存在",
+      "cascade": "级联",
+      "restartIdentity": "重启标识",
+      "renameBody": "重命名 {{name}}。",
+      "dropBody": "删除 {{name}}？此操作无法撤销。",
+      "truncateBody": "删除 {{table}} 的全部行。",
+      "dataType": "类型",
+      "notNull": "非空",
+      "defaultValue": "默认值",
+      "primaryKey": "主键",
+      "addColumn": "添加列",
+      "dropColumn": "删除列",
+      "keepColumn": "保留列",
+      "sqliteAlterHint": "SQLite 只能重命名、添加或删除列。",
+      "scriptFailed": "该表没有可供脚本更新的列。",
+      "noChanges": "没有更改。"
     },
     "ddl": {
       "title": "定义",
       "description": "重建此对象的语句。",
-      "execute": "执行",
       "openInConsole": "在控制台中打开",
       "copied": "已复制到剪贴板。",
       "failed": "无法读取定义：{{error}}"
@@ -1353,7 +1345,7 @@
       "emptySchema": "此 schema 中没有表、视图、例程或序列。",
       "emptyColumns": "此表没有列。",
       "current": "当前",
-      "insertSelect": "双击插入 SELECT 语句。",
+      "openTable": "双击打开；按住 Ctrl 双击插入 SELECT。",
       "otherDatabase": "该表属于另一个数据库，而控制台连接的是当前数据库。",
       "folder": {
         "tables": "表",
@@ -1378,8 +1370,6 @@
       "committed": "事务已提交。",
       "rolledBack": "事务已回滚。",
       "cancelled": "语句已取消。",
-      "statementPlaceholder": "-- Ctrl+Enter 执行语句\nSELECT 1;",
-      "run": "执行",
       "cancel": "取消",
       "running": "执行中…",
       "runHint": "Ctrl+Enter 执行语句",
@@ -1387,7 +1377,6 @@
       "done": "语句已完成。",
       "affected": "影响 {{count}} 行",
       "rowCount": "{{count}} 行",
-      "truncated": "还有更多行未显示。",
       "executionTime": "首行耗时 {{ms}} 毫秒"
     }
   },
