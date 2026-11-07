@@ -506,3 +506,71 @@ fn walk(dir: &std::path::Path) -> Vec<PathBuf> {
     }
     files
 }
+
+#[test]
+fn a_workspace_round_trips_queries_tabs_and_settings() {
+    use db_core::{DbSettings, TabRecord, WindowTabs, Workspace};
+
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = Workspace::new(dir.path().join("db"));
+
+    workspace.write_query("one.sql", "SELECT 1").unwrap();
+    let names: Vec<_> = workspace.queries().unwrap().into_iter().map(|file| file.name).collect();
+    assert_eq!(names, ["one.sql"]);
+    assert_eq!(workspace.read_query("one.sql").unwrap(), "SELECT 1");
+
+    workspace
+        .save_window_tabs(WindowTabs {
+            source: "s".into(),
+            tabs: vec![TabRecord::Query { file: "one.sql".into() }],
+            active: Some("query:one.sql".into()),
+        })
+        .unwrap();
+    let first = workspace.window_tabs("s").unwrap().unwrap();
+    assert_eq!(first.tabs, vec![TabRecord::Query { file: "one.sql".into() }]);
+    assert_eq!(first.active.as_deref(), Some("query:one.sql"));
+
+    // A second window adds its entry without replacing the first one.
+    workspace
+        .save_window_tabs(WindowTabs {
+            source: "t".into(),
+            tabs: vec![TabRecord::Table { target: "t".into(), schema: "main".into(), table: "users".into() }],
+            active: None,
+        })
+        .unwrap();
+    assert_eq!(workspace.window_tabs("s").unwrap().unwrap().tabs.len(), 1);
+    assert_eq!(workspace.window_tabs("t").unwrap().unwrap().tabs.len(), 1);
+    assert!(workspace.window_tabs("missing").unwrap().is_none());
+
+    workspace.save_settings(DbSettings { version: 1, console_rows: 1000, table_page_size: 1000 }).unwrap();
+    assert_eq!(workspace.settings().unwrap().console_rows, 1000);
+}
+
+#[test]
+fn a_workspace_recovers_from_a_damaged_tabs_file() {
+    use db_core::Workspace;
+
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = Workspace::new(dir.path().join("db"));
+    std::fs::create_dir_all(dir.path().join("db")).unwrap();
+    std::fs::write(dir.path().join("db").join("windows.json"), "{damaged").unwrap();
+
+    assert!(workspace.window_tabs("s").unwrap().is_none());
+    let backups: Vec<_> = std::fs::read_dir(dir.path().join("db"))
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.file_name().to_string_lossy().into_owned())
+        .filter(|name| name.starts_with("windows.json.bak-"))
+        .collect();
+    assert_eq!(backups.len(), 1, "{backups:?}");
+
+    // The damaged file is gone, so a save starts from a clean slate.
+    workspace
+        .save_window_tabs(db_core::WindowTabs {
+            source: "s".into(),
+            tabs: vec![db_core::TabRecord::Query { file: "one.sql".into() }],
+            active: None,
+        })
+        .unwrap();
+    assert_eq!(workspace.window_tabs("s").unwrap().unwrap().tabs.len(), 1);
+}
