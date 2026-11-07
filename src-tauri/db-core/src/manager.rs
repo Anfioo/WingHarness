@@ -633,6 +633,17 @@ impl DbManager {
     ) -> DbResult<f64> {
         let pool = self.pool(id).await?;
         let driver = pool.driver();
+        // Update and delete locate one row by its primary key. A table without a
+        // key is read only, the same rule the table editor shows, and the check
+        // has to happen here too: the command is reachable without that editor.
+        if edits.iter().any(|edit| !matches!(edit, DbRowEdit::Insert { .. })) {
+            let details = self.table_details(id, schema, table).await?;
+            if !details.columns.iter().any(|column| column.primary_key) {
+                return Err(DbError::invalid(format!(
+                    "{schema}.{table} has no primary key, so its rows cannot be edited"
+                )));
+            }
+        }
         let statements = edits
             .iter()
             .map(|edit| {
