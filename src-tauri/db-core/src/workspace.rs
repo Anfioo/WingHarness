@@ -370,6 +370,7 @@ fn lock() -> std::sync::MutexGuard<'static, ()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::DbErrorCode;
 
     /// A workspace below a temporary directory that is removed on drop, so a
     /// failing assertion cannot leave files behind for the next run.
@@ -616,5 +617,47 @@ mod tests {
         // A hand-edited file out of range falls back rather than failing.
         std::fs::write(workspace.settings_path(), r#"{"version":1,"consoleRows":999999,"tablePageSize":100}"#).unwrap();
         assert_eq!(workspace.settings().unwrap(), DbSettings { version: 1, console_rows: 500, table_page_size: 100 });
+
+        // The upper bounds are accepted and read back unchanged.
+        workspace.save_settings(DbSettings { version: 1, console_rows: 50_000, table_page_size: 5_000 }).unwrap();
+        let stored = workspace.settings().unwrap();
+        assert_eq!((stored.console_rows, stored.table_page_size), (50_000, 5_000));
+    }
+
+    #[test]
+    fn a_query_directory_occupied_by_a_file_reports_an_internal_error() {
+        let sandbox = Sandbox::new("not-a-directory");
+        let workspace = sandbox.workspace();
+        std::fs::create_dir_all(&workspace.data_dir).unwrap();
+        // A regular file where the query directory belongs, so neither listing
+        // nor writing can create the directory underneath it.
+        std::fs::write(workspace.query_dir(), "occupied").unwrap();
+
+        assert_eq!(workspace.queries().unwrap_err().code, DbErrorCode::Internal);
+        assert_eq!(workspace.write_query("a.sql", "SELECT 1").unwrap_err().code, DbErrorCode::Internal);
+    }
+
+    /// Windows cannot make a directory read-only in the POSIX sense (the
+    /// attribute does not stop `CreateFile`), so the failure path is only
+    /// exercised where the platform can express it.
+    #[cfg(unix)]
+    #[test]
+    fn a_read_only_query_directory_reports_an_internal_error() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let sandbox = Sandbox::new("read-only");
+        let workspace = sandbox.workspace();
+        std::fs::create_dir_all(workspace.query_dir()).unwrap();
+        let mut permissions = std::fs::metadata(workspace.query_dir()).unwrap().permissions();
+        permissions.set_mode(0o555);
+        std::fs::set_permissions(workspace.query_dir(), permissions).unwrap();
+
+        let error = workspace.write_query("a.sql", "SELECT 1").unwrap_err();
+        assert_eq!(error.code, DbErrorCode::Internal);
+
+        // Restore the write bit so the sandbox can remove its tree on drop.
+        let mut permissions = std::fs::metadata(workspace.query_dir()).unwrap().permissions();
+        permissions.set_mode(0o755);
+        std::fs::set_permissions(workspace.query_dir(), permissions).unwrap();
     }
 }
