@@ -1,3 +1,7 @@
+// One result set: its toolbar (row count, elapsed time, search, panel, rerun,
+// copy, export) and the grid with its pager. The loaded page is a window into
+// the query, so paging and counting ask the server again.
+
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import {
@@ -7,9 +11,21 @@ import {
   ChevronsRight,
   Copy,
   Download,
+  Loader2,
+  RefreshCw,
+  Search,
+  Sigma,
+  SquareCode,
+  SquareUser,
 } from "lucide-react";
 import { toast } from "sonner";
-import { saveTextFile, type QueryResult } from "@/commands";
+import {
+  databaseErrorCode,
+  dbSourceList,
+  saveTextFile,
+  type DbDriver,
+  type QueryResult,
+} from "@/commands";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,6 +41,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import i18n from "@/i18n";
+import type { DataPanel } from "./data-panel";
+import { DataView } from "./data-view";
 import {
   EXPORT_FORMATS,
   exportData,
@@ -33,17 +52,23 @@ import {
   type ExportData,
   type ExportFormat,
 } from "./export";
-import { NULL_FILTER_PATTERN, ResultGrid, type GridColumn } from "./result-grid";
-import { pageWindow, visibleRows, type LocalFilter, type LocalSort } from "./result-view";
+import { countResult, loadResultPage } from "./result-actions";
+import type { GridColumn } from "./result-grid";
+import { pageWindow } from "./result-view";
 import { analyze } from "./sql/analyze";
+import { findParams } from "./sql/params";
+import type { ResultTab } from "./store";
 
-export type ResultViewProps = {
-  result: QueryResult;
-  /** Table-editor mode: the caller owns paging and passes it as `paging`. */
-  editable?: boolean;
-  /** Page request for server-paged results (table editor); omit for the console's client pager. */
-  paging?: { page: number; pageSize: number; hasMore: boolean; onPage: (page: number) => void };
-};
+export type ResultViewProps =
+  | {
+      tabKey: string;
+      tab: ResultTab;
+      sourceId: string;
+      target: string;
+      onRerun(): void;
+    }
+  // The console page's own result view, until that page moves to `ResultTabs`.
+  | { result: QueryResult };
 
 const PAGE_SIZES = [100, 500, 1000];
 
@@ -68,157 +93,58 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/**
- * One result set: its toolbar (row count, elapsed time, copy, export), the
- * grid and the pager. Console results sort and filter on the client; a table
- * editor passes `paging` and owns the server round trip.
- *
- * The grid stays read-only here: `ResultViewProps` carries no `onChange` or
- * `onSort`, so the table editor drives `ResultGrid` itself.
- */
-export function ResultView(props: ResultViewProps): ReactNode {
-  const { result, paging } = props;
-  const { t } = useAppTranslation();
+function columnsOf(result: QueryResult): GridColumn[] {
+  return result.columns.map((column) => ({ name: column.name, typeName: column.typeName }));
+}
 
-  const [sort, setSort] = useState<LocalSort | null>(null);
-  const [filter, setFilter] = useState<LocalFilter>(new Map());
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(() => Math.max(result.rows.length, 1));
-
-  // Another result set (a re-run, another page) starts without shaping state.
-  useEffect(() => {
-    setSort(null);
-    setFilter(new Map());
-    setPage(0);
-    setPageSize(Math.max(result.rows.length, 1));
-  }, [result]);
-
-  const columns = useMemo<GridColumn[]>(
-    () => result.columns.map((column) => ({ name: column.name, typeName: column.typeName })),
-    [result.columns]
-  );
-  const value = useMemo(() => {
-    const rows = result.rows;
-    return (row: number, col: number) => rows[row]?.[col] ?? null;
-  }, [result.rows]);
-
-  const local = !paging;
-  const order = useMemo(
-    () => (local ? visibleRows(result.rows.length, value, filter, sort) : []),
-    [local, result.rows.length, value, filter, sort]
-  );
-
-  const size = paging ? Math.max(paging.pageSize, 1) : pageSize;
-  const currentPage = paging ? paging.page : page;
-  const totalRows = local ? order.length : result.rows.length;
-  const offset = currentPage * size;
-  const displayed = local
-    ? order.slice(offset, offset + size).map((row) => result.rows[row] ?? [])
-    : result.rows;
-  const hasMore = paging ? paging.hasMore : result.hasMore;
-  const windowState = pageWindow({
-    page: currentPage,
-    pageSize: size,
-    rows: displayed.length,
-    hasMore,
-    total: local && !result.hasMore ? totalRows : null,
-  });
-  // `count` is a number for i18next; a paged result appends `+` to it.
-  const totalCount = windowState.total ?? windowState.last + 1;
-  const range = `${windowState.first}-${windowState.last} ${t("database.grid.of", {
-    count: totalCount,
-  })}${windowState.total === null ? "+" : ""}`;
-  const canNext = paging ? paging.hasMore : offset + size < totalRows;
-  const lastPage = windowState.lastPage;
-
-  const go = (next: number) => {
-    if (paging) paging.onPage(Math.max(0, next));
-    else setPage(Math.max(0, next));
-  };
-
-  const changeSort = (name: string) => {
-    const column = columns.findIndex((entry) => entry.name === name);
-    if (column < 0) return;
-    setSort((current) =>
-      current?.column !== column
-        ? { column, descending: false }
-        : !current.descending
-          ? { ...current, descending: true }
-          : null
+async function copyAll(result: QueryResult, format: "tsv" | "csv"): Promise<void> {
+  try {
+    const head = result.columns.map((column) => column.name);
+    await navigator.clipboard.writeText(
+      format === "tsv" ? toTsv(head, result.rows) : toCsv(head, result.rows)
     );
-    setPage(0);
-  };
+  } catch {
+    toast.error(i18n.t("database.grid.copyFailed"));
+  }
+}
 
-  const filterValue = (name: string, cell: string | null) => {
-    const column = columns.findIndex((entry) => entry.name === name);
-    const allowed = column >= 0 ? filter.get(column) : undefined;
-    return !allowed || allowed.has(cell);
-  };
+async function saveExport(data: ExportData, format: ExportFormat): Promise<void> {
+  const meta = EXPORT_FORMATS.find((entry) => entry.id === format);
+  if (!meta) return;
+  let path: string | null = null;
+  try {
+    path = await save({
+      defaultPath: `result.${meta.extension}`,
+      filters: [{ name: i18n.t(meta.label), extensions: [meta.extension] }],
+    });
+  } catch (error) {
+    toast.error(i18n.t("database.export.failed", { error: errorMessage(error) }));
+    return;
+  }
+  if (!path) return;
+  try {
+    await saveTextFile(path, exportData(format, data));
+    toast.success(i18n.t("database.export.saved", { name: baseName(path) }));
+  } catch (error) {
+    toast.error(i18n.t("database.export.failed", { error: errorMessage(error) }));
+  }
+}
 
-  const changeFilter = (name: string, patterns: Set<string> | null) => {
-    const column = columns.findIndex((entry) => entry.name === name);
-    if (column < 0) return;
-    const next = new Map(filter);
-    if (patterns === null) {
-      next.delete(column);
-    } else {
-      next.set(
-        column,
-        new Set([...patterns].map((pattern) => (pattern === NULL_FILTER_PATTERN ? null : pattern)))
-      );
-    }
-    setFilter(next);
-    setPage(0);
-  };
+export function ResultView(props: ResultViewProps): ReactNode {
+  if ("result" in props) return <LegacyResultView result={props.result} />;
+  return <TabResultView {...props} />;
+}
 
-  const copyAll = async (format: "tsv" | "csv") => {
-    const head = columns.map((column) => column.name);
-    try {
-      await navigator.clipboard.writeText(
-        format === "tsv" ? toTsv(head, result.rows) : toCsv(head, result.rows)
-      );
-    } catch {
-      toast.error(t("database.grid.copyFailed"));
-    }
-  };
-
-  const exportAs = async (format: ExportFormat) => {
-    const meta = EXPORT_FORMATS.find((entry) => entry.id === format);
-    if (!meta) return;
-    const data: ExportData = {
-      columns: result.columns,
-      rows: result.rows,
-      table: exportTable(result.statement),
-      driver: "sqlite",
-    };
-    let path: string | null = null;
-    try {
-      path = await save({
-        defaultPath: `result.${meta.extension}`,
-        filters: [{ name: t(meta.label), extensions: [meta.extension] }],
-      });
-    } catch (error) {
-      toast.error(t("database.export.failed", { error: errorMessage(error) }));
-      return;
-    }
-    if (!path) return;
-    try {
-      await saveTextFile(path, exportData(format, data));
-      toast.success(t("database.export.saved", { name: baseName(path) }));
-    } catch (error) {
-      toast.error(t("database.export.failed", { error: errorMessage(error) }));
-    }
-  };
-
-  const sizes = PAGE_SIZES.includes(pageSize)
-    ? PAGE_SIZES
-    : [...PAGE_SIZES, pageSize].sort((a, b) => a - b);
+/** The console page's result: read-only, no server paging. */
+function LegacyResultView({ result }: { result: QueryResult }): ReactNode {
+  const { t } = useAppTranslation();
+  const columns = useMemo(() => columnsOf(result), [result]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-1 border-b px-2 py-1 text-xs">
         <span className="text-muted-foreground">
-          {t("database.grid.rows", { count: totalRows })}
+          {t("database.grid.rows", { count: result.rows.length })}
         </span>
         <span className="text-muted-foreground/60">·</span>
         <span className="text-muted-foreground">
@@ -229,7 +155,7 @@ export function ResultView(props: ResultViewProps): ReactNode {
           variant="ghost"
           size="xs"
           title={t("database.grid.copyTsv")}
-          onClick={() => void copyAll("tsv")}
+          onClick={() => void copyAll(result, "tsv")}
         >
           <Copy className="size-3" />
           {t("database.grid.copyTsv")}
@@ -238,25 +164,17 @@ export function ResultView(props: ResultViewProps): ReactNode {
           variant="ghost"
           size="xs"
           title={t("database.grid.copyCsv")}
-          onClick={() => void copyAll("csv")}
+          onClick={() => void copyAll(result, "csv")}
         >
           {t("database.grid.copyCsv")}
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="xs" title={t("database.export.title")}>
-              <Download className="size-3" />
-              {t("database.export.title")}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {EXPORT_FORMATS.map((format) => (
-              <DropdownMenuItem key={format.id} onSelect={() => void exportAs(format.id)}>
-                {t(format.label)}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ExportMenu
+          data={{
+            columns: result.columns,
+            rows: result.rows,
+            table: exportTable(result.statement),
+          }}
+        />
       </div>
 
       {columns.length === 0 ? (
@@ -266,19 +184,213 @@ export function ResultView(props: ResultViewProps): ReactNode {
             : t("database.console.resultsEmpty")}
         </div>
       ) : (
+        <div className="min-h-0 flex-1">
+          <DataView
+            columns={columns}
+            rows={result.rows}
+            rowCount={result.rows.length}
+            panel={null}
+            onPanelChange={() => undefined}
+            searchOpen={false}
+            onSearchOpenChange={() => undefined}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TabResultView(props: {
+  tabKey: string;
+  tab: ResultTab;
+  sourceId: string;
+  target: string;
+  onRerun(): void;
+}): ReactNode {
+  const { tabKey, tab, sourceId, target, onRerun } = props;
+  const { t } = useAppTranslation();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [panel, setPanel] = useState<DataPanel>(null);
+  const [driver, setDriver] = useState<DbDriver>("sqlite");
+
+  // The dialect only matters for the export quoting and for reading parameters;
+  // the neutral driver is a safe fallback when the list cannot be read.
+  useEffect(() => {
+    let live = true;
+    dbSourceList()
+      .then((sources) => {
+        if (!live) return;
+        const found = sources.find((source) => source.id === sourceId)?.driver;
+        if (found) setDriver(found);
+      })
+      .catch(() => {
+        // Keep the fallback.
+      });
+    return () => {
+      live = false;
+    };
+  }, [sourceId]);
+
+  const result = tab.outcome?.result ?? null;
+  const failure = tab.outcome?.error ?? null;
+  const columns = useMemo<GridColumn[]>(() => (result ? columnsOf(result) : []), [result]);
+
+  const params = useMemo(() => {
+    try {
+      return findParams(tab.statement.text, driver);
+    } catch {
+      return [];
+    }
+  }, [tab.statement.text, driver]);
+  const countBlocked = params.length > 0;
+
+  const windowState = pageWindow({
+    page: tab.page,
+    pageSize: tab.pageSize,
+    rows: result?.rows.length ?? 0,
+    hasMore: result?.hasMore ?? false,
+    total: tab.total,
+  });
+  const known = tab.total ?? windowState.total;
+  const range = `${windowState.first}-${windowState.last} ${t("database.grid.of", {
+    count: known ?? windowState.last + 1,
+  })}${known === null ? "+" : ""}`;
+  const canNext =
+    !tab.busy &&
+    (tab.total !== null ? (tab.page + 1) * tab.pageSize < tab.total : (result?.hasMore ?? false));
+
+  const go = (page: number) => {
+    if (tab.busy) return;
+    void loadResultPage(tabKey, tab.id, Math.max(0, page), tab.pageSize);
+  };
+
+  const sizes = PAGE_SIZES.includes(tab.pageSize)
+    ? PAGE_SIZES
+    : [...PAGE_SIZES, tab.pageSize].sort((a, b) => a - b);
+
+  const togglePanel = (next: DataPanel) => setPanel((current) => (current === next ? null : next));
+
+  const code = failure ? databaseErrorCode(failure) : null;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-wrap items-center gap-1 border-b px-2 py-1 text-xs">
+        <span className="text-muted-foreground">
+          {t("database.grid.rows", { count: result?.rows.length ?? 0 })}
+        </span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className="text-muted-foreground">
+          {t("database.window.executionTime", { ms: result?.executionMs ?? 0 })}
+        </span>
+        <span className="flex-1" />
+        <Button
+          variant={searchOpen ? "secondary" : "ghost"}
+          size="icon-xs"
+          aria-pressed={searchOpen}
+          aria-label={t("database.result.find")}
+          title={t("database.result.find")}
+          onClick={() => setSearchOpen((open) => !open)}
+        >
+          <Search />
+        </Button>
+        <Button
+          variant={panel === "record" ? "secondary" : "ghost"}
+          size="icon-xs"
+          aria-pressed={panel === "record"}
+          aria-label={t("database.panel.record")}
+          title={t("database.panel.record")}
+          onClick={() => togglePanel("record")}
+        >
+          <SquareUser />
+        </Button>
+        <Button
+          variant={panel === "value" ? "secondary" : "ghost"}
+          size="icon-xs"
+          aria-pressed={panel === "value"}
+          aria-label={t("database.panel.value")}
+          title={t("database.panel.value")}
+          onClick={() => togglePanel("value")}
+        >
+          <SquareCode />
+        </Button>
+        <Button
+          variant={panel === "aggregates" ? "secondary" : "ghost"}
+          size="icon-xs"
+          aria-pressed={panel === "aggregates"}
+          aria-label={t("database.panel.aggregates")}
+          title={t("database.panel.aggregates")}
+          onClick={() => togglePanel("aggregates")}
+        >
+          <Sigma />
+        </Button>
+        <span className="text-muted-foreground/60">·</span>
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={tab.busy}
+          title={t("database.result.rerun")}
+          onClick={onRerun}
+        >
+          {tab.busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+          {t("database.result.rerun")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={!result}
+          title={t("database.grid.copyTsv")}
+          onClick={() => result && void copyAll(result, "tsv")}
+        >
+          <Copy />
+          {t("database.grid.copyTsv")}
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={!result}
+          title={t("database.grid.copyCsv")}
+          onClick={() => result && void copyAll(result, "csv")}
+        >
+          {t("database.grid.copyCsv")}
+        </Button>
+        <ExportMenu
+          data={
+            result
+              ? {
+                  columns: result.columns,
+                  rows: result.rows,
+                  table: exportTable(result.statement),
+                  driver,
+                }
+              : null
+          }
+        />
+      </div>
+
+      {failure ? (
+        <div className="border-destructive/40 bg-destructive/5 text-destructive m-3 rounded-md border px-3 py-2 text-xs break-words whitespace-pre-wrap">
+          {code ? t(`database.error.${code}`, { defaultValue: failure.message }) : failure.message}
+        </div>
+      ) : !result ? (
+        <p className="text-muted-foreground p-3 text-xs">{t("database.console.resultsEmpty")}</p>
+      ) : columns.length === 0 ? (
+        <p className="text-muted-foreground p-3 text-sm">
+          {result.affected !== null
+            ? t("database.window.affected", { count: result.affected })
+            : t("database.console.resultsEmpty")}
+        </p>
+      ) : (
         <>
           <div className="min-h-0 flex-1">
-            <ResultGrid
+            <DataView
               columns={columns}
-              rows={displayed}
-              sort={
-                local && sort
-                  ? [{ column: columns[sort.column]?.name ?? "", descending: sort.descending }]
-                  : undefined
-              }
-              onSort={local ? changeSort : undefined}
-              filter={local ? filterValue : undefined}
-              onFilterChange={local ? changeFilter : undefined}
+              rows={result.rows}
+              rowCount={result.rows.length}
+              panel={panel}
+              onPanelChange={setPanel}
+              searchOpen={searchOpen}
+              onSearchOpenChange={setSearchOpen}
+              ariaLabel={target}
             />
           </div>
           <div className="flex items-center gap-1 border-t px-2 py-1 text-xs">
@@ -286,19 +398,19 @@ export function ResultView(props: ResultViewProps): ReactNode {
               variant="ghost"
               size="icon-xs"
               title={t("database.grid.first")}
-              disabled={currentPage === 0}
+              disabled={tab.busy || tab.page === 0}
               onClick={() => go(0)}
             >
-              <ChevronsLeft className="size-3" />
+              <ChevronsLeft />
             </Button>
             <Button
               variant="ghost"
               size="icon-xs"
               title={t("database.grid.prev")}
-              disabled={currentPage === 0}
-              onClick={() => go(currentPage - 1)}
+              disabled={tab.busy || tab.page === 0}
+              onClick={() => go(tab.page - 1)}
             >
-              <ChevronLeft className="size-3" />
+              <ChevronLeft />
             </Button>
             <span className="text-muted-foreground px-1 tabular-nums">{range}</span>
             <Button
@@ -306,42 +418,83 @@ export function ResultView(props: ResultViewProps): ReactNode {
               size="icon-xs"
               title={t("database.grid.next")}
               disabled={!canNext}
-              onClick={() => go(currentPage + 1)}
+              onClick={() => go(tab.page + 1)}
             >
-              <ChevronRight className="size-3" />
+              <ChevronRight />
             </Button>
             <Button
               variant="ghost"
               size="icon-xs"
               title={t("database.grid.last")}
-              disabled={lastPage === null || currentPage >= lastPage}
-              onClick={() => go(lastPage ?? currentPage)}
+              disabled={
+                tab.busy || windowState.lastPage === null || tab.page >= windowState.lastPage
+              }
+              onClick={() => go(windowState.lastPage ?? tab.page)}
             >
-              <ChevronsRight className="size-3" />
+              <ChevronsRight />
             </Button>
-            {!paging && (
-              <Select
-                value={String(pageSize)}
-                onValueChange={(next) => {
-                  setPageSize(Number(next));
-                  setPage(0);
-                }}
-              >
-                <SelectTrigger size="sm" className="ml-auto h-6 w-20 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sizes.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+            <Button
+              variant="ghost"
+              size="xs"
+              className="ml-1"
+              disabled={tab.busy || countBlocked}
+              title={
+                countBlocked
+                  ? t("database.result.countParams", {
+                      defaultValue: "COUNT is unavailable for statements with parameters",
+                    })
+                  : t("database.result.count")
+              }
+              onClick={() => void countResult(tabKey, tab.id)}
+            >
+              {tab.busy ? t("database.result.counting") : t("database.result.count")}
+            </Button>
+            <Select
+              value={String(tab.pageSize)}
+              onValueChange={(next) => {
+                if (tab.busy) return;
+                void loadResultPage(tabKey, tab.id, 0, Number(next));
+              }}
+            >
+              <SelectTrigger size="sm" className="ml-auto h-6 w-20 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {sizes.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </>
       )}
     </div>
+  );
+}
+
+function ExportMenu({ data }: { data: ExportData | null }): ReactNode {
+  const { t } = useAppTranslation();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="xs" disabled={!data} title={t("database.export.title")}>
+          <Download />
+          {t("database.export.title")}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {EXPORT_FORMATS.map((format) => (
+          <DropdownMenuItem
+            key={format.id}
+            disabled={!data}
+            onSelect={() => data && void saveExport(data, format.id)}
+          >
+            {t(format.label)}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
