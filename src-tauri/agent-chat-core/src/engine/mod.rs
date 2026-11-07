@@ -180,6 +180,12 @@ pub async fn send(
     if workspace.as_os_str().is_empty() {
         return Err(AgentChatError::invalid_input("The workspace path is empty."));
     }
+    if !workspace.is_dir() {
+        return Err(AgentChatError::invalid_input(format!(
+            "The workspace directory {} does not exist.",
+            workspace.display()
+        )));
+    }
     // Probe before reserving: a missing CLI is the common failure and must not
     // consume a run slot or a run id.
     let bin = resolve::find_cli_binary(engine.id())
