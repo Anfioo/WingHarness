@@ -36,6 +36,16 @@ fn project_folder(root: &str) -> String {
     format!("{slug}-{:08x}", hash(root))
 }
 
+/// The project-scoped workspace: `<project root>/.wh/db`.
+///
+/// It holds the same files as the app-wide directory — the data sources, the
+/// query files, the history and the settings — so a [`crate::workspace::Workspace`]
+/// and a [`crate::manager::DbManager`] can be pointed at it unchanged. Saved
+/// passwords stay in the app-wide `secrets.json`, keyed by the `whp-` id prefix.
+pub fn project_data_dir(root: &str) -> PathBuf {
+    Path::new(root).join(".wh").join("db")
+}
+
 /// Saved passwords, one file for every data source.
 pub fn secrets(data_dir: &Path) -> PathBuf {
     data_dir.join("secrets.json")
@@ -44,6 +54,21 @@ pub fn secrets(data_dir: &Path) -> PathBuf {
 /// Query history, one file for every data source.
 pub fn history(data_dir: &Path) -> PathBuf {
     data_dir.join("history.json")
+}
+
+/// The `.sql` files the workspace's query tabs are backed by.
+pub fn query_dir(data_dir: &Path) -> PathBuf {
+    data_dir.join("query")
+}
+
+/// The tabs of every data source window, one entry per source.
+pub fn windows(data_dir: &Path) -> PathBuf {
+    data_dir.join("windows.json")
+}
+
+/// The row limits the console and the table editor remember.
+pub fn settings(data_dir: &Path) -> PathBuf {
+    data_dir.join("settings.json")
 }
 
 /// FNV-1a: stable across runs and platforms, which is all the folder name needs.
@@ -68,5 +93,19 @@ mod tests {
         assert_ne!(project_sources(dir, "C:\\work\\app"), project_sources(dir, "D:\\work\\app"));
         // A run of separators becomes one dash, so the slug stays readable.
         assert!(project_folder("C:\\work\\app").starts_with("c-work-app-"));
+    }
+
+    #[test]
+    fn the_project_workspace_sits_under_the_project_root() {
+        assert_eq!(project_data_dir("C:\\work\\app"), Path::new("C:\\work\\app").join(".wh").join("db"));
+        assert_eq!(
+            project_data_dir("C:\\work\\my app"),
+            Path::new("C:\\work\\my app").join(".wh").join("db")
+        );
+        assert_eq!(
+            project_data_dir("C:/work/app"),
+            project_data_dir("C:\\work\\app"),
+            "both spellings name the same directory"
+        );
     }
 }

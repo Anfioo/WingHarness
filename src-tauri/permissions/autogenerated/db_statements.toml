@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-statements"
+description = "Enables the db_statements command without any pre-configured scope."
+commands.allow = ["db_statements"]
+
+[[permission]]
+identifier = "deny-db-statements"
+description = "Denies the db_statements command without any pre-configured scope."
+commands.deny = ["db_statements"]

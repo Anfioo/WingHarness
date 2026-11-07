@@ -9,24 +9,43 @@
 
 import { invokeCommand } from "../../base";
 import type {
+  CompletionModel,
   DataSource,
   DataSourceView,
   Databases,
+  DbObjectKind,
+  DbRowEdit,
+  DbSettings,
   HistoryEntry,
-  QueryResult,
+  PlanNode,
+  QueryFile,
   SchemaObjects,
+  SortKey,
+  SqlStatement,
+  StatementOutcome,
   TableDetails,
   TableInfo,
+  TablePage,
+  WindowTabs,
 } from "./types";
 
-/** Every data source of the current project, plus the app-wide ones. */
-export async function dbSourceList(): Promise<DataSourceView[]> {
-  return await invokeCommand<Record<string, never>, DataSourceView[]>("db_sources", {});
+/**
+ * Which of the two engines a scope-aware command works on: the app-wide one
+ * behind the `/database` page, or the one belonging to the open project.
+ */
+export type DbScope = "app" | "project";
+
+/** Every data source of the scope. */
+export async function dbSourceList(scope: DbScope = "app"): Promise<DataSourceView[]> {
+  return await invokeCommand<{ scope: DbScope }, DataSourceView[]>("db_sources", { scope });
 }
 
 /** Replaces the stored list. Ids must be unique; the order is preserved. */
-export async function dbSourceSave(sources: DataSource[]): Promise<void> {
-  await invokeCommand<{ sources: DataSource[] }, void>("db_save_sources", { sources });
+export async function dbSourceSave(sources: DataSource[], scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ sources: DataSource[]; scope: DbScope }, void>("db_save_sources", {
+    sources,
+    scope,
+  });
 }
 
 /**
@@ -86,20 +105,104 @@ export async function dbFinishTransaction(id: string, commit: boolean): Promise<
 }
 
 /**
- * Runs one statement. `request` identifies it for `dbCancel`; `skip` and
- * `maxRows` select a window of the result.
+ * Splits `text` into the statements the editor runs. `from` and `to` are
+ * UTF-16 offsets of a selection; an empty selection means the statement at
+ * the caret.
+ */
+export async function dbStatements(
+  id: string,
+  text: string,
+  from: number,
+  to: number
+): Promise<SqlStatement[]> {
+  return await invokeCommand<
+    { id: string; text: string; from: number; to: number },
+    SqlStatement[]
+  >("db_statements", { id, text, from, to });
+}
+
+/**
+ * Runs a batch of statements in order. `request` identifies the batch for
+ * `dbCancel`; `skip` and `maxRows` select a window of each result. A failing
+ * statement is reported in its own outcome, not thrown.
  */
 export async function dbExecute(
   request: string,
   id: string,
-  statement: string,
+  statements: SqlStatement[],
   skip = 0,
   maxRows = 500
-): Promise<QueryResult> {
+): Promise<StatementOutcome[]> {
   return await invokeCommand<
-    { request: string; id: string; statement: string; skip: number; maxRows: number },
-    QueryResult
-  >("db_execute", { request, id, statement, skip, maxRows });
+    { request: string; id: string; statements: SqlStatement[]; skip: number; maxRows: number },
+    StatementOutcome[]
+  >("db_execute", { request, id, statements, skip, maxRows });
+}
+
+/** One page of a table, ordered and filtered on the server. */
+export async function dbTablePage(
+  request: string,
+  id: string,
+  schema: string,
+  table: string,
+  filter: string | null,
+  sort: SortKey[],
+  offset: number,
+  limit: number
+): Promise<TablePage> {
+  return await invokeCommand<
+    {
+      request: string;
+      id: string;
+      schema: string;
+      table: string;
+      filter: string | null;
+      sort: SortKey[];
+      offset: number;
+      limit: number;
+    },
+    TablePage
+  >("db_table_page", { request, id, schema, table, filter, sort, offset, limit });
+}
+
+/** Applies the pending row edits in one transaction; a rejection rolls them all back. */
+export async function dbApplyEdits(
+  id: string,
+  schema: string,
+  table: string,
+  edits: DbRowEdit[]
+): Promise<number> {
+  return await invokeCommand<
+    { id: string; schema: string; table: string; edits: DbRowEdit[] },
+    number
+  >("db_apply_edits", { id, schema, table, edits });
+}
+
+/** The `CREATE TABLE` statement of a table, read-only. */
+export async function dbDdl(id: string, schema: string, table: string): Promise<string> {
+  return await invokeCommand<{ id: string; schema: string; table: string }, string>("db_ddl", {
+    id,
+    schema,
+    table,
+  });
+}
+
+/** The definition of a routine, trigger or sequence, read-only. */
+export async function dbObjectDdl(
+  id: string,
+  schema: string,
+  kind: DbObjectKind,
+  name: string
+): Promise<string> {
+  return await invokeCommand<
+    { id: string; schema: string; kind: DbObjectKind; name: string },
+    string
+  >("db_object_ddl", { id, schema, kind, name });
+}
+
+/** The tables, columns and foreign keys the SQL editor completes names from. */
+export async function dbCompletion(id: string): Promise<CompletionModel> {
+  return await invokeCommand<{ id: string }, CompletionModel>("db_completion", { id });
 }
 
 /** Asks the statement running as `request` to stop; `false` if it already finished. */
@@ -158,5 +261,61 @@ export async function dbSchemaObjects(id: string, schema: string): Promise<Schem
   return await invokeCommand<{ id: string; schema: string }, SchemaObjects>("db_schema_objects", {
     id,
     schema,
+  });
+}
+
+/** The `.sql` files of the query directory. */
+export async function dbQueries(scope: DbScope = "app"): Promise<QueryFile[]> {
+  return await invokeCommand<{ scope: DbScope }, QueryFile[]>("db_queries", { scope });
+}
+
+export async function dbQueryRead(name: string, scope: DbScope = "app"): Promise<string> {
+  return await invokeCommand<{ name: string; scope: DbScope }, string>("db_query_read", {
+    name,
+    scope,
+  });
+}
+
+export async function dbQueryWrite(
+  name: string,
+  text: string,
+  scope: DbScope = "app"
+): Promise<void> {
+  await invokeCommand<{ name: string; text: string; scope: DbScope }, void>("db_query_write", {
+    name,
+    text,
+    scope,
+  });
+}
+
+export async function dbQueryDelete(name: string, scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ name: string; scope: DbScope }, void>("db_query_delete", { name, scope });
+}
+
+/** The tabs `source` had when its window last closed; `null` if it saved none. */
+export async function dbWindowTabs(source: string): Promise<WindowTabs | null> {
+  return await invokeCommand<{ source: string }, WindowTabs | null>("db_window_tabs", { source });
+}
+
+export async function dbSaveWindowTabs(tabs: WindowTabs): Promise<void> {
+  await invokeCommand<{ tabs: WindowTabs }, void>("db_save_window_tabs", { tabs });
+}
+
+export async function dbSettings(scope: DbScope = "app"): Promise<DbSettings> {
+  return await invokeCommand<{ scope: DbScope }, DbSettings>("db_settings", { scope });
+}
+
+export async function dbSaveSettings(settings: DbSettings, scope: DbScope = "app"): Promise<void> {
+  await invokeCommand<{ settings: DbSettings; scope: DbScope }, void>("db_save_settings", {
+    settings,
+    scope,
+  });
+}
+
+/** The execution plan of `statement`, as the tree the Plan tab renders. */
+export async function dbExplain(id: string, statement: string): Promise<PlanNode[]> {
+  return await invokeCommand<{ id: string; statement: string }, PlanNode[]>("db_explain", {
+    id,
+    statement,
   });
 }

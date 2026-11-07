@@ -197,11 +197,118 @@ export type Databases = {
   names: string[];
 };
 
+/** One statement of a script, with its UTF-16 offsets in the editor text. */
+export type SqlStatement = {
+  from: number;
+  to: number;
+  text: string;
+};
+
+/** One `ORDER BY` term of a table page. */
+export type SortKey = {
+  column: string;
+  descending: boolean;
+};
+
+/** One column of a row edit: the value to write, or part of the row key. */
+export type CellValue = {
+  column: string;
+  /** `null` is SQL NULL. */
+  value: string | null;
+};
+
+/** One pending change of a table editor. */
+export type DbRowEdit =
+  | { kind: "update"; key: CellValue[]; values: CellValue[] }
+  | { kind: "insert"; values: CellValue[] }
+  | { kind: "delete"; key: CellValue[] };
+
+/** One page of a table, with the metadata the editor renders it from. */
+export type TablePage = {
+  result: QueryResult;
+  details: TableDetails;
+  offset: number;
+};
+
+/** One column of the completion model. */
+export type CompletionColumn = {
+  name: string;
+  dataType: string;
+  nullable: boolean;
+  primaryKey: boolean;
+  hasDefault: boolean;
+};
+
+/** One relation of the completion model. */
+export type CompletionTable = {
+  schema: string;
+  name: string;
+  kind: DbTableKind;
+  columns: CompletionColumn[];
+};
+
+/** Everything the SQL editor completes names from, fetched once per connection. */
+export type CompletionModel = {
+  defaultSchema: string;
+  tables: CompletionTable[];
+  foreignKeys: ForeignKey[];
+};
+
+/** What one statement of a batch produced; `error` stays per statement. */
+export type StatementOutcome = {
+  statement: SqlStatement;
+  result: QueryResult | null;
+  error: DatabaseError | null;
+};
+
 /** One statement of a data source's history. */
 export type HistoryEntry = {
   text: string;
   /** Milliseconds since the Unix epoch. */
   time: number;
+};
+
+/** One `.sql` file of the query directory. */
+export type QueryFile = {
+  name: string;
+  size: number;
+  /** Milliseconds since the Unix epoch. */
+  modifiedMs: number;
+};
+
+/** One tab of a data source window, as `windows.json` stores it. */
+export type TabRecord =
+  | { kind: "query"; file: string }
+  | { kind: "table"; target: string; schema: string; table: string };
+
+/** The tabs of one data source window; `active` is a tab key. */
+export type WindowTabs = {
+  source: string;
+  tabs: TabRecord[];
+  active: string | null;
+};
+
+/** The row limits the console and the table editor remember. */
+export type DbSettings = {
+  version: number;
+  consoleRows: number;
+  tablePageSize: number;
+};
+
+/** One attribute of a plan node. */
+export type PlanProperty = {
+  name: string;
+  value: string;
+};
+
+/** One node of a statement's execution plan. */
+export type PlanNode = {
+  id: number;
+  parent: number | null;
+  depth: number;
+  operation: string;
+  detail: string;
+  properties: PlanProperty[];
 };
 
 /** Stable categories the frontend branches on. */

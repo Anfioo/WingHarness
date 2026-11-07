@@ -81,10 +81,15 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 - 许可证：Apache-2.0
 - 许可证文本：[licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)
 
+数据库功能的一部分——SQL 词法分析、方言、分析、补全、格式化、DDL 生成、带搜索栏与
+侧栏的结果表格、对象树的分组与右键菜单、工作区页签栏以及执行计划——改编自 openidea。
+Copyright (c) the openidea authors，按 Apache License, Version 2.0 授权。
+
 `src-tauri/db-core` 与数据库页面移植自 openidea 的 `crates/ide-db`：数据源、连接、
-元数据浏览、查询执行与表编辑。SSH 隧道、SQL Server、ClickHouse 与 Oracle 分支、
-`specta` 类型生成以及 keychain 密码存储未移植。移植记录见
-`src-tauri/db-core/UPSTREAM.md`。
+元数据浏览、多语句查询执行、表分页与行编辑、DDL 生成、补全与执行计划。SSH 隧道、
+SQL Server、ClickHouse 与 Oracle 分支、`specta` 类型生成、keychain 密码存储以及
+图表视图未移植。移植记录见 `src-tauri/db-core/UPSTREAM.md` 与
+`src/pages/database/UPSTREAM.md`。
 
 ### OrcaSVN
 

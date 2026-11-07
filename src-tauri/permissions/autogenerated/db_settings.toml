@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-settings"
+description = "Enables the db_settings command without any pre-configured scope."
+commands.allow = ["db_settings"]
+
+[[permission]]
+identifier = "deny-db-settings"
+description = "Denies the db_settings command without any pre-configured scope."
+commands.deny = ["db_settings"]

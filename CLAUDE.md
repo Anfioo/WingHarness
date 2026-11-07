@@ -86,7 +86,10 @@ A command must be named in four hand-maintained lists, not one — `invoke.rs`,
 ### Persisted data
 
 Anything the app writes at runtime goes under `config::dir()` (the configurable
-data directory). Never the config directory root, never `localStorage`.
+data directory). Never the config directory root, never `localStorage`. The one
+deliberate exception is the project page's database workspace, which belongs to
+the project: `<project root>/.wh/db`. Its passwords still live in the data
+directory — see [docs/features/DATABASE.md](./docs/features/DATABASE.md).
 
 ### Internationalization
 
@@ -138,7 +141,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [API_CLIENT.md](./docs/features/API_CLIENT.md) — REST client driven by an OpenAPI or Swagger document
 - [CC_SWITCH.md](./docs/features/CC_SWITCH.md) — provider management for the AI coding CLIs
 - [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) — the Claude chat, history and workflow pages
-- [DATABASE.md](./docs/features/DATABASE.md) — data sources, their windows and the SQL console
+- [DATABASE.md](./docs/features/DATABASE.md) — data sources, their tabbed windows, the SQL console, table data and object management
 - [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) — the viewer subsystem and how to add a format
 - [FRP.md](./docs/features/FRP.md) — the FRP console, `frpc` processes and generated configs
 - [GIT.md](./docs/features/GIT.md) — the local Git client
