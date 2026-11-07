@@ -161,6 +161,17 @@ jobs:
           fi
           echo "id=$release_id" >> "$GITHUB_OUTPUT"
 
+          # tauri-action writes latest.json's `notes` from its `releaseBody`
+          # input only. Given a releaseId it never looks the release up, so the
+          # generated changelog has to be handed to it explicitly or notes comes
+          # out empty.
+          body="$(gh api "repos/${REPOSITORY}/releases/${release_id}" | jq -r '.body // ""')"
+          {
+            echo "body<<WH_RELEASE_BODY_EOF"
+            printf '%s\n' "$body"
+            echo "WH_RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build the project
         uses: tauri-apps/tauri-action@v0
         id: tauri-action
@@ -170,6 +181,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ steps.draft_release.outputs.id }}
+          releaseBody: ${{ steps.draft_release.outputs.body }}
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
