@@ -37,11 +37,6 @@ static SAVE_LOCK: Mutex<()> = Mutex::new(());
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct Config {
-    /// Root directory the project page, the preview and the agent config sync
-    /// work in. Empty means "not configured": those pages show an empty state
-    /// rather than failing.
-    #[serde(rename = "projectRoot")]
-    pub project_root: String,
     /// CC Switch（AI 编程 CLI 供应商切换）设置。
     pub ccs: crate::ccs::settings::CcsSettings,
     /// AI 配置同步（shaic）设置。
@@ -64,12 +59,6 @@ pub struct AiConfig {
 
 
 impl Config {
-    /// The configured project root, or `None` when the field is blank.
-    pub fn project_root(&self) -> Option<&str> {
-        let root = self.project_root.trim();
-        (!root.is_empty()).then_some(root)
-    }
-
     /// Repairs values that would otherwise break a feature silently.
     fn normalize(&mut self) {
         // `None` means "every agent" and is kept as-is; an explicit list is the
@@ -254,28 +243,9 @@ pub(crate) fn strip_bom(bytes: &[u8]) -> &[u8] {
 mod tests {
     use super::*;
 
-    /// The project root is a plain setting with no default: blank means "not
-    /// configured", which the pages render as an empty state.
-    #[test]
-    fn the_project_root_is_trimmed_and_unset_when_blank() {
-        let mut config = Config::default();
-        assert_eq!(config.project_root, "");
-        assert_eq!(config.project_root(), None);
-
-        config.project_root = "  M:\\work\\project  ".to_string();
-        assert_eq!(config.project_root(), Some(r"M:\work\project"));
-
-        config.project_root = "   ".to_string();
-        assert_eq!(config.project_root(), None);
-
-        let json = serde_json::to_string(&Config::default()).unwrap();
-        assert!(json.contains("\"projectRoot\":\"\""), "{json}");
-    }
-
     #[test]
     fn partial_json_falls_back_to_defaults() {
         let config: Config = serde_json::from_str("{}").unwrap();
-        assert_eq!(config.project_root, "");
         assert_eq!(config.ai_config.enabled_agents, None);
     }
 

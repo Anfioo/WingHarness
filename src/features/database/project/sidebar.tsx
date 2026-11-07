@@ -11,10 +11,10 @@ import {
   AlertTriangle,
   ChevronDown,
   Database as DatabaseIcon,
+  FolderGit2,
   Loader2,
   Plus,
   RefreshCw,
-  Settings,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { navigateApp } from "@/lib/router";
+import { openProjectHome } from "@/lib/project-routes";
 import { useProjectDb } from "@/features/database/project/view-store";
 import {
   deleteProjectSource,
@@ -187,9 +187,9 @@ export function ProjectDatabaseSidebar(): ReactNode {
           <div className="text-muted-foreground flex flex-col items-center gap-3 p-6 text-center text-xs">
             <AlertTriangle className="size-6" />
             <p className="text-foreground font-medium">{t("projectDb.error.noProject")}</p>
-            <Button variant="outline" size="sm" onClick={() => navigateApp("/settings")}>
-              <Settings />
-              {t("projectDb.error.openSettings")}
+            <Button variant="outline" size="sm" onClick={openProjectHome}>
+              <FolderGit2 />
+              {t("projectDb.error.openProjects")}
             </Button>
           </div>
         ) : loading && sources.length === 0 ? (

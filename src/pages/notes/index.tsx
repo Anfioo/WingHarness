@@ -154,7 +154,9 @@ export default function NotesPage() {
         <div className="relative min-h-0 flex-1">
           <div ref={hostRef} className={`h-full ${EDITOR_SURFACE_CLASS}`} />
           <WorkbenchSurface selector="main.cl-editor iframe" active={surface !== null}>
-            {surface?.kind === "preview" && <PreviewTab path={surface.path} name={surface.name} />}
+            {surface?.kind === "preview" && (
+              <PreviewTab path={surface.path} name={surface.name} root={notesRoot} />
+            )}
             {surface?.kind === "markdown" && (
               <Suspense fallback={null}>
                 <MarkdownPreviewTab path={surface.path} root={notesRoot} />

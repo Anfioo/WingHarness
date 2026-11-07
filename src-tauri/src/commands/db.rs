@@ -35,11 +35,17 @@ pub enum DbScope {
     Project,
 }
 
-/// The project-scoped engine, rebuilt when the configured root changes.
+/// The project-scoped engine of one root, built lazily and kept for as long as
+/// that project is open.
 struct ProjectDb {
-    root: String,
     manager: Arc<DbManager>,
     workspace: Workspace,
+}
+
+/// Two spellings of one project must share an engine, so the map is keyed by a
+/// folded form rather than the string as given.
+fn project_key(root: &str) -> String {
+    root.replace('\\', "/").trim_end_matches('/').to_lowercase()
 }
 
 /// State the app constructs once and manages: the engines plus what is needed
@@ -48,9 +54,9 @@ pub struct DbState {
     /// The app-wide data sources, listed in every project.
     pub app: Arc<DbManager>,
     pub app_workspace: Workspace,
-    /// Built lazily from the configured project root; rebuilt when the root
-    /// changes.
-    project: Mutex<Option<Arc<ProjectDb>>>,
+    /// One engine per project root: several project windows can be open at the
+    /// same time, each working in its own root.
+    projects: Mutex<HashMap<String, Arc<ProjectDb>>>,
     /// `<data dir>/db/secrets.json`, shared by both scopes.
     secrets_path: PathBuf,
     /// Cancellation tokens of the statements in flight, by the id the caller chose.
@@ -62,7 +68,7 @@ impl DbState {
         Self {
             app: Arc::new(manager),
             app_workspace: workspace,
-            project: Mutex::new(None),
+            projects: Mutex::new(HashMap::new()),
             secrets_path,
             cancels: Mutex::new(HashMap::new()),
         }
@@ -74,88 +80,80 @@ impl DbState {
         for target in self.app.connected() {
             self.app.disconnect(&target).await;
         }
-        let project = self.project.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).take();
-        if let Some(project) = project {
+        let projects: Vec<Arc<ProjectDb>> = {
+            let mut slot = self.projects.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            slot.drain().map(|(_, project)| project).collect()
+        };
+        for project in projects {
             for target in project.manager.connected() {
                 project.manager.disconnect(&target).await;
             }
         }
     }
 
-    /// The project-scoped engine of the configured root, or `None` when no
-    /// project is open. A root change builds a new one and closes the old
-    /// connections off the command's path.
-    fn project(&self) -> DbResult<Option<Arc<ProjectDb>>> {
-        let Some(root) = crate::config::load().project_root().map(str::to_owned) else {
-            return Ok(None);
-        };
-        let mut slot = self.project.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
-        if let Some(existing) = slot.as_ref().filter(|existing| existing.root == root) {
-            return Ok(Some(existing.clone()));
+    /// The project-scoped engine of `root`, built on first use.
+    fn project(&self, root: Option<&str>) -> DbResult<Arc<ProjectDb>> {
+        let root = root
+            .map(str::trim)
+            .filter(|root| !root.is_empty())
+            .ok_or_else(|| DbError::invalid("Project data sources need an open project"))?
+            .to_string();
+        let key = project_key(&root);
+        let mut slot = self.projects.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some(existing) = slot.get(&key) {
+            return Ok(existing.clone());
         }
         let data_dir = db_core::paths::project_data_dir(&root);
         let manager = Arc::new(DbManager::new_project(data_dir.clone(), self.secrets_path.clone()));
         manager.set_root(Some(root.clone()));
-        let created = Arc::new(ProjectDb { root, manager, workspace: Workspace::new(data_dir) });
-        let previous = slot.replace(created.clone());
-        drop(slot);
-        if let Some(previous) = previous {
-            let _ = tauri::async_runtime::spawn(async move {
-                for target in previous.manager.connected() {
-                    previous.manager.disconnect(&target).await;
-                }
-            });
-        }
-        Ok(Some(created))
+        let created = Arc::new(ProjectDb { manager, workspace: Workspace::new(data_dir) });
+        slot.insert(key, created.clone());
+        Ok(created)
     }
 
     /// The engine a data source id belongs to: `whp-` prefixed ids are the
     /// project's, everything else the app's.
-    fn manager_for(&self, id: &str) -> DbResult<Arc<DbManager>> {
+    fn manager_for(&self, id: &str, root: Option<&str>) -> DbResult<Arc<DbManager>> {
         if !id.starts_with(PROJECT_ID_PREFIX) {
             return Ok(self.app.clone());
         }
-        self.project()?
-            .map(|project| project.manager.clone())
-            .ok_or_else(|| DbError::invalid("Project data sources need an open project"))
+        Ok(self.project(root)?.manager.clone())
     }
 
     /// The query files and settings a scope-aware command works on.
-    fn workspace_for(&self, scope: Option<DbScope>) -> DbResult<Workspace> {
+    fn workspace_for(&self, scope: Option<DbScope>, root: Option<&str>) -> DbResult<Workspace> {
         match scope.unwrap_or_default() {
             DbScope::App => Ok(self.app_workspace.clone()),
-            DbScope::Project => self
-                .project()?
-                .map(|project| project.workspace.clone())
-                .ok_or_else(|| DbError::invalid("Project data sources need an open project")),
+            DbScope::Project => Ok(self.project(root)?.workspace.clone()),
         }
     }
 }
 
-/// The project whose data sources are listed is the one configured right now.
-///
-/// Read per call rather than cached at startup: the root can change in the
-/// settings page, and the manager needs the new one for relative SQLite paths.
-fn sync_project(state: &DbState) {
-    state.app.set_root(crate::config::load().project_root().map(str::to_owned));
+/// Gives the app-wide manager the caller's project root, so a relative SQLite
+/// path in an app-wide data source resolves against the project in front of the
+/// user. Read per call rather than cached: the caller's root is the source of
+/// truth now that several can be open at once.
+fn sync_project(state: &DbState, root: Option<&str>) {
+    state.app.set_root(root.map(str::to_owned));
 }
 
-/// The manager of data source `id` with the project root refreshed first.
-fn manager_for(state: &DbState, id: &str) -> DbResult<Arc<DbManager>> {
-    sync_project(state);
-    state.manager_for(id)
+/// The manager of data source `id` with the app-wide root refreshed first.
+fn manager_for(state: &DbState, id: &str, root: Option<&str>) -> DbResult<Arc<DbManager>> {
+    sync_project(state, root);
+    state.manager_for(id, root)
 }
 
 /// The manager a scope-aware command asked for. Source-list commands name the
 /// scope explicitly because they have no id to route by.
-fn manager_for_scope(state: &DbState, scope: Option<DbScope>) -> DbResult<Arc<DbManager>> {
-    sync_project(state);
+fn manager_for_scope(
+    state: &DbState,
+    scope: Option<DbScope>,
+    root: Option<&str>,
+) -> DbResult<Arc<DbManager>> {
+    sync_project(state, root);
     match scope.unwrap_or_default() {
         DbScope::App => Ok(state.app.clone()),
-        DbScope::Project => state
-            .project()?
-            .map(|project| project.manager.clone())
-            .ok_or_else(|| DbError::invalid("Project data sources need an open project")),
+        DbScope::Project => Ok(state.project(root)?.manager.clone()),
     }
 }
 
@@ -173,8 +171,12 @@ pub struct SourceView {
 }
 
 #[tauri::command]
-pub fn db_sources(state: State<'_, DbState>, scope: Option<DbScope>) -> DbResult<Vec<SourceView>> {
-    let manager = manager_for_scope(&state, scope)?;
+pub fn db_sources(
+    state: State<'_, DbState>,
+    scope: Option<DbScope>,
+    root: Option<String>,
+) -> DbResult<Vec<SourceView>> {
+    let manager = manager_for_scope(&state, scope, root.as_deref())?;
     Ok(manager
         .sources()?
         .into_iter()
@@ -193,8 +195,9 @@ pub async fn db_save_sources(
     state: State<'_, DbState>,
     sources: Vec<DataSource>,
     scope: Option<DbScope>,
+    root: Option<String>,
 ) -> DbResult<()> {
-    manager_for_scope(&state, scope)?.save_sources(sources).await
+    manager_for_scope(&state, scope, root.as_deref())?.save_sources(sources).await
 }
 
 /// Remembers the password for this session, and in the saved passwords when
@@ -205,8 +208,9 @@ pub fn db_set_password(
     id: String,
     password: Option<String>,
     save: bool,
+    root: Option<String>,
 ) -> DbResult<()> {
-    manager_for(&state, &id)?.set_password(&id, password, save)
+    manager_for(&state, &id, root.as_deref())?.set_password(&id, password, save)
 }
 
 /// Connects with the settings as given (not necessarily saved) and returns what
@@ -216,42 +220,66 @@ pub async fn db_test(
     state: State<'_, DbState>,
     source: DataSource,
     password: Option<String>,
+    root: Option<String>,
 ) -> DbResult<String> {
-    manager_for(&state, &source.id)?.test(&source, password).await
+    manager_for(&state, &source.id, root.as_deref())?.test(&source, password).await
 }
 
 /// Connected targets, as `<data source id>` or `<data source id>:<database>`.
+///
+/// Every open project is included: the list is only used to light connection
+/// dots, so an id from another window simply matches nothing there.
 #[tauri::command]
 pub fn db_connected(state: State<'_, DbState>) -> DbResult<Vec<String>> {
     let mut targets = state.app.connected();
-    if let Some(project) = state.project()? {
+    let projects: Vec<Arc<ProjectDb>> = {
+        let slot = state.projects.lock().unwrap_or_else(|p| p.into_inner());
+        slot.values().cloned().collect()
+    };
+    for project in projects {
         targets.extend(project.manager.connected());
     }
     Ok(targets)
 }
 
 #[tauri::command]
-pub async fn db_connect(state: State<'_, DbState>, id: String) -> DbResult<()> {
-    manager_for(&state, &id)?.pool(&id).await?;
+pub async fn db_connect(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<()> {
+    manager_for(&state, &id, root.as_deref())?.pool(&id).await?;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn db_disconnect(state: State<'_, DbState>, id: String) -> DbResult<()> {
-    manager_for(&state, &id)?.disconnect(&id).await;
+pub async fn db_disconnect(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<()> {
+    manager_for(&state, &id, root.as_deref())?.disconnect(&id).await;
     Ok(())
 }
 
 /// The databases of a PostgreSQL server; the data source's own one is
 /// `current`. Connect to another as `<id>:<database>`.
 #[tauri::command]
-pub async fn db_databases(state: State<'_, DbState>, id: String) -> DbResult<Databases> {
-    manager_for(&state, &id)?.databases(&id).await
+pub async fn db_databases(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<Databases> {
+    manager_for(&state, &id, root.as_deref())?.databases(&id).await
 }
 
 #[tauri::command]
-pub async fn db_schemas(state: State<'_, DbState>, id: String) -> DbResult<Vec<String>> {
-    manager_for(&state, &id)?.schemas(&id).await
+pub async fn db_schemas(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<Vec<String>> {
+    manager_for(&state, &id, root.as_deref())?.schemas(&id).await
 }
 
 #[tauri::command]
@@ -259,8 +287,9 @@ pub async fn db_tables(
     state: State<'_, DbState>,
     id: String,
     schema: String,
+    root: Option<String>,
 ) -> DbResult<Vec<TableInfo>> {
-    manager_for(&state, &id)?.tables(&id, &schema).await
+    manager_for(&state, &id, root.as_deref())?.tables(&id, &schema).await
 }
 
 #[tauri::command]
@@ -269,8 +298,9 @@ pub async fn db_table_details(
     id: String,
     schema: String,
     table: String,
+    root: Option<String>,
 ) -> DbResult<TableDetails> {
-    manager_for(&state, &id)?.table_details(&id, &schema, &table).await
+    manager_for(&state, &id, root.as_deref())?.table_details(&id, &schema, &table).await
 }
 
 #[tauri::command]
@@ -278,14 +308,19 @@ pub async fn db_schema_objects(
     state: State<'_, DbState>,
     id: String,
     schema: String,
+    root: Option<String>,
 ) -> DbResult<SchemaObjects> {
-    manager_for(&state, &id)?.schema_objects(&id, &schema).await
+    manager_for(&state, &id, root.as_deref())?.schema_objects(&id, &schema).await
 }
 
 /// The tables, columns and foreign keys the SQL editor completes names from.
 #[tauri::command]
-pub async fn db_completion(state: State<'_, DbState>, id: String) -> DbResult<CompletionModel> {
-    manager_for(&state, &id)?.completion(&id).await
+pub async fn db_completion(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<CompletionModel> {
+    manager_for(&state, &id, root.as_deref())?.completion(&id).await
 }
 
 #[tauri::command]
@@ -293,8 +328,9 @@ pub async fn db_set_manual_commit(
     state: State<'_, DbState>,
     id: String,
     manual: bool,
+    root: Option<String>,
 ) -> DbResult<()> {
-    manager_for(&state, &id)?.set_manual_commit(&id, manual).await
+    manager_for(&state, &id, root.as_deref())?.set_manual_commit(&id, manual).await
 }
 
 #[tauri::command]
@@ -302,8 +338,9 @@ pub async fn db_finish_transaction(
     state: State<'_, DbState>,
     id: String,
     commit: bool,
+    root: Option<String>,
 ) -> DbResult<()> {
-    manager_for(&state, &id)?.finish_transaction(&id, commit).await
+    manager_for(&state, &id, root.as_deref())?.finish_transaction(&id, commit).await
 }
 
 /// One page of a table, ordered and filtered on the server. `request`
@@ -319,8 +356,9 @@ pub async fn db_table_page(
     sort: Vec<SortKey>,
     offset: u64,
     limit: u64,
+    root: Option<String>,
 ) -> DbResult<TablePage> {
-    let manager = manager_for(&state, &id)?;
+    let manager = manager_for(&state, &id, root.as_deref())?;
     let cancel = {
         let mut cancels = state.cancels.lock().unwrap_or_else(|p| p.into_inner());
         cancels.insert(request.clone(), CancellationToken::new());
@@ -351,8 +389,9 @@ pub async fn db_apply_edits(
     schema: String,
     table: String,
     edits: Vec<DbRowEdit>,
+    root: Option<String>,
 ) -> DbResult<f64> {
-    manager_for(&state, &id)?.apply_edits(&id, &schema, &table, &edits).await
+    manager_for(&state, &id, root.as_deref())?.apply_edits(&id, &schema, &table, &edits).await
 }
 
 /// The `CREATE TABLE` statement of a table, read-only.
@@ -362,8 +401,9 @@ pub async fn db_ddl(
     id: String,
     schema: String,
     table: String,
+    root: Option<String>,
 ) -> DbResult<String> {
-    manager_for(&state, &id)?.ddl(&id, &schema, &table).await
+    manager_for(&state, &id, root.as_deref())?.ddl(&id, &schema, &table).await
 }
 
 /// The definition of a routine, trigger or sequence, read-only.
@@ -374,8 +414,9 @@ pub async fn db_object_ddl(
     schema: String,
     kind: DbObjectKind,
     name: String,
+    root: Option<String>,
 ) -> DbResult<String> {
-    manager_for(&state, &id)?.object_ddl(&id, &schema, kind, &name).await
+    manager_for(&state, &id, root.as_deref())?.object_ddl(&id, &schema, kind, &name).await
 }
 
 /// Splits `text` into the statements the editor runs. `from` and `to` are
@@ -388,8 +429,9 @@ pub fn db_statements(
     text: String,
     from: u32,
     to: u32,
+    root: Option<String>,
 ) -> DbResult<Vec<SqlStatement>> {
-    let driver = manager_for(&state, &id)?.source(&id)?.driver;
+    let driver = manager_for(&state, &id, root.as_deref())?.source(&id)?.driver;
     Ok(if from == to {
         db_core::split::statement_at(&text, from, driver).into_iter().collect()
     } else {
@@ -407,8 +449,9 @@ pub async fn db_execute(
     statements: Vec<SqlStatement>,
     skip: u32,
     max_rows: u32,
+    root: Option<String>,
 ) -> DbResult<Vec<StatementOutcome>> {
-    let manager = manager_for(&state, &id)?;
+    let manager = manager_for(&state, &id, root.as_deref())?;
     let cancel = {
         let mut cancels = state.cancels.lock().unwrap_or_else(|p| p.into_inner());
         cancels.insert(request.clone(), CancellationToken::new());
@@ -449,8 +492,12 @@ pub fn db_cancel(state: State<'_, DbState>, request: String) -> bool {
 }
 
 #[tauri::command]
-pub async fn db_history(state: State<'_, DbState>, id: String) -> DbResult<Vec<HistoryEntry>> {
-    manager_for(&state, &id)?.history(&id).await
+pub async fn db_history(
+    state: State<'_, DbState>,
+    id: String,
+    root: Option<String>,
+) -> DbResult<Vec<HistoryEntry>> {
+    manager_for(&state, &id, root.as_deref())?.history(&id).await
 }
 
 /// Forgets statements of a data source's history; all of them when `texts` is
@@ -460,14 +507,19 @@ pub async fn db_remove_history(
     state: State<'_, DbState>,
     id: String,
     texts: Option<Vec<String>>,
+    root: Option<String>,
 ) -> DbResult<()> {
-    manager_for(&state, &id)?.remove_history(&id, texts).await
+    manager_for(&state, &id, root.as_deref())?.remove_history(&id, texts).await
 }
 
 /// The `.sql` files the "Open Query" list shows.
 #[tauri::command]
-pub fn db_queries(state: State<'_, DbState>, scope: Option<DbScope>) -> DbResult<Vec<QueryFile>> {
-    state.workspace_for(scope)?.queries()
+pub fn db_queries(
+    state: State<'_, DbState>,
+    scope: Option<DbScope>,
+    root: Option<String>,
+) -> DbResult<Vec<QueryFile>> {
+    state.workspace_for(scope, root.as_deref())?.queries()
 }
 
 #[tauri::command]
@@ -475,8 +527,9 @@ pub fn db_query_read(
     state: State<'_, DbState>,
     name: String,
     scope: Option<DbScope>,
+    root: Option<String>,
 ) -> DbResult<String> {
-    state.workspace_for(scope)?.read_query(&name)
+    state.workspace_for(scope, root.as_deref())?.read_query(&name)
 }
 
 #[tauri::command]
@@ -485,8 +538,9 @@ pub fn db_query_write(
     name: String,
     text: String,
     scope: Option<DbScope>,
+    root: Option<String>,
 ) -> DbResult<()> {
-    state.workspace_for(scope)?.write_query(&name, &text)
+    state.workspace_for(scope, root.as_deref())?.write_query(&name, &text)
 }
 
 #[tauri::command]
@@ -494,8 +548,9 @@ pub fn db_query_delete(
     state: State<'_, DbState>,
     name: String,
     scope: Option<DbScope>,
+    root: Option<String>,
 ) -> DbResult<()> {
-    state.workspace_for(scope)?.delete_query(&name)
+    state.workspace_for(scope, root.as_deref())?.delete_query(&name)
 }
 
 /// The tabs `source` had when its window was last closed.
@@ -513,8 +568,12 @@ pub async fn db_save_window_tabs(state: State<'_, DbState>, tabs: WindowTabs) ->
 }
 
 #[tauri::command]
-pub fn db_settings(state: State<'_, DbState>, scope: Option<DbScope>) -> DbResult<DbSettings> {
-    state.workspace_for(scope)?.settings()
+pub fn db_settings(
+    state: State<'_, DbState>,
+    scope: Option<DbScope>,
+    root: Option<String>,
+) -> DbResult<DbSettings> {
+    state.workspace_for(scope, root.as_deref())?.settings()
 }
 
 #[tauri::command]
@@ -522,8 +581,9 @@ pub async fn db_save_settings(
     state: State<'_, DbState>,
     settings: DbSettings,
     scope: Option<DbScope>,
+    root: Option<String>,
 ) -> DbResult<()> {
-    state.workspace_for(scope)?.save_settings(settings)
+    state.workspace_for(scope, root.as_deref())?.save_settings(settings)
 }
 
 /// The execution plan of `statement` against data source `id`.
@@ -532,6 +592,7 @@ pub async fn db_explain(
     state: State<'_, DbState>,
     id: String,
     statement: String,
+    root: Option<String>,
 ) -> DbResult<Vec<PlanNode>> {
-    manager_for(&state, &id)?.explain(&id, &statement).await
+    manager_for(&state, &id, root.as_deref())?.explain(&id, &statement).await
 }

@@ -108,13 +108,54 @@
     "exitCode": "退出码 {{code}}",
     "clear": "清空输出"
   },
-  "project": {
+  "projectHome": {
+    "header": {
+      "title": "项目",
+      "tagline": "打开一个本地项目，或从打开过的项目里选一个。"
+    },
+    "open": {
+      "title": "打开项目",
+      "hint": "选择你要使用的项目文件夹。",
+      "pathPlaceholder": "项目文件夹路径",
+      "pathLabel": "项目文件夹路径",
+      "browse": "浏览",
+      "open": "打开",
+      "opening": "打开中"
+    },
+    "recent": {
+      "title": "最近项目",
+      "searchPlaceholder": "搜索",
+      "searchLabel": "搜索最近项目",
+      "emptyTitle": "还没有项目",
+      "emptyDescription": "打开一个文件夹，即可获得它的文件树、编辑器、数据库面板与版本控制。",
+      "emptyOpen": "打开项目",
+      "noMatch": "没有匹配「{{query}}」的项目。",
+      "alreadyOpen": "已打开",
+      "missing": "目录不存在",
+      "menuAria": "{{name}} 的操作",
+      "open": "打开",
+      "focus": "聚焦窗口",
+      "reveal": "打开所在文件夹",
+      "remove": "从列表移除",
+      "removeFailed": "无法从列表移除该项目。",
+      "revealFailed": "无法打开所在文件夹。"
+    },
+    "toast": {
+      "missingFolder": "该文件夹已不存在。",
+      "openFailed": "无法打开项目。"
+    }
+  },
+  "projectPicker": {
+    "empty": "尚未打开任何项目。",
+    "label": "项目",
+    "placeholder": "选择项目",
+    "manage": "管理"
+  },
+  "projectWindow": {
     "title": "项目",
-    "description": "「项目」页、文件预览与 AI 配置同步使用的项目根目录。",
-    "rootLabel": "项目根目录",
-    "rootHint": "「项目」页与文件预览会打开这个目录。留空则保持空状态，直到配置了项目。",
-    "rootPlaceholder": "M:\\work\\project",
-    "loadFailed": "读取配置失败。"
+    "back": "返回项目列表",
+    "emptyTitle": "未打开项目",
+    "emptyDescription": "此窗口显示一个项目。请先在主窗口的项目页打开一个项目，然后在这里浏览和编辑它的文件。"
   },
   "settings": {
     "title": "设置",
@@ -852,7 +893,7 @@
   },
   "projectPage": {
     "loading": "正在打开项目…",
-    "openFailed": "无法打开项目，请到「设置 → 项目」检查项目根目录。"
+    "openFailed": "无法打开项目。"
   },
   "projectGit": {
     "activityTitle": "Git",
@@ -875,7 +916,7 @@
     "noCommits": "还没有提交。",
     "endOfHistory": "已经到底了。",
     "statusFailed": "无法读取工作树：{{message}}",
-    "noRepo": "没有打开 Git 仓库。请在「设置 → 项目」里填写工作副本路径。",
+    "noRepo": "没有打开 Git 仓库。请打开一个位于 Git 工作副本中的项目。",
     "fileOpFailed": "文件操作失败：{{message}}",
     "commitNoChanges": "请至少勾选一个要提交的文件。",
     "commitConflicts": "请先解决合并冲突。",
@@ -1141,8 +1182,8 @@
       "close": "关闭结果"
     },
     "error": {
-      "noProject": "尚未配置项目根目录。",
-      "openSettings": "打开设置",
+      "noProject": "尚未打开项目。",
+      "openProjects": "前往项目页",
       "loadSources": "无法读取项目数据源：{{error}}",
       "saveSources": "无法保存项目数据源：{{error}}"
     }
@@ -1152,7 +1193,7 @@
     "treeTitle": "项目",
     "treeLoading": "正在读取项目…",
     "treeEmpty": "项目目录是空的。",
-    "treeFailed": "无法读取项目，请到「设置 → 项目」检查项目根目录。",
+    "treeFailed": "无法读取项目。",
     "empty": "从左侧选择一个文件开始预览。",
     "reload": "重新读取",
     "close": "关闭预览",

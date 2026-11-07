@@ -1,12 +1,14 @@
 import { invoke } from "@tauri-apps/api/core";
 import { invokeCommand } from "../../base";
+import { requireActiveProject } from "../../project-context";
 
 /**
- * The file preview backend: raw bytes of the git-svn working copy.
+ * The file preview backend: raw bytes of a project.
  *
  * The viewers themselves are entirely frontend; these two commands are all the
  * backend does. `path` is the `/`-rooted form the project file tree already
- * speaks, and the backend confines it to the configured working copy.
+ * speaks, and the backend confines it to `root` — by default the project this
+ * window has open, but the notes page passes its own directory instead.
  */
 
 export interface PreviewMeta {
@@ -26,8 +28,8 @@ export interface PreviewMeta {
 }
 
 /** A file's identity and how the preview should treat it. */
-export function previewMetadata(path: string): Promise<PreviewMeta> {
-  return invokeCommand("preview_metadata", { path });
+export function previewMetadata(path: string, root?: string): Promise<PreviewMeta> {
+  return invokeCommand("preview_metadata", { root: root ?? requireActiveProject(), path });
 }
 
 /**
@@ -36,9 +38,12 @@ export function previewMetadata(path: string): Promise<PreviewMeta> {
  * The backend answers with raw IPC rather than a JSON array of numbers, so the
  * result arrives as an `ArrayBuffer` and is wrapped here.
  */
-export async function previewBytes(path: string): Promise<Uint8Array> {
+export async function previewBytes(path: string, root?: string): Promise<Uint8Array> {
   try {
-    const bytes = await invoke<ArrayBuffer>("preview_bytes", { path });
+    const bytes = await invoke<ArrayBuffer>("preview_bytes", {
+      root: root ?? requireActiveProject(),
+      path,
+    });
     return new Uint8Array(bytes);
   } catch (error) {
     console.error("操作失败：", error);

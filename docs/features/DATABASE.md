@@ -44,11 +44,10 @@ One data source is one server or one SQLite file. The stored fields are the ones
 | `options.transaction` | `auto`, or `manual` (the console commits explicitly) |
 | `color`, `comment`, `vendor`, `properties`, `introspection` | Presentation and advanced settings |
 
-**Scope.** A data source is app-wide (`global`) or belongs to the project that
-is open. Project sources need a project root (`config.json`'s
-`workspace.root`); with none open the dialog keeps the switch on app-wide and
-the engine rejects a project source with `invalid`. A project data source wins
-over a global one of the same id.
+**Scope.** A data source is app-wide (`global`) or belongs to a project. The
+page's picker at the top chooses the project it works against; with none chosen
+the dialog keeps the switch on app-wide and the engine rejects a project source
+with `invalid`. A project data source wins over a global one of the same id.
 
 **Passwords never enter the data-source files or the DTOs.** They go through
 `db_set_password`, which keeps a session copy in memory and, when asked, writes
@@ -120,22 +119,24 @@ is not valid UTF-8 is reported as `not-found` and left alone.
 ## Project scope
 
 The [project page](./PROJECT.md) embeds a second, isolated copy of this feature:
-its **Database** button opens a data-source panel of the open project instead of
-the app. The widgets are the same; nothing else is.
+its **Database** button opens a data-source panel of that project instead of the
+app. The widgets are the same; nothing else is.
 
-| | App scope (`/database`) | Project scope (project page) |
+| | App scope (`/database`) | Project scope (project window) |
 | --- | --- | --- |
 | Source list | `<data dir>/db/data-sources.toml`, plus `<data dir>/db/projects/<slug>-<hash>/` for the project sources the page can own | `<project root>/.wh/db/data-sources.toml` |
 | Query files, history, settings | `<data dir>/db/…` | `<project root>/.wh/db/…` |
 | Saved passwords | `<data dir>/db/secrets.json` | the same file, keyed by the `whp-` id |
-| Engine | `DbState::app` | `DbState::project()`, rebuilt when the root changes |
+| Engine | `DbState::app` | `DbState::projects[root]`, created per root and reused while the app runs |
 
 **The id carries the scope.** Every id the panel creates starts with `whp-`
 (`PROJECT_ID_PREFIX`), and `DbState` routes on that prefix: an id-bearing command
 reaches the project manager, everything else the app's. The commands that have no
 id to route by — the source list, the query files, the settings — take an
-optional `scope: "app" | "project"` and default to `app`. No command name was
-added, so the four ACL lists did not change.
+optional `scope: "app" | "project"` and default to `app`. Every command that can
+reach a project engine also takes `root: Option<String>`: the caller's active
+project, which is how a relative SQLite path resolves and which engine an id
+addresses. No command name was added, so the four ACL lists did not change.
 
 **A password never enters the project directory.** The panel's sources save to
 `secrets.json` under the app's data directory, exactly as the app-wide ones do;
@@ -442,7 +443,7 @@ contain a literal credential.
 | Symptom | Likely cause |
 | --- | --- |
 | `auth-failed` when connecting | No saved password and none typed; the window asks for one |
-| `invalid: Project data sources need an open project` | The data source is project-scoped but `workspace.root` is empty |
+| `invalid: Project data sources need an open project` | The data source is project-scoped but no project is selected at the top of the page |
 | "not allowed by ACL" | Command missing from `build.rs` or `capabilities/default.json` |
 | The list shows a source as not connected after using it | `connected` is read when the list loads; use Refresh |
 | `unreachable` for SQL Server / ClickHouse / Oracle | Those drivers are stored but not implemented yet |

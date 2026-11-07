@@ -21,19 +21,18 @@ use shaic_core::store::{self, Store};
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Project-scope writes land in the project root configured under
-/// Settings → Project.
+/// The root project-scope writes land in.
 ///
-/// The TUI infers this from the nearest `.git` ancestor of the process cwd,
-/// but a desktop app runs from its own install directory — inferring from cwd
-/// there would point every project-scope agent file at the app rather than at
-/// the project the user works in. Fall back to the cwd inference only when no
-/// project root is configured.
-fn project_root() -> PathBuf {
-    if let Some(root) = crate::config::load().project_root() {
-        return PathBuf::from(root);
+/// The caller names it — the page's project selector, or the project window's
+/// own root — so two projects never write into each other. The TUI infers this
+/// from the nearest `.git` ancestor of the process cwd, which a desktop app
+/// cannot rely on: it runs from its own install directory. That inference is
+/// only the fallback for a caller that has no project picked.
+fn resolve_root(root: Option<String>) -> PathBuf {
+    match root.map(|root| root.trim().to_string()) {
+        Some(root) if !root.is_empty() => PathBuf::from(root),
+        _ => shaic_core::config::infer_project_root().unwrap_or_else(|_| PathBuf::from(".")),
     }
-    shaic_core::config::infer_project_root().unwrap_or_else(|_| PathBuf::from("."))
 }
 
 fn open_store() -> Result<Store, String> {
@@ -199,7 +198,7 @@ pub struct StoreStatus {
 
 /// Whether a store is set up, plus the paths the TUI would use.
 #[tauri::command]
-pub fn shaic_status() -> Result<StoreStatus, String> {
+pub fn shaic_status(root: Option<String>) -> Result<StoreStatus, String> {
     let store_path = Store::default_path()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_default();
@@ -207,7 +206,7 @@ pub fn shaic_status() -> Result<StoreStatus, String> {
     Ok(StoreStatus {
         exists: Store::default_path().and_then(Store::open).is_ok(),
         remote: config.remote.clone(),
-        project_root: project_root().to_string_lossy().into_owned(),
+        project_root: resolve_root(root).to_string_lossy().into_owned(),
         store_path,
         enabled_agents: enabled_agent_ids()
             .iter()
@@ -318,9 +317,9 @@ pub struct AgentRowView {
 /// One row per agent with its worst status across every supported scope/axis —
 /// the TUI dashboard.
 #[tauri::command]
-pub fn shaic_dashboard() -> Result<Vec<AgentRowView>, String> {
+pub fn shaic_dashboard(root: Option<String>) -> Result<Vec<AgentRowView>, String> {
     let store = open_store()?;
-    let root = project_root();
+    let root = resolve_root(root);
     let allowed = enabled_agent_ids();
     let mut rows = Vec::new();
     for &agent in adapters::registry() {
@@ -428,10 +427,10 @@ pub struct AgentDetailView {
 /// per-kind on-disk counts and the pending write/delete numbers as separate
 /// pieces, and re-parsing a sentence back into them would be a step backwards.
 #[tauri::command]
-pub fn shaic_agent_detail(agent: String) -> Result<AgentDetailView, String> {
+pub fn shaic_agent_detail(agent: String, root: Option<String>) -> Result<AgentDetailView, String> {
     let id = parse_agent(&agent)?;
     let agent_impl = adapters::by_id(id);
-    let root = project_root();
+    let root = resolve_root(root);
     let store = open_store().ok();
 
     let mut scopes = Vec::new();
@@ -589,12 +588,17 @@ fn action_label(action: WriteAction) -> &'static str {
 /// Compute what `sync` would change for one agent+scope without writing —
 /// the TUI diff-preview screen.
 #[tauri::command]
-pub fn shaic_plan(agent: String, scope: String, is_mcp: bool) -> Result<PlanView, String> {
+pub fn shaic_plan(
+    agent: String,
+    scope: String,
+    is_mcp: bool,
+    root: Option<String>,
+) -> Result<PlanView, String> {
     let id = parse_agent(&agent)?;
     let scope = parse_scope(&scope)?;
     let agent_impl = adapters::by_id(id);
     let store = open_store()?;
-    let root = project_root();
+    let root = resolve_root(root);
     register_project_if_needed(scope, &root)?;
 
     let (changes, skipped, warnings, is_empty) = if is_mcp {
@@ -647,7 +651,12 @@ pub fn shaic_plan(agent: String, scope: String, is_mcp: bool) -> Result<PlanView
 /// Apply the plan for one agent+scope, re-planned from the store as the TUI
 /// does (the store is the source of truth; import is a separate action).
 #[tauri::command]
-pub fn shaic_apply(agent: String, scope: String, is_mcp: bool) -> Result<OpResult, String> {
+pub fn shaic_apply(
+    agent: String,
+    scope: String,
+    is_mcp: bool,
+    root: Option<String>,
+) -> Result<OpResult, String> {
     let id = parse_agent(&agent)?;
     // The only path that writes into an agent's files. A switched-off agent must
     // never be reached through it, even if a stale UI still offered the action.
@@ -659,7 +668,7 @@ pub fn shaic_apply(agent: String, scope: String, is_mcp: bool) -> Result<OpResul
     let scope = parse_scope(&scope)?;
     let agent_impl = adapters::by_id(id);
     let store = open_store()?;
-    let root = project_root();
+    let root = resolve_root(root);
     register_project_if_needed(scope, &root)?;
 
     let result = if is_mcp {
@@ -712,12 +721,16 @@ pub fn shaic_apply(agent: String, scope: String, is_mcp: bool) -> Result<OpResul
 /// Pull a single agent+scope's on-disk files into the store — the TUI agent
 /// detail's `o`.
 #[tauri::command]
-pub fn shaic_import_scope(agent: String, scope: String) -> Result<OpResult, String> {
+pub fn shaic_import_scope(
+    agent: String,
+    scope: String,
+    root: Option<String>,
+) -> Result<OpResult, String> {
     let id = parse_agent(&agent)?;
     let scope = parse_scope(&scope)?;
     let agent_impl = adapters::by_id(id);
     let store = open_store()?;
-    let root = project_root();
+    let root = resolve_root(root);
 
     let summary = operations::import_scope(agent_impl, &store, scope, &root, false);
     let (msg, op_kind) = summary.message();
@@ -847,14 +860,18 @@ pub fn shaic_save_item(
 /// Remove an item, then materialize every agent immediately — the TUI does
 /// the same so a deleted item doesn't linger on disk.
 #[tauri::command]
-pub fn shaic_remove_item(kind: String, name: String) -> Result<OpResult, String> {
+pub fn shaic_remove_item(
+    kind: String,
+    name: String,
+    root: Option<String>,
+) -> Result<OpResult, String> {
     let kind = parse_kind(&kind)?;
     let store = open_store()?;
     store
         .remove_item(kind, &name)
         .map_err(|e| format!("remove failed: {e}"))?;
     let (applied, notes) =
-        materialize::push_all_now_filtered(&store, &project_root(), &enabled_agent_ids());
+        materialize::push_all_now_filtered(&store, &resolve_root(root), &enabled_agent_ids());
     if let Some(note) = notes.first() {
         Ok(OpResult {
             text: format!("removed {kind:?} {name:?}, but: {note}"),

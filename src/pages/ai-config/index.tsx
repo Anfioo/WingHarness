@@ -35,6 +35,7 @@ import {
   type SyncStatus,
 } from "@/commands";
 import { AppShell } from "@/components/app-shell";
+import { ProjectPicker } from "@/components/project-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -66,6 +67,7 @@ export default function AiConfigPage() {
   const { t } = useAppTranslation();
 
   const [status, setStatus] = useState<StoreStatus | null>(null);
+  const [root, setRoot] = useState("");
   const [rows, setRows] = useState<AgentRowView[]>([]);
   const [items, setItems] = useState<ItemView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,11 +83,18 @@ export default function AiConfigPage() {
 
   const loadAll = useCallback(
     async (announce = false) => {
+      if (!root) {
+        setStatus(null);
+        setRows([]);
+        setItems([]);
+        setLoading(false);
+        return;
+      }
       try {
-        const storeStatus = await shaicStatus();
+        const storeStatus = await shaicStatus(root);
         setStatus(storeStatus);
         if (storeStatus.exists) {
-          const [dashboard, listed] = await Promise.all([shaicDashboard(), shaicListItems()]);
+          const [dashboard, listed] = await Promise.all([shaicDashboard(root), shaicListItems()]);
           setRows(dashboard);
           setItems(listed.items);
         } else {
@@ -100,7 +109,7 @@ export default function AiConfigPage() {
         setLoading(false);
       }
     },
-    [t]
+    [root, t]
   );
 
   useEffect(() => {
@@ -177,29 +186,35 @@ export default function AiConfigPage() {
     }
   }, [announce, loadAll]);
 
-  const openDetail = useCallback(async (agent: string) => {
-    try {
-      setDetail(await shaicAgentDetail(agent));
-    } catch (error) {
-      console.error("shaic detail:", error);
-      toast.error(String(error));
-    }
-  }, []);
+  const openDetail = useCallback(
+    async (agent: string) => {
+      try {
+        setDetail(await shaicAgentDetail(agent, root));
+      } catch (error) {
+        console.error("shaic detail:", error);
+        toast.error(String(error));
+      }
+    },
+    [root]
+  );
 
-  const openPlan = useCallback(async (agent: string, scope: Scope, isMcp: boolean) => {
-    try {
-      setPlan(await shaicPlan(agent, scope, isMcp));
-    } catch (error) {
-      console.error("shaic plan:", error);
-      toast.error(String(error));
-    }
-  }, []);
+  const openPlan = useCallback(
+    async (agent: string, scope: Scope, isMcp: boolean) => {
+      try {
+        setPlan(await shaicPlan(agent, scope, isMcp, root));
+      } catch (error) {
+        console.error("shaic plan:", error);
+        toast.error(String(error));
+      }
+    },
+    [root]
+  );
 
   const applyPlan = useCallback(async () => {
     if (!plan) return;
     setApplying(true);
     try {
-      announce(await shaicApply(plan.agent, plan.scope, plan.isMcp));
+      announce(await shaicApply(plan.agent, plan.scope, plan.isMcp, root));
       setPlan(null);
       await loadAll();
       await openDetail(plan.agent);
@@ -209,14 +224,14 @@ export default function AiConfigPage() {
     } finally {
       setApplying(false);
     }
-  }, [announce, loadAll, openDetail, plan]);
+  }, [announce, loadAll, openDetail, plan, root]);
 
   const handleDeleteItem = useCallback(
     async (item: ItemView) => {
-      await runOp(() => shaicRemoveItem(item.kind, item.name));
+      await runOp(() => shaicRemoveItem(item.kind, item.name, root));
       setPending(null);
     },
-    [runOp]
+    [root, runOp]
   );
 
   const handleForce = useCallback(async () => {
@@ -245,6 +260,7 @@ export default function AiConfigPage() {
   return (
     <AppShell>
       <section className="flex h-full w-full flex-col gap-4">
+        <ProjectPicker value={root} onChange={setRoot} />
         {/* Status / store card */}
         <div className="border-border bg-card text-card-foreground rounded-xl border p-5 shadow-sm">
           <div className="flex flex-col gap-4">
@@ -433,7 +449,7 @@ export default function AiConfigPage() {
           else if (pending.kind === "import") {
             const { agent, scope } = pending;
             setPending(null);
-            void runOp(() => shaicImportScope(agent, scope));
+            void runOp(() => shaicImportScope(agent, scope, root));
           }
         }}
       />

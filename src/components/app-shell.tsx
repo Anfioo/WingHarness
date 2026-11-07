@@ -22,6 +22,7 @@ import { useApiHome } from "@/hooks/use-api-home";
 import { useCustomIcons } from "@/hooks/use-custom-icons";
 import { useGitHome } from "@/hooks/use-git-home";
 import { usePluginsStore } from "@/hooks/use-plugins-store";
+import { useProjectHome } from "@/hooks/use-project-home";
 import { useSidebarStore } from "@/hooks/use-sidebar-store";
 import { useSvnHome } from "@/hooks/use-svn-home";
 
@@ -92,6 +93,7 @@ function AppShellFrame({ children }: AppShellProps) {
   // for it is answered here.
   useGitHome();
   useSvnHome();
+  useProjectHome();
 
   // The API client picker is one of this window's pages too, so a workspace
   // window asking for it is answered here.

@@ -14,6 +14,7 @@ pub mod plugin_browser;
 pub mod plugins;
 pub mod progress;
 pub mod project_fs;
+pub mod projects;
 pub mod sidebar;
 pub mod theme;
 pub mod tray;

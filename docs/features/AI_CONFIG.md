@@ -5,6 +5,10 @@ of truth for skills, rules, commands, subagents and MCP server definitions, and
 translates that store into the layout each AI coding agent expects. It sits in
 the sidebar under **Agent**.
 
+The project scope works on the project chosen at the top of the page: the picker
+lists the projects that have been opened, and every agent's project files are
+read and written in the one it names.
+
 Editing is done once, in the store. Each agent then gets a *plan* — the files
 that would be written and deleted — which is shown before anything is written.
 The reverse direction exists too: an agent's local files can be pulled back into
@@ -153,6 +157,11 @@ neither of them touches agent files.
 `shaic_remove_item` is the only item command that fans out to agents
 immediately; everything else waits for a plan and an Apply.
 
+The inspection, materialise and remove commands take an optional `root`: the
+page passes the project its picker selected, so the project scope reads and
+writes that project's files. With no root the crate falls back to inferring one
+from the working directory, which is only what non-page callers get.
+
 ## Limits
 
 - Antigravity is discover-only. Gemini only takes rules. Codex global rules are
@@ -163,8 +172,8 @@ immediately; everything else waits for a plan and an Apply.
 - Item names are single path components; renaming means delete and re-add.
 - Two items can render to the same path (skill/rule collapse, Cursor agent
   shadowing); the first wins deterministically with a warning.
-- The project scope depends on `Settings → 项目` pointing at the right working
-  copy.
+- The project scope is the project the page's picker selects; every project is
+  inspected through the same store.
 - `git` must be on `PATH`.
 
 ## Wiring this module into another app
@@ -173,8 +182,9 @@ immediately; everything else waits for a plan and an Apply.
    the commands through `invoke.rs`, `build.rs` and `capabilities/default.json`.
 2. Copy `src/pages/ai-config` and the `shaic` command wrappers.
 3. Add the `aiConfig.enabledAgents` setting (absent means all agents enabled).
-4. Point the project scope at whatever "the current working copy" means in the
-   new app — the crate reads it through a small settings hook.
+4. Pass the project scope's root to the commands from whatever "the current
+   working copy" means in the new app; the crate falls back to inferring it when
+   the argument is absent.
 
 ## Troubleshooting
 

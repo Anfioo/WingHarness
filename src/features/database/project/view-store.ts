@@ -26,7 +26,7 @@ import {
   dbProjectSourceSave,
   dbSetManualCommit,
   dbSourceSetPassword,
-  getConfig,
+  getActiveProject,
   projectRead,
   projectWrite,
   type DataSourceView,
@@ -284,14 +284,7 @@ export const useProjectDb = create<ProjectDbState>((set, get) => {
 
     async loadSources() {
       set({ sourcesStatus: "loading", sourcesError: null });
-      let noProject = false;
-      try {
-        noProject = !(await getConfig()).config.projectRoot;
-      } catch (error) {
-        set({ sourcesStatus: "error", sourcesError: errorText(error) });
-        return;
-      }
-      if (noProject) {
+      if (!getActiveProject()) {
         set({ noProject: true, sources: [], sourcesStatus: "ready" });
         return;
       }

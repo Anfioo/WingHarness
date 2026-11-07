@@ -40,9 +40,9 @@ id 本身走查询串，因为 `main.tsx` 只按 `pathname` 路由，查询串�
 | `options.transaction` | `auto`，或 `manual`（由控制台显式提交） |
 | `color`、`comment`、`vendor`、`properties`、`introspection` | 展示与高级设置 |
 
-**作用范围。** 数据源要么是全局的（`global`），要么属于当前打开的项目。项目数据源
-需要项目根目录（`config.json` 的 `workspace.root`）；没有打开项目时，对话框的开关
-停在全局，引擎也会以 `invalid` 拒绝项目数据源。同一个 id 的项目数据源优先于全局的。
+**作用范围。** 数据源要么是全局的（`global`），要么属于某个项目。页面顶部的选择器
+决定它作用于哪个项目；没有选中项目时，对话框的开关停在全局，引擎也会以 `invalid`
+拒绝项目数据源。同一个 id 的项目数据源优先于全局的。
 
 **密码不进数据源文件，也不进 DTO。** 密码只通过 `db_set_password` 传递：内存里留一份
 会话副本，需要时再写一份已保存副本。列表只报告 `hasSavedPassword`，没有任何命令能把
@@ -100,19 +100,21 @@ TimescaleDB、TiDB 等）。预设只填驱动、端口、SSL 要求和 URL 协�
 ## 项目作用域
 
 [项目页面](./PROJECT.md)嵌入了本功能的第二份隔离副本：它的**数据库**按钮打开的是
-当前项目的数据源面板，而不是应用的。控件相同，除此之外没有任何共享。
+该项目的数据源面板，而不是应用的。控件相同，除此之外没有任何共享。
 
-| | 应用作用域（`/database`） | 项目作用域（项目页面） |
+| | 应用作用域（`/database`） | 项目作用域（项目窗口） |
 | --- | --- | --- |
 | 数据源列表 | `<data dir>/db/data-sources.toml`，以及页面可以拥有的项目级数据源所在的 `<data dir>/db/projects/<slug>-<hash>/` | `<项目根>/.wh/db/data-sources.toml` |
 | 查询文件、历史、设置 | `<data dir>/db/…` | `<项目根>/.wh/db/…` |
 | 已保存的密码 | `<data dir>/db/secrets.json` | 同一个文件，按 `whp-` id 索引 |
-| 引擎 | `DbState::app` | `DbState::project()`，项目根变化时重建 |
+| 引擎 | `DbState::app` | `DbState::projects[root]`，按根目录创建，应用运行期间复用 |
 
 **作用域由 id 决定。** 面板创建的每个 id 都以 `whp-` 开头（`PROJECT_ID_PREFIX`），
 `DbState` 按这个前缀路由：带 id 的命令落到项目管理器，其余落到应用管理器。没有 id
 可供路由的命令——数据源列表、查询文件、设置——接受可选的 `scope: "app" | "project"`，
-默认 `app`。没有新增任何命令名，所以四张 ACL 清单没有变化。
+默认 `app`。所有可能触达项目引擎的命令还接受 `root: Option<String>`：即调用方的
+活动项目，相对路径的 SQLite 源据此解析，id 也据此决定落到哪个引擎。没有新增任何
+命令名，所以四张 ACL 清单没有变化。
 
 **密码绝不进入项目目录。** 面板的数据源和应用级的一样，把密码写进应用数据目录下的
 `secrets.json`；`.wh` 里只有数据源定义。错误消息也不会回显密码——它只转述驱动自己的
@@ -355,7 +357,7 @@ SQLite 不能重命名视图，依此类推。原因写在该项自己的提示�
 | 现象 | 可能原因 |
 | --- | --- |
 | 连接时 `auth-failed` | 没有已保存密码也没输入；窗口会追问 |
-| `invalid: Project data sources need an open project` | 数据源是项目级，但 `workspace.root` 为空 |
+| `invalid: Project data sources need an open project` | 数据源是项目级，但页面顶部没有选中项目 |
 | “not allowed by ACL” | 命令没写进 `build.rs` 或 `capabilities/default.json` |
 | 用过之后列表仍显示未连接 | `connected` 在列表加载时读取；用刷新 |
 | SQL Server / ClickHouse / Oracle 报 `unreachable` | 这些驱动只保存、尚未实现 |

@@ -109,13 +109,54 @@
     "exitCode": "exit code {{code}}",
     "clear": "Clear output"
   },
-  "project": {
-    "title": "Projects",
-    "description": "The root directory the project page, the file preview and the AI config sync work in.",
-    "rootLabel": "Project root",
-    "rootHint": "The project page and the file preview open this directory. Leave blank to keep them empty until a project is configured.",
-    "rootPlaceholder": "M:\\work\\project",
-    "loadFailed": "Failed to load the configuration."
+  "projectHome": {
+    "header": {
+      "title": "Projects",
+      "tagline": "Open a local project, or one you have opened before."
+    },
+    "open": {
+      "title": "Open project",
+      "hint": "Point at the folder you want to work in.",
+      "pathPlaceholder": "Path to a project folder",
+      "pathLabel": "Project folder path",
+      "browse": "Browse",
+      "open": "Open",
+      "opening": "Opening"
+    },
+    "recent": {
+      "title": "Recent projects",
+      "searchPlaceholder": "Search",
+      "searchLabel": "Search recent projects",
+      "emptyTitle": "No projects yet",
+      "emptyDescription": "Open a folder to get its file tree, an editor, a database panel and version control.",
+      "emptyOpen": "Open project",
+      "noMatch": "No project matches \"{{query}}\".",
+      "alreadyOpen": "Open",
+      "missing": "Missing",
+      "menuAria": "Actions for {{name}}",
+      "open": "Open",
+      "focus": "Focus window",
+      "reveal": "Open folder",
+      "remove": "Remove from list",
+      "removeFailed": "Could not remove the project from the list.",
+      "revealFailed": "Could not open the folder."
+    },
+    "toast": {
+      "missingFolder": "That folder no longer exists.",
+      "openFailed": "Could not open the project."
+    }
+  },
+  "projectPicker": {
+    "empty": "No project opened yet.",
+    "label": "Project",
+    "placeholder": "Choose a project",
+    "manage": "Manage"
+  },
+  "projectWindow": {
+    "title": "Project",
+    "back": "Back to projects",
+    "emptyTitle": "No project opened",
+    "emptyDescription": "This window shows one project. Open one from the projects page in the main window to browse and edit its files here."
   },
   "settings": {
     "title": "Settings",
@@ -853,7 +894,7 @@
   },
   "projectPage": {
     "loading": "Opening the project…",
-    "openFailed": "Could not open the project. Check the project root in Settings → Project."
+    "openFailed": "Could not open the project."
   },
   "projectGit": {
     "activityTitle": "Git",
@@ -876,7 +917,7 @@
     "noCommits": "No commits yet.",
     "endOfHistory": "End of history.",
     "statusFailed": "Could not read the working tree: {{message}}",
-    "noRepo": "No Git repository is open. Set the project's working-copy path in Settings → Project.",
+    "noRepo": "No Git repository is open. Open a project that sits inside a Git working copy.",
     "fileOpFailed": "File operation failed: {{message}}",
     "commitNoChanges": "Select at least one file to commit.",
     "commitConflicts": "Resolve the merge conflicts first.",
@@ -1142,8 +1183,8 @@
       "close": "Close results"
     },
     "error": {
-      "noProject": "No project root is configured.",
-      "openSettings": "Open settings",
+      "noProject": "No project is open.",
+      "openProjects": "Go to projects",
       "loadSources": "Could not read the project's data sources: {{error}}",
       "saveSources": "Could not save the project's data sources: {{error}}"
     }
@@ -1153,7 +1194,7 @@
     "treeTitle": "Project",
     "treeLoading": "Reading the project…",
     "treeEmpty": "The project directory is empty.",
-    "treeFailed": "Could not read the project. Check the project root in Settings → Project.",
+    "treeFailed": "Could not read the project.",
     "empty": "Pick a file on the left to preview it.",
     "reload": "Reload",
     "close": "Close preview",

@@ -83,10 +83,10 @@ export const appRoutes: AppRoute[] = [
     title: "项目",
     navLabel: "项目",
     description:
-      "用同一个编辑器打开「设置 → 项目」里配置的项目根目录：目录按需逐层加载，文件可直接查看与修改并写回磁盘。",
+      "打开本地项目：选择页列出打开与最近的项目，每个项目在自己的窗口里打开，重复打开只会聚焦已开的那个窗口。窗口里目录按需逐层加载，文件可直接查看与修改并写回磁盘。",
     icon: FolderGit2,
-    scope: "项目根目录",
-    items: ["按需加载文件树", "标签页编辑器", "可拖拽面板"],
+    scope: "侧边栏页面 + 一窗口一项目",
+    items: ["打开 / 最近项目", "按需加载文件树", "标签页编辑器", "可拖拽面板"],
   },
   {
     id: "svnWorkspace",
@@ -260,7 +260,7 @@ export const appRoutes: AppRoute[] = [
     title: "Claude 对话",
     navLabel: "Claude 对话",
     description:
-      "直接和本机安装的 Claude Code CLI 对话：消息以流式逐字返回，多条消息之间保留上下文，工作目录取配置里的项目根目录。",
+      "直接和本机安装的 Claude Code CLI 对话：消息以流式逐字返回，多条消息之间保留上下文，工作目录取最近打开的项目。",
     icon: Bot,
     scope: "Agent / 本地 Claude CLI",
     items: ["流式对话", "多轮上下文", "模型选择"],
@@ -308,9 +308,9 @@ export const appRoutes: AppRoute[] = [
     title: "文件预览",
     navLabel: "文件预览",
     description:
-      "只读预览项目根目录里的文件：Word、Excel、PPT、PDF、图片、压缩包、音视频与常见文本格式都在这里解析，左侧文件树按需展开，内容不写回磁盘。",
+      "只读预览所选项目里的文件：Word、Excel、PPT、PDF、图片、压缩包、音视频与常见文本格式都在这里解析，左侧文件树按需展开，内容不写回磁盘。项目在页面顶部选择。",
     icon: FileSearch,
-    scope: "项目根目录 / 只读预览",
+    scope: "所选项目 / 只读预览",
     items: ["按需加载文件树", "Office / PDF / 图片", "压缩包与音视频"],
   },
   {
