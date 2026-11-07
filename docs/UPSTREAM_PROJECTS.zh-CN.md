@@ -59,6 +59,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`、`servers` 页面 | 属改写，无相同文件；`server-core/UPSTREAM.md` |
 | [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`、`frp` 页面 | 属改写，无相同文件；`frp-core/UPSTREAM.md` |
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` 页面、`claude_history.rs` | 行为移植；1 个相同的通用小工具 `cn.ts` |
+| [desktop-cc-gui](https://github.com/zhukunpenglinyutong/desktop-cc-gui) | MIT | `agent-chat-core`、`agent-chat` 页面 | 引擎与历史适配器按署名头移植；页面按本仓组件体系重写；`agent-chat-core/UPSTREAM.md` |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | 文件头注明 Vendored from `@ekaone/use-claude` (MIT) |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`、`cc-switch` 页面 | 图标取自其 `src/icons/extracted`；读取其 SQLite 数据库 |
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`、数据库页面（`src/pages/database`） | 按本项目约定改写，无相同文件；`db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md` |
@@ -112,3 +113,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-06 | openidea 由**仅参考**翻转为**已移植**：其 `crates/ide-db` 成为 `src-tauri/db-core`，`db-core/UPSTREAM.md` 记录差异。 |
 | 2026-11-06 | 数据库 P2：把 `ide-db` 的内省部分（`sql.rs` 的目录查询、`lib.rs` 的 DTO）加入为 `db-core/src/{sql,objects}.rs`，对应 `db_databases`、`db_schemas`、`db_tables`、`db_table_details`、`db_schema_objects`。 |
 | 2026-11-07 | 数据库 P3：多语句执行、表分页与行编辑、DDL 生成、补全、带页签的窗口与 CodeMirror 控制台，取自 `ide-db` 及 openidea 的前端；新增 `src/pages/database/UPSTREAM.md`，更新 `db-core/UPSTREAM.md`。 |
+| 2026-11-07 | Agent 对话：desktop-cc-gui（ccgui-next 1.2.2，MIT）记为**已移植**——`agent-chat-core` 按署名头移植引擎与历史适配器，页面重写；`agent-chat-core/UPSTREAM.md` 记录差异。 |

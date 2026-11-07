@@ -34,6 +34,19 @@ WingHarness 以 GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only
 `src-tauri/src/ccs` 与 CC Switch 页面实现了相同的供应商模型，并读取 cc-switch 的
 SQLite 数据库（`~/.cc-switch/cc-switch.db`）。`hermes.png` 图标复制自上游项目。
 
+### desktop-cc-gui
+
+- 项目：[desktop-cc-gui](https://github.com/zhukunpenglinyutong/desktop-cc-gui)（`ccgui-next`）
+- 版本：1.2.2
+- 许可证：MIT
+- 许可证文本：[licenses/desktop-cc-gui-LICENSE.txt](./licenses/desktop-cc-gui-LICENSE.txt)
+- 版权：2026 zhukunpenglinyutong（朱昆鹏）
+
+`src-tauri/agent-chat-core` 的一部分——引擎传输层、Claude、Codex 与 ACP 适配器、
+批量事件出口，以及 Claude/Codex 原生会话扫描——改编自 desktop-cc-gui。对话页面
+按本仓库的组件体系重写。移植记录见
+`src-tauri/agent-chat-core/UPSTREAM.md`。
+
 ### Frpilot
 
 - 项目：[Frpilot](https://github.com/leapfu/frpilot)
@@ -176,6 +189,10 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@dnd-kit/utilities` | MIT |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
+| `@streamdown/cjk` | Apache-2.0 |
+| `@streamdown/code` | Apache-2.0 |
+| `@streamdown/math` | Apache-2.0 |
+| `@streamdown/mermaid` | Apache-2.0 |
 | `@tailwindcss/vite` | MIT |
 | `@tanstack/react-virtual` | MIT |
 | `@tauri-apps/api` | MIT OR Apache-2.0 |
@@ -220,6 +237,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
 | `sonner` | MIT |
+| `streamdown` | Apache-2.0 |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
@@ -275,6 +293,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |

@@ -37,6 +37,20 @@ maintained here as first-party code.
 read cc-switch's SQLite database (`~/.cc-switch/cc-switch.db`). The `hermes.png`
 icon is copied from the upstream project.
 
+### desktop-cc-gui
+
+- Project: [desktop-cc-gui](https://github.com/zhukunpenglinyutong/desktop-cc-gui) (`ccgui-next`)
+- Version: 1.2.2
+- License: MIT
+- License text: [licenses/desktop-cc-gui-LICENSE.txt](./licenses/desktop-cc-gui-LICENSE.txt)
+- Copyright: 2026 zhukunpenglinyutong（朱昆鹏）
+
+Portions of `src-tauri/agent-chat-core` — the engine transport, the Claude,
+Codex and ACP adapters, the batched event sink, and the Claude/Codex native
+session scanners — are adapted from desktop-cc-gui. The chat page was rewritten
+against this repository's component system. See
+`src-tauri/agent-chat-core/UPSTREAM.md` for the porting record.
+
 ### Frpilot
 
 - Project: [Frpilot](https://github.com/leapfu/frpilot)
@@ -193,6 +207,10 @@ its crate source.
 | `@dnd-kit/utilities` | MIT |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
+| `@streamdown/cjk` | Apache-2.0 |
+| `@streamdown/code` | Apache-2.0 |
+| `@streamdown/math` | Apache-2.0 |
+| `@streamdown/mermaid` | Apache-2.0 |
 | `@tailwindcss/vite` | MIT |
 | `@tanstack/react-virtual` | MIT |
 | `@tauri-apps/api` | MIT OR Apache-2.0 |
@@ -237,6 +255,7 @@ its crate source.
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
 | `sonner` | MIT |
+| `streamdown` | Apache-2.0 |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
@@ -292,6 +311,7 @@ its crate source.
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |

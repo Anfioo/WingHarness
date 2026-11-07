@@ -153,6 +153,7 @@ repository yet.
 
 | Guide | What it covers |
 |-------|----------------|
+| [AGENT_CHAT.md](./docs/features/AGENT_CHAT.md) | Multi-engine chat over Claude, Codex and Qoder: tabs, streaming, native history |
 | [AI_CONFIG.md](./docs/features/AI_CONFIG.md) | AI config sync: one git store, materialised into each agent's layout |
 | [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |

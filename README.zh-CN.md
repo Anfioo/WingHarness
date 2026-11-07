@@ -149,6 +149,7 @@ pnpm dlx shadcn@latest add button
 
 | 文档 | 内容 |
 |------|------|
+| [AGENT_CHAT.zh-CN.md](./docs/features/AGENT_CHAT.zh-CN.md) | 在 Claude、Codex 与 Qoder 之间多引擎对话：标签、流式与原生历史 |
 | [AI_CONFIG.zh-CN.md](./docs/features/AI_CONFIG.zh-CN.md) | AI 配置同步：一个 git 仓库作为唯一来源，再翻译成各 agent 的目录布局 |
 | [API_CLIENT.zh-CN.md](./docs/features/API_CLIENT.zh-CN.md) | 类 Postman 的 REST 客户端，由 OpenAPI 或 Swagger 文档驱动 |
 | [CC_SWITCH.zh-CN.md](./docs/features/CC_SWITCH.zh-CN.md) | AI 编码 CLI 的供应商管理 |
