@@ -77,6 +77,44 @@ fn one_ipc_payload_is_an_array_of_run_events() {
 }
 
 #[test]
+fn documented_kind_vocabulary_serializes_verbatim() {
+    // plan §6.2: the frontend folds on exactly these values.
+    let kinds = [
+        "delta",
+        "thinking",
+        "message",
+        "session",
+        "usage",
+        "model",
+        "effort",
+        "permission_denied",
+        "question",
+        "question_settled",
+        "warn",
+        "retry",
+        "compaction",
+        "error",
+        "done",
+        "turn_resumed",
+    ];
+
+    let batch: Vec<AgentRunEvent> = kinds
+        .iter()
+        .enumerate()
+        .map(|(index, kind)| run_event(index as u64 + 1, kind, serde_json::Value::Null))
+        .collect();
+    let payload = serde_json::to_value(&batch).expect("batch serializes");
+    let serialized: Vec<&str> = payload
+        .as_array()
+        .expect("array payload")
+        .iter()
+        .map(|item| item["kind"].as_str().expect("kind is a string"))
+        .collect();
+
+    assert_eq!(serialized, kinds);
+}
+
+#[test]
 fn claude_init_announces_the_session_and_model() {
     let events = parse_claude(
         r#"{"type":"system","subtype":"init","session_id":"shape-1","model":"claude-demo"}"#,
