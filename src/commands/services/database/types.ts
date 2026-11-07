@@ -268,6 +268,49 @@ export type HistoryEntry = {
   time: number;
 };
 
+/** One `.sql` file of the query directory. */
+export type QueryFile = {
+  name: string;
+  size: number;
+  /** Milliseconds since the Unix epoch. */
+  modifiedMs: number;
+};
+
+/** One tab of a data source window, as `windows.json` stores it. */
+export type TabRecord =
+  | { kind: "query"; file: string }
+  | { kind: "table"; target: string; schema: string; table: string };
+
+/** The tabs of one data source window; `active` is a tab key. */
+export type WindowTabs = {
+  source: string;
+  tabs: TabRecord[];
+  active: string | null;
+};
+
+/** The row limits the console and the table editor remember. */
+export type DbSettings = {
+  version: number;
+  consoleRows: number;
+  tablePageSize: number;
+};
+
+/** One attribute of a plan node. */
+export type PlanProperty = {
+  name: string;
+  value: string;
+};
+
+/** One node of a statement's execution plan. */
+export type PlanNode = {
+  id: number;
+  parent: number | null;
+  depth: number;
+  operation: string;
+  detail: string;
+  properties: PlanProperty[];
+};
+
 /** Stable categories the frontend branches on. */
 export type DatabaseErrorCode =
   | "not-found"

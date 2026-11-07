@@ -3,19 +3,33 @@
 // in one transaction. A table without a primary key cannot identify its rows,
 // so it is shown read-only.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { save } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Download,
   Loader2,
   Plus,
   RotateCcw,
   RotateCw,
   Save,
+  Search,
+  Sigma,
+  SquareCode,
+  SquareUser,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
-import { databaseErrorCode, dbApplyEdits, dbCancel, dbSourceList, dbTablePage } from "@/commands";
+import {
+  databaseErrorCode,
+  dbApplyEdits,
+  dbCancel,
+  dbSourceList,
+  dbTablePage,
+  saveTextFile,
+} from "@/commands";
 import type { CompletionModel, DataSourceView, DbRowEdit, SortKey, TablePage } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,35 +41,60 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { cn } from "@/lib/utils";
 import { ColumnsPopup } from "./columns-popup";
+import type { DataPanel } from "./data-panel";
+import { DataView, type GridMenuItem } from "./data-view";
+import { EXPORT_FORMATS, exportData, type ExportData, type ExportFormat } from "./export";
 import { FilterInput } from "./filter-input";
+import { ImportDialog } from "./import-dialog";
 import { pageWindow } from "./result-view";
-import { ResultGrid, type GridColumn } from "./result-grid";
+import type { GridColumn } from "./result-grid";
+import { useDatabaseStore } from "./store";
 import {
   addRow,
   applyCell,
   buildRowEdits,
   discard,
   displayRows,
+  formatOrderBy,
   hasEdits,
   markDeleted,
+  parseOrderBy,
   pendingCount,
   rowState,
+  unmarkDeleted,
   type EditTarget,
   type PendingEdits,
 } from "./table-editor-model";
 
 export type TableEditorProps = { target: string; schema: string; table: string };
 
-/** Rows per page. The server reads one row more to tell whether another page follows. */
-const PAGE_SIZE = 500;
+/** The page sizes the toolbar offers; the store remembers the last one. */
+const PAGE_SIZES = [100, 500, 1000, 5000];
 
 /** A loaded page plus the parameter key it belongs to; a stale key means "loading". */
 type LoadedPage = { key: string; page: TablePage | null; error: string | null };
 
 export function TableEditor({ target, schema, table }: TableEditorProps) {
   const { t } = useAppTranslation();
+  const pageSize = useDatabaseStore((state) => state.settings.tablePageSize);
+  const setTablePageSize = useDatabaseStore((state) => state.setTablePageSize);
 
   const [source, setSource] = useState<DataSourceView | null>(null);
   const [offset, setOffset] = useState(0);
@@ -68,6 +107,10 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
   const [submitting, setSubmitting] = useState(false);
   const [confirming, setConfirming] = useState<DbRowEdit[] | null>(null);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [orderDraft, setOrderDraft] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [panel, setPanel] = useState<DataPanel>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const describeFailure = useCallback(
     (failure: unknown) => {
@@ -100,8 +143,8 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
   }, [target]);
 
   // The parameters a page is fetched for. `nonce` re-reads the same page.
-  const key = JSON.stringify([target, schema, table, filter, sort, offset, nonce]);
-  const pageKey = JSON.stringify([target, schema, table, filter, sort, offset]);
+  const key = JSON.stringify([target, schema, table, filter, sort, offset, pageSize, nonce]);
+  const pageKey = JSON.stringify([target, schema, table, filter, sort, offset, pageSize]);
   // A cancelled request may still answer; only the newest key may hold the page.
   const currentKey = useRef(key);
   currentKey.current = key;
@@ -119,7 +162,7 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
           filter || null,
           sort,
           offset,
-          PAGE_SIZE
+          pageSize
         );
         if (currentKey.current === key) setLoaded({ key, page, error: null });
       } catch (failure) {
@@ -135,7 +178,7 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
       // A request the user moved past is not worth finishing.
       if (!finished) void dbCancel(request);
     };
-  }, [key, target, schema, table, filter, sort, offset, describeFailure]);
+  }, [key, target, schema, table, filter, sort, offset, pageSize, describeFailure]);
 
   // Another page means another set of rows, so the draft cannot follow it.
   useEffect(() => {
@@ -161,13 +204,14 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
     () => (page?.result.columns ?? []).map((c) => ({ name: c.name, typeName: c.typeName })),
     [page]
   );
+  const names = useMemo(() => columns.map((column) => column.name), [columns]);
   const primaryKey = useMemo(
     () => (page?.details.columns ?? []).filter((c) => c.primaryKey).map((c) => c.name),
     [page]
   );
   const editTarget = useMemo<EditTarget>(
-    () => ({ columns: columns.map((c) => c.name), rows: page?.result.rows ?? [] }),
-    [columns, page]
+    () => ({ columns: names, rows: page?.result.rows ?? [] }),
+    [names, page]
   );
   const rows = useMemo(() => displayRows(editTarget, edits), [editTarget, edits]);
   const readOnlySource = source?.readOnly === true;
@@ -175,12 +219,13 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
   const dirty = hasEdits(edits);
   const loadedRows = editTarget.rows.length;
   const pager = pageWindow({
-    page: Math.floor(offset / PAGE_SIZE),
-    pageSize: PAGE_SIZE,
+    page: Math.floor(offset / pageSize),
+    pageSize,
     rows: loadedRows,
     hasMore: page?.result.hasMore ?? false,
     total: null,
   });
+  const orderInvalid = orderDraft !== null && parseOrderBy(orderDraft, names) === null;
 
   // The filter input completes against the table it filters, so the model has
   // the current table first (and, for the editor, only that table matters).
@@ -209,13 +254,28 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
 
   const refresh = () => setNonce((n) => n + 1);
 
-  const changeSort = (column: string) => {
+  const changeSort = (column: string, add: boolean) => {
     setSort((current) => {
-      const existing = current.find((k) => k.column === column);
-      if (!existing) return [{ column, descending: false }];
-      return existing.descending ? [] : [{ column, descending: true }];
+      const existing = current.find((key) => key.column === column);
+      const next = !existing
+        ? { column, descending: false }
+        : !existing.descending
+          ? { column, descending: true }
+          : null;
+      const rest = add ? current.filter((key) => key.column !== column) : [];
+      return next ? [...rest, next] : rest;
     });
     setOffset(0);
+    setOrderDraft(null);
+  };
+
+  const applyOrderBy = () => {
+    if (orderDraft === null) return;
+    const next = parseOrderBy(orderDraft, names);
+    if (!next) return;
+    setSort(next);
+    setOffset(0);
+    setOrderDraft(null);
   };
 
   const applyFilter = () => {
@@ -223,13 +283,51 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
     setFilter(filterText.trim());
   };
 
+  const changePageSize = (value: string) => {
+    setOffset(0);
+    setOrderDraft(null);
+    setTablePageSize(Number(value)).catch((failure: unknown) => {
+      toast.error(describeFailure(failure));
+    });
+  };
+
   const changeCell = (row: number, column: number, value: string | null) => {
     if (!editable) return;
     setEdits((current) => applyCell(current, editTarget, row, column, value));
   };
 
-  const deleteRow = (row: number) => {
-    setEdits((current) => markDeleted(current, editTarget, row));
+  // Descending order keeps the indices of later new rows stable while earlier
+  // ones are dropped.
+  const deleteRows = (selected: number[]) =>
+    setEdits((current) =>
+      [...selected]
+        .sort((a, b) => b - a)
+        .reduce((next, row) => markDeleted(next, editTarget, row), current)
+    );
+
+  const restoreRows = (selected: number[]) =>
+    setEdits((current) =>
+      selected.reduce((next, row) => (row < loadedRows ? unmarkDeleted(next, row) : next), current)
+    );
+
+  const rowMenu = (selected: number[]): GridMenuItem[] => {
+    if (!editable) return [];
+    const restorable = selected.some((row) => row < loadedRows && edits.deletes.has(String(row)));
+    return [
+      {
+        id: "deleteRows",
+        label: t("database.table.deleteRows"),
+        destructive: true,
+        disabled: selected.length === 0,
+        run: () => deleteRows(selected),
+      },
+      {
+        id: "restoreRows",
+        label: t("database.table.restoreRows"),
+        disabled: !restorable,
+        run: () => restoreRows(selected),
+      },
+    ];
   };
 
   const submit = () => {
@@ -255,9 +353,44 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
     }
   };
 
+  const exportAs = async (format: ExportFormat) => {
+    if (!page) return;
+    const meta = EXPORT_FORMATS.find((entry) => entry.id === format);
+    if (!meta) return;
+    let path: string | null = null;
+    try {
+      path = await save({
+        defaultPath: `${table}.${meta.extension}`,
+        filters: [{ name: t(meta.label), extensions: [meta.extension] }],
+      });
+    } catch (failure) {
+      toast.error(t("database.export.failed", { error: describeFailure(failure) }));
+      return;
+    }
+    if (!path) return;
+    const data: ExportData = {
+      columns,
+      rows: page.result.rows,
+      table,
+      driver: source?.driver ?? "sqlite",
+    };
+    try {
+      await saveTextFile(path, exportData(format, data));
+      toast.success(t("database.export.saved", { name: path.split(/[\\/]/).pop() ?? path }));
+    } catch (failure) {
+      toast.error(t("database.export.failed", { error: describeFailure(failure) }));
+    }
+  };
+
+  const imported = (count: number) => {
+    setImportOpen(false);
+    toast.success(t("database.table.imported", { count }));
+    refresh();
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+      <div className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -275,7 +408,7 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
             size="icon-xs"
             aria-label={t("database.grid.prev")}
             disabled={offset === 0 || loading}
-            onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+            onClick={() => setOffset(Math.max(0, offset - pageSize))}
           >
             <ChevronLeft />
           </Button>
@@ -289,11 +422,29 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
             size="icon-xs"
             aria-label={t("database.grid.next")}
             disabled={!page?.result.hasMore || loading}
-            onClick={() => setOffset(offset + PAGE_SIZE)}
+            onClick={() => setOffset(offset + pageSize)}
           >
             <ChevronRight />
           </Button>
         </div>
+
+        <Select value={String(pageSize)} onValueChange={changePageSize}>
+          <SelectTrigger
+            size="sm"
+            className="h-7 w-24 text-xs"
+            aria-label={t("database.table.pageSize")}
+            title={t("database.table.pageSize")}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PAGE_SIZES.map((size) => (
+              <SelectItem key={size} value={String(size)}>
+                {t("database.table.pageSizeOption", { count: size })}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
         <div className="flex min-w-48 flex-1 items-center">
           <FilterInput
@@ -306,16 +457,113 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
           />
         </div>
 
+        <Input
+          value={orderDraft ?? formatOrderBy(sort)}
+          placeholder={t("database.table.orderBy")}
+          aria-label={t("database.table.orderBy")}
+          aria-invalid={orderInvalid}
+          title={orderInvalid ? t("database.table.orderByInvalid") : t("database.table.orderBy")}
+          spellCheck={false}
+          autoComplete="off"
+          className={cn(
+            "h-7 w-44 font-mono text-xs",
+            orderInvalid && "border-destructive text-destructive"
+          )}
+          onChange={(event) => setOrderDraft(event.target.value)}
+          onBlur={() => {
+            if (!orderInvalid) setOrderDraft(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              applyOrderBy();
+            } else if (event.key === "Escape") {
+              event.preventDefault();
+              setOrderDraft(null);
+            }
+          }}
+        />
+
         {loading && <Loader2 className="text-muted-foreground size-3.5 shrink-0 animate-spin" />}
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
+          {editable && dirty && (
+            <Badge variant="secondary">
+              {t("database.table.changed", { count: pendingCount(edits) })}
+            </Badge>
+          )}
+
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("database.table.import")}
+            title={t("database.table.import")}
+            disabled={!editable}
+            onClick={() => setImportOpen(true)}
+          >
+            <Upload />
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("database.table.export")}
+                title={t("database.table.export")}
+                disabled={!page}
+              >
+                <Download />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {EXPORT_FORMATS.map((format) => (
+                <DropdownMenuItem
+                  key={format.id}
+                  disabled={!page}
+                  onSelect={() => void exportAs(format.id)}
+                >
+                  {t(format.label)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant={searchOpen ? "secondary" : "ghost"}
+            size="icon-sm"
+            aria-label={t("database.table.search")}
+            aria-pressed={searchOpen}
+            title={t("database.table.search")}
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            <Search />
+          </Button>
+
+          <PanelButton
+            active={panel === "record"}
+            label={t("database.panel.record")}
+            onClick={() => setPanel(panel === "record" ? null : "record")}
+          >
+            <SquareUser />
+          </PanelButton>
+          <PanelButton
+            active={panel === "value"}
+            label={t("database.panel.value")}
+            onClick={() => setPanel(panel === "value" ? null : "value")}
+          >
+            <SquareCode />
+          </PanelButton>
+          <PanelButton
+            active={panel === "aggregates"}
+            label={t("database.panel.aggregates")}
+            onClick={() => setPanel(panel === "aggregates" ? null : "aggregates")}
+          >
+            <Sigma />
+          </PanelButton>
+
           {editable && (
             <>
-              {dirty && (
-                <Badge variant="secondary">
-                  {t("database.table.changed", { count: pendingCount(edits) })}
-                </Badge>
-              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -361,14 +609,27 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
 
       {page ? (
         <div className="min-h-0 flex-1 overflow-hidden">
-          <ResultGrid
+          <DataView
+            ariaLabel={`${schema}.${table}`}
             columns={columns}
             rows={rows}
-            onChange={editable ? changeCell : undefined}
+            rowCount={rows.length}
             rowState={(row) => rowState(edits, loadedRows, row)}
+            isModified={
+              editable
+                ? (row, column) => edits.updates.get(String(row))?.has(names[column] ?? "") === true
+                : undefined
+            }
+            editable={editable}
+            onChange={editable ? changeCell : undefined}
             sort={sort}
             onSort={changeSort}
-            onRowDeleted={editable ? deleteRow : undefined}
+            firstRowNumber={offset + 1}
+            rowMenu={rowMenu}
+            panel={panel}
+            onPanelChange={setPanel}
+            searchOpen={searchOpen}
+            onSearchOpenChange={setSearchOpen}
           />
         </div>
       ) : (
@@ -389,6 +650,16 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
           // grid keeps its selection.
           setColumnsOpen(false);
         }}
+      />
+
+      <ImportDialog
+        open={importOpen}
+        target={target}
+        schema={schema}
+        table={table}
+        columns={names}
+        onOpenChange={setImportOpen}
+        onImported={imported}
       />
 
       <Dialog
@@ -419,5 +690,26 @@ export function TableEditor({ target, schema, table }: TableEditorProps) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function PanelButton(props: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  const { active, label, onClick, children } = props;
+  return (
+    <Button
+      variant={active ? "secondary" : "ghost"}
+      size="icon-sm"
+      aria-pressed={active}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
   );
 }

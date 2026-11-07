@@ -15,7 +15,10 @@ import type {
   Databases,
   DbObjectKind,
   DbRowEdit,
+  DbSettings,
   HistoryEntry,
+  PlanNode,
+  QueryFile,
   SchemaObjects,
   SortKey,
   SqlStatement,
@@ -23,6 +26,7 @@ import type {
   TableDetails,
   TableInfo,
   TablePage,
+  WindowTabs,
 } from "./types";
 
 /** Every data source of the current project, plus the app-wide ones. */
@@ -248,5 +252,47 @@ export async function dbSchemaObjects(id: string, schema: string): Promise<Schem
   return await invokeCommand<{ id: string; schema: string }, SchemaObjects>("db_schema_objects", {
     id,
     schema,
+  });
+}
+
+/** The `.sql` files of the query directory. */
+export async function dbQueries(): Promise<QueryFile[]> {
+  return await invokeCommand<Record<string, never>, QueryFile[]>("db_queries", {});
+}
+
+export async function dbQueryRead(name: string): Promise<string> {
+  return await invokeCommand<{ name: string }, string>("db_query_read", { name });
+}
+
+export async function dbQueryWrite(name: string, text: string): Promise<void> {
+  await invokeCommand<{ name: string; text: string }, void>("db_query_write", { name, text });
+}
+
+export async function dbQueryDelete(name: string): Promise<void> {
+  await invokeCommand<{ name: string }, void>("db_query_delete", { name });
+}
+
+/** The tabs `source` had when its window last closed; `null` if it saved none. */
+export async function dbWindowTabs(source: string): Promise<WindowTabs | null> {
+  return await invokeCommand<{ source: string }, WindowTabs | null>("db_window_tabs", { source });
+}
+
+export async function dbSaveWindowTabs(tabs: WindowTabs): Promise<void> {
+  await invokeCommand<{ tabs: WindowTabs }, void>("db_save_window_tabs", { tabs });
+}
+
+export async function dbSettings(): Promise<DbSettings> {
+  return await invokeCommand<Record<string, never>, DbSettings>("db_settings", {});
+}
+
+export async function dbSaveSettings(settings: DbSettings): Promise<void> {
+  await invokeCommand<{ settings: DbSettings }, void>("db_save_settings", { settings });
+}
+
+/** The execution plan of `statement`, as the tree the Plan tab renders. */
+export async function dbExplain(id: string, statement: string): Promise<PlanNode[]> {
+  return await invokeCommand<{ id: string; statement: string }, PlanNode[]>("db_explain", {
+    id,
+    statement,
   });
 }

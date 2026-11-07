@@ -63,7 +63,8 @@ pub fn run() {
                 // feature moves with the data directory. The manager caches the
                 // project root for relative SQLite paths; the commands refresh
                 // it per call, so a settings change needs no restart.
-                let db = commands::db::DbState::new(db_core::DbManager::new(config::dir().join("db")));
+                let dir = config::dir().join("db");
+                let db = commands::db::DbState::new(db_core::DbManager::new(dir.clone()), db_core::Workspace::new(dir));
                 db.manager
                     .set_root(config::load().project_root().map(str::to_owned));
                 app.manage(db);

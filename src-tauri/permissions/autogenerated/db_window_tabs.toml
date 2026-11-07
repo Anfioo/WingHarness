@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-window-tabs"
+description = "Enables the db_window_tabs command without any pre-configured scope."
+commands.allow = ["db_window_tabs"]
+
+[[permission]]
+identifier = "deny-db-window-tabs"
+description = "Denies the db_window_tabs command without any pre-configured scope."
+commands.deny = ["db_window_tabs"]
