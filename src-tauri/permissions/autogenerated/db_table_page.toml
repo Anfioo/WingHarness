@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-table-page"
+description = "Enables the db_table_page command without any pre-configured scope."
+commands.allow = ["db_table_page"]
+
+[[permission]]
+identifier = "deny-db-table-page"
+description = "Denies the db_table_page command without any pre-configured scope."
+commands.deny = ["db_table_page"]

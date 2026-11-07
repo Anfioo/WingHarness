@@ -681,14 +681,18 @@ export type {
   VolumeInfo,
 } from "./services/systools/types";
 export {
+  dbApplyEdits,
   dbCancel,
+  dbCompletion,
   dbConnect,
   dbConnectedTargets,
   dbDatabases,
+  dbDdl,
   dbDisconnect,
   dbExecute,
   dbFinishTransaction,
   dbHistory,
+  dbObjectDdl,
   dbRemoveHistory,
   dbSchemaObjects,
   dbSchemas,
@@ -697,7 +701,9 @@ export {
   dbSourceSave,
   dbSourceSetPassword,
   dbSourceTest,
+  dbStatements,
   dbTableDetails,
+  dbTablePage,
   dbTables,
 } from "./services/database";
 export {
@@ -707,7 +713,11 @@ export {
   isDatabaseError,
 } from "./services/database/types";
 export type {
+  CellValue,
   ColumnInfo,
+  CompletionColumn,
+  CompletionModel,
+  CompletionTable,
   DataSource,
   DataSourceView,
   DatabaseError,
@@ -719,6 +729,7 @@ export type {
   DbObjectKind,
   DbOptions,
   DbProperty,
+  DbRowEdit,
   DbSslMode,
   DbTableKind,
   DbTxMode,
@@ -730,8 +741,12 @@ export type {
   RoutineInfo,
   SchemaObjects,
   SequenceInfo,
+  SortKey,
+  SqlStatement,
+  StatementOutcome,
   TableDetails,
   TableInfo,
+  TablePage,
   TriggerInfo,
 } from "./services/database/types";
 export {

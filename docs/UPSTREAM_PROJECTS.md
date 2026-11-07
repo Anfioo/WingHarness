@@ -65,7 +65,7 @@ for the project name (2026-11-05).
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` page, `claude_history.rs` | Behaviour port; 1 identical generic helper (`cn.ts`) |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | "Vendored from `@ekaone/use-claude` (MIT)" in headers |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`, `cc-switch` page | Icon assets copied from `src/icons/extracted`; reads its SQLite DB |
-| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`, database pages | Reworked for this app's conventions, no identical files; `db-core/UPSTREAM.md` |
+| [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`, database pages (`src/pages/database`) | Reworked for this app's conventions, no identical files; `db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` |
 
 **Notes on this group**
 
@@ -118,4 +118,5 @@ Use this for every feature carried over.
 | 2026-11-05 | Licence audit: upstream license texts added under `licenses/`, attribution headers and `UPSTREAM.md` records added to every ported crate, tweakcn corrected from MIT to Apache-2.0, and the evidence column updated to the current tree. |
 | 2026-11-06 | openidea moved from **Reference** to **Ported**: its `crates/ide-db` became `src-tauri/db-core`, with `db-core/UPSTREAM.md` recording the divergences. |
 | 2026-11-06 | Databases P2: `ide-db`'s introspection (catalog queries from `sql.rs`, DTOs from `lib.rs`) added as `db-core/src/{sql,objects}.rs`, with `db_databases`, `db_schemas`, `db_tables`, `db_table_details` and `db_schema_objects`. |
+| 2026-11-07 | Databases P3: multi-statement execution, table paging and row editing, DDL generation, completion, the tabbed window and the CodeMirror console carried over from `ide-db` and openidea's frontend; `src/pages/database/UPSTREAM.md` added, `db-core/UPSTREAM.md` updated. |
 

@@ -13,7 +13,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use db_core::{
-    DataSource, Databases, DbManager, DbResult, HistoryEntry, QueryResult, SchemaObjects, TableDetails, TableInfo,
+    CompletionModel, DataSource, Databases, DbManager, DbObjectKind, DbResult, DbRowEdit, HistoryEntry,
+    SchemaObjects, SortKey, SqlStatement, StatementOutcome, TableDetails, TableInfo, TablePage,
 };
 use serde::Serialize;
 use tauri::State;
@@ -178,6 +179,13 @@ pub async fn db_schema_objects(
     state.manager.schema_objects(&id, &schema).await
 }
 
+/// The tables, columns and foreign keys the SQL editor completes names from.
+#[tauri::command]
+pub async fn db_completion(state: State<'_, DbState>, id: String) -> DbResult<CompletionModel> {
+    sync_project(&state);
+    state.manager.completion(&id).await
+}
+
 #[tauri::command]
 pub async fn db_set_manual_commit(
     state: State<'_, DbState>,
@@ -197,17 +205,20 @@ pub async fn db_finish_transaction(
     state.manager.finish_transaction(&id, commit).await
 }
 
-/// Runs one statement. `request` identifies it for [`db_cancel`]; `skip` and
-/// `max_rows` select a window of the result without decoding the rows before it.
+/// One page of a table, ordered and filtered on the server. `request`
+/// identifies it for [`db_cancel`], as [`db_execute`] does.
 #[tauri::command]
-pub async fn db_execute(
+pub async fn db_table_page(
     state: State<'_, DbState>,
     request: String,
     id: String,
-    statement: String,
-    skip: u32,
-    max_rows: u32,
-) -> DbResult<QueryResult> {
+    schema: String,
+    table: String,
+    filter: Option<String>,
+    sort: Vec<SortKey>,
+    offset: u64,
+    limit: u64,
+) -> DbResult<TablePage> {
     sync_project(&state);
     let cancel = {
         let mut cancels = state.cancels.lock().unwrap_or_else(|p| p.into_inner());
@@ -220,7 +231,100 @@ pub async fn db_execute(
 
     let result = state
         .manager
-        .execute_from(&id, &statement, skip as usize, max_rows as usize, &cancel)
+        .table_page(&id, &schema, &table, filter.as_deref(), &sort, offset, limit, &cancel)
+        .await;
+
+    state
+        .cancels
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .remove(&request);
+    result
+}
+
+/// Applies the pending row edits in one transaction; `Err` rolls all of them
+/// back.
+#[tauri::command]
+pub async fn db_apply_edits(
+    state: State<'_, DbState>,
+    id: String,
+    schema: String,
+    table: String,
+    edits: Vec<DbRowEdit>,
+) -> DbResult<f64> {
+    sync_project(&state);
+    state.manager.apply_edits(&id, &schema, &table, &edits).await
+}
+
+/// The `CREATE TABLE` statement of a table, read-only.
+#[tauri::command]
+pub async fn db_ddl(
+    state: State<'_, DbState>,
+    id: String,
+    schema: String,
+    table: String,
+) -> DbResult<String> {
+    sync_project(&state);
+    state.manager.ddl(&id, &schema, &table).await
+}
+
+/// The definition of a routine, trigger or sequence, read-only.
+#[tauri::command]
+pub async fn db_object_ddl(
+    state: State<'_, DbState>,
+    id: String,
+    schema: String,
+    kind: DbObjectKind,
+    name: String,
+) -> DbResult<String> {
+    sync_project(&state);
+    state.manager.object_ddl(&id, &schema, kind, &name).await
+}
+
+/// Splits `text` into the statements the editor runs. `from` and `to` are
+/// UTF-16 offsets of a selection; an empty selection means the statement at
+/// the caret.
+#[tauri::command]
+pub fn db_statements(
+    state: State<'_, DbState>,
+    id: String,
+    text: String,
+    from: u32,
+    to: u32,
+) -> DbResult<Vec<SqlStatement>> {
+    sync_project(&state);
+    let driver = state.manager.source(&id)?.driver;
+    Ok(if from == to {
+        db_core::split::statement_at(&text, from, driver).into_iter().collect()
+    } else {
+        db_core::split::statements_in(&text, from, to, driver)
+    })
+}
+
+/// Runs a batch of statements in order. `request` identifies the batch for
+/// [`db_cancel`]; `skip` and `max_rows` select a window of each result.
+#[tauri::command]
+pub async fn db_execute(
+    state: State<'_, DbState>,
+    request: String,
+    id: String,
+    statements: Vec<SqlStatement>,
+    skip: u32,
+    max_rows: u32,
+) -> DbResult<Vec<StatementOutcome>> {
+    sync_project(&state);
+    let cancel = {
+        let mut cancels = state.cancels.lock().unwrap_or_else(|p| p.into_inner());
+        cancels.insert(request.clone(), CancellationToken::new());
+        cancels
+            .get(&request)
+            .cloned()
+            .expect("inserted just above")
+    };
+
+    let result = state
+        .manager
+        .execute_all(&id, &statements, skip as usize, max_rows as usize, &cancel)
         .await;
 
     state

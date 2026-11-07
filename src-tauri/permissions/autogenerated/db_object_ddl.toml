@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-object-ddl"
+description = "Enables the db_object_ddl command without any pre-configured scope."
+commands.allow = ["db_object_ddl"]
+
+[[permission]]
+identifier = "deny-db-object-ddl"
+description = "Denies the db_object_ddl command without any pre-configured scope."
+commands.deny = ["db_object_ddl"]
