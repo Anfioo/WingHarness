@@ -91,3 +91,67 @@ pub struct StatementOutcome {
     pub result: Option<QueryResult>,
     pub error: Option<DbError>,
 }
+
+/// One `.sql` file of the query directory, as the "Open Query" list shows it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryFile {
+    pub name: String,
+    pub size: u64,
+    /// Milliseconds since the Unix epoch.
+    pub modified_ms: u64,
+}
+
+/// One tab of a data source window, as `windows.json` stores it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TabRecord {
+    Query { file: String },
+    Table { target: String, schema: String, table: String },
+}
+
+/// The tabs of one data source window: the whole record `windows.json` holds
+/// per source, so two windows never overwrite each other's entry.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowTabs {
+    pub source: String,
+    pub tabs: Vec<TabRecord>,
+    pub active: Option<String>,
+}
+
+/// The row limits the console and the table editor remember.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DbSettings {
+    pub version: u32,
+    pub console_rows: u32,
+    pub table_page_size: u32,
+}
+
+impl Default for DbSettings {
+    fn default() -> Self {
+        Self { version: 1, console_rows: 500, table_page_size: 500 }
+    }
+}
+
+/// One attribute of a plan node, shown in the property panel.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanProperty {
+    pub name: String,
+    pub value: String,
+}
+
+/// One node of the execution plan of a statement, whatever the driver's
+/// `EXPLAIN` output looks like: the frontend renders this tree only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanNode {
+    pub id: u32,
+    pub parent: Option<u32>,
+    pub depth: u32,
+    pub operation: String,
+    pub detail: String,
+    pub properties: Vec<PlanProperty>,
+}

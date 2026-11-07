@@ -40,16 +40,18 @@ export function compareCells(a: Cell, b: Cell): number {
 }
 
 /**
- * The loaded rows to show, in order: those passing every column filter,
- * sorted by `sort` (stable, original order otherwise). Rows past `fixed`
- * (the table editor's added rows) always stay, last.
+ * The loaded rows to show, in order: those passing every column filter and
+ * the search bar's row filter, sorted by `sort` (stable, original order
+ * otherwise). Rows past `fixed` (the table editor's added rows) always stay,
+ * last.
  */
 export function visibleRows(
   rowCount: number,
   value: (row: number, col: number) => Cell,
   filter: LocalFilter,
   sort: LocalSort | null,
-  fixed = rowCount
+  fixed = rowCount,
+  match?: (row: number) => boolean
 ): number[] {
   const rows: number[] = [];
   for (let r = 0; r < Math.min(rowCount, fixed); r++) {
@@ -60,6 +62,7 @@ export function visibleRows(
         break;
       }
     }
+    if (shown && match && !match(r)) shown = false;
     if (shown) rows.push(r);
   }
   if (sort) {
@@ -155,6 +158,28 @@ export interface SearchOptions {
   regex: boolean;
 }
 
+/** The search bar's state: its query, options, row filter and current match. */
+export interface SearchState extends SearchOptions {
+  query: string;
+  /** Show only the rows with a match (IDEA's Filter rows). */
+  filterRows: boolean;
+  /** Index into the match list. */
+  current: number;
+}
+
+/** A search bar state with every field at its default. */
+export function searchState(init: Partial<SearchState> = {}): SearchState {
+  return {
+    query: "",
+    caseSensitive: false,
+    wholeWord: false,
+    regex: false,
+    filterRows: false,
+    current: 0,
+    ...init,
+  };
+}
+
 const REGEX_SPECIALS = /[.*+?^${}()|[\]\\]/g;
 const WORD_CHAR = /[\p{L}\p{N}_$]/u;
 
@@ -195,14 +220,20 @@ export function cellMatcher(
   };
 }
 
+/** A matching cell: a row of the displayed rows and a column. */
+export interface CellMatch {
+  row: number;
+  col: number;
+}
+
 /** The cells matching `test`, row by row; `row` is the position in `rows` (display order). NULL never matches. */
 export function findCells(
   rows: readonly number[],
   colCount: number,
   value: (row: number, col: number) => Cell,
   test: (text: string) => boolean
-): Array<{ row: number; col: number }> {
-  const out: Array<{ row: number; col: number }> = [];
+): CellMatch[] {
+  const out: CellMatch[] = [];
   rows.forEach((r, row) => {
     for (let col = 0; col < colCount; col++) {
       const v = value(r, col);
@@ -210,6 +241,22 @@ export function findCells(
     }
   });
   return out;
+}
+
+/** The current match; wraps around, `null` without matches. */
+export function currentMatch(matches: readonly CellMatch[], index: number): CellMatch | null {
+  if (matches.length === 0) return null;
+  return matches[((index % matches.length) + matches.length) % matches.length]!;
+}
+
+/** The index of the match after `index`, wrapping; 0 without matches. */
+export function nextMatch(index: number, count: number): number {
+  return count <= 0 ? 0 : (index + 1) % count;
+}
+
+/** The index of the match before `index`, wrapping; 0 without matches. */
+export function prevMatch(index: number, count: number): number {
+  return count <= 0 ? 0 : (index - 1 + count) % count;
 }
 
 /** Whether any cell of loaded row `r` matches `test`. */

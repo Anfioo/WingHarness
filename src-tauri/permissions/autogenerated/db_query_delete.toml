@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-db-query-delete"
+description = "Enables the db_query_delete command without any pre-configured scope."
+commands.allow = ["db_query_delete"]
+
+[[permission]]
+identifier = "deny-db-query-delete"
+description = "Denies the db_query_delete command without any pre-configured scope."
+commands.deny = ["db_query_delete"]

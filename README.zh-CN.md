@@ -153,7 +153,7 @@ pnpm dlx shadcn@latest add button
 | [API_CLIENT.zh-CN.md](./docs/features/API_CLIENT.zh-CN.md) | 类 Postman 的 REST 客户端，由 OpenAPI 或 Swagger 文档驱动 |
 | [CC_SWITCH.zh-CN.md](./docs/features/CC_SWITCH.zh-CN.md) | AI 编码 CLI 的供应商管理 |
 | [CLAUDE_CODE.zh-CN.md](./docs/features/CLAUDE_CODE.zh-CN.md) | Claude 对话、历史与工作流三个页面 |
-| [DATABASE.zh-CN.md](./docs/features/DATABASE.zh-CN.md) | 数据源、带页签的数据源窗口、多语句 SQL 控制台、表数据与对象管理 |
+| [DATABASE.zh-CN.md](./docs/features/DATABASE.zh-CN.md) | 数据源、带页签的数据源窗口（查询文件与页签持久化）、SQL 控制台、执行计划、表数据与对象管理 |
 | [FILE_PREVIEW.zh-CN.md](./docs/features/FILE_PREVIEW.zh-CN.md) | 只读预览、支持的格式、如何新增一种格式 |
 | [FRP.zh-CN.md](./docs/features/FRP.zh-CN.md) | FRP 控制台：生成 `frpc` 配置、子进程与日志 |
 | [GIT.zh-CN.md](./docs/features/GIT.zh-CN.md) | 本地 Git 客户端，每个仓库一个窗口 |

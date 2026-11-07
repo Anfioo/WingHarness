@@ -15,18 +15,20 @@ pub mod manager;
 pub mod models;
 pub mod objects;
 pub mod paths;
+pub mod plan;
 pub mod secrets;
 pub mod source;
 pub mod split;
 pub mod sql;
+pub mod workspace;
 
 pub use conn::{Pool, QueryResult, ResultColumn};
 pub use error::{DbError, DbErrorCode, DbResult};
 pub use history::HistoryEntry;
 pub use manager::{split_target, DbManager};
 pub use models::{
-    CellValue, CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, SortKey, StatementOutcome,
-    TablePage,
+    CellValue, CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, DbSettings, PlanNode,
+    PlanProperty, QueryFile, SortKey, StatementOutcome, TabRecord, TablePage, WindowTabs,
 };
 pub use objects::{
     ColumnInfo, Databases, DbObjectKind, DbTableKind, ForeignKey, IndexInfo, RoutineInfo, SchemaObjects,
@@ -34,3 +36,4 @@ pub use objects::{
 };
 pub use source::{DataSource, DbDriver};
 pub use split::SqlStatement;
+pub use workspace::Workspace;
