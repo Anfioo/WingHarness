@@ -111,7 +111,8 @@ export type TreeMenuHandlers = {
   drop(target: string, object: DbObjectRef): void;
   truncate(target: string, schema: string, table: string): void;
   refresh(target: TreeMenuTarget): void;
-  disconnect(target: string): void;
+  /** Absent when the tree does not own the connection; the entry is then disabled. */
+  disconnect?: (target: string) => void;
   showDdl(target: TreeMenuTarget): void;
   ddlToClipboard(target: TreeMenuTarget): void;
   ddlToConsole(target: TreeMenuTarget): void;
@@ -415,7 +416,12 @@ export function buildTreeMenu(
       return [
         newEntry(t, [entry("new.query", t("database.tab.console"), handlers.newQuery)]),
         refreshEntry(t, node, handlers),
-        entry("disconnect", t("database.tree.menu.disconnect"), () => handlers.disconnect(node.id)),
+        entry(
+          "disconnect",
+          t("database.tree.menu.disconnect"),
+          () => handlers.disconnect?.(node.id),
+          { disabled: !handlers.disconnect }
+        ),
         copyEntry(t, node, handlers),
       ];
 
@@ -427,9 +433,9 @@ export function buildTreeMenu(
         entry(
           "disconnect",
           t("database.tree.menu.disconnect"),
-          () => handlers.disconnect(node.id),
+          () => handlers.disconnect?.(node.id),
           {
-            disabled: node.current,
+            disabled: !handlers.disconnect || node.current,
           }
         ),
       ];
