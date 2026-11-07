@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Streamdown markdown renderer (Agent chat): let Tailwind see the utility
+ * classes inside the installed packages. Paths resolve from this file to the
+ * root node_modules (pnpm symlinks direct deps there). */
+@source "../node_modules/streamdown/dist/*.js";
+@source "../node_modules/@streamdown/code/dist/*.js";
+@source "../node_modules/@streamdown/math/dist/*.js";
+@source "../node_modules/@streamdown/mermaid/dist/*.js";
+@source "../node_modules/@streamdown/cjk/dist/*.js";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -503,4 +512,92 @@ button {
 .cl-activity-item[data-app-active] {
   color: hsl(var(--foreground)) !important;
   box-shadow: inset 2px 0 0 hsl(var(--primary));
+}
+
+/*
+ * Agent chat transcript. Streamdown renders semantic HTML whose default
+ * typography Tailwind's preflight strips; restyle it from the app's theme
+ * tokens (the same bridge `.md-preview` uses in the Markdown editor), scoped to
+ * the transcript so the rest of the page keeps the app's spacing.
+ */
+.agent-chat-md {
+  color: var(--foreground);
+  overflow-wrap: break-word;
+}
+
+.agent-chat-md > :first-child {
+  margin-top: 0;
+}
+
+.agent-chat-md > :last-child {
+  margin-bottom: 0;
+}
+
+.agent-chat-md h1,
+.agent-chat-md h2,
+.agent-chat-md h3,
+.agent-chat-md h4,
+.agent-chat-md h5,
+.agent-chat-md h6 {
+  margin: 1.4em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.agent-chat-md h1 {
+  font-size: 1.6em;
+}
+
+.agent-chat-md h2 {
+  font-size: 1.35em;
+}
+
+.agent-chat-md h3 {
+  font-size: 1.15em;
+}
+
+.agent-chat-md p {
+  margin: 0.75em 0;
+}
+
+.agent-chat-md ul,
+.agent-chat-md ol {
+  margin: 0.75em 0;
+  padding-left: 1.4em;
+}
+
+.agent-chat-md ul {
+  list-style: disc;
+}
+
+.agent-chat-md ol {
+  list-style: decimal;
+}
+
+.agent-chat-md a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.agent-chat-md code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.agent-chat-md blockquote {
+  margin: 0.75em 0;
+  border-left: 2px solid var(--border);
+  padding-left: 0.9em;
+  color: var(--muted-foreground);
+}
+
+.agent-chat-md table {
+  margin: 0.75em 0;
+  border-collapse: collapse;
+}
+
+.agent-chat-md th,
+.agent-chat-md td {
+  border: 1px solid var(--border);
+  padding: 0.35em 0.6em;
 }

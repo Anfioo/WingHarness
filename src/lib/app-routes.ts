@@ -10,6 +10,7 @@ import {
   GitBranch,
   GitFork,
   History,
+  MessagesSquare,
   NotebookPen,
   Network,
   Package,
@@ -55,6 +56,7 @@ export type AppRouteId =
   | "ccSwitch"
   | "mcpHub"
   | "aiConfig"
+  | "agentChat"
   | "claudeChat"
   | "claudeHistory"
   | "claudeWorkflow"
@@ -252,6 +254,18 @@ export const appRoutes: AppRoute[] = [
     icon: Sparkles,
     scope: "Store / Skill 同步",
     items: ["Agent 漂移看板", "差异预览与应用", "条目管理", "Push / Pull"],
+  },
+  {
+    id: "agentChat",
+    group: "agents",
+    path: "/agent-chat",
+    title: "Agent 对话",
+    navLabel: "Agent 对话",
+    description:
+      "在一个页面里同时对话多个本地 AI 编码 CLI：Claude、Codex 与 Qoder。每个标签是一个独立会话，消息以流式返回，工具调用、思考过程、提问与权限请求都在时间线上处理；历史会话直接读取各 CLI 自己保存的会话文件。",
+    icon: MessagesSquare,
+    scope: "Agent / 多引擎对话",
+    items: ["多引擎对话", "会话标签", "工具与提问卡片", "历史会话浏览"],
   },
   {
     id: "claudeChat",

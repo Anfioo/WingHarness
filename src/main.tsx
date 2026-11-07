@@ -37,6 +37,7 @@ const pageMap = {
   "/plugin-focus": lazy(() => import("./pages/plugin-focus/index")),
   "/mcp-hub": lazy(() => import("./pages/mcp-hub/index")),
   "/ai-config": lazy(() => import("./pages/ai-config/index")),
+  "/agent-chat": lazy(() => import("./pages/agent-chat/index")),
   "/claude-chat": lazy(() => import("./pages/claude-chat/index")),
   "/claude-history": lazy(() => import("./pages/claude-history/index")),
   "/claude-workflow": lazy(() => import("./pages/claude-workflow/index")),

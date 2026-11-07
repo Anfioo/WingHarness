@@ -925,3 +925,31 @@ export type {
   ViewSettings,
 } from "./services/md-editor/types";
 export { isMdEditorError, mdEditorErrorCode } from "./services/md-editor/types";
+
+export {
+  agentAnswer,
+  agentInterrupt,
+  agentListEngines,
+  agentListSessions,
+  agentLiveRuns,
+  agentLoadSession,
+  agentSend,
+  agentUiGet,
+  agentUiSet,
+} from "./services/agent-chat";
+export type {
+  AgentAnswerMap,
+  AgentChatError,
+  AgentChatErrorCode,
+  AgentEngineInfo,
+  AgentEnginePrefs,
+  AgentMessage,
+  AgentRunEvent,
+  AgentSendInput,
+  AgentSendResult,
+  AgentSessionMeta,
+  AgentSessionPage,
+  AgentTab,
+  AgentUiState,
+} from "./services/agent-chat/types";
+export { agentChatErrorCode, isAgentChatError } from "./services/agent-chat/types";

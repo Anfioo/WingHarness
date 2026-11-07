@@ -15,6 +15,8 @@ import systoolsEn from "./locales/systools/en";
 import systoolsZh from "./locales/systools/zh";
 import mdEditorEn from "./locales/md-editor/en";
 import mdEditorZh from "./locales/md-editor/zh";
+import agentChatEn from "./locales/agent-chat/en";
+import agentChatZh from "./locales/agent-chat/zh";
 
 i18n
   .use(LanguageDetector)
@@ -30,6 +32,7 @@ i18n
           clash: clashEn,
           systools: systoolsEn,
           mdEditor: mdEditorEn,
+          agentChat: agentChatEn,
         },
       },
       zh: {
@@ -41,6 +44,7 @@ i18n
           clash: clashZh,
           systools: systoolsZh,
           mdEditor: mdEditorZh,
+          agentChat: agentChatZh,
         },
       },
     },
