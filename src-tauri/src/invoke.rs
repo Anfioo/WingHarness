@@ -524,6 +524,15 @@ macro_rules! all_commands {
             server_core::commands::server_transfer_resume,
             server_core::commands::server_transfer_cancel,
             server_core::commands::server_transfer_list,
+            agent_chat_core::commands::engine::agent_list_engines,
+            agent_chat_core::commands::engine::agent_send,
+            agent_chat_core::commands::engine::agent_interrupt,
+            agent_chat_core::commands::engine::agent_live_runs,
+            agent_chat_core::commands::engine::agent_answer,
+            agent_chat_core::commands::history::agent_list_sessions,
+            agent_chat_core::commands::history::agent_load_session,
+            agent_chat_core::commands::ui::agent_ui_get,
+            agent_chat_core::commands::ui::agent_ui_set,
         ])
     };
 }

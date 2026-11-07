@@ -22,6 +22,7 @@ members = [
     "frp-core",
     "md-editor-core",
     "db-core",
+    "agent-chat-core",
 ]
 resolver = "2"
 
@@ -81,6 +82,9 @@ md-editor-core = { path = "md-editor-core" }
 # The database page's engine: data sources, live connections (SQLite, PostgreSQL,
 # MySQL), introspection, query execution and table editing.
 db-core = { path = "db-core" }
+# The Agent chat page's engine: the Claude, Codex and ACP adapters, the run
+# registry and the native session scanner.
+agent-chat-core = { path = "agent-chat-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks

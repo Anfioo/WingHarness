@@ -58,6 +58,10 @@ pub fn run() {
                 // `session.json` under `<data dir>/md-editor`, so the whole
                 // feature moves with the data directory.
                 let _ = md_editor_core::paths::CONFIG_DIR.set(config::dir().join("md-editor"));
+                // The Agent chat page keeps `ui.json` (open tabs, per-engine
+                // preferences) under `<data dir>/agent-chat`, so the whole
+                // feature moves with the data directory.
+                let _ = agent_chat_core::paths::CONFIG_DIR.set(config::dir().join("agent-chat"));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The manager caches the
@@ -76,6 +80,10 @@ pub fn run() {
             app.manage(prism_core::ClashState::new(app.handle().clone()));
             app.manage(server_core::ServerState::new(app.handle().clone()));
             app.manage(frp_core::FrpState::new(app.handle().clone()));
+            // The Agent chat page's run registry and event sink. Registered
+            // unconditionally so the page can open (and report a missing data
+            // directory) instead of failing to resolve state.
+            app.manage(agent_chat_core::AgentChatState::new(app.handle().clone()));
             // The preview backend is its own crate and knows nothing of the
             // config; hand it the one thing it needs. The provider resolves the
             // path per call, so a settings change is picked up without a restart.
@@ -150,6 +158,11 @@ pub fn run() {
             // start fail with "port already in use".
             if let Some(frp) = app.try_state::<frp_core::FrpState>() {
                 frp.shutdown();
+            }
+            // Engine children are our processes: a hard quit must not leave a
+            // `claude` or `codex` run writing into the workspace.
+            if let Some(agent) = app.try_state::<agent_chat_core::AgentChatState>() {
+                agent.shutdown();
             }
             // Database pools hold sockets, and a manual-commit transaction is
             // still open on the server: close both before the process goes.

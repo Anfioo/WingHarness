@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-agent-ui-get"
+description = "Enables the agent_ui_get command without any pre-configured scope."
+commands.allow = ["agent_ui_get"]
+
+[[permission]]
+identifier = "deny-agent-ui-get"
+description = "Denies the agent_ui_get command without any pre-configured scope."
+commands.deny = ["agent_ui_get"]
