@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { open as pickFile } from "@tauri-apps/plugin-dialog";
-import { Eye, EyeOff, FolderOpen, Loader2, PlugZap, Save } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, FolderOpen, Loader2, PlugZap, Save } from "lucide-react";
 import { toast } from "sonner";
 import { dbSourceTest, databaseErrorCode, defaultPort, emptyDataSource } from "@/commands";
 import type { DataSource, DbColor, DbDriver, DbSslMode } from "@/commands";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { cn } from "@/lib/utils";
 import { vendorById, vendorOptions, vendorUrlPrefix } from "./vendors";
 
 const DRIVERS: DbDriver[] = ["sqlite", "postgres", "mysql", "sqlServer", "clickhouse", "oracle"];
@@ -35,7 +37,10 @@ const COLORS: DbColor[] = ["red", "orange", "yellow", "green", "blue", "violet"]
 /** The vendor select's value when no preset is picked. Never stored. */
 const CUSTOM_VENDOR = "custom";
 
-type FieldName = "name" | "file" | "port" | "url";
+/** The driver property `conn.rs` reads as the connection timeout, in seconds. */
+const CONNECT_TIMEOUT = "connect_timeout";
+
+type FieldName = "name" | "file" | "port" | "url" | "connectTimeout";
 
 type FieldErrors = Partial<Record<FieldName, string>>;
 
@@ -56,6 +61,11 @@ export type SourceDialogProps = {
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-destructive text-xs">{message}</p>;
+}
+
+/** The value of one driver property, or an empty string when it is not set. */
+function propertyValue(source: DataSource, name: string): string {
+  return source.properties.find((property) => property.name === name)?.value ?? "";
 }
 
 /**
@@ -79,6 +89,8 @@ export function SourceDialog({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [portText, setPortText] = useState("");
+  const [timeoutText, setTimeoutText] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [busy, setBusy] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -95,6 +107,8 @@ export function SourceDialog({
     setPassword("");
     setShowPassword(false);
     setPortText(next.port === null ? "" : String(next.port));
+    setTimeoutText(propertyValue(next, CONNECT_TIMEOUT));
+    setAdvancedOpen(false);
     setErrors({});
     setBusy(false);
     setTesting(false);
@@ -171,8 +185,22 @@ export function SourceDialog({
         next.port = t("database.form.validation.portInvalid");
       }
     }
+    const timeout = timeoutText.trim();
+    if (timeout) {
+      const parsed = Number(timeout);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 300) {
+        next.connectTimeout = t("database.form.validation.connectTimeoutInvalid", {
+          defaultValue: "Use a timeout between 1 and 300 seconds.",
+        });
+      }
+    }
     setErrors(next);
     if (Object.keys(next).length > 0) return null;
+
+    // The timeout is a driver property; an empty field removes the entry rather
+    // than writing an empty value.
+    const properties = draft.properties.filter((property) => property.name !== CONNECT_TIMEOUT);
+    if (timeout) properties.push({ name: CONNECT_TIMEOUT, value: String(Number(timeout)) });
 
     return {
       ...draft,
@@ -183,6 +211,8 @@ export function SourceDialog({
       file: draft.file?.trim() ? draft.file.trim() : null,
       url: draft.url.trim(),
       port: portText.trim() ? Number(portText.trim()) : null,
+      options: { ...draft.options, defaultSchema: draft.options.defaultSchema.trim() },
+      properties,
     };
   };
 
@@ -449,25 +479,6 @@ export function SourceDialog({
                       />
                     </div>
                   </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="database-form-ssl">{t("database.form.sslMode")}</Label>
-                    <Select
-                      value={draft.ssl}
-                      onValueChange={(value) => update({ ssl: value as DbSslMode })}
-                    >
-                      <SelectTrigger id="database-form-ssl" className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SSL_MODES.map((mode) => (
-                          <SelectItem key={mode} value={mode}>
-                            {t(`database.ssl.${mode}`)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </>
               )}
 
@@ -586,6 +597,84 @@ export function SourceDialog({
               onChange={(event) => update({ comment: event.target.value })}
             />
           </div>
+
+          <Separator />
+
+          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="hover:bg-accent/50 flex w-full items-center justify-between gap-3 rounded-md px-1 py-1.5 text-left"
+              >
+                <span className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{t("database.form.advanced")}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {t("database.form.advancedHint")}
+                  </span>
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "size-4 shrink-0 transition-transform",
+                    advancedOpen && "rotate-180"
+                  )}
+                />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-4 pt-4">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="database-form-timeout">{t("database.form.connectTimeout")}</Label>
+                <Input
+                  id="database-form-timeout"
+                  value={timeoutText}
+                  inputMode="numeric"
+                  aria-invalid={errors.connectTimeout ? true : undefined}
+                  onChange={(event) => setTimeoutText(event.target.value)}
+                  placeholder="30"
+                />
+                <p className="text-muted-foreground text-xs">
+                  {t("database.form.connectTimeoutHint")}
+                </p>
+                <FieldError message={errors.connectTimeout} />
+              </div>
+
+              {!sqlite && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="database-form-ssl">{t("database.form.sslMode")}</Label>
+                  <Select
+                    value={draft.ssl}
+                    onValueChange={(value) => update({ ssl: value as DbSslMode })}
+                  >
+                    <SelectTrigger id="database-form-ssl" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SSL_MODES.map((mode) => (
+                        <SelectItem key={mode} value={mode}>
+                          {t(`database.ssl.${mode}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="database-form-default-schema">
+                  {t("database.form.defaultSchema")}
+                </Label>
+                <Input
+                  id="database-form-default-schema"
+                  value={draft.options.defaultSchema}
+                  onChange={(event) =>
+                    update({
+                      options: { ...draft.options, defaultSchema: event.target.value },
+                    })
+                  }
+                  spellCheck={false}
+                />
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <DialogFooter>
             <Button
