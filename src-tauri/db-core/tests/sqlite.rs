@@ -391,6 +391,108 @@ async fn runs_statements_in_order_and_stops_at_the_first_error() {
     assert_eq!(outcomes[1].error.as_ref().unwrap().code, DbErrorCode::Invalid);
 }
 
+#[tokio::test]
+async fn refuses_row_edits_on_a_table_without_a_primary_key() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE note (label TEXT, body TEXT)",
+        "INSERT INTO note (label, body) VALUES ('a', 'x')",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let key = vec![CellValue { column: "label".into(), value: Some("a".into()) }];
+    let edits = [
+        DbRowEdit::Update {
+            key: key.clone(),
+            values: vec![CellValue { column: "body".into(), value: Some("y".into()) }],
+        },
+        DbRowEdit::Delete { key },
+    ];
+    for edit in edits {
+        let error = manager.apply_edits("s", "main", "note", &[edit]).await.unwrap_err();
+        assert_eq!(error.code, DbErrorCode::Invalid);
+        assert!(error.message.contains("primary key"), "{}", error.message);
+    }
+    // Nothing was changed, and an insert needs no key so it still goes through.
+    let rows = manager.execute("s", "SELECT label, body FROM note ORDER BY label", 10, &cancel).await.unwrap().rows;
+    assert_eq!(rows, [[Some("a".into()), Some("x".into())]]);
+    let inserted = vec![DbRowEdit::Insert {
+        values: vec![
+            CellValue { column: "label".into(), value: Some("b".into()) },
+            CellValue { column: "body".into(), value: Some("z".into()) },
+        ],
+    }];
+    assert_eq!(manager.apply_edits("s", "main", "note", &inserted).await.unwrap(), 1.0);
+}
+
+#[tokio::test]
+async fn a_zero_row_limit_is_clamped_to_one_row() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE item (id INTEGER PRIMARY KEY)",
+        "INSERT INTO item (id) VALUES (1), (2)",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let statements = [SqlStatement { from: 0, to: 28, text: "SELECT id FROM item ORDER BY id".into() }];
+    let outcomes = manager.execute_all("s", &statements, 0, 0, &cancel).await.unwrap();
+    let result = outcomes[0].result.as_ref().unwrap();
+    assert_eq!(result.rows, [[Some("1".into())]], "a zero limit becomes one row, not an empty page");
+    assert!(result.has_more, "the extra row still tells the caller there is more");
+}
+
+#[tokio::test]
+async fn reads_view_ddl() {
+    let dir = tempfile::tempdir().unwrap();
+    let manager = manager(dir.path()).await;
+    let cancel = CancellationToken::new();
+    for statement in [
+        "CREATE TABLE item (id INTEGER PRIMARY KEY, name TEXT)",
+        "CREATE VIEW names AS SELECT name FROM item",
+    ] {
+        manager.execute("s", statement, 0, &cancel).await.unwrap();
+    }
+
+    let ddl = manager.ddl("s", "main", "names").await.unwrap();
+    let lowered = ddl.to_lowercase();
+    assert!(lowered.contains("create view"), "{ddl}");
+    assert!(lowered.contains(" as "), "{ddl}");
+    assert!(ddl.trim_end().ends_with(';'), "{ddl}");
+}
+
+#[test]
+fn picks_the_statement_for_a_caret_and_for_a_selection() {
+    use db_core::split::{statement_at, statements_in};
+
+    let text = "SELECT 1;\nSELECT 2;\nSELECT 3";
+    // A caret inside a statement runs that statement.
+    assert_eq!(statement_at(text, 3, DbDriver::Sqlite).unwrap().text, "SELECT 1");
+    assert_eq!(statement_at(text, 14, DbDriver::Sqlite).unwrap().text, "SELECT 2");
+    // A caret just past the semicolon stays with the statement it ends.
+    assert_eq!(statement_at(text, 9, DbDriver::Sqlite).unwrap().text, "SELECT 1");
+
+    // One blank line between two statements still keeps the caret on the previous
+    // one; two blank lines move it to the next.
+    let spaced = "SELECT 1;\n\n\nSELECT 2";
+    assert_eq!(statement_at(spaced, 10, DbDriver::Sqlite).unwrap().text, "SELECT 1");
+    assert_eq!(statement_at(spaced, 11, DbDriver::Sqlite).unwrap().text, "SELECT 2");
+
+    // A selection is split on its own: none of it is expanded to a whole statement.
+    let selected = statements_in("SELECT 1;\nSELECT 2", 4, 13, DbDriver::Sqlite);
+    assert_eq!(
+        selected.iter().map(|statement| statement.text.as_str()).collect::<Vec<_>>(),
+        ["CT 1", "SEL"]
+    );
+    assert_eq!(selected[0].from, 4);
+    assert_eq!(selected[1].from, 10);
+}
+
 fn walk(dir: &std::path::Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else { return files };
