@@ -59,14 +59,26 @@ export type ConsoleEditorProps = {
   driver: DbDriver;
   onRun(): void;
   onRunAll(): void;
+  onExplain(): void;
   onFormat(): void;
+  /** The live selection, so the toolbar can tell a caret from a selected range. */
+  onSelectionChange?(from: number, to: number): void;
   readOnly?: boolean;
 };
 
 /** The props the long-lived extensions read through the `live` ref. */
 type LiveProps = Pick<
   ConsoleEditorProps,
-  "value" | "model" | "driver" | "onChange" | "onRun" | "onRunAll" | "onFormat" | "readOnly"
+  | "value"
+  | "model"
+  | "driver"
+  | "onChange"
+  | "onRun"
+  | "onRunAll"
+  | "onExplain"
+  | "onFormat"
+  | "onSelectionChange"
+  | "readOnly"
 >;
 
 /** How long the document must be idle before names are re-checked. */
@@ -250,7 +262,9 @@ export function ConsoleEditor(
     driver,
     onRun,
     onRunAll,
+    onExplain,
     onFormat,
+    onSelectionChange,
     readOnly = false,
   } = props;
 
@@ -266,13 +280,26 @@ export function ConsoleEditor(
     driver,
     onRun,
     onRunAll,
+    onExplain,
     onFormat,
+    onSelectionChange,
     readOnly,
   });
   const initialized = useRef(false);
 
   useEffect(() => {
-    live.current = { value, onChange, model, driver, onRun, onRunAll, onFormat, readOnly };
+    live.current = {
+      value,
+      onChange,
+      model,
+      driver,
+      onRun,
+      onRunAll,
+      onExplain,
+      onFormat,
+      onSelectionChange,
+      readOnly,
+    };
   });
 
   useImperativeHandle(
@@ -356,6 +383,13 @@ export function ConsoleEditor(
               return true;
             },
           },
+          {
+            key: "Alt-Enter",
+            run: () => {
+              live.current.onExplain();
+              return true;
+            },
+          },
         ])
       ),
       closeBrackets(),
@@ -371,6 +405,10 @@ export function ConsoleEditor(
       ]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) live.current.onChange(update.state.doc.toString());
+        if (update.selectionSet || update.docChanged) {
+          const selection = update.state.selection.main;
+          live.current.onSelectionChange?.(selection.from, selection.to);
+        }
       }),
       consoleEditorTheme,
     ];

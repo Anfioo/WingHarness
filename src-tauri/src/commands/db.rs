@@ -13,8 +13,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use db_core::{
-    CompletionModel, DataSource, Databases, DbManager, DbObjectKind, DbResult, DbRowEdit, HistoryEntry,
-    SchemaObjects, SortKey, SqlStatement, StatementOutcome, TableDetails, TableInfo, TablePage,
+    CompletionModel, DataSource, Databases, DbManager, DbObjectKind, DbResult, DbRowEdit, DbSettings,
+    HistoryEntry, PlanNode, QueryFile, SchemaObjects, SortKey, SqlStatement, StatementOutcome, TableDetails,
+    TableInfo, TablePage, WindowTabs, Workspace,
 };
 use serde::Serialize;
 use tauri::State;
@@ -24,14 +25,17 @@ use tokio_util::sync::CancellationToken;
 /// stop a statement that is still running.
 pub struct DbState {
     pub manager: DbManager,
+    /// The query files, tab records and settings of the same data directory.
+    pub workspace: Workspace,
     /// Cancellation tokens of the statements in flight, by the id the caller chose.
     cancels: Mutex<HashMap<String, CancellationToken>>,
 }
 
 impl DbState {
-    pub fn new(manager: DbManager) -> Self {
+    pub fn new(manager: DbManager, workspace: Workspace) -> Self {
         Self {
             manager,
+            workspace,
             cancels: Mutex::new(HashMap::new()),
         }
     }
@@ -367,4 +371,60 @@ pub async fn db_remove_history(
     texts: Option<Vec<String>>,
 ) -> DbResult<()> {
     state.manager.remove_history(&id, texts).await
+}
+
+/// The `.sql` files the "Open Query" list shows.
+#[tauri::command]
+pub fn db_queries(state: State<'_, DbState>) -> DbResult<Vec<QueryFile>> {
+    state.workspace.queries()
+}
+
+#[tauri::command]
+pub fn db_query_read(state: State<'_, DbState>, name: String) -> DbResult<String> {
+    state.workspace.read_query(&name)
+}
+
+#[tauri::command]
+pub fn db_query_write(state: State<'_, DbState>, name: String, text: String) -> DbResult<()> {
+    state.workspace.write_query(&name, &text)
+}
+
+#[tauri::command]
+pub fn db_query_delete(state: State<'_, DbState>, name: String) -> DbResult<()> {
+    state.workspace.delete_query(&name)
+}
+
+/// The tabs `source` had when its window was last closed.
+#[tauri::command]
+pub async fn db_window_tabs(
+    state: State<'_, DbState>,
+    source: String,
+) -> DbResult<Option<WindowTabs>> {
+    state.workspace.window_tabs(&source)
+}
+
+#[tauri::command]
+pub async fn db_save_window_tabs(state: State<'_, DbState>, tabs: WindowTabs) -> DbResult<()> {
+    state.workspace.save_window_tabs(tabs)
+}
+
+#[tauri::command]
+pub fn db_settings(state: State<'_, DbState>) -> DbResult<DbSettings> {
+    state.workspace.settings()
+}
+
+#[tauri::command]
+pub async fn db_save_settings(state: State<'_, DbState>, settings: DbSettings) -> DbResult<()> {
+    state.workspace.save_settings(settings)
+}
+
+/// The execution plan of `statement` against data source `id`.
+#[tauri::command]
+pub async fn db_explain(
+    state: State<'_, DbState>,
+    id: String,
+    statement: String,
+) -> DbResult<Vec<PlanNode>> {
+    sync_project(&state);
+    state.manager.explain(&id, &statement).await
 }

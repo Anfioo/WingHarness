@@ -18,13 +18,14 @@ use crate::conn::{self, Held, Pool, QueryResult, ResultColumn};
 use crate::error::{DbError, DbResult};
 use crate::history::{HistoryEntry, HistoryStore};
 use crate::models::{
-    CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, SortKey, StatementOutcome, TablePage,
+    CompletionColumn, CompletionModel, CompletionTable, DbRowEdit, PlanNode, SortKey, StatementOutcome, TablePage,
 };
 use crate::objects::{
     self, ColumnInfo, Databases, DbObjectKind, DbTableKind, ForeignKey, IndexInfo, RoutineInfo, SchemaObjects,
     SequenceInfo, TableDetails, TableInfo, TriggerInfo,
 };
 use crate::paths;
+use crate::plan;
 use crate::secrets::SecretStore;
 use crate::source::{self, DataSource, DbDriver};
 use crate::split::SqlStatement;
@@ -833,6 +834,22 @@ impl DbManager {
             }
         }
         Ok(out)
+    }
+
+    /// The execution plan of `statement`, as the tree the Plan tab renders.
+    pub async fn explain(&self, id: &str, statement: &str) -> DbResult<Vec<PlanNode>> {
+        let driver = self.source(id)?.driver;
+        if !matches!(driver, DbDriver::Sqlite | DbDriver::Postgres | DbDriver::Mysql) {
+            return Err(DbError::invalid("explain is not supported for this driver"));
+        }
+        let pool = self.pool(id).await?;
+        let query = plan::explain_statement(driver, statement);
+        // `Pool::rows` drops the column names `parse` needs, so the statement runs
+        // through `execute`, which keeps them. This call exposes no token, hence a
+        // fresh one that is never cancelled.
+        let result = pool.execute(&query, MAX_META_ROWS, &CancellationToken::new()).await?;
+        let columns: Vec<String> = result.columns.iter().map(|column| column.name.clone()).collect();
+        plan::parse(driver, &columns, &result.rows)
     }
 }
 

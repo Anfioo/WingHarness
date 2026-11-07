@@ -65,7 +65,7 @@ functions and types — it is the only thing components import:
 | Domain | What it covers |
 |--------|----------------|
 | `config` | the config file, the project root, the data directory |
-| `database` | data sources, connections, transactions, multi-statement queries, table paging and row editing, DDL, completion and history |
+| `database` | data sources, connections, transactions, multi-statement queries, query files and persisted window tabs, execution plans, table paging and row editing, DDL, completion and history |
 | `devtools` | opening the webview inspector |
 | `file-preview` | metadata and raw bytes for the preview page |
 | `fonts` | enumerating installed font families |
