@@ -7,8 +7,8 @@ page — the difference is where the files come from.
 
 It is built on [codelet](https://www.npmjs.com/package/codelet), a code editor
 that is a dependency rather than a framework: the page hosts a `Workbench` and
-supplies it a transport. Everything else — tabs, the editor, search, the
-markdown preview — is codelet's.
+supplies it a transport. Tabs, the editor and search are codelet's; the Markdown
+preview is the app's own (see [Reading a Markdown file](#reading-a-markdown-file)).
 
 ## How it works
 
@@ -83,6 +83,21 @@ as a codelet extension here as well
 a `.png` opens as a preview tab instead of the placeholder the transport would
 return. Text extensions keep their text tab.
 
+### Reading a Markdown file
+
+A `.md` file still opens in codelet's text editor, so editing is unchanged. The
+editor tab strip's **Open Preview** opens a second tab that renders the document
+with the [Markdown editor](./MD_EDITOR.md)'s own pipeline — `renderMarkdown` +
+`PreviewPane` + `OutlinePanel`, all shipped with the app, so nothing is fetched
+from a CDN and no wasm is downloaded. **Open Source** returns to the text tab,
+and the icon in the preview's top-right corner shows or hides the outline.
+
+The extension is
+[`markdown-preview-extension.ts`](../../src/lib/editor/markdown-preview-extension.ts),
+shared with the [Notes](./NOTES.md) page; it replaces codelet's network-backed
+`markdownPreview`. The text reaches the tab through `useMarkdownPreviewDocs`, and
+a document's images resolve against the configured `projectRoot`.
+
 ## Limits
 
 - **No default root.** A fresh install has `projectRoot` empty, so the page shows
@@ -98,8 +113,8 @@ return. Text extensions keep their text tab.
    seven commands through `invoke.rs`, `build.rs` and `capabilities/default.json`.
 2. Make sure `config::load().project_root()` resolves; it is the single setting
    the page, the file preview and the AI config sync share.
-3. Copy `src/lib/editor/` (transport, tab store, preview extension) and
-   `src/pages/project`.
+3. Copy `src/lib/editor/` (transport, tab store, preview extension, Markdown
+   preview extension) and `src/pages/project`.
 4. Point the file-preview provider at the same root at startup, so
    `preview_metadata` / `preview_bytes` agree with the editor.
 

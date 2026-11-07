@@ -95,6 +95,12 @@ highlight.js → DOMPurify (`renderMarkdown` in `preview/render.ts`).
   rendering. Editing and saving are unaffected.
 - Links open through the opener plugin; only `http` / `https` are allowed.
 
+The pipeline is not private to this page: the [Notes](./NOTES.md) and
+[Project](./PROJECT.md) pages render their **Open Preview** tab with the same
+`renderMarkdown` + `PreviewPane` + outline, in place of codelet's
+network-backed `markdownPreview` extension. The reader can hide the outline from
+the icon in the tab's top-right corner.
+
 ## Export
 
 Three targets, all offered from the toolbar menu and both context menus:
