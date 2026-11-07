@@ -1282,7 +1282,13 @@
       "passwordTitle": "需要密码",
       "passwordLabel": "密码",
       "passwordSubmit": "连接",
-      "resultsEmpty": "执行一条语句后在这里查看结果。"
+      "resultsEmpty": "执行一条语句后在这里查看结果。",
+      "context": {
+        "copy": "复制",
+        "paste": "粘贴",
+        "find": "查找",
+        "run": "执行选中 SQL"
+      }
     },
     "result": {
       "output": "输出",

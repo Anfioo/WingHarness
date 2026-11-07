@@ -26,6 +26,7 @@ import {
 } from "@codemirror/lang-sql";
 import { bracketMatching, defaultHighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
+import { openSearchPanel, search, searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState, Prec, type Extension } from "@codemirror/state";
 import {
   EditorView,
@@ -34,8 +35,27 @@ import {
   keymap,
   lineNumbers,
 } from "@codemirror/view";
-import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from "react";
+import { ClipboardPaste, Copy, Play, Search } from "lucide-react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import type { CompletionModel, DbDriver } from "@/commands";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { MdFindPanel } from "@/features/md-editor/editor/find-panel";
+import { useAppTranslation } from "@/hooks/use-app-translation";
 import { analyze } from "./sql/analyze";
 import { shouldAutoCompleteSql, sqlCandidates, type SqlCandidate } from "./sql/complete";
 import { formatSql } from "./sql/format";
@@ -286,6 +306,11 @@ export function ConsoleEditor(
     readOnly,
   });
   const initialized = useRef(false);
+  const { t } = useAppTranslation();
+  // The menu closes before its item runs, so what it acts on is captured when
+  // it opens rather than read from the view afterwards.
+  const [hasSelection, setHasSelection] = useState(false);
+  const [hasText, setHasText] = useState(false);
 
   useEffect(() => {
     live.current = {
@@ -340,6 +365,59 @@ export function ConsoleEditor(
     []
   );
 
+  /** Right-clicking outside the selection moves the caret to the pointer first. */
+  const handleContextMenu = (event: MouseEvent<HTMLSpanElement>) => {
+    const view = viewRef.current;
+    if (!view) return;
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+    const inside =
+      pos !== null &&
+      view.state.selection.ranges.some((range) => pos >= range.from && pos <= range.to);
+    if (pos !== null && !inside) view.dispatch({ selection: { anchor: pos } });
+    view.focus();
+    setHasSelection(view.state.selection.ranges.some((range) => !range.empty));
+    setHasText(view.state.doc.length > 0);
+  };
+
+  const copy = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.focus();
+    try {
+      document.execCommand("copy");
+    } catch (error) {
+      console.warn("sql console: clipboard copy failed", error);
+    }
+  };
+
+  const paste = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    void navigator.clipboard
+      .readText()
+      .then((text) => {
+        if (text) {
+          view.dispatch({ ...view.state.replaceSelection(text), userEvent: "input.paste" });
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn("sql console: failed to read the clipboard", error);
+      })
+      .finally(() => viewRef.current?.focus());
+  };
+
+  const find = () => {
+    const view = viewRef.current;
+    if (view) openSearchPanel(view);
+  };
+
+  const run = () => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.focus();
+    live.current.onRun();
+  };
+
   useEffect(() => {
     const parent = parentRef.current;
     if (!parent) return;
@@ -347,6 +425,9 @@ export function ConsoleEditor(
     const editable = !(live.current.readOnly ?? false);
     const extensions: Extension[] = [
       history(),
+      // The Markdown editor's find bar is a generic CodeMirror panel; the two
+      // editors share it so search looks the same across the app.
+      search({ createPanel: (view) => new MdFindPanel(view) }),
       language.current.of(sql({ dialect: dialectFor(live.current.driver) })),
       autocompletion({ override: [completionSource(() => live.current)] }),
       linter(
@@ -358,6 +439,7 @@ export function ConsoleEditor(
         ...closeBracketsKeymap,
         ...defaultKeymap,
         ...historyKeymap,
+        ...searchKeymap,
         indentWithTab,
       ]),
       Prec.high(
@@ -458,5 +540,36 @@ export function ConsoleEditor(
     view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
   }, [value]);
 
-  return <div ref={parentRef} className="h-full min-h-0 overflow-hidden" />;
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger className="contents" onContextMenu={handleContextMenu}>
+        <div ref={parentRef} className="h-full min-h-0 overflow-hidden" />
+      </ContextMenuTrigger>
+      <ContextMenuContent className="min-w-44">
+        <ContextMenuItem disabled={!hasSelection} onSelect={copy}>
+          <Copy className="size-4" />
+          <span>{t("database.console.context.copy")}</span>
+          <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem disabled={readOnly} onSelect={paste}>
+          <ClipboardPaste className="size-4" />
+          <span>{t("database.console.context.paste")}</span>
+          <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={find}>
+          <Search className="size-4" />
+          <span>{t("database.console.context.find")}</span>
+          <ContextMenuShortcut>Ctrl+F</ContextMenuShortcut>
+        </ContextMenuItem>
+
+        <ContextMenuSeparator />
+
+        <ContextMenuItem disabled={readOnly || !hasText} onSelect={run}>
+          <Play className="size-4" />
+          <span>{t("database.console.context.run")}</span>
+          <ContextMenuShortcut>Ctrl+Enter</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
 }
