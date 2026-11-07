@@ -28,53 +28,32 @@ import {
   dbSourceSetPassword,
   dbSetManualCommit,
   dbWindowTabs,
-  isDatabaseError,
   type DbSettings,
-  type PlanNode,
-  type SqlStatement,
-  type StatementOutcome,
   type TabRecord,
 } from "@/commands";
+import {
+  clamp,
+  CONSOLE_ROWS_MAX,
+  CONSOLE_ROWS_MIN,
+  DEFAULT_SETTINGS,
+  emptyDoc,
+  errorText,
+  IDLE_CONNECTION,
+  MAX_OUTPUT_LINES,
+  MAX_RESULT_TABS,
+  queryFileBase,
+  TABLE_PAGE_SIZE_MAX,
+  TABLE_PAGE_SIZE_MIN,
+  tabKey,
+  type ConnectionState,
+  type DatabaseTab,
+  type OutputLine,
+  type QueryDoc,
+  type ResultTab,
+} from "./model";
 
-export type DatabaseTab =
-  | { kind: "query"; file: string }
-  | { kind: "table"; target: string; schema: string; table: string };
-
-export type QueryDoc = {
-  file: string;
-  text: string;
-  savedText: string;
-  loading: boolean;
-  error: string | null;
-};
-
-export type OutputLine = {
-  id: number;
-  time: number;
-  kind: "info" | "statement" | "result" | "error";
-  text: string;
-};
-
-export type ResultTab = {
-  id: number;
-  title: string;
-  /** The statement that produced this tab (a plan tab carries the explained statement). */
-  statement: SqlStatement;
-  /** `null` for a plan tab: it has no result set. */
-  outcome: StatementOutcome | null;
-  /** `null` for a result tab; non-null for a plan tab. */
-  plan: PlanNode[] | null;
-  page: number;
-  pageSize: number;
-  total: number | null;
-  busy: boolean;
-};
-
-export type ConnectionState = {
-  status: "idle" | "connecting" | "connected" | "error";
-  error: string | null;
-  needsPassword: boolean;
-};
+export type { ConnectionState, DatabaseTab, OutputLine, QueryDoc, ResultTab } from "./model";
+export { DEFAULT_SETTINGS, clamp, errorText, queryFileBase, tabKey } from "./model";
 
 export type DatabaseActions = {
   hydrate(): Promise<void>;
@@ -115,63 +94,17 @@ export type DatabaseState = {
   pendingTx: boolean;
 } & DatabaseActions;
 
-/** A tab's stable identity; the same rule `windows.json` records are read back with. */
-export function tabKey(tab: DatabaseTab): string {
-  return tab.kind === "query"
-    ? `query:${tab.file}`
-    : `table:${tab.target}\u0000${tab.schema}\u0000${tab.table}`;
-}
-
-const DEFAULT_SETTINGS: DbSettings = { version: 1, consoleRows: 500, tablePageSize: 500 };
-const CONSOLE_ROWS_MIN = 100;
-const CONSOLE_ROWS_MAX = 50_000;
-const TABLE_PAGE_SIZE_MIN = 100;
-const TABLE_PAGE_SIZE_MAX = 5_000;
 /** How long a typed query body waits before it is written to its file. */
 const QUERY_WRITE_DEBOUNCE_MS = 800;
 /** How long a tab change waits before `windows.json` is written. */
 const TABS_DEBOUNCE_MS = 300;
-/** The newest result tabs kept; older ones are dropped. */
-const MAX_RESULT_TABS = 12;
-/** The newest output lines kept per tab. */
-const MAX_OUTPUT_LINES = 2_000;
 /** The closed tabs that can still be reopened. */
 const MAX_CLOSED_TABS = 20;
-
-const IDLE_CONNECTION: ConnectionState = { status: "idle", error: null, needsPassword: false };
-
-/** The English text of a rejected command, whatever shape it arrived in. */
-function errorText(error: unknown): string {
-  if (isDatabaseError(error)) return error.message;
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
-
-/** A data source name as a file name on every platform the app targets. */
-function queryFileBase(name: string): string {
-  const cleaned = Array.from(name)
-    .filter((char) => {
-      const code = char.charCodeAt(0);
-      return code >= 0x20 && code !== 0x7f && !`\\/:*?"<>|`.includes(char);
-    })
-    .join("")
-    .trim()
-    .replace(/[. ]+$/, "");
-  return cleaned || "query";
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, Math.round(value)));
-}
 
 function toRecord(tab: DatabaseTab): TabRecord {
   return tab.kind === "query"
     ? { kind: "query", file: tab.file }
     : { kind: "table", target: tab.target, schema: tab.schema, table: tab.table };
-}
-
-function emptyDoc(file: string, text: string, error: string | null): QueryDoc {
-  return { file, text, savedText: error ? "" : text, loading: false, error };
 }
 
 /** Drops stored tabs whose query file is gone, and duplicates from an older run. */

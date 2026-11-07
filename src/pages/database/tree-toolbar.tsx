@@ -191,15 +191,61 @@ export function TreeToolbar({
 export type OpenQueryDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;
+  /** The query files to list, and how a chosen one opens. Give both or neither. */
+  listFiles?: () => Promise<QueryFile[]>;
+  onChoose?: (name: string) => Promise<void>;
 };
 
 /**
  * The picker the toolbar's "Open query…" and the empty workspace both use: it
  * lists the query directory and opens the chosen file in a tab.
  */
-export function OpenQueryDialog({ open, onOpenChange }: OpenQueryDialogProps): ReactNode {
-  const { t } = useAppTranslation();
+export function OpenQueryDialog(props: OpenQueryDialogProps): ReactNode {
+  // The project page passes both callbacks and has no data source window behind
+  // it, so the window store — which needs its provider — is never read there.
+  if (props.listFiles && props.onChoose) {
+    return (
+      <OpenQueryDialogView
+        open={props.open}
+        onOpenChange={props.onOpenChange}
+        listFiles={props.listFiles}
+        onChoose={props.onChoose}
+      />
+    );
+  }
+  return <WindowOpenQueryDialog open={props.open} onOpenChange={props.onOpenChange} />;
+}
+
+/** The window's own query directory and tab opener. */
+function WindowOpenQueryDialog(props: {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+}): ReactNode {
   const openQuery = useDatabaseStore((state) => state.openQuery);
+  return (
+    <OpenQueryDialogView
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      listFiles={dbQueries}
+      onChoose={openQuery}
+    />
+  );
+}
+
+type ResolvedOpenQueryDialogProps = {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  listFiles: () => Promise<QueryFile[]>;
+  onChoose: (name: string) => Promise<void>;
+};
+
+function OpenQueryDialogView({
+  open,
+  onOpenChange,
+  listFiles,
+  onChoose,
+}: ResolvedOpenQueryDialogProps): ReactNode {
+  const { t } = useAppTranslation();
   const [files, setFiles] = useState<QueryFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -208,7 +254,7 @@ export function OpenQueryDialog({ open, onOpenChange }: OpenQueryDialogProps): R
     let live = true;
     setFiles(null);
     setError(null);
-    dbQueries()
+    listFiles()
       .then((list) => {
         if (live) setFiles([...list].sort((a, b) => a.name.localeCompare(b.name)));
       })
@@ -218,10 +264,10 @@ export function OpenQueryDialog({ open, onOpenChange }: OpenQueryDialogProps): R
     return () => {
       live = false;
     };
-  }, [open]);
+  }, [open, listFiles]);
 
   const choose = (name: string) => {
-    openQuery(name)
+    onChoose(name)
       .then(() => onOpenChange(false))
       .catch((failure: unknown) =>
         toast.error(failure instanceof Error ? failure.message : String(failure))

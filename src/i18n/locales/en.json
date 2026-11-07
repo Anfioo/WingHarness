@@ -1099,6 +1099,55 @@
       "ignored": "Ignored"
     }
   },
+  "projectDb": {
+    "activityTitle": "Project database",
+    "sqlEditor": "SQL editor",
+    "panel": {
+      "title": "Database",
+      "addSource": "Add data source",
+      "refresh": "Refresh data sources",
+      "collapseAll": "Collapse all",
+      "emptyTitle": "No data sources yet",
+      "emptyDescription": "Add a data source to browse this project's database and run SQL against it."
+    },
+    "source": {
+      "actions": "Data source actions",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "connected": "Connected",
+      "connecting": "Connecting…",
+      "error": "Connection failed",
+      "disconnected": "Disconnected",
+      "newQuery": "New query",
+      "openQuery": "Open query…",
+      "refresh": "Refresh objects",
+      "edit": "Edit data source…",
+      "duplicate": "Duplicate",
+      "delete": "Delete",
+      "deleteTitle": "Delete data source",
+      "deleteDescription": "\"{{name}}\" is removed from this project's data sources. The database itself is not touched."
+    },
+    "sql": {
+      "sourceLabel": "Data source",
+      "noSource": "No data source",
+      "noSourceHint": "Pick a data source to run this query.",
+      "saving": "Saving…",
+      "saved": "Saved to the project",
+      "conflict": "This file changed on disk after it was opened.",
+      "reload": "Reload",
+      "overwrite": "Overwrite"
+    },
+    "results": {
+      "empty": "Run a statement to see its results here.",
+      "close": "Close results"
+    },
+    "error": {
+      "noProject": "No project root is configured.",
+      "openSettings": "Open settings",
+      "loadSources": "Could not read the project's data sources: {{error}}",
+      "saveSources": "Could not save the project's data sources: {{error}}"
+    }
+  },
   "filePreview": {
     "title": "File preview",
     "treeTitle": "Project",

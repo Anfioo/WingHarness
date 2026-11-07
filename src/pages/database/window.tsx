@@ -325,6 +325,8 @@ function TabBody({
 }) {
   const tabs = useDatabaseStore((state) => state.tabs);
   const active = useDatabaseStore((state) => state.active);
+  const pageSize = useDatabaseStore((state) => state.settings.tablePageSize);
+  const setTablePageSize = useDatabaseStore((state) => state.setTablePageSize);
   const tab = tabs.find((entry) => tabKey(entry) === active);
 
   return (
@@ -334,7 +336,15 @@ function TabBody({
       ) : tab.kind === "query" ? (
         <QueryTab ref={queryRef} sourceId={sourceId} tabKey={tabKey(tab)} file={tab.file} />
       ) : (
-        <TableEditor target={tab.target} schema={tab.schema} table={tab.table} />
+        <TableEditor
+          target={tab.target}
+          schema={tab.schema}
+          table={tab.table}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setTablePageSize(size).catch((error: unknown) => toast.error(failureText(error)));
+          }}
+        />
       )}
     </div>
   );
@@ -522,6 +532,8 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
               onDisconnect={() => void disconnect()}
               onShowDdl={(target, _schema, object) => setQuickDoc({ target, object })}
               onQuickDoc={(target, object) => setQuickDoc({ target, object })}
+              onNewQuery={newQuery}
+              onJumpToConsole={jumpToConsole}
             />
           ) : (
             <div className="text-muted-foreground flex flex-1 items-center justify-center gap-2 p-3 text-center text-xs">

@@ -9,6 +9,9 @@ crate of [openidea](https://github.com/l0ng-ai/openidea) (Apache-2.0);
 [`db-core/UPSTREAM.md`](../../src-tauri/db-core/UPSTREAM.md) records what was
 carried over and what was not.
 
+The same widgets are embedded in the [project page](./PROJECT.md) as a
+project-scoped panel with its own storage; see [Project scope](#project-scope).
+
 ## Windows and routes
 
 | Route | Renders |
@@ -84,6 +87,9 @@ deliberate divergence from upstream, and the dialog's checkbox says so. The
 `<slug>-<hash>` folder name keeps projects whose paths slug the same apart
 (`c:\work\app` and `d:\work\app` are different folders).
 
+The project panel's own storage is `<project root>/.wh/db`, laid out the same
+way and described in [Project scope](#project-scope).
+
 **Query files** are created beside each other with the data source's name and
 the first free number: `local 1.sql`, `local 2.sql`. A name must be non-empty,
 end in `.sql`, stay under 120 characters, contain no separator or control
@@ -110,6 +116,40 @@ by every data source and window. Both are clamped on write: `consoleRows` in
 and replaced by the defaults, with a warning in the log; a version this build
 does not know is treated the same way rather than guessed at. A query file that
 is not valid UTF-8 is reported as `not-found` and left alone.
+
+## Project scope
+
+The [project page](./PROJECT.md) embeds a second, isolated copy of this feature:
+its **Database** button opens a data-source panel of the open project instead of
+the app. The widgets are the same; nothing else is.
+
+| | App scope (`/database`) | Project scope (project page) |
+| --- | --- | --- |
+| Source list | `<data dir>/db/data-sources.toml`, plus `<data dir>/db/projects/<slug>-<hash>/` for the project sources the page can own | `<project root>/.wh/db/data-sources.toml` |
+| Query files, history, settings | `<data dir>/db/…` | `<project root>/.wh/db/…` |
+| Saved passwords | `<data dir>/db/secrets.json` | the same file, keyed by the `whp-` id |
+| Engine | `DbState::app` | `DbState::project()`, rebuilt when the root changes |
+
+**The id carries the scope.** Every id the panel creates starts with `whp-`
+(`PROJECT_ID_PREFIX`), and `DbState` routes on that prefix: an id-bearing command
+reaches the project manager, everything else the app's. The commands that have no
+id to route by — the source list, the query files, the settings — take an
+optional `scope: "app" | "project"` and default to `app`. No command name was
+added, so the four ACL lists did not change.
+
+**A password never enters the project directory.** The panel's sources save to
+`secrets.json` under the app's data directory, exactly as the app-wide ones do;
+`.wh` only ever holds the source definitions. A failure message never repeats a
+password — it names the driver's own error.
+
+**Nothing is restored across a restart.** The panel keeps its tabs in memory and
+does not write `windows.json`; only the query files, the source list, the history
+and the row limits persist. Closing the page disposes the tabs but leaves the
+connections open, so coming back is instant.
+
+**`.wh` is outside the project's file tree.** `project_fs` refuses it at the root
+and the workbench's `remote` extension is given it in `exclude`, so editing a
+query file from the tree cannot race the workspace writing it.
 
 ## Connecting
 
@@ -413,3 +453,5 @@ contain a literal credential.
 | A window opens with fewer tabs than before | A saved tab's query file or table no longer exists, so it is skipped |
 | A query tab is empty after switching windows | The file is re-read on restore; text is written as you type, 800 ms after the last keystroke |
 | `invalid` when saving settings | The row limit is outside [100, 50000] or the page size outside [100, 5000] |
+| A source added in the project panel is missing from this page | The two scopes keep separate source lists |
+| `.wh` does not appear in the project tree | Excluded; the panel owns it |

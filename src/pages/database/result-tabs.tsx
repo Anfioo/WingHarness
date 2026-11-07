@@ -1,6 +1,10 @@
 // The result area of one query tab: the output console and one tab per
-// statement that produced a result or a plan. The store owns every piece of
-// state here; this component only chooses what to render.
+// statement that produced a result or a plan.
+//
+// `ResultTabsView` takes every piece of state as a prop, so the database
+// windows and the project page's dock can each hand it their own store;
+// `ResultTabs` is the window's thin wrapper that reads the window store and
+// binds the result actions.
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { AlertTriangle, Code2, Info, Table2, X } from "lucide-react";
@@ -20,12 +24,21 @@ export type ResultTabsProps = {
   target: string;
 };
 
+export type ResultTabsViewProps = ResultTabsProps & {
+  results: ResultTab[];
+  outputs: OutputLine[];
+  active: number | "output" | undefined;
+  onSelect(id: number | "output"): void;
+  onClose(id: number): void;
+  onPatch(id: number, patch: Partial<ResultTab>): void;
+  onRerun(result: ResultTab): void;
+};
+
 const NO_RESULTS: ResultTab[] = [];
 const NO_OUTPUT: OutputLine[] = [];
 
 export function ResultTabs(props: ResultTabsProps): ReactNode {
   const { tabKey, sourceId, target } = props;
-  const { t } = useAppTranslation();
 
   const results = useDatabaseStore((state) => state.results[tabKey]) ?? NO_RESULTS;
   const outputs = useDatabaseStore((state) => state.outputs[tabKey]) ?? NO_OUTPUT;
@@ -52,6 +65,37 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
     return () => bindResultActions(null);
   }, [sourceId, tabKey, patchResult]);
 
+  return (
+    <ResultTabsView
+      tabKey={tabKey}
+      sourceId={sourceId}
+      target={target}
+      results={results}
+      outputs={outputs}
+      active={active}
+      onSelect={(id) => setActiveResult(tabKey, id)}
+      onClose={(id) => removeResult(tabKey, id)}
+      onPatch={(id, patch) => patchResult(tabKey, id, patch)}
+      onRerun={(tab) => void rerunResult(tabKey, tab.id)}
+    />
+  );
+}
+
+export function ResultTabsView(props: ResultTabsViewProps): ReactNode {
+  const {
+    tabKey,
+    sourceId,
+    target,
+    results,
+    outputs,
+    active,
+    onSelect,
+    onClose,
+    onPatch,
+    onRerun,
+  } = props;
+  const { t } = useAppTranslation();
+
   // A statement without a result set only reaches the output console.
   const shown: Array<{ tab: ResultTab; label: string }> = [];
   let resultNo = 0;
@@ -73,10 +117,10 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
 
   const explainAgain = async (tab: ResultTab) => {
     if (tab.busy) return;
-    patchResult(tabKey, tab.id, { busy: true });
+    onPatch(tab.id, { busy: true });
     try {
       const plan = await dbExplain(sourceId, tab.statement.text);
-      patchResult(tabKey, tab.id, { plan, busy: false });
+      onPatch(tab.id, { plan, busy: false });
     } catch (error) {
       const code = databaseErrorCode(error);
       if (code !== "cancelled") {
@@ -90,7 +134,7 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
               : String(error)
         );
       }
-      patchResult(tabKey, tab.id, { busy: false });
+      onPatch(tab.id, { busy: false });
     }
   };
 
@@ -107,7 +151,7 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
             type="button"
             className="px-2 py-1"
             aria-current={current === null ? "true" : undefined}
-            onClick={() => setActiveResult(tabKey, "output")}
+            onClick={() => onSelect("output")}
           >
             {t("database.result.output")}
           </button>
@@ -127,7 +171,7 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
                 className="max-w-56 truncate px-2 py-1 text-left"
                 title={tab.statement.text}
                 aria-current={selected ? "true" : undefined}
-                onClick={() => setActiveResult(tabKey, tab.id)}
+                onClick={() => onSelect(tab.id)}
               >
                 {label}
               </button>
@@ -136,7 +180,7 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
                 className="hover:bg-accent mr-1 rounded-sm p-1"
                 aria-label={t("database.tab.close")}
                 title={t("database.tab.close")}
-                onClick={() => removeResult(tabKey, tab.id)}
+                onClick={() => onClose(tab.id)}
               >
                 <X className="size-3" />
               </button>
@@ -164,7 +208,7 @@ export function ResultTabs(props: ResultTabsProps): ReactNode {
             tab={current}
             sourceId={sourceId}
             target={target}
-            onRerun={() => void rerunResult(tabKey, current.id)}
+            onRerun={() => onRerun(current)}
           />
         )}
       </div>

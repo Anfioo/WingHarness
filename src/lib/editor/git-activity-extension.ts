@@ -6,6 +6,7 @@ import {
   type WebviewPanel,
 } from "codelet/extensions";
 import { useGitView } from "@/features/git/project/git-view-store";
+import { attachActivityButtons } from "@/lib/editor/activity-buttons";
 import { useEditorTabs, type DiffTabTarget, type EditorTabSurface } from "@/lib/editor/editor-tabs";
 
 /**
@@ -200,98 +201,31 @@ export function createGitActivityExtension(options: GitActivityOptions): GitActi
         api.commands.registerCommand(COMMIT_COMMAND, () => useGitView.getState().toggleChanges())
       );
 
-      interface Button {
-        element: HTMLButtonElement;
-        icon: string;
-        onClick: (event: MouseEvent) => void;
-      }
-      const buttons: Button[] = [];
-      let otherClick: ((event: MouseEvent) => void) | null = null;
-
-      const findButton = (label: string) =>
-        Array.from(
-          options.parent.querySelectorAll<HTMLButtonElement>("button.cl-activity-item")
-        ).find((candidate) => candidate.getAttribute("aria-label") === label) ?? null;
-
-      const paintIcon = (element: HTMLButtonElement, icon: string) => {
-        const svg = element.querySelector("svg");
-        if (!svg) return;
-        if (svg.getAttribute("data-app-icon") === icon) return;
-        svg.innerHTML = icon;
-        svg.setAttribute("data-app-icon", icon);
-      };
-
-      const syncActive = () => {
-        const state = useGitView.getState();
-        for (const button of buttons) {
-          const active =
-            button.element.getAttribute("aria-label") === options.gitLabel
-              ? state.panelOpen
-              : state.changesOpen;
-          if (active) button.element.setAttribute("data-app-active", "");
-          else button.element.removeAttribute("data-app-active");
-        }
-      };
-
-      /** Capture on the button: codelet's own handler is delegated at the root. */
-      const intercept = (action: () => void) => (event: MouseEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        action();
-      };
-
-      const attach = (label: string, icon: string, action: () => void) => {
-        const element = findButton(label);
-        if (!element) return false;
-        const existing = buttons.find((button) => button.element === element);
-        if (existing) {
-          paintIcon(element, icon);
-          return true;
-        }
-        const onClick = intercept(action);
-        element.addEventListener("click", onClick, true);
-        buttons.push({ element, icon, onClick });
-        paintIcon(element, icon);
-        return true;
-      };
-
-      const sync = () => {
-        // A re-render can replace the buttons; drop the dead listeners.
-        for (let index = buttons.length - 1; index >= 0; index -= 1) {
-          const button = buttons[index];
-          if (button.element.isConnected) continue;
-          button.element.removeEventListener("click", button.onClick, true);
-          buttons.splice(index, 1);
-        }
-        attach(options.gitLabel, GIT_BRANCH_ICON, () => useGitView.getState().togglePanel());
-        attach(options.commitLabel, GIT_COMMIT_ICON, () => useGitView.getState().toggleChanges());
-        syncActive();
-      };
-
       // Any other activity button puts the side bar back: the changes view is
       // covering the explorer, and the button under it must still work.
-      otherClick = (event) => {
-        const element = event.target instanceof Element ? event.target.closest("button") : null;
-        if (!element?.classList.contains("cl-activity-item")) return;
-        if (buttons.some((button) => button.element === element)) return;
-        useGitView.getState().closeChanges();
-      };
-      options.parent.addEventListener("click", otherClick, true);
-
-      const observer = new MutationObserver(sync);
-      observer.observe(options.parent, { childList: true, subtree: true });
-      const unsubscribe = useGitView.subscribe(syncActive);
-      sync();
+      const activityButtons = attachActivityButtons({
+        parent: options.parent,
+        buttons: [
+          {
+            label: options.gitLabel,
+            icon: GIT_BRANCH_ICON,
+            isActive: () => useGitView.getState().panelOpen,
+            onActivate: () => useGitView.getState().togglePanel(),
+          },
+          {
+            label: options.commitLabel,
+            icon: GIT_COMMIT_ICON,
+            isActive: () => useGitView.getState().changesOpen,
+            onActivate: () => useGitView.getState().toggleChanges(),
+          },
+        ],
+        onOtherClick: () => useGitView.getState().closeChanges(),
+        subscribe: useGitView.subscribe,
+      });
 
       context.subscriptions.push({
         dispose() {
-          observer.disconnect();
-          unsubscribe();
-          if (otherClick) options.parent.removeEventListener("click", otherClick, true);
-          for (const button of buttons) {
-            button.element.removeEventListener("click", button.onClick, true);
-          }
-          buttons.length = 0;
+          activityButtons.dispose();
           panels.clear();
           useEditorTabs.getState().reset();
         },
