@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-project-active"
+description = "Enables the project_active command without any pre-configured scope."
+commands.allow = ["project_active"]
+
+[[permission]]
+identifier = "deny-project-active"
+description = "Denies the project_active command without any pre-configured scope."
+commands.deny = ["project_active"]

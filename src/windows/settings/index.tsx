@@ -5,7 +5,6 @@ import { TitleBar } from "@/components/title-bar.tsx";
 import { WindowFrame } from "@/components/window-frame.tsx";
 import { ShortcutInput } from "@/components/shortcut-input.tsx";
 import { AppearanceSection } from "./appearance-section.tsx";
-import { ProjectSection } from "./project-section.tsx";
 import { TerminalSection } from "./terminal-section.tsx";
 import { PluginsSection } from "./plugins-section.tsx";
 import { DataSection } from "./data-section.tsx";
@@ -16,7 +15,6 @@ import { MdEditorSection } from "./md-editor-section.tsx";
 import {
   Palette,
   Keyboard,
-  FolderKanban,
   SquareTerminal,
   Package,
   Database,
@@ -35,7 +33,6 @@ const SHORTCUT_KEY = "global-shortcut-show-main";
 type SettingSection =
   | "appearance"
   | "shortcut"
-  | "project"
   | "terminal"
   | "plugins"
   | "data"
@@ -93,11 +90,6 @@ export default function SettingsPage() {
       id: "shortcut" as SettingSection,
       label: t("settings.shortcut.title"),
       icon: Keyboard,
-    },
-    {
-      id: "project" as SettingSection,
-      label: t("project.title"),
-      icon: FolderKanban,
     },
     {
       id: "terminal" as SettingSection,
@@ -190,8 +182,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {activeSection === "project" && <ProjectSection />}
 
           {activeSection === "terminal" && <TerminalSection />}
 

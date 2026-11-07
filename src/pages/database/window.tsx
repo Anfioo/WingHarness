@@ -22,7 +22,8 @@ import {
   dbSourceList,
   dbSourceSave,
   dbSourceSetPassword,
-  getConfig,
+  projectActive,
+  setActiveProject,
   type DataSource,
   type DataSourceView,
 } from "@/commands";
@@ -57,6 +58,11 @@ import type { TreeSelection } from "./tree-model";
 /** The data source this window was opened for, taken from its own URL. */
 function sourceFromUrl(search: string) {
   return new URLSearchParams(search).get("source") ?? "";
+}
+
+/** The project this window was opened against; empty when none was given. */
+function rootFromUrl(search: string) {
+  return new URLSearchParams(search).get("root") ?? "";
 }
 
 /** The text of a rejected command, whatever shape it arrived in. */
@@ -351,7 +357,7 @@ function TabBody({
 }
 
 /** The two columns of a window that has a data source to work against. */
-function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
+function DatabaseWorkspace({ sourceId, root }: { sourceId: string; root: string }) {
   const { t } = useAppTranslation();
 
   const [source, setSource] = useState<DataSourceView | null>(null);
@@ -394,19 +400,19 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
   }, [hydrated, connect]);
 
   const loadSources = useCallback(async () => {
-    const [list, config] = await Promise.all([dbSourceList(), getConfig()]);
+    const list = await dbSourceList();
     setSource(list.find((entry) => entry.id === sourceId) ?? null);
-    setHasProject(Boolean(config.config.projectRoot));
-  }, [sourceId]);
+    setHasProject(Boolean(root));
+  }, [root, sourceId]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
-        const [list, config] = await Promise.all([dbSourceList(), getConfig()]);
+        const list = await dbSourceList();
         if (!cancelled) {
           setSource(list.find((entry) => entry.id === sourceId) ?? null);
-          setHasProject(Boolean(config.config.projectRoot));
+          setHasProject(Boolean(root));
         }
       } catch {
         // Without the record the tree has nothing to render; the tabs still work.
@@ -418,7 +424,7 @@ function DatabaseWorkspace({ sourceId }: { sourceId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [sourceId]);
+  }, [root, sourceId]);
 
   const saveSource = useCallback(
     async (next: DataSource, password: string) => {
@@ -609,6 +615,33 @@ export default function DatabaseWindow() {
   const { t } = useAppTranslation();
   const { search } = useRouter();
   const sourceId = useMemo(() => sourceFromUrl(search), [search]);
+  const root = useMemo(() => rootFromUrl(search), [search]);
+  // The store's first commands read the active project from the command
+  // context, so the children only mount once it is set.
+  const [rootReady, setRootReady] = useState(false);
+
+  useEffect(() => {
+    if (root) {
+      setActiveProject(root);
+      setRootReady(true);
+      return;
+    }
+    // A window opened by hand has no root in its URL; the app-wide active
+    // project is the best answer, and `null` still lets app-wide sources work.
+    let cancelled = false;
+    void projectActive()
+      .then((active) => {
+        if (cancelled) return;
+        if (active) setActiveProject(active);
+        setRootReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setRootReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [root]);
 
   return (
     <WindowFrame
@@ -617,11 +650,11 @@ export default function DatabaseWindow() {
       }
       contentClassName="flex flex-1 flex-col overflow-hidden"
     >
-      {sourceId ? (
+      {sourceId && rootReady ? (
         <DatabaseStoreProvider sourceId={sourceId}>
-          <DatabaseWorkspace sourceId={sourceId} />
+          <DatabaseWorkspace sourceId={sourceId} root={root} />
         </DatabaseStoreProvider>
-      ) : (
+      ) : sourceId ? null : (
         <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-sm">
           <Database className="size-8" />
           <p className="text-foreground font-medium">{t("database.window.missingTitle")}</p>

@@ -16,8 +16,11 @@ CSS v4 + shadcn/ui.
   own frame
 - **Routing**: `lib/router.tsx` (`RouterProvider` + `useRouter()`)
 - **Route table**: `lib/app-routes.ts` (`AppRouteId`, `appRoutes`)
-- **Pages** (`pages/`): `start`, `local-terminal`, `notes`, `file-preview`,
-  `project`, `database`
+- **Pages** (`pages/`): `project` (the picker at `/` and one window per project),
+  `git-repo`, `svn-workspace`, `api-client`, `systools`, `servers`, `database`,
+  `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`, `ai-config`,
+  `claude-chat`, the Claude history and workflow pages, `cc-switch`,
+  `mcp-hub`, `clash`, `plugins`, `private-registry`
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
@@ -26,9 +29,9 @@ CSS v4 + shadcn/ui.
 
 ## Routing
 
-`pageMap` holds nine routes: five pages and four windows. The pages are wrapped
-in the shared `AppShell`; the four window routes are listed in `standalonePaths`
-and render their own frame instead.
+`pageMap` holds every route: sidebar pages, window pages and the small utility
+windows. Window routes are also listed in `standalonePaths` and render their own
+frame instead of the shared `AppShell`.
 
 - In-app links go through `router.navigate()`, never a bare `<a href>` — a plain
   anchor reloads the whole document, while the router keeps the shell (sidebar,
@@ -64,14 +67,15 @@ functions and types — it is the only thing components import:
 
 | Domain | What it covers |
 |--------|----------------|
-| `config` | the config file, the project root, the data directory |
-| `database` | data sources, connections, transactions, multi-statement queries, query files and persisted window tabs, execution plans, table paging and row editing, DDL, completion and history. Ids prefixed `whp-` route to the project-scoped engine, and the list / query-file / settings commands take an optional `scope` |
+| `config` | the config file and the data directory — no project |
+| `database` | data sources, connections, transactions, multi-statement queries, query files and persisted window tabs, execution plans, table paging and row editing, DDL, completion and history. Ids prefixed `whp-` route to the project-scoped engine, the list / query-file / settings commands take an optional `scope`, and every project-reaching command sends the caller's active `root` |
 | `devtools` | opening the webview inspector |
-| `file-preview` | metadata and raw bytes for the preview page |
+| `file-preview` | metadata and raw bytes for the preview page, read from the `root` the caller passes |
 | `fonts` | enumerating installed font families |
 | `local-shell` | the terminal's pseudo-console, and its font list |
 | `notes` | the Markdown store |
-| `project-fs` | the confined project file tree and its read/write/delete |
+| `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
+| `projects` | the recent-project list, the active project, and remember / forget / set-active |
 | `theme` | the CSS for a theme preset's web fonts |
 | `tray` | quitting, and updating the tray menu labels |
 | `updater` | update download and install |
@@ -80,18 +84,28 @@ functions and types — it is the only thing components import:
 import { getConfig, projectTree } from "@/commands";
 ```
 
+**The active project is per webview.** `commands/project-context.ts` holds it in
+a module variable — each window has its own JavaScript context, so two project
+windows never share one. A project window sets it when it mounts, and a page
+with a `ProjectPicker` sets it when the user chooses; the wrappers for
+`project-fs`, `file-preview`, `shaic` and `database` read it. Never call a
+project command from a page that has no root in play.
+
 ## Layout
 
 - `lib/` — `router.tsx`, `app-routes.ts`, `shortcut.ts`, `window.ts`,
-  `updater.ts`, `utils.ts`, plus the `editor/`, `preview/`, `fonts/`,
-  `terminal/` and `theme/` subsystems
+  `window-label.ts`, the per-feature window helpers (`project-windows.ts`,
+  `git-windows.ts`, `svn-windows.ts`, `database-windows.ts`), `updater.ts`,
+  `utils.ts`, plus the `editor/`, `preview/`, `fonts/`, `terminal/` and `theme/`
+  subsystems
 - `features/` — one directory per feature that is larger than one page's own
   components: `api-client/`, `database/project/` (the project page's database
   panel, its store, tabs and results dock), `git/` (the project page's Git
   views), `md-editor/`, `svn-workspace/`
 - `hooks/` — `use-app-translation` (use this one, not `useTranslation`
   directly: it also listens for the cross-window language change event),
-  `use-config-draft`, `use-maximized`, `use-mobile`, `use-updater`
+  `use-config-draft`, `use-maximized`, `use-mobile`, `use-updater`, and the
+  "*show home*" listeners (`use-project-home`, `use-git-home`, `use-svn-home`)
 - `components/ui/` — shadcn/ui primitives; leave these as generated
 - `i18n/index.ts` — i18next configuration
 

@@ -14,9 +14,9 @@ import {
  * host over HTTP.
  *
  * The extension is written against this interface — `info`, `tree`, `read` and
- * the four mutations — and never learns where the bytes come from. The Rust
- * side owns the working-copy root and confines every path to it, so nothing
- * here builds or checks a path.
+ * the four mutations — and never learns where the bytes come from. The command
+ * wrappers take the root from this window's active project and the Rust side
+ * confines every path to it, so nothing here builds or checks a path.
  *
  * `remote` takes a factory rather than a transport, so this is that: the URL it
  * is handed is unused, there being no host to reach.

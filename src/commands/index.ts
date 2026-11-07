@@ -134,6 +134,20 @@ export type {
   WriteResult,
 } from "./services/project-fs";
 export {
+  projectActive,
+  projectForget,
+  projectRecentList,
+  projectRemember,
+  projectSetActive,
+} from "./services/projects";
+export type { ProjectEntry, Projects } from "./services/projects";
+export {
+  clearActiveProject,
+  getActiveProject,
+  requireActiveProject,
+  setActiveProject,
+} from "./project-context";
+export {
   localShellKill,
   localShellResize,
   localShellStart,

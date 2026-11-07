@@ -17,7 +17,8 @@
     "svn-diff-*",
     "systools",
     "server-manager",
-    "database-*"
+    "database-*",
+    "project-*"
   ],
   "permissions": [
     "core:default",
@@ -377,11 +378,16 @@
     "allow-pr-checkout",
     "allow-preview-bytes",
     "allow-preview-metadata",
+    "allow-project-active",
     "allow-project-delete",
+    "allow-project-forget",
     "allow-project-info",
     "allow-project-mkdir",
     "allow-project-move",
     "allow-project-read",
+    "allow-project-recent-list",
+    "allow-project-remember",
+    "allow-project-set-active",
     "allow-project-tree",
     "allow-project-write",
     "allow-quit-app",

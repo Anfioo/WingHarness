@@ -1,23 +1,25 @@
-//! The project root, served to codelet's `remote` extension.
+//! A project root, served to codelet's `remote` extension.
 //!
 //! The notes page loads every file into memory, which is right for a folder of
 //! a few `.md`. A project tree is not that: it holds `.git`, `node_modules`,
-//! build output — any of it can run to gigabytes. So the project page reads on
+//! build output — any of it can run to gigabytes. So the project window reads on
 //! demand instead, one directory level at a time, and these commands are the
-//! other end of that. Every path is relative to the configured root and is
+//! other end of that. Every path is relative to the root the caller named and is
 //! refused unless it stays inside it, and `.git` is never served.
+//!
+//! There is no single project root any more: every command takes the root of the
+//! window that is calling, so two project windows never see each other's files.
 //!
 //! The shapes match `codelet/dist/_chunks/protocol.d.mts` — the wire between
 //! `codelet/extensions/remote` and its transport.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
 
 use crate::commands::fs_guard::{relative_posix, safe_join};
-use crate::config;
 
 /// Refused: serving it would carry the whole history in a listing, and nothing
 /// downstream wants it. Mirrors the `remote` extension's own default. `.wh` is
@@ -78,21 +80,23 @@ pub struct WriteResult {
     pub etag: String,
 }
 
-/// The configured project root, or a message saying the setting is blank.
+/// The root the caller named, checked to be an existing directory.
 ///
-/// `pub(crate)` so the preview backend's root provider can install it — the
-/// `file-preview-core` crate is handed this function at startup and calls it fresh
-/// on every read.
-pub(crate) fn repo_root() -> Result<std::path::PathBuf, String> {
-    let repo = config::load()
-        .project_root()
-        .map(str::to_string)
-        .ok_or_else(|| "未配置项目根目录，请先到「设置 → 项目」填写。".to_string())?;
-    let root = std::path::PathBuf::from(&repo);
-    if !root.is_dir() {
-        return Err(format!("项目根目录不存在或不是目录：{repo}"));
+/// A root that is blank, relative or missing fails here rather than surfacing
+/// later as an empty tree or a confusing join.
+fn project_root(root: &str) -> Result<PathBuf, String> {
+    let root = root.trim();
+    if root.is_empty() {
+        return Err("No project root was given.".to_string());
     }
-    Ok(root)
+    let path = PathBuf::from(root);
+    if !path.is_absolute() {
+        return Err(format!("Project root is not an absolute path: {root}"));
+    }
+    if !path.is_dir() {
+        return Err(format!("Project root is not an existing directory: {root}"));
+    }
+    Ok(path)
 }
 
 /// Whether a root-relative path names something never served.
@@ -160,10 +164,10 @@ fn uses_crlf(bytes: &[u8]) -> bool {
 
 /// What the transport asks once, at connect time.
 #[tauri::command]
-pub fn project_info() -> Result<RemoteInfo, String> {
+pub fn project_info(root: String) -> Result<RemoteInfo, String> {
     // Resolve so a missing or mis-set path fails here, loudly, rather than as
     // an empty tree.
-    repo_root()?;
+    project_root(&root)?;
     Ok(RemoteInfo {
         name: "codelet-server".into(),
         version: 1,
@@ -183,11 +187,12 @@ pub fn project_info() -> Result<RemoteInfo, String> {
 /// working copy to what is actually on screen.
 #[tauri::command]
 pub fn project_tree(
+    root: String,
     path: Option<String>,
     depth: Option<serde_json::Value>,
     content: Option<bool>,
 ) -> Result<TreeResult, String> {
-    let root = repo_root()?;
+    let root = project_root(&root)?;
     let requested = path.unwrap_or_else(|| "/".into());
     let all = depth.as_ref().is_some_and(|d| d.as_str() == Some("all"));
     let levels: usize = if all {
@@ -307,8 +312,8 @@ fn entry_for(root: &Path, path: &Path, levels: usize, content: bool) -> Result<R
 
 /// The bytes of a text file, with the tag a later write compares against.
 #[tauri::command]
-pub fn project_read(path: String) -> Result<ReadResult, String> {
-    let root = repo_root()?;
+pub fn project_read(root: String, path: String) -> Result<ReadResult, String> {
+    let root = project_root(&root)?;
     let target = safe_join(&root, &path)?;
     if excluded_entry(&root, &target) {
         return Err(format!("拒绝访问：{path}"));
@@ -333,8 +338,13 @@ pub fn project_read(path: String) -> Result<ReadResult, String> {
 /// mismatch means the file changed underneath and the write is refused rather
 /// than clobbering it.
 #[tauri::command]
-pub fn project_write(path: String, body: String, etag: Option<String>) -> Result<WriteResult, String> {
-    let root = repo_root()?;
+pub fn project_write(
+    root: String,
+    path: String,
+    body: String,
+    etag: Option<String>,
+) -> Result<WriteResult, String> {
+    let root = project_root(&root)?;
     let target = safe_join(&root, &path)?;
     if excluded_entry(&root, &target) {
         return Err(format!("拒绝访问：{path}"));
@@ -372,8 +382,8 @@ pub fn project_write(path: String, body: String, etag: Option<String>) -> Result
 
 /// Creates a directory, and the ones above it.
 #[tauri::command]
-pub fn project_mkdir(path: String) -> Result<(), String> {
-    let root = repo_root()?;
+pub fn project_mkdir(root: String, path: String) -> Result<(), String> {
+    let root = project_root(&root)?;
     let target = safe_join(&root, &path)?;
     if excluded_entry(&root, &target) {
         return Err(format!("拒绝访问：{path}"));
@@ -383,8 +393,8 @@ pub fn project_mkdir(path: String) -> Result<(), String> {
 
 /// Moves or renames a file or directory, creating the destination's parents.
 #[tauri::command]
-pub fn project_move(from: String, to: String) -> Result<(), String> {
-    let root = repo_root()?;
+pub fn project_move(root: String, from: String, to: String) -> Result<(), String> {
+    let root = project_root(&root)?;
     let source = safe_join(&root, &from)?;
     let destination = safe_join(&root, &to)?;
     if excluded_entry(&root, &source) || excluded_entry(&root, &destination) {
@@ -398,8 +408,8 @@ pub fn project_move(from: String, to: String) -> Result<(), String> {
 
 /// Removes a file, or a directory and everything under it.
 #[tauri::command]
-pub fn project_delete(path: String) -> Result<(), String> {
-    let root = repo_root()?;
+pub fn project_delete(root: String, path: String) -> Result<(), String> {
+    let root = project_root(&root)?;
     let target = safe_join(&root, &path)?;
     if excluded_entry(&root, &target) {
         return Err(format!("拒绝访问：{path}"));
@@ -416,6 +426,19 @@ pub fn project_delete(path: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn project_root_must_be_an_existing_absolute_directory() {
+        assert!(project_root("").is_err());
+        assert!(project_root("relative/path").is_err());
+
+        let missing = std::env::temp_dir().join("wingharness-missing-project-root");
+        let _ = fs::remove_dir_all(&missing);
+        assert!(project_root(&missing.to_string_lossy()).is_err());
+
+        let existing = std::env::temp_dir();
+        assert_eq!(project_root(&existing.to_string_lossy()).unwrap(), existing);
+    }
 
     #[test]
     fn refuses_dot_git_at_any_depth() {

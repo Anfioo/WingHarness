@@ -1,428 +1,414 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FolderGit2, Loader2 } from "lucide-react";
-import { Workbench } from "codelet/workbench";
-import { remote } from "codelet/extensions/remote";
-import { extensions as extensionsView } from "codelet/extensions/extensions";
-import { search } from "codelet/extensions/search";
-import { Group, Panel, Separator } from "react-resizable-panels";
-import { AppShell } from "@/components/app-shell";
-import { PreviewTab } from "@/components/file-preview/preview-tab";
-import { getConfig } from "@/commands";
-import { createProjectDbActivityExtension } from "@/features/database/project/activity-extension";
-import { ProjectResultsDock } from "@/features/database/project/results-dock";
-import { ProjectDatabaseSidebar } from "@/features/database/project/sidebar";
-import { createSqlEditorExtension } from "@/features/database/project/sql-extension";
-import { ProjectSqlTab } from "@/features/database/project/sql-tab";
-import { ProjectTableTab } from "@/features/database/project/table-tab";
-import { useProjectDb, projectTabTitle } from "@/features/database/project/view-store";
-import { CommitPane } from "@/features/git/project/commit-pane";
-import { CompareTab } from "@/features/git/project/compare-tab";
-import { DiffTab } from "@/features/git/project/diff-tab";
-import { FileHistoryTab } from "@/features/git/project/file-history-tab";
-import { ensureEngineLine } from "@/features/git/project/git-console";
-import { GitToolWindow } from "@/features/git/project/git-tool-window";
-import { useGitView } from "@/features/git/project/git-view-store";
-import { useProjectRepo } from "@/features/git/project/project-repo-store";
-import { RevisionFileTab } from "@/features/git/project/revision-file-tab";
-import { RevisionTreeTab } from "@/features/git/project/revision-tree-tab";
-import type { ProjectTabOpeners } from "@/features/git/project/tab-openers";
-import { basename } from "@/features/git/utils";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { open as pickDirectory } from "@tauri-apps/plugin-dialog";
+import {
+  AlertTriangle,
+  Clock,
+  FolderGit2,
+  FolderOpen,
+  Loader2,
+  MoreHorizontal,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  openWorkspaceTarget,
+  pathsExist,
+  projectForget,
+  projectRecentList,
+  projectRemember,
+  type ProjectEntry,
+} from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { codeletStrings, createDomTranslator, localizeExtensions } from "@/lib/editor/codelet-i18n";
-import { WorkbenchSurface } from "@/lib/editor/workbench-surface";
-import { useEditorTabs, type DiffTabTarget, type EditorTabSurface } from "@/lib/editor/editor-tabs";
 import {
-  createGitActivityExtension,
-  type GitActivityHandle,
-} from "@/lib/editor/git-activity-extension";
-import { createMarkdownPreviewExtension } from "@/lib/editor/markdown-preview-extension";
-import { createPreviewExtension } from "@/lib/editor/preview-extension";
-import { useEditorAppearance } from "@/lib/editor/use-editor-appearance";
-import { useVcsStatus } from "@/lib/editor/use-vcs-status";
-import {
-  createVcsDecorationExtension,
-  type VcsDecorationHandle,
-  type VcsKind,
-} from "@/lib/editor/vcs-decorations";
-import { createProjectTransport } from "@/lib/editor/project-transport";
-import { EDITOR_SURFACE_CLASS } from "@/lib/editor/typography";
+  openProjectWindow,
+  openProjectWindowLabels,
+  projectWindowLabel,
+} from "@/lib/project-windows";
+import { cn } from "@/lib/utils";
 
-/** Loaded on first preview, so marked, KaTeX and highlight.js stay off this page's first paint. */
-const MarkdownPreviewTab = lazy(() => import("@/lib/editor/markdown-preview-tab"));
-
-/**
- * The content of a database tab. codelet only says which tab is in front, so
- * this is where the store decides whether that is a SQL editor or a table.
- */
-function ProjectDbTabView({ tabId }: { tabId: string }) {
-  const tab = useProjectDb((state) => state.tabs.find((entry) => entry.id === tabId) ?? null);
-  if (!tab) return null;
-  return tab.kind === "table" ? <ProjectTableTab tab={tab} /> : <ProjectSqlTab tab={tab} />;
+/** Epoch milliseconds as a locale-aware "3 hours ago". */
+function relativeTime(ms: number, language: string): string {
+  if (!Number.isFinite(ms)) return "";
+  const deltaSeconds = Math.round((ms - Date.now()) / 1000);
+  const abs = Math.abs(deltaSeconds);
+  const format = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+  if (abs < 60) return format.format(deltaSeconds, "second");
+  if (abs < 3600) return format.format(Math.round(deltaSeconds / 60), "minute");
+  if (abs < 86_400) return format.format(Math.round(deltaSeconds / 3600), "hour");
+  if (abs < 86_400 * 30) return format.format(Math.round(deltaSeconds / 86_400), "day");
+  if (abs < 86_400 * 365) return format.format(Math.round(deltaSeconds / (86_400 * 30)), "month");
+  return format.format(Math.round(deltaSeconds / (86_400 * 365)), "year");
 }
 
 /**
- * The project root, opened as an editor.
+ * The project picker: the app's start page. Picking a folder opens it in a
+ * window of its own (`@/lib/project-windows`), so this route never shows a
+ * project itself and carries no `?path=` — several projects can be open at
+ * once, each in its own window.
  *
- * The same codelet `Workbench` the notes page mounts, with one difference that
- * matters: the files come from `codelet/extensions/remote` reading on demand
- * rather than from an in-memory filesystem loaded up front. A project tree can
- * hold `.git`, `node_modules` and build output — far too much to read into a
- * page — so the tree is fetched one level at a time, and `.git` is never served.
- *
- * Git itself is drawn by the host around that shell, in the two places the IDE
- * puts it: a tool window docked below the editor (log, console, working tree),
- * and a commit view that covers the side bar. Diffs are the only Git views that
- * become editor tabs, since they are the only ones the tab strip can close.
+ * The recent list is the backend's (`projectRecentList`), not localStorage:
+ * `projectRemember` records an open and this page re-reads it.
  */
 export default function ProjectPage() {
   const { t, language } = useAppTranslation();
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const workbenchRef = useRef<Workbench | null>(null);
-  const vcsRef = useRef<VcsDecorationHandle | null>(null);
-  const activityRef = useRef<GitActivityHandle | null>(null);
-  const { theme, prefs } = useEditorAppearance();
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // The working copy the page is showing; the file tree's git colours come from it.
-  const [repo, setRepo] = useState<string | null>(null);
-  // The configured root as it is written; the Markdown preview resolves images against it.
-  const [projectRoot, setProjectRoot] = useState("");
-  const { kinds, refresh } = useVcsStatus(repo);
-  // Which editor tab is a host-drawn view, and which view it is.
-  const surface = useEditorTabs((state) => state.surface);
-  const panelOpen = useGitView((state) => state.panelOpen);
-  const changesOpen = useGitView((state) => state.changesOpen);
-  const refreshToken = useGitView((state) => state.refreshToken);
-  const dbPanelOpen = useProjectDb((state) => state.panelOpen);
-  const dbDockOpen = useProjectDb((state) => state.dockOpen);
 
-  // Callbacks captured by the mount effect, which must not re-run for them.
-  const refreshRef = useRef(refresh);
-  const kindsRef = useRef(kinds);
-  useEffect(() => {
-    refreshRef.current = refresh;
-    kindsRef.current = kinds;
-  }, [refresh, kinds]);
+  const [query, setQuery] = useState("");
+  const [recents, setRecents] = useState<ProjectEntry[]>([]);
+  const [missing, setMissing] = useState<Set<string>>(new Set());
+  const [openLabels, setOpenLabels] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    // The console's first line, asked for before anything else can log: the
-    // engine's own answer would otherwise land after the reads that follow.
-    ensureEngineLine();
-    let alive = true;
-    getConfig()
-      .then((view) => {
-        if (!alive) return;
-        const root = view.config.projectRoot.trim();
-        setProjectRoot(root);
-        if (!root) {
-          setRepo(null);
-          return;
-        }
-        // The commit view and the tool window read from this page's own
-        // repository store; opening it here means a save can refresh it even
-        // before they mount.
-        //
-        // The store answers with the repository's canonical path — libgit2
-        // reports forward slashes, the configured path may not. Every view
-        // compares that answer against the `repo` handed down here, so adopting
-        // it is what makes those comparisons hold.
-        void useProjectRepo
-          .getState()
-          .open(root)
-          .then(
-            (info) => {
-              if (alive) setRepo(info.path);
-            },
-            () => {
-              // The views report the failure themselves; the tree still colours
-              // from the configured path.
-              if (alive) setRepo(root);
-            }
-          );
-      })
-      .catch(() => {
-        // Nothing configured: the workbench reports its own failure; the tree
-        // simply stays uncoloured.
-        if (alive) setRepo(null);
+  const [pathInput, setPathInput] = useState("");
+  const [openBusy, setOpenBusy] = useState(false);
+
+  const loadRecents = useCallback(() => {
+    void projectRecentList()
+      .then(setRecents)
+      .catch((error: unknown) => {
+        console.error("Failed to load recent projects:", error);
       });
-    return () => {
-      alive = false;
-    };
   }, []);
 
-  // Mount the shell once, and again when the Extensions view is toggled or the
-  // language changes — both the extension set and the shell's wording are
-  // mount-time options, and only a rebuild can change either. The remote
-  // extension re-reads the tree on each mount, so no unsaved state is lost by
-  // the rebuild.
+  // Which projects already have a window open, in the same identity the window
+  // labels use. Nothing announces a window closing, so the list is re-scanned
+  // whenever this window comes back to the front — the only moment it can change
+  // without this page doing it.
+  const refreshOpenLabels = useCallback(() => {
+    void openProjectWindowLabels().then((labels) => setOpenLabels(new Set(labels)));
+  }, []);
+
   useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    let disposed = false;
-    let domTranslator: { dispose: () => void } | null = null;
-    const transport = createProjectTransport();
-    const vcs = createVcsDecorationExtension({
-      label: (kind: VcsKind) => t(`projectGit.status.${kind}`),
-    });
-    // Painted on the first frame: the status the hook already holds is what the
-    // tree would have asked for anyway.
-    vcs.setData(kindsRef.current);
-    vcsRef.current = vcs;
-
-    const title = (surface: EditorTabSurface) => {
-      const short = (rev: string) => (rev.length > 8 ? rev.slice(0, 8) : rev);
-      if (surface.kind === "diff") {
-        const target = surface.target;
-        const name = basename(target.path);
-        if (target.oid) return `${name} @ ${target.oid.slice(0, 7)}`;
-        return target.staged ? `${name} — ${t("gitRepo.diff.panel.staged")}` : name;
-      }
-      if (surface.kind === "compare") {
-        const name = surface.path ? `${basename(surface.path)}: ` : "";
-        const right = surface.right ? short(surface.right) : t("projectGit.workingTree");
-        return `${name}${short(surface.left)} → ${right}`;
-      }
-      if (surface.kind === "revisionFile") {
-        return `${basename(surface.path)} @ ${surface.oid.slice(0, 7)}`;
-      }
-      if (surface.kind === "revisionTree") {
-        return `${t("projectGit.revisionTree.title")} @ ${surface.oid.slice(0, 7)}`;
-      }
-      if (surface.kind === "fileHistory") {
-        const name = t("projectGit.fileHistory.tabTitle", { name: basename(surface.path) });
-        return surface.fromOid ? `${name} @ ${surface.fromOid.slice(0, 7)}` : name;
-      }
-      if (surface.kind === "dbTab") {
-        const tab = useProjectDb.getState().tabs.find((entry) => entry.id === surface.tabId);
-        return tab ? projectTabTitle(tab) : t("projectDb.activityTitle");
-      }
-      return surface.name;
+    loadRecents();
+    refreshOpenLabels();
+    window.addEventListener("focus", refreshOpenLabels);
+    document.addEventListener("visibilitychange", refreshOpenLabels);
+    return () => {
+      window.removeEventListener("focus", refreshOpenLabels);
+      document.removeEventListener("visibilitychange", refreshOpenLabels);
     };
-    const activity = createGitActivityExtension({
-      parent: host,
-      gitLabel: t("projectGit.activityTitle"),
-      commitLabel: t("projectGit.commitActivityTitle"),
-      title,
-    });
-    activityRef.current = activity;
+  }, [loadRecents, refreshOpenLabels]);
 
-    const dbActivity = createProjectDbActivityExtension({
-      parent: host,
-      label: t("projectDb.activityTitle"),
-      title: (tab) => projectTabTitle(tab),
-    });
-    const sqlEditor = createSqlEditorExtension({
-      displayName: t("projectDb.sqlEditor"),
-      adopt: dbActivity.adopt,
-    });
-
-    const extensions = [
-      vcs.extension,
-      search,
-      ...(prefs.extensionsView ? [extensionsView] : []),
-      createMarkdownPreviewExtension(),
-      remote({
-        url: "tauri://project",
-        transport,
-        // The working copy's own `.git` is never served, matching the backend;
-        // `.wh` is the project database's workspace and is the panel's alone.
-        exclude: [".git", ".wh"],
-        // Names on expand, bodies on open — the lazy end of the protocol.
-        preload: "none",
-        watch: false,
-      }),
-      // Formats the text editor can only render as gibberish are claimed here, and their
-      // tabs become a preview drawn by the host instead — see `preview-extension`.
-      createPreviewExtension({ displayName: t("filePreview.title") }),
-      // Any `.sql` file is claimed by the database's own editor, which carries
-      // the data-source picker, Run and the results dock.
-      sqlEditor,
-      // Last on purpose: codelet lists contributed containers in extension order, so
-      // this is what puts the Git and Commit buttons below Extensions.
-      activity.extension,
-      // After Git: the database button sits below Commit in the activity bar.
-      dbActivity.extension,
-    ];
-    // Nothing to translate in English, and then the extensions go in as they
-    // came — which is what keeps the untranslated page free of copies.
-    const strings = codeletStrings(language);
-
-    try {
-      const workbench = new Workbench({
-        parent: host,
-        theme,
-        extensions: localizeExtensions(extensions, strings),
-        // A save is the moment a file most likely changed status; the hook
-        // batches the burst a format-on-save produces, and the Git views re-read
-        // the working copy they may be showing.
-        onSave: () => {
-          useGitView.getState().requestRefresh();
-          void useProjectRepo
-            .getState()
-            .refreshStatus()
-            .catch(() => undefined);
-        },
-      });
-      workbenchRef.current = workbench;
-      // Started after the shell is up: what the extensions did not contribute —
-      // menus, placeholders, the status bar — is rewritten in place, and stays
-      // rewritten for as long as the shell stands.
-      domTranslator = strings ? createDomTranslator(host, strings) : null;
-      setReady(true);
-    } catch (err) {
-      console.error("project mount:", err);
-      if (!disposed) setError(t("projectPage.openFailed"));
+  // A recent whose folder has since been deleted cannot be opened.
+  useEffect(() => {
+    if (recents.length === 0) {
+      setMissing(new Set());
+      return;
     }
-
+    let cancelled = false;
+    void pathsExist(recents.map((project) => project.path))
+      .then((flags) => {
+        if (cancelled) return;
+        const next = new Set<string>();
+        recents.forEach((project, index) => {
+          if (!flags[index]) next.add(project.path);
+        });
+        setMissing(next);
+      })
+      .catch(() => undefined);
     return () => {
-      disposed = true;
-      domTranslator?.dispose();
-      workbenchRef.current?.destroy();
-      workbenchRef.current = null;
-      vcsRef.current = null;
-      activityRef.current = null;
-      // The shell took the tabs down with it; the views they were showing must
-      // not outlive them.
-      useEditorTabs.getState().reset();
-      // The database tabs and results go with the shell too; the connections
-      // stay open, as they do in the database windows.
-      useProjectDb.getState().resetView();
-      useGitView.getState().reset();
+      cancelled = true;
     };
-    // `theme` is applied by the effect below, so it is deliberately not a
-    // dependency — it would remount the shell on every light/dark flip.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount only on the extension set
-  }, [prefs.extensionsView, language, t]);
+  }, [recents]);
 
-  // Every fetch of the status lands here; the workbench keeps its own decoration
-  // cache, so this is what tells it the colours moved.
-  useEffect(() => {
-    vcsRef.current?.setData(kinds);
-  }, [kinds]);
-
-  // Every Git view that re-reads the working copy asks through this token —
-  // a save, a stage, a commit — and the tree follows with its colours.
-  useEffect(() => {
-    if (repo) refreshRef.current();
-  }, [refreshToken, repo]);
-
-  // The theme may resolve after the workbench mounts (the app's dark class is
-  // applied in a provider effect) and changes again on a settings edit.
-  useEffect(() => {
-    workbenchRef.current?.setTheme(theme);
-  }, [theme]);
-
-  const openDiff = useCallback((target: DiffTabTarget) => {
-    activityRef.current?.openDiff(target);
-  }, []);
-
-  const openers = useMemo<ProjectTabOpeners>(
-    () => ({
-      openDiff,
-      openCompare: (left, right, path) => activityRef.current?.openCompare(left, right, path),
-      openRevisionFile: (oid, path) => activityRef.current?.openRevisionFile(oid, path),
-      openRevisionTree: (oid) => activityRef.current?.openRevisionTree(oid),
-      openFileHistory: (path, fromOid) => activityRef.current?.openFileHistory(path, fromOid),
-      openFile: (path) => activityRef.current?.openFile(path) ?? Promise.resolve(false),
-    }),
-    [openDiff]
+  const openProject = useCallback(
+    async (rawPath: string) => {
+      const path = rawPath.trim();
+      if (!path || openBusy) return;
+      if (missing.has(path)) {
+        toast.error(t("projectHome.toast.missingFolder"));
+        return;
+      }
+      setOpenBusy(true);
+      try {
+        await projectRemember(path);
+        await openProjectWindow(path);
+        loadRecents();
+        refreshOpenLabels();
+      } catch (error) {
+        toast.error(t("projectHome.toast.openFailed"), { description: String(error) });
+        console.error("Failed to open the project:", error);
+      } finally {
+        setOpenBusy(false);
+      }
+    },
+    [loadRecents, missing, openBusy, refreshOpenLabels, t]
   );
 
+  const browseForOpen = useCallback(async () => {
+    const dir = await pickDirectory({ directory: true });
+    if (typeof dir === "string") setPathInput(dir);
+  }, []);
+
+  const openTypedPath = useCallback(async () => {
+    const path = pathInput.trim();
+    if (!path) return;
+    const [exists] = await pathsExist([path]);
+    if (!exists) {
+      toast.error(t("projectHome.toast.missingFolder"));
+      return;
+    }
+    await openProject(path);
+  }, [openProject, pathInput, t]);
+
+  const removeRecent = useCallback(
+    async (path: string) => {
+      try {
+        await projectForget(path);
+        loadRecents();
+      } catch (error) {
+        toast.error(t("projectHome.recent.removeFailed"), { description: String(error) });
+        console.error("Failed to forget the project:", error);
+      }
+    },
+    [loadRecents, t]
+  );
+
+  const revealPath = useCallback(
+    async (path: string) => {
+      try {
+        await openWorkspaceTarget(path, "explorer");
+      } catch (error) {
+        toast.error(t("projectHome.recent.revealFailed"), { description: String(error) });
+        console.error("Failed to reveal the project:", error);
+      }
+    },
+    [t]
+  );
+
+  const visible = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return recents;
+    return recents.filter(
+      (project) =>
+        project.path.toLowerCase().includes(needle) || project.name.toLowerCase().includes(needle)
+    );
+  }, [recents, query]);
+
   return (
-    <AppShell>
-      <section className="border-border relative flex h-full min-h-[60vh] flex-1 flex-col overflow-hidden rounded-xl border">
-        <Group orientation="vertical" className="min-h-0 flex-1">
-          <Panel id="workbench" defaultSize="66" minSize="25" className="relative overflow-hidden">
-            {/* Mounted always so the ref is set before the workbench builds.
-                `editor-surface` is what the typography override attaches to. */}
-            <div ref={hostRef} className={`h-full ${EDITOR_SURFACE_CLASS}`} />
-            {/* Diffs and previews are workbench tabs; their frames are blank
-                and these are drawn exactly over the active one. */}
-            <WorkbenchSurface selector="main.cl-editor iframe" active={surface !== null}>
-              {surface?.kind === "diff" && <DiffTab repo={repo} target={surface.target} />}
-              {surface?.kind === "preview" && (
-                <PreviewTab path={surface.path} name={surface.name} />
-              )}
-              {surface?.kind === "markdown" && (
-                <Suspense fallback={null}>
-                  <MarkdownPreviewTab path={surface.path} root={projectRoot} />
-                </Suspense>
-              )}
-              {surface?.kind === "compare" && (
-                <CompareTab
-                  repo={repo}
-                  left={surface.left}
-                  right={surface.right}
-                  path={surface.path}
-                />
-              )}
-              {surface?.kind === "revisionFile" && (
-                <RevisionFileTab repo={repo} oid={surface.oid} path={surface.path} />
-              )}
-              {surface?.kind === "revisionTree" && (
-                <RevisionTreeTab repo={repo} oid={surface.oid} openers={openers} />
-              )}
-              {surface?.kind === "fileHistory" && (
-                <FileHistoryTab
-                  repo={repo}
-                  path={surface.path}
-                  fromOid={surface.fromOid}
-                  openers={openers}
-                />
-              )}
-              {surface?.kind === "dbTab" && <ProjectDbTabView tabId={surface.tabId} />}
-            </WorkbenchSurface>
-            {/* The commit button's view covers the file tree, not the editor. */}
-            <WorkbenchSurface selector="aside.cl-sidebar" active={changesOpen}>
-              <CommitPane
-                repo={repo}
-                openers={openers}
-                onClose={() => useGitView.getState().closeChanges()}
-              />
-            </WorkbenchSurface>
-            {/* The database button's panel covers the same tree; the two are
-                mutually exclusive, so only one surface is ever active. */}
-            <WorkbenchSurface selector="aside.cl-sidebar" active={dbPanelOpen && !changesOpen}>
-              <ProjectDatabaseSidebar />
-            </WorkbenchSurface>
-          </Panel>
-
-          {panelOpen && (
-            <>
-              <Separator className="bg-border h-px" />
-              <Panel id="git" defaultSize="34" minSize="12" className="overflow-hidden">
-                <GitToolWindow repo={repo} openers={openers} />
-              </Panel>
-            </>
-          )}
-
-          {dbDockOpen && (
-            <>
-              <Separator className="bg-border h-px" />
-              <Panel id="db-results" defaultSize="30" minSize="12" className="overflow-hidden">
-                <ProjectResultsDock />
-              </Panel>
-            </>
-          )}
-        </Group>
-
-        {!ready && (
-          <div className="bg-background absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 text-sm">
-            {error ? (
-              <>
-                <FolderGit2 className="text-muted-foreground size-6" />
-                <p className="text-destructive max-w-md text-center">{error}</p>
-              </>
-            ) : (
-              <>
-                <Loader2 className="text-muted-foreground size-4 animate-spin" />
-                <span className="text-muted-foreground">{t("projectPage.loading")}</span>
-              </>
-            )}
+    <div className="flex flex-1 flex-col overflow-y-auto">
+      <div className="animate-fade-in w-full px-6 py-10">
+        <header className="mb-6 flex items-center gap-3">
+          <span className="bg-primary/10 text-primary flex size-12 shrink-0 items-center justify-center rounded-xl">
+            <FolderGit2 className="size-6" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-primary text-xl font-semibold tracking-tight">
+              {t("projectHome.header.title")}
+            </h1>
+            <p className="text-muted-foreground text-sm">{t("projectHome.header.tagline")}</p>
           </div>
+        </header>
+
+        <section className="animate-slide-up border-border bg-card shadow-soft max-w-xl rounded-lg border p-4">
+          <div className="mb-3 flex items-center gap-3">
+            <span className="bg-primary/15 text-primary flex size-9 shrink-0 items-center justify-center rounded-md">
+              <FolderOpen className="size-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-medium">{t("projectHome.open.title")}</h2>
+              <p className="text-muted-foreground text-xs">{t("projectHome.open.hint")}</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Input
+              value={pathInput}
+              onChange={(event) => setPathInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void openTypedPath();
+              }}
+              placeholder={t("projectHome.open.pathPlaceholder")}
+              aria-label={t("projectHome.open.pathLabel")}
+              className="h-8 text-sm"
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => void browseForOpen()}>
+                {t("projectHome.open.browse")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => void openTypedPath()}
+                disabled={!pathInput.trim() || openBusy}
+              >
+                {openBusy ? <Loader2 className="size-3.5 animate-spin" /> : null}
+                {openBusy ? t("projectHome.open.opening") : t("projectHome.open.open")}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <section className="animate-slide-up border-border bg-card shadow-soft mt-3 rounded-lg border">
+          <div className="border-border flex flex-wrap items-center gap-2 border-b px-4 py-3">
+            <Clock className="text-muted-foreground size-4" />
+            <h2 className="text-sm font-medium">{t("projectHome.recent.title")}</h2>
+            <span className="text-faint text-xs">{visible.length}</span>
+            <div className="relative ml-auto w-52">
+              <Search className="text-faint pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("projectHome.recent.searchPlaceholder")}
+                aria-label={t("projectHome.recent.searchLabel")}
+                className="h-7 pl-8 text-xs"
+              />
+            </div>
+          </div>
+
+          {recents.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+              <span className="bg-muted text-muted-foreground flex size-12 items-center justify-center rounded-full">
+                <FolderGit2 className="size-6" />
+              </span>
+              <div>
+                <p className="text-sm font-medium">{t("projectHome.recent.emptyTitle")}</p>
+                <p className="text-muted-foreground mx-auto mt-1 max-w-md text-xs">
+                  {t("projectHome.recent.emptyDescription")}
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => void browseForOpen()}>
+                {t("projectHome.recent.emptyOpen")}
+              </Button>
+            </div>
+          ) : visible.length === 0 ? (
+            <p className="text-muted-foreground px-4 py-8 text-center text-xs">
+              {t("projectHome.recent.noMatch", { query })}
+            </p>
+          ) : (
+            <ul className="p-1">
+              {visible.map((project) => (
+                <RecentRow
+                  key={project.path}
+                  project={project}
+                  openedAt={relativeTime(project.openedAt, language)}
+                  isOpen={openLabels.has(projectWindowLabel(project.path))}
+                  isMissing={missing.has(project.path)}
+                  labels={{
+                    alreadyOpen: t("projectHome.recent.alreadyOpen"),
+                    missing: t("projectHome.recent.missing"),
+                    menuAria: t("projectHome.recent.menuAria", { name: project.name }),
+                    open: t("projectHome.recent.open"),
+                    focus: t("projectHome.recent.focus"),
+                    reveal: t("projectHome.recent.reveal"),
+                    remove: t("projectHome.recent.remove"),
+                  }}
+                  onOpen={() => void openProject(project.path)}
+                  onReveal={() => void revealPath(project.path)}
+                  onRemove={() => void removeRecent(project.path)}
+                />
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+interface RecentRowLabels {
+  alreadyOpen: string;
+  missing: string;
+  menuAria: string;
+  open: string;
+  focus: string;
+  reveal: string;
+  remove: string;
+}
+
+function RecentRow({
+  project,
+  openedAt,
+  isOpen,
+  isMissing,
+  labels,
+  onOpen,
+  onReveal,
+  onRemove,
+}: {
+  project: ProjectEntry;
+  openedAt: string;
+  isOpen: boolean;
+  isMissing: boolean;
+  labels: RecentRowLabels;
+  onOpen: () => void;
+  onReveal: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="group hover:bg-accent flex items-center gap-3 rounded-md px-2 py-1.5">
+      <button
+        type="button"
+        onClick={onOpen}
+        disabled={isMissing}
+        className="flex min-w-0 flex-1 items-center gap-3 text-left disabled:cursor-not-allowed"
+      >
+        <span
+          className={cn(
+            "flex size-8 shrink-0 items-center justify-center rounded-md",
+            isMissing ? "bg-muted text-faint" : "bg-primary/10 text-primary"
+          )}
+        >
+          <FolderGit2 className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-medium">{project.name || project.path}</span>
+            {isOpen ? (
+              <Badge variant="secondary" className="shrink-0 px-1.5 text-[10px]">
+                {labels.alreadyOpen}
+              </Badge>
+            ) : null}
+          </span>
+          <span className="text-faint block truncate font-mono text-[11px]" title={project.path}>
+            {project.path}
+          </span>
+        </span>
+      </button>
+
+      <span className="text-faint shrink-0 text-xs">
+        {isMissing ? (
+          <span className="text-destructive flex items-center gap-1">
+            <AlertTriangle className="size-3" />
+            {labels.missing}
+          </span>
+        ) : (
+          openedAt
         )}
-      </section>
-    </AppShell>
+      </span>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            aria-label={labels.menuAria}
+          >
+            <MoreHorizontal className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={onOpen} disabled={isMissing}>
+            <FolderGit2 className="size-3.5" />
+            {isOpen ? labels.focus : labels.open}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onReveal} disabled={isMissing}>
+            <FolderOpen className="size-3.5" />
+            {labels.reveal}
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onSelect={onRemove}>
+            <Trash2 className="size-3.5" />
+            {labels.remove}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
   );
 }

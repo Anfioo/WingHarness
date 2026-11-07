@@ -4,6 +4,9 @@
 定义的唯一来源，并把这份存储翻译成各个 AI 编程代理期望的目录布局。它位于侧边栏
 「Agent」分组。
 
+项目作用域作用于页面顶部选中的项目：选择器列出打开过的项目，每个代理的项目文件
+都在它指定的那个项目里读写。
+
 编辑只在存储里做一次。随后每个代理会得到一个*计划*——将要写入与删除的文件——
 并在任何写入发生之前展示出来。反方向同样成立：代理的本地文件也能被拉回存储。
 
@@ -137,6 +140,10 @@ page → shaic_dashboard()        one row per agent, worst state across scopes
 `shaic_remove_item` 是唯一会立即扩散到各代理的条目命令；其余的都等待计划与
 「应用」。
 
+检查、物化与移除命令都接受一个可选的 `root`：页面传入选择器选中的项目，因此
+项目作用域读写的就是该项目的文件。没有传入根目录时，crate 会退回从工作目录推断，
+这只适用于页面之外的调用方。
+
 ## 限制
 
 - Antigravity 仅支持发现。Gemini 只接收规则。Codex 的全局规则尽力而为。Cursor、
@@ -147,7 +154,7 @@ page → shaic_dashboard()        one row per agent, worst state across scopes
 - 条目名是单个路径片段；重命名意味着删除后重新添加。
 - 两个条目可以渲染到同一路径（技能/规则塌缩、Cursor 代理遮蔽）；先者确定地
   胜出并给出警告。
-- 项目作用域取决于「设置 → 项目」是否指向正确的工作副本。
+- 项目作用域就是页面选择器选中的项目；所有项目都通过同一个存储检查。
 - `git` 必须在 `PATH` 上。
 
 ## 把本模块接入其他应用
@@ -156,8 +163,8 @@ page → shaic_dashboard()        one row per agent, worst state across scopes
    `invoke.rs`、`build.rs` 与 `capabilities/default.json` 暴露命令。
 2. 复制 `src/pages/ai-config` 以及 `shaic` 命令封装。
 3. 添加 `aiConfig.enabledAgents` 设置（缺省表示所有代理启用）。
-4. 把项目作用域指向新应用里「当前工作副本」的含义——该 crate 通过一个小设置钩子
-   读取它。
+4. 从新应用里「当前工作副本」的含义把根目录传给命令；参数缺省时 crate 会退回
+   推断。
 
 ## 常见问题
 

@@ -4,12 +4,12 @@
 //! lands in the same macro namespace the `#[macro_export]` re-import targets,
 //! and the two definitions collide. A submodule is the standard fix.
 
-use crate::{confine, meta, root, PreviewMeta, PREVIEW_MAX_BYTES};
+use crate::{confine, meta, project_root, PreviewMeta, PREVIEW_MAX_BYTES};
 
 /// What the page knows about a file before reading it.
 #[tauri::command]
-pub fn preview_metadata(path: String) -> Result<PreviewMeta, String> {
-    meta::metadata_at(&root()?, &path)
+pub fn preview_metadata(root: String, path: String) -> Result<PreviewMeta, String> {
+    meta::metadata_at(&project_root(&root)?, &path)
 }
 
 /// A file's bytes, as raw IPC rather than a JSON array of numbers.
@@ -17,8 +17,8 @@ pub fn preview_metadata(path: String) -> Result<PreviewMeta, String> {
 /// The cap is enforced here as well as advertised in [`PreviewMeta::over_cap`]
 /// so a direct call cannot sidestep it.
 #[tauri::command]
-pub fn preview_bytes(path: String) -> Result<tauri::ipc::Response, String> {
-    let target = confine::resolve(&root()?, &path)?;
+pub fn preview_bytes(root: String, path: String) -> Result<tauri::ipc::Response, String> {
+    let target = confine::resolve(&project_root(&root)?, &path)?;
     let metadata =
         std::fs::metadata(&target).map_err(|error| format!("读取 {path} 失败：{error}"))?;
     if metadata.is_dir() {

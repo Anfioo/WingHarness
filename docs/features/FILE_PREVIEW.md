@@ -1,9 +1,9 @@
 # File Preview
 
-The **文件预览** (File preview) page is a read-only viewer for the files in the
-configured project root. It sits in the sidebar right after **笔记**, and reuses
-the same directory the **项目** page opens — the path from Settings → Project,
-resolved and confined by the backend.
+The **文件预览** (File preview) page is a read-only viewer for the files in a
+project. It sits in the sidebar right after **笔记**, and works on whichever
+project the page's project picker selects — the same folder the **项目** page
+opens in a window, confined by the backend.
 
 ## How it works
 
@@ -33,12 +33,14 @@ resolved and confined by the backend.
 
 | Command | Parameters | Returns | Notes |
 |---------|------------|---------|-------|
-| `preview_metadata` | `path` | `PreviewMeta` | `/`-rooted path; size, mime, `previewable`, `overCap` |
-| `preview_bytes` | `path` | raw IPC bytes | Refused past the 64 MiB cap and for anything outside the project root |
+| `preview_metadata` | `path`, `root` | `PreviewMeta` | `/`-rooted path; size, mime, `previewable`, `overCap` |
+| `preview_bytes` | `path`, `root` | raw IPC bytes | Refused past the 64 MiB cap and for anything outside the project root |
 
 `path` is always root-relative and `/`-rooted, the form the file tree already
-speaks. Both commands resolve the root through a provider the app installs at
-startup, so a change in Settings → Project takes effect on the next read.
+speaks. `root` comes from the caller: the page passes the project its picker
+selected, the project window passes its own folder, and the notes page passes the
+notes directory — so a preview always reads from the same place the file was
+listed.
 
 ## Supported formats
 

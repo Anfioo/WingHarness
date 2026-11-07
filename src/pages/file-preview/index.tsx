@@ -5,6 +5,7 @@ import { previewBytes, previewMetadata, type RemoteEntry } from "@/commands";
 import { AppShell } from "@/components/app-shell";
 import { FileTree } from "@/components/file-preview/file-tree";
 import { PreviewPane } from "@/components/file-preview/preview-pane";
+import { ProjectPicker } from "@/components/project-picker";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { bytesToObjectUrl } from "@/lib/preview/lib/bytes";
 import type { FileMetadata } from "@/lib/preview/types";
@@ -13,18 +14,19 @@ import { objectUrlsFrom } from "@/lib/preview/viewers/previewResources";
 import type { LoadState } from "@/lib/preview/viewers/previewTypes";
 
 /**
- * Preview the files in the git-svn working copy.
+ * Preview the files of one project, chosen at the top of the page.
  *
  * The tree is the same one the project editor reads — `project_tree`, one level
  * at a time — but nothing here writes: pick a file and it is read through
  * `preview_bytes` and handed to the viewer registry, which parses it in the
  * webview. The only backend work is reading bytes.
  *
- * The root is whatever the config names; this page neither knows nor checks it,
- * and the backend refuses anything that escapes it.
+ * The root comes from the page's project picker; the backend refuses anything
+ * that escapes it.
  */
 export default function FilePreviewPage() {
   const { t } = useAppTranslation();
+  const [root, setRoot] = useState("");
   const [payload, setPayload] = useState<FileMetadata | null>(null);
   const [state, setState] = useState<LoadState>({ status: "idle" });
 
@@ -63,7 +65,7 @@ export default function FilePreviewPage() {
       setState({ status: "loading" });
 
       try {
-        const meta = await previewMetadata(entry.path);
+        const meta = await previewMetadata(entry.path, root);
         if (request !== requestRef.current) return;
         const metadata: FileMetadata = {
           path: meta.path,
@@ -80,7 +82,7 @@ export default function FilePreviewPage() {
           return;
         }
 
-        const bytes = await previewBytes(entry.path);
+        const bytes = await previewBytes(entry.path, root);
         if (request !== requestRef.current) return;
 
         const url = bytesToObjectUrl(bytes, meta.mime);
@@ -98,7 +100,7 @@ export default function FilePreviewPage() {
         });
       }
     },
-    [releaseUrls, t]
+    [releaseUrls, root, t]
   );
 
   const reload = useCallback(() => {
@@ -113,36 +115,50 @@ export default function FilePreviewPage() {
   return (
     <AppShell>
       <section className="flex h-full w-full flex-col gap-4">
-        <div className="flex min-h-0 flex-1 gap-4">
-          <aside className="border-border bg-card flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border shadow-sm">
-            <div className="border-border flex h-10 shrink-0 items-center gap-2 border-b px-3">
-              <FolderTree className="text-muted-foreground size-4" />
-              <span className="text-sm font-medium">{t("filePreview.treeTitle")}</span>
-            </div>
-            <div className="min-h-0 flex-1 overflow-auto p-1">
-              <FileTree
-                selectedPath={payload?.path ?? null}
-                onSelectFile={(entry) => void openFile(entry)}
-                onError={onTreeError}
-                labels={{
-                  loading: t("filePreview.treeLoading"),
-                  empty: t("filePreview.treeEmpty"),
-                  failed: t("filePreview.treeFailed"),
-                }}
-              />
-            </div>
-          </aside>
+        <ProjectPicker
+          value={root}
+          onChange={(next) => {
+            releaseUrls();
+            setPayload(null);
+            setState({ status: "idle" });
+            setRoot(next);
+          }}
+        />
+        {root ? (
+          <div className="flex min-h-0 flex-1 gap-4">
+            <aside className="border-border bg-card flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border shadow-sm">
+              <div className="border-border flex h-10 shrink-0 items-center gap-2 border-b px-3">
+                <FolderTree className="text-muted-foreground size-4" />
+                <span className="text-sm font-medium">{t("filePreview.treeTitle")}</span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto p-1">
+                {/* Keyed on the root: the tree's loaded folders belong to the
+                    project it was built for, not to the one now selected. */}
+                <FileTree
+                  key={root}
+                  selectedPath={payload?.path ?? null}
+                  onSelectFile={(entry) => void openFile(entry)}
+                  onError={onTreeError}
+                  labels={{
+                    loading: t("filePreview.treeLoading"),
+                    empty: t("filePreview.treeEmpty"),
+                    failed: t("filePreview.treeFailed"),
+                  }}
+                />
+              </div>
+            </aside>
 
-          <section className="border-border bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm">
-            <PreviewPane
-              payload={payload}
-              state={state}
-              onReload={reload}
-              reloadLabel={t("filePreview.reload")}
-              emptyLabel={t("filePreview.empty")}
-            />
-          </section>
-        </div>
+            <section className="border-border bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm">
+              <PreviewPane
+                payload={payload}
+                state={state}
+                onReload={reload}
+                reloadLabel={t("filePreview.reload")}
+                emptyLabel={t("filePreview.empty")}
+              />
+            </section>
+          </div>
+        ) : null}
       </section>
     </AppShell>
   );

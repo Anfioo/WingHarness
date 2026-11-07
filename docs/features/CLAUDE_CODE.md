@@ -61,8 +61,8 @@ forever.
 returns "A Claude turn is already running." Stop is Esc, which kills the process
 tree (`taskkill /T /F` on Windows).
 
-The working directory defaults to the working copy from `Settings → 项目`,
-is editable in the toolbar, and changing it starts a fresh conversation. The
+The working directory defaults to the most recently opened project, is editable
+in the toolbar, and changing it starts a fresh conversation. The
 transcript drawer reopens earlier sessions; the CLI log drawer shows the raw
 traffic.
 

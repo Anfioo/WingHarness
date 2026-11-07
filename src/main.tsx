@@ -15,6 +15,7 @@ import { PageActiveProvider } from "@/lib/page-active";
 // instead of every page in the app.
 const pageMap = {
   "/": lazy(() => import("./pages/project/index")),
+  "/project-window": lazy(() => import("./pages/project/window")),
   "/git-repo": lazy(() => import("./pages/git-repo/index")),
   "/git-repo-window": lazy(() => import("./pages/git-repo/window")),
   "/svn-workspace": lazy(() => import("./pages/svn-workspace/index")),
@@ -60,6 +61,7 @@ const pageMap = {
 const standalonePaths = new Set([
   "/about",
   "/settings",
+  "/project-window",
   "/git-repo-window",
   "/svn-workspace-window",
   "/svn-workspace-diff",

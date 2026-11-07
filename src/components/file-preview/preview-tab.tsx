@@ -15,7 +15,7 @@ import type { LoadState } from "@/lib/preview/viewers/previewTypes";
  * then the viewer registry. The tab itself is codelet's — its title and close
  * button are the tab strip's — so the pane is drawn without a close button.
  */
-export function PreviewTab({ path, name }: { path: string; name: string }) {
+export function PreviewTab({ path, name, root }: { path: string; name: string; root: string }) {
   const { t } = useAppTranslation();
   const [payload, setPayload] = useState<FileMetadata | null>(null);
   const [state, setState] = useState<LoadState>({ status: "idle" });
@@ -45,7 +45,7 @@ export function PreviewTab({ path, name }: { path: string; name: string }) {
 
     void (async () => {
       try {
-        const meta = await previewMetadata(path);
+        const meta = await previewMetadata(path, root);
         if (cancelled) return;
         const metadata: FileMetadata = {
           path: meta.path,
@@ -62,7 +62,7 @@ export function PreviewTab({ path, name }: { path: string; name: string }) {
           return;
         }
 
-        const bytes = await previewBytes(path);
+        const bytes = await previewBytes(path, root);
         if (cancelled) return;
 
         const url = bytesToObjectUrl(bytes, meta.mime);
@@ -86,7 +86,7 @@ export function PreviewTab({ path, name }: { path: string; name: string }) {
       controller.abort();
       releaseUrls();
     };
-  }, [path, name, attempt, releaseUrls, t]);
+  }, [path, name, root, attempt, releaseUrls, t]);
 
   return (
     <PreviewPane

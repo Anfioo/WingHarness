@@ -25,7 +25,8 @@ cargo check        # Called from this directory; faster for Rust-only edits
 
 ## Command Surface
 
-63 commands, grouped by module:
+The application's own commands, grouped by module (each workspace crate lists
+its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 
 | Module | Commands | Count |
 |--------|----------|-------|
@@ -36,7 +37,8 @@ cargo check        # Called from this directory; faster for Rust-only edits
 | `fonts/mod.rs` | `fonts_list` | 1 |
 | `commands/local_shell.rs` | `local_shell_kill`, `local_shell_list_fonts`, `local_shell_resize`, `local_shell_start`, `local_shell_write` | 5 |
 | `commands/notes.rs` | `notes_delete`, `notes_list`, `notes_mkdir`, `notes_rename`, `notes_write` | 5 |
-| `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` | 7 |
+| `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` — each takes the project `root` as its first argument | 7 |
+| `commands/projects.rs` | `project_active`, `project_forget`, `project_recent_list`, `project_remember`, `project_set_active` | 5 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
 | `commands/updater.rs` | `cancel_update_download`, `download_and_install_update`, `is_update_download_active` | 3 |
@@ -74,33 +76,36 @@ two compiles and then fails at runtime with "not allowed by ACL".
 Why the ACL matters here: without an application manifest of its own, Tauri
 checks access control only for plugin commands, so *every* application command
 becomes callable from *any* webview. With the manifest in place the capability
-grants these permissions to `main`, `about`, `settings`, `tray-menu` and the
-`database-*` data source windows only, and
+grants these permissions to `main`, `about`, `settings`, `tray-menu`, the
+`database-*` data source windows and the `project-*` project windows only, and
 the caller's origin additionally has to match.
 
 ## Config and Data Directory
 
 - `src/config/mod.rs` is deliberately plain `std` + `serde_json`, with no Tauri
   handle, so it stays usable from tests and tools
-- `config.json` holds `workspace.root` — the project the file browser and the
-  preview open at. An empty root is a valid state: the pages show an empty state,
-  not an error
+- `config.json` holds the per-app settings: the Codex switch preferences and the
+  AI config sync's enabled agents. It holds no project — projects are their own
+  store, below
+- `src/projects/mod.rs` is the project store: `<data dir>/projects.json`, with
+  the recent list and the active project. It is plain `std` + `serde_json` for
+  the same reason as `config`, and the backend never guesses a root from it —
+  every project command is told its root
 - `data-dir.txt` is a pointer file in the *default* config directory naming the
   directory actually in use. It lives there on purpose: it has to be found before
   the app knows where anything else is
 - `config::dir()` is where every piece of persisted state goes — notes, cached
-  fonts, config. It is resolved once at startup, so changing it takes effect after
-  a restart
-- `config::init(dir)` is called from `.setup()`; the preview crate gets the project
-  root through `provide_root()`, which resolves per call so a settings change
-  needs no restart
+  fonts, config, projects. It is resolved once at startup, so changing it takes
+  effect after a restart
+- `config::init(dir)` is called from `.setup()`; nothing injects a global project
+  root any more — `preview_metadata` / `preview_bytes` take theirs as an argument
 
 ## Crates
 
 `file-preview/` is a workspace member: the preview page's byte reader, kept
 separate so it can be tested and reasoned about without Tauri. It exposes exactly
-two commands, resolves its root through the provider the app installs, and is the
-only backend work the preview page does. See
+two commands, takes the project root as a parameter, and is the only backend work
+the preview page does. See
 [../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
 
 `db-core/` is a workspace member: the database engine behind the databases page
@@ -109,9 +114,10 @@ settings, pools, transactions, statement splitting, query history, catalog
 introspection, table paging and row editing, DDL generation, execution plans, and
 the workspace (query files, persisted tabs and row limits), with no Tauri state
 of its own. `commands/db.rs` is a thin layer over it: it owns `DbState` (the
-app-wide engine, the project-scoped engine, the workspace and the cancellation
-map) and nothing else — an id prefixed `whp-` selects the project engine, and the
-commands with no id take an optional `scope`. Row edits are validated
+app-wide engine, one project-scoped engine per root, the workspace and the
+cancellation map) and nothing else — an id prefixed `whp-` selects the project
+engine for the caller's `root`, and the commands with no id take an optional
+`scope`. Row edits are validated
 in the engine, not only in the frontend — an update or delete on a table without
 a primary key is refused there too. It is a GPL-compatible port from
 [openidea](https://github.com/l0ng-ai/openidea); `db-core/UPSTREAM.md` records
@@ -127,7 +133,8 @@ crates), which are Rust dependencies.
 and `settings` windows are created on demand by the frontend
 (`createWindow()` in `src/lib/window.ts`), which is why they do not appear there.
 Every label the frontend can create — including the `database-*` data source
-windows — is listed in `capabilities/default.json`.
+windows and the `project-*` project windows — is listed in
+`capabilities/default.json`.
 
 ## Key Dependencies
 
@@ -170,6 +177,7 @@ src-tauri/
     ├── invoke.rs           # The handler list
     ├── commands/           # One module per command domain + fs_guard.rs
     ├── config/             # config.json, the data-directory pointer, config::dir()
+    ├── projects/           # projects.json: the recent list and the active project
     ├── fonts/              # Installed font enumeration
     ├── plugins/            # The app's tray: system_tray, tray_popup (Windows)
     └── theme/              # Theme preset web fonts

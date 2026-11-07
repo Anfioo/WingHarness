@@ -1,11 +1,12 @@
 import { invokeCommand } from "../../base";
+import { requireActiveProject } from "../../project-context";
 
 /**
  * The git-svn working copy, as codelet's `remote` extension reads it.
  *
  * Shapes mirror `codelet/dist/_chunks/protocol.d.mts`. Paths are `/`-rooted and
- * relative to the configured repo; the backend confines them and never serves
- * `.git`.
+ * relative to the window's project root; the backend confines them and never
+ * serves `.git`.
  */
 
 export interface RemoteInfo {
@@ -49,9 +50,9 @@ export interface WriteResult {
   etag: string;
 }
 
-/** What this is, asked once at connect time. Fails loudly when no repo is set. */
-export function projectInfo(): Promise<RemoteInfo> {
-  return invokeCommand("project_info", {});
+/** What this is, asked once at connect time. Fails loudly when no project is open. */
+export function projectInfo(root?: string): Promise<RemoteInfo> {
+  return invokeCommand("project_info", { root: root ?? requireActiveProject() });
 }
 
 /**
@@ -61,29 +62,35 @@ export function projectInfo(): Promise<RemoteInfo> {
  */
 export function projectTree(
   path: string,
-  options?: { depth?: number | "all"; content?: boolean }
+  options?: { depth?: number | "all"; content?: boolean },
+  root?: string
 ): Promise<TreeResult> {
-  return invokeCommand("project_tree", { path, ...options });
+  return invokeCommand("project_tree", { root: root ?? requireActiveProject(), path, ...options });
 }
 
 /** A text file's bytes, with the tag a later write compares against. */
-export function projectRead(path: string): Promise<ReadResult> {
-  return invokeCommand("project_read", { path });
+export function projectRead(path: string, root?: string): Promise<ReadResult> {
+  return invokeCommand("project_read", { root: root ?? requireActiveProject(), path });
 }
 
 /** Writes a text file; a stale `etag` is refused rather than clobbering disk. */
-export function projectWrite(path: string, body: string, etag?: string): Promise<WriteResult> {
-  return invokeCommand("project_write", { path, body, etag });
+export function projectWrite(
+  path: string,
+  body: string,
+  etag?: string,
+  root?: string
+): Promise<WriteResult> {
+  return invokeCommand("project_write", { root: root ?? requireActiveProject(), path, body, etag });
 }
 
-export function projectMkdir(path: string): Promise<void> {
-  return invokeCommand("project_mkdir", { path });
+export function projectMkdir(path: string, root?: string): Promise<void> {
+  return invokeCommand("project_mkdir", { root: root ?? requireActiveProject(), path });
 }
 
-export function projectMove(from: string, to: string): Promise<void> {
-  return invokeCommand("project_move", { from, to });
+export function projectMove(from: string, to: string, root?: string): Promise<void> {
+  return invokeCommand("project_move", { root: root ?? requireActiveProject(), from, to });
 }
 
-export function projectDelete(path: string): Promise<void> {
-  return invokeCommand("project_delete", { path });
+export function projectDelete(path: string, root?: string): Promise<void> {
+  return invokeCommand("project_delete", { root: root ?? requireActiveProject(), path });
 }

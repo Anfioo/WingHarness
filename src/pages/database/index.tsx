@@ -19,9 +19,9 @@ import {
   dbSourceSetPassword,
   dbSourceTest,
   databaseErrorCode,
-  getConfig,
 } from "@/commands";
 import type { DataSource, DataSourceView, DbColor } from "@/commands";
+import { ProjectPicker } from "@/components/project-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -93,9 +93,8 @@ export default function DatabasePage() {
       setLoading(true);
       setError(null);
       try {
-        const [loaded, config] = await Promise.all([dbSourceList(), getConfig()]);
+        const loaded = await dbSourceList();
         setSources(loaded);
-        setProjectRoot(config.config.projectRoot);
         if (announce) {
           toast.success(t("database.toast.reloaded"));
         }
@@ -112,6 +111,17 @@ export default function DatabasePage() {
     void load();
   }, [load]);
 
+  // The page's data sources are app-wide, but a relative SQLite path in one of
+  // them resolves against the project in front of the user, so switching project
+  // is a reload.
+  const handleProjectChange = useCallback(
+    (next: string) => {
+      setProjectRoot(next);
+      void load();
+    },
+    [load]
+  );
+
   const list = useMemo(() => sources ?? [], [sources]);
 
   const filtered = useMemo(() => {
@@ -127,7 +137,7 @@ export default function DatabasePage() {
 
   const handleOpen = async (source: DataSourceView) => {
     try {
-      await openDatabaseWindow(source.id, source.name);
+      await openDatabaseWindow(source.id, source.name, projectRoot.trim());
     } catch (failure) {
       toast.error(
         t("database.error.openFailed", {
@@ -239,6 +249,8 @@ export default function DatabasePage() {
           {t("database.action.create")}
         </Button>
       </header>
+
+      <ProjectPicker value={projectRoot} onChange={handleProjectChange} />
 
       {hasSources && (
         <div className="flex flex-wrap items-center gap-2">

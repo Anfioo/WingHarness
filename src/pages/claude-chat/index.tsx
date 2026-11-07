@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Eraser, Send, Square } from "lucide-react";
-import { getConfig } from "@/commands";
+import { projectActive } from "@/commands";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,11 +83,13 @@ export default function ClaudeChatPage() {
   // The history session to open with, if the user picked one from the drawer.
   const [restored, setRestored] = useState<RestoredSession | null>(null);
 
+  // The chat runs in whichever project was opened last; with none open there is
+  // no working directory to speak of, and the CLI's own cwd is the fallback.
   useEffect(() => {
-    getConfig()
-      .then((view) => setCwd(view.config.projectRoot || "."))
+    projectActive()
+      .then((root) => setCwd(root || "."))
       .catch((err) => {
-        console.error("Failed to read the configured project root:", err);
+        console.error("Failed to read the active project:", err);
         setCwd(".");
       });
   }, []);

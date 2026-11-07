@@ -6,6 +6,7 @@ pub mod logging;
 mod mcphub;
 mod plugins;
 pub mod proc;
+pub mod projects;
 mod shaic;
 mod sidebar;
 mod theme;
@@ -60,19 +61,18 @@ pub fn run() {
                 let _ = md_editor_core::paths::CONFIG_DIR.set(config::dir().join("md-editor"));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
-                // feature moves with the data directory. The manager caches the
-                // project root for relative SQLite paths; the commands refresh
-                // it per call, so a settings change needs no restart. A project
-                // scoped engine is built on demand under `<project>/.wh/db`;
-                // its saved passwords still go in the app's `secrets.json`.
+                // feature moves with the data directory. The app-wide manager
+                // caches a project root for relative SQLite paths; the commands
+                // refresh it per call, so a project window needs no restart. A
+                // project scoped engine is built on demand under
+                // `<project>/.wh/db` and kept per root; its saved passwords
+                // still go in the app's `secrets.json`.
                 let dir = config::dir().join("db");
                 let db = commands::db::DbState::new(
                     db_core::DbManager::new(dir.clone()),
                     db_core::Workspace::new(dir.clone()),
                     dir.join("secrets.json"),
                 );
-                db.app
-                    .set_root(config::load().project_root().map(str::to_owned));
                 app.manage(db);
                 // `frpc` children outlive an abnormal exit; reap the ones a
                 // previous run recorded before this one can spawn new ones.
@@ -83,10 +83,6 @@ pub fn run() {
             app.manage(prism_core::ClashState::new(app.handle().clone()));
             app.manage(server_core::ServerState::new(app.handle().clone()));
             app.manage(frp_core::FrpState::new(app.handle().clone()));
-            // The preview backend is its own crate and knows nothing of the
-            // config; hand it the one thing it needs. The provider resolves the
-            // path per call, so a settings change is picked up without a restart.
-            file_preview_core::provide_root(commands::project_fs::repo_root);
             // The identifier is not asserted against `config::IDENTIFIER`: dev
             // builds override it (see `src-tauri/tauri.dev.conf.json`) so they
             // can run next to an installed build.

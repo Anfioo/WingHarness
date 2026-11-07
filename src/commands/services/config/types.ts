@@ -1,9 +1,4 @@
 export interface AppConfig {
-  /**
-   * Root directory the project page, the file preview and the agent config sync
-   * work in. Empty means "not configured".
-   */
-  projectRoot: string;
   aiConfig: AiConfig;
 }
 
