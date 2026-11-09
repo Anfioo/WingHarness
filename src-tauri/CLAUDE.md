@@ -123,6 +123,14 @@ a primary key is refused there too. It is a GPL-compatible port from
 [openidea](https://github.com/l0ng-ai/openidea); `db-core/UPSTREAM.md` records
 what differs. See [../docs/features/DATABASE.md](../docs/features/DATABASE.md).
 
+`ports-core/` is a workspace member: the engine behind the ports page — the
+Windows TCP listener table, the three-state scan, process lookup and
+termination, the one-shot elevated kill, and the `settings.json` store under
+`<data dir>/ports`. `src/lib.rs` sets `ports_core::paths::CONFIG_DIR` in setup;
+the crate keeps no Tauri state of its own. It is adapted from
+[Porter](https://github.com/t21dev/porter-app) (MIT); `ports-core/UPSTREAM.md`
+records what differs. See [../docs/features/PORTS.md](../docs/features/PORTS.md).
+
 `plugins/` is the app's own tray — the native icon and, on Windows, its themed
 right-click menu. Not to be confused with Tauri plugins (the `tauri-plugin-*`
 crates), which are Rust dependencies.

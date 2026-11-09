@@ -165,6 +165,7 @@ repository yet.
 | [MD_EDITOR.md](./docs/features/MD_EDITOR.md) | Multi-tab Markdown editor over files left in place |
 | [NOTES.md](./docs/features/NOTES.md) | Markdown notes kept in the data directory |
 | [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
+| [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
