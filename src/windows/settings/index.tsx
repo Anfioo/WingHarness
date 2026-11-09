@@ -9,6 +9,7 @@ import { TerminalSection } from "./terminal-section.tsx";
 import { PluginsSection } from "./plugins-section.tsx";
 import { ProxySection } from "./proxy-section.tsx";
 import { DataSection } from "./data-section.tsx";
+import { FilePreviewSection } from "./file-preview-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
 import { AiConfigSection } from "./ai-config-section.tsx";
 import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
@@ -20,6 +21,7 @@ import {
   Package,
   Database,
   Globe,
+  ScanEye,
   SquarePen,
   FileText,
   Bot,
@@ -39,6 +41,7 @@ type SettingSection =
   | "plugins"
   | "proxy"
   | "data"
+  | "filePreview"
   | "editor"
   | "mdEditor"
   | "aiConfig"
@@ -113,6 +116,11 @@ export default function SettingsPage() {
       id: "data" as SettingSection,
       label: t("data.title"),
       icon: Database,
+    },
+    {
+      id: "filePreview" as SettingSection,
+      label: t("settings.filePreview.title"),
+      icon: ScanEye,
     },
     {
       id: "ccs" as SettingSection,
@@ -198,6 +206,8 @@ export default function SettingsPage() {
           {activeSection === "proxy" && <ProxySection />}
 
           {activeSection === "data" && <DataSection />}
+
+          {activeSection === "filePreview" && <FilePreviewSection />}
 
           {activeSection === "ccs" && <CcsAppConfigSection />}
 

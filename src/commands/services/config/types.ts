@@ -1,6 +1,20 @@
 export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;
+  filePreview: FilePreviewConfig;
+}
+
+/**
+ * The preview page's display options and read threshold.
+ *
+ * `maxBytes` is enforced by the backend when it reads the file, so raising it
+ * changes what the page is allowed to open rather than only what it draws.
+ */
+export interface FilePreviewConfig {
+  /** Largest file the preview will read. */
+  maxBytes: number;
+  /** Syntax-highlight text previews and the file editor. */
+  highlight: boolean;
 }
 
 /**

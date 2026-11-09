@@ -115,6 +115,7 @@ export type {
   AiConfig,
   AppConfig,
   ConfigView,
+  FilePreviewConfig,
   ProxyConfig,
 } from "./services/config/types";
 export { greet } from "./services/greet";
