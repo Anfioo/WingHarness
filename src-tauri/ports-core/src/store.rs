@@ -1,3 +1,6 @@
+// Ported from Porter (https://github.com/t21dev/porter-app), MIT License.
+// See ../UPSTREAM.md for the porting record.
+
 // TODO(B2): persist the settings atomically under `<data dir>/ports`.
 
 use crate::error::PortsResult;
