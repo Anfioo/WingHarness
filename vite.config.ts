@@ -22,7 +22,28 @@ export default defineConfig(async () => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // PDF.js and libarchive expect Node's Buffer to exist.
+      buffer: "buffer/",
     },
+  },
+
+  optimizeDeps: {
+    entries: ["index.html"],
+    include: ["pdfjs-dist/legacy/build/pdf.worker.mjs"],
+  },
+
+  worker: {
+    format: "es",
+    plugins: () => [
+      {
+        name: "preserve-pdf-worker-exports",
+        // PDF.js imports this module when a WebView cannot start a real Worker.
+        options: (options) =>
+          typeof options.input === "string" && options.input.endsWith("pdf.worker.ts")
+            ? { ...options, preserveEntrySignatures: "strict" }
+            : options,
+      },
+    ],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

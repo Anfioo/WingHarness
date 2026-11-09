@@ -45,6 +45,10 @@
     "settings": "设置",
     "clash": "Clash",
     "frp": "FRP",
+    "preview": "空格预览",
+    "previewOn": "空格预览已开启",
+    "previewOff": "空格预览已关闭",
+    "openFile": "打开文件…",
     "quit": "退出",
     "clashPanel": {
       "core": "核心",

@@ -43,6 +43,7 @@ const pageMap = {
   "/claude-workflow": lazy(() => import("./pages/claude-workflow/index")),
   "/notes": lazy(() => import("./pages/notes/index")),
   "/file-preview": lazy(() => import("./pages/file-preview/index")),
+  "/preview-window": lazy(() => import("./pages/preview-window/index")),
   "/cc-switch": lazy(() => import("./pages/cc-switch/index")),
   "/about": lazy(() => import("./windows/about/index")),
   "/settings": lazy(() => import("./windows/settings/index")),
@@ -73,6 +74,7 @@ const standalonePaths = new Set([
   "/plugin-window",
   "/sidebar-manager",
   "/tray-menu",
+  "/preview-window",
   "/update",
 ]);
 

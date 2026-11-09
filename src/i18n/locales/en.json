@@ -45,6 +45,10 @@
     "settings": "Settings",
     "clash": "Clash",
     "frp": "FRP",
+    "preview": "Space Preview",
+    "previewOn": "Space preview is on",
+    "previewOff": "Space preview is off",
+    "openFile": "Open File…",
     "quit": "Quit",
     "clashPanel": {
       "core": "Core",
