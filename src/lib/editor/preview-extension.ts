@@ -4,16 +4,16 @@ import {
   type Extension,
 } from "codelet/extensions";
 import { useEditorTabs } from "@/lib/editor/editor-tabs";
-import { viewerRegistry } from "@/lib/preview/viewers/registry";
+import { engines } from "@/lib/space-preview/registry";
 
 /**
  * The file preview, offered to the editors as a codelet extension.
  *
  * The notes and project workbenches edit text: every file a tab opens is read as a string,
  * so a `.docx` or a `.png` can only arrive as the placeholder the transport writes in place
- * of bytes. Declaring the registry's binary formats as `customEditors` hands those tabs to
- * this provider instead, and the host draws them with the same viewer the File Preview page
- * uses.
+ * of bytes. Declaring the engine registry's formats as `customEditors` hands those tabs to
+ * this provider instead, and the host draws them with the same preview the File Preview
+ * page and the standalone window use.
  *
  * Only what the text editor is worse at is claimed — an extension listed in
  * `TEXT_EXTENSIONS` keeps its text tab, so Markdown, JSON and source files stay editable.
@@ -59,8 +59,8 @@ const TEXT_EXTENSIONS = new Set([
 /** Every viewer format that no text editor should be asked to open. */
 function previewExtensions(): string[] {
   const extensions = new Set<string>();
-  for (const viewer of viewerRegistry) {
-    for (const extension of viewer.extensions) {
+  for (const engine of engines) {
+    for (const extension of engine.extensions) {
       if (!TEXT_EXTENSIONS.has(extension)) extensions.add(extension);
     }
   }
