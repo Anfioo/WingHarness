@@ -48,6 +48,31 @@ pub struct Config {
     /// 文件预览页的读取上限与高亮开关。
     #[serde(rename = "filePreview")]
     pub file_preview: FilePreviewConfig,
+    /// Shortcut triggers that are not global registration.
+    pub shortcuts: ShortcutsConfig,
+}
+
+/// Shortcut settings.
+///
+/// Only the in-app triggers live here. The show-main shortcut is OS-global and
+/// still stored by the settings window under its own key; these are the ones a
+/// combination string cannot express, so they are kept as raw specs for the
+/// frontend to interpret.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ShortcutsConfig {
+    /// Trigger for the file preview's quick look: `preset:<id>` or a combination.
+    pub quick_preview: String,
+}
+
+impl Default for ShortcutsConfig {
+    fn default() -> Self {
+        Self {
+            // The system file manager's quick look is a bare Space, and that is
+            // what this feature imitates.
+            quick_preview: "preset:space".to_string(),
+        }
+    }
 }
 
 /// Proxy the app applies to its own HTTP clients and to its child processes.
@@ -171,6 +196,10 @@ impl Config {
         } else {
             self.file_preview.bytes_cap()
         };
+
+        // An empty string is the user's "disabled", so it is kept; only stray
+        // whitespace from a hand-edited file is removed.
+        self.shortcuts.quick_preview = self.shortcuts.quick_preview.trim().to_string();
     }
 }
 
@@ -394,6 +423,27 @@ mod tests {
         assert_eq!(config.ai_config.enabled_agents, None);
         assert_eq!(config.proxy, ProxyConfig::default());
         assert_eq!(config.file_preview, FilePreviewConfig::default());
+        assert_eq!(config.shortcuts, ShortcutsConfig::default());
+    }
+
+    /// The quick look defaults to a bare Space, and a value written by the
+    /// settings page comes back unchanged.
+    #[test]
+    fn quick_preview_shortcut_round_trips() {
+        let mut config = Config::default();
+        assert_eq!(config.shortcuts.quick_preview, "preset:space");
+
+        config.shortcuts.quick_preview = "  preset:doubleCtrl  ".to_string();
+        config.normalize();
+        assert_eq!(config.shortcuts.quick_preview, "preset:doubleCtrl");
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(
+            json.contains("\"quickPreview\":\"preset:doubleCtrl\""),
+            "{json}"
+        );
+        let back: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.shortcuts.quick_preview, "preset:doubleCtrl");
     }
 
     /// The preview threshold is normalized into the range the settings page

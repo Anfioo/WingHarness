@@ -2,6 +2,19 @@ export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;
   filePreview: FilePreviewConfig;
+  shortcuts: ShortcutsConfig;
+}
+
+/**
+ * Shortcut settings that are not OS-global.
+ *
+ * The value is one of the strings `shortcut-spec.ts` understands: a combination
+ * such as `Ctrl+Shift+A`, or a preset such as `preset:space`. An empty string
+ * disables the trigger.
+ */
+export interface ShortcutsConfig {
+  /** Trigger for the file preview's quick look. */
+  quickPreview: string;
 }
 
 /**

@@ -237,6 +237,10 @@
       "placeholder": "按下组合键设置",
       "showMain": "显示主窗口",
       "showMainDesc": "使用快捷键快速显示主窗口",
+      "quickPreview": "文件速览",
+      "quickPreviewDesc": "不打开文件即可预览选中的内容",
+      "quickPreviewHelpTitle": "速览什么时候生效",
+      "quickPreviewHelp": "只在应用窗口获得焦点时生效，和系统文件管理器的空格速览一样。空格、双击 Ctrl 等预设不能注册为系统全局快捷键 —— 那会把这些按键从其他所有程序手里抢走。",
       "setSuccess": "已将快捷键设为 {{shortcut}}！",
       "cleared": "已取消快捷键！"
     }

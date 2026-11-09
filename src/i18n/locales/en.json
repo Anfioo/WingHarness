@@ -238,6 +238,10 @@
       "placeholder": "Press key combination",
       "showMain": "Show Main Window",
       "showMainDesc": "Use shortcut to quickly show the main window",
+      "quickPreview": "File Quick Look",
+      "quickPreviewDesc": "Preview the selected file without opening it",
+      "quickPreviewHelpTitle": "When the quick look works",
+      "quickPreviewHelp": "It only responds while the app window has focus, like the system file manager's Space preview. Space, a double Ctrl and the other presets cannot be OS-global shortcuts — they would take the key from every other program.",
       "setSuccess": "Shortcut set to {{shortcut}}!",
       "cleared": "Shortcut cleared!"
     }
