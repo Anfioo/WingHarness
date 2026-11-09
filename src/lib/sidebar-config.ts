@@ -30,6 +30,8 @@ export const DEFAULT_GROUP_NAMES: Record<AppRouteGroup, string> = {
   frp: "FRP",
   // Same deal again: the Markdown editor is listed in 「其他」.
   mdEditor: "Markdown",
+  // Same deal again: the ports page is listed in 「其他」.
+  ports: "端口",
 };
 
 /** Name of the group that collects entries no group refers to. */
