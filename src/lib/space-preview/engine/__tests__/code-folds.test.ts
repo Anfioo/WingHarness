@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable no-useless-escape -- The fixture is a JSON string containing escapes. */
 import { expect, it } from 'vitest';
 import { codeFolds } from '../code-folds';
 it('folds nested JSON without treating string braces as structure', () => {
