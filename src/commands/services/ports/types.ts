@@ -7,11 +7,16 @@ export type PortStatus = "free" | "occupied" | "system";
 
 export type Protocol = "tcp";
 
-/** Persisted settings: the pinned port numbers and the "pinned only" view. */
+/** How the other-listening-ports section is ordered. */
+export type PortGrouping = "port" | "app";
+
+/** Persisted settings: the pinned ports, the "pinned only" view and the grouping. */
 export type PortsSettings = {
   /** Pinned port numbers, ascending, at most 50. */
   pinnedPorts: number[];
   pinnedOnly: boolean;
+  /** Group the other ports by port number or by application. */
+  groupBy: PortGrouping;
 };
 
 export type ProcessBrief = {

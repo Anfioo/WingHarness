@@ -2,8 +2,10 @@
 
 The **端口** (Ports) page lists every TCP port this machine is listening on,
 keeps a set of common development ports pinned on top, and can end the process
-behind a port. It sits in the sidebar under **其他** (Other) and is a single
-page — it opens no window of its own.
+behind a port. The other ports are listed flat by port number or grouped by
+application. It sits in the sidebar under **其他** (Other) and is a single
+page — it opens no window of its own; its settings live in the Settings window's
+**Ports** section.
 
 The engine is [`src-tauri/ports-core`](../../src-tauri/ports-core) (crate
 `ports-core`, library `ports_core`). It is adapted from
@@ -15,15 +17,16 @@ came across and what did not.
 
 | Route | Renders |
 | --- | --- |
-| `/ports` | The page: stats, toolbar, pinned and other lists, detail sheet, settings dialog |
+| `/ports` | The page: stats, toolbar, pinned and other lists, detail sheet |
 
 | Path | Responsibility |
 | --- | --- |
 | `src/pages/ports/index.tsx` | Page shell; assembles the hook and the three component groups |
 | `src/hooks/use-ports-page.ts` | Settings, two polling loops, filters, counts, the kill flow |
-| `src/components/ports/` | Stats, toolbar, list, row, detail sheet, settings dialog, shared prop types |
+| `src/components/ports/` | Stats, toolbar, list, row, detail sheet and the shared prop types |
+| `src/windows/settings/ports-section.tsx` | The Settings window's **Ports** section: pinned ports, reset and *pinned only* |
 | `src/commands/services/ports/` | Typed wrappers over the seven `ports_*` commands and their DTOs |
-| `src/lib/ports/port-services.ts` | The service map used by the page (with the attribution header) |
+| `src/lib/ports/` | The service map, the error-key helper and the settings change event |
 
 There is no `standalonePaths` entry and no window record: everything is one
 route in the main window. The sidebar group `ports` is deliberately absent from
@@ -33,16 +36,19 @@ route in the main window. The sidebar group `ports` is deliberately absent from
 
 - **Stats** — three counts, `free`, `occupied` and `system`, computed over the
   rows that are currently visible, not over the whole table.
-- **Toolbar** — search, the three status toggles, a manual refresh, and a hint
-  that reads either the last update time or **已暂停** (paused). `/` focuses the
-  search box; `Escape` clears it.
+- **Toolbar** — search, the **by port / by app** grouping toggle, the three
+  status toggles, a manual refresh, and a hint that reads either the last update
+  time or **已暂停** (paused). `/` focuses the search box; `Escape` clears it.
 - **List** — the pinned section always, then the other ports collapsed behind a
-  header button. With *pinned only* on, the other section is not rendered at
-  all.
+  header button. In **by app** mode that section renders one collapsible group
+  per process name: biggest group first, then alphabetical, and rows with no
+  resolvable process last under **No process**. With *pinned only* on, the other
+  section is not rendered at all.
 - **Detail sheet** — opens on a row and calls `ports_detail` lazily; a response
   that arrives after the sheet closed or moved to another port is discarded.
-- **Settings dialog** — add and remove pinned ports, reset to the five defaults,
-  and toggle *pinned only*. Edits are a draft: closing without saving drops them.
+- **Settings** — the page has no settings of its own. Pinned ports, the reset and
+  *pinned only* live in the Settings window's **Ports** section; both windows
+  share `settings.json` and tell each other through `ports-settings-changed`.
 
 ## Scanning
 
@@ -102,8 +108,11 @@ combine with it, and both apply to the pinned list as well as the other list —
 turning every status off hides the pinned ports too.
 
 `counts` is computed from `[...pinned, ...others]`, so it always describes what
-is on screen. With a query active the page switches to a single merged results
-list, deduplicated by port and ascending.
+is on screen. Grouping only reorders the other list: the pinned section stays
+flat and on top. With a query active the page switches to a single merged
+results list, deduplicated by port and ascending, so grouping does not apply
+there either. Grouping is persisted with the rest of the settings, so the page
+reopens in the mode the user left it in.
 
 ## Ending a process
 
@@ -175,11 +184,13 @@ the frontend translating by `code`:
 {
   "version": 1,
   "pinnedPorts": [3000, 5173, 8080, 5432, 27017],
-  "pinnedOnly": false
+  "pinnedOnly": false,
+  "groupBy": "port"
 }
 ```
 
-`version` is written for future migrations and ignored on read. The directory is
+`version` is written for future migrations and ignored on read. `groupBy` is
+`"port"` or `"app"`; a file written before the field existed loads as `"port"`. The directory is
 `ports_core::paths::CONFIG_DIR`, set once in `src-tauri/src/lib.rs` to
 `config::dir().join("ports")`, so the file moves with the configured data
 directory.

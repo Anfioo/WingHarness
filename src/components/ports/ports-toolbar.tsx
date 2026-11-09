@@ -1,8 +1,9 @@
-// The ports page toolbar: search, the three-state filter, refresh and the last-updated hint.
+// The ports page toolbar: search, grouping, the three-state filter, refresh and
+// the last-updated hint.
 
 import { useEffect, useRef } from "react";
 import { RefreshCw, Search, X } from "lucide-react";
-import type { PortStatus } from "@/commands";
+import type { PortGrouping, PortStatus } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -10,6 +11,11 @@ import { cn } from "@/lib/utils";
 import type { PortsToolbarProps } from "./props";
 
 const STATUS_ORDER: PortStatus[] = ["free", "occupied", "system"];
+
+const GROUP_ORDER: { value: PortGrouping; labelKey: string }[] = [
+  { value: "port", labelKey: "ports.toolbar.groupPort" },
+  { value: "app", labelKey: "ports.toolbar.groupApp" },
+];
 
 const STATUS_DOT: Record<PortStatus, string> = {
   free: "bg-emerald-500",
@@ -34,6 +40,8 @@ export function PortsToolbar({
   onQueryChange,
   statuses,
   onToggleStatus,
+  groupBy,
+  onGroupingChange,
   refreshing,
   updatedAt,
   paused,
@@ -106,6 +114,30 @@ export function PortsToolbar({
             /
           </kbd>
         )}
+      </div>
+
+      <div
+        role="group"
+        aria-label={t("ports.toolbar.groupAria")}
+        className="border-border bg-card flex h-9 shrink-0 items-center gap-0.5 rounded-lg border p-[3px]"
+      >
+        {GROUP_ORDER.map((option) => {
+          const active = groupBy === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onGroupingChange(option.value)}
+              className={cn(
+                "focus-visible:ring-ring/50 flex h-full items-center rounded-md px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-hidden",
+                active ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {t(option.labelKey)}
+            </button>
+          );
+        })}
       </div>
 
       <div

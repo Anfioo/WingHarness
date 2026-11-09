@@ -3,11 +3,9 @@ const ports = {
   subtitle: "查看本机监听的 TCP 端口，定位并结束占用端口的进程。",
   actions: {
     refresh: "刷新",
-    settings: "设置",
     kill: "结束进程",
     close: "关闭",
     cancel: "取消",
-    save: "保存",
   },
   status: {
     free: "空闲",
@@ -18,6 +16,9 @@ const ports = {
     searchPlaceholder: "按端口或进程名搜索",
     searchAria: "搜索端口",
     clearSearch: "清空搜索",
+    groupAria: "监听端口分组方式",
+    groupPort: "按端口",
+    groupApp: "按应用",
     filterAria: "按状态筛选",
     updated: "更新于 {{time}}",
     paused: "窗口隐藏时已暂停",
@@ -45,6 +46,7 @@ const ports = {
     },
     notRunning: "未运行",
     unknownService: "未知服务",
+    noProcess: "无进程",
   },
   row: {
     killAria: "结束占用端口 {{port}} 的 {{name}} 进程",
@@ -100,6 +102,8 @@ const ports = {
     full: "固定端口已达到 50 个上限。",
     duplicate: "这个端口已经固定了。",
     invalid: "请输入 1 到 65535 之间的端口号。",
+    loadFailed: "无法读取端口设置。",
+    retry: "重试",
   },
   error: {
     load: "无法读取端口列表。",

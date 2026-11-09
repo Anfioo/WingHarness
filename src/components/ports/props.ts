@@ -2,7 +2,7 @@
 // one lane and this module is the only contract between the page and them.
 
 import type { PortCounts } from "@/hooks/use-ports-page";
-import type { PortEntry, PortsSettings, PortStatus } from "@/commands";
+import type { PortEntry, PortGrouping, PortStatus } from "@/commands";
 
 export type PortsStatsProps = { counts: PortCounts };
 export type PortsToolbarProps = {
@@ -10,6 +10,8 @@ export type PortsToolbarProps = {
   onQueryChange: (query: string) => void;
   statuses: Set<PortStatus>;
   onToggleStatus: (status: PortStatus) => void;
+  groupBy: PortGrouping;
+  onGroupingChange: (grouping: PortGrouping) => void;
   refreshing: boolean;
   updatedAt: number;
   paused: boolean;
@@ -21,6 +23,7 @@ export type PortsListProps = {
   others: PortEntry[];
   query: string;
   pinnedOnly: boolean;
+  groupBy: PortGrouping;
   loading: boolean;
   onOpenDetail: (port: number) => void;
   onKill: (pid: number) => void;
@@ -41,11 +44,4 @@ export type PortDetailSheetProps = {
   port: number | null;
   onOpenChange: (open: boolean) => void;
   onKill: (pid: number) => void;
-};
-
-export type PortSettingsDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  settings: PortsSettings | null;
-  onSave: (settings: PortsSettings) => Promise<void>;
 };
