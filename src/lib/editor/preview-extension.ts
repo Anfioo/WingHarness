@@ -56,10 +56,16 @@ const TEXT_EXTENSIONS = new Set([
   "tsv",
 ]);
 
+/** Kinds the text editor handles as well or better; the preview never claims them. */
+const TEXT_KINDS = new Set(["text", "markdown", "csv"]);
+
 /** Every viewer format that no text editor should be asked to open. */
 function previewExtensions(): string[] {
   const extensions = new Set<string>();
   for (const engine of engines) {
+    // The registry's text engine lists every source language; claiming those
+    // would open a read-only preview tab where the editor used to be.
+    if (TEXT_KINDS.has(engine.kind)) continue;
     for (const extension of engine.extensions) {
       if (!TEXT_EXTENSIONS.has(extension)) extensions.add(extension);
     }
