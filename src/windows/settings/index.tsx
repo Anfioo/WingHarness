@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
-import { emit } from "@tauri-apps/api/event";
+import { useState } from "react";
 import { cn } from "@/lib/utils.ts";
 import { TitleBar } from "@/components/title-bar.tsx";
 import { WindowFrame } from "@/components/window-frame.tsx";
-import { ShortcutInput } from "@/components/shortcut-input.tsx";
 import { AppearanceSection } from "./appearance-section.tsx";
+import { ShortcutSection } from "./shortcut-section.tsx";
 import { TerminalSection } from "./terminal-section.tsx";
 import { PluginsSection } from "./plugins-section.tsx";
 import { ProxySection } from "./proxy-section.tsx";
 import { DataSection } from "./data-section.tsx";
+import { FilePreviewSection } from "./file-preview-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
 import { AiConfigSection } from "./ai-config-section.tsx";
 import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
@@ -20,17 +20,13 @@ import {
   Package,
   Database,
   Globe,
+  ScanEye,
   SquarePen,
   FileText,
   Bot,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
-import { registerShortcut, unregisterShortcut } from "@/lib/shortcut.ts";
-import { toggleWindow } from "@/lib/window.ts";
-import { toast } from "sonner";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
-
-const SHORTCUT_KEY = "global-shortcut-show-main";
 
 type SettingSection =
   | "appearance"
@@ -39,49 +35,15 @@ type SettingSection =
   | "plugins"
   | "proxy"
   | "data"
+  | "filePreview"
   | "editor"
   | "mdEditor"
   | "aiConfig"
   | "ccs";
 
 export default function SettingsPage() {
-  const [shortcut, setShortcut] = useState<string>("");
   const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
   const { t } = useAppTranslation();
-
-  const handleShowMainWindow = useCallback(async () => {
-    await toggleWindow("main");
-  }, []);
-
-  useEffect(() => {
-    // Load saved shortcut
-    const savedShortcut = localStorage.getItem(SHORTCUT_KEY);
-    if (savedShortcut) {
-      setShortcut(savedShortcut);
-      registerShortcut(savedShortcut, handleShowMainWindow);
-    }
-  }, [handleShowMainWindow]);
-
-  const handleShortcutChange = async (newShortcut: string) => {
-    const oldShortcut = shortcut;
-    setShortcut(newShortcut);
-
-    if (newShortcut) {
-      localStorage.setItem(SHORTCUT_KEY, newShortcut);
-      await registerShortcut(newShortcut, handleShowMainWindow, oldShortcut);
-      // Notify main window to update shortcut
-      await emit("shortcut-changed", { shortcut: newShortcut });
-      toast.success(t("settings.shortcut.setSuccess", { shortcut: newShortcut }));
-    } else {
-      localStorage.removeItem(SHORTCUT_KEY);
-      if (oldShortcut) {
-        await unregisterShortcut(oldShortcut);
-      }
-      // Notify main window to clear shortcut
-      await emit("shortcut-changed", { shortcut: "" });
-      toast.info(t("settings.shortcut.cleared"));
-    }
-  };
 
   const menuItems = [
     {
@@ -113,6 +75,11 @@ export default function SettingsPage() {
       id: "data" as SettingSection,
       label: t("data.title"),
       icon: Database,
+    },
+    {
+      id: "filePreview" as SettingSection,
+      label: t("settings.filePreview.title"),
+      icon: ScanEye,
     },
     {
       id: "ccs" as SettingSection,
@@ -168,28 +135,7 @@ export default function SettingsPage() {
         <div className="p-4">
           {activeSection === "appearance" && <AppearanceSection />}
 
-          {activeSection === "shortcut" && (
-            <div className="space-y-4">
-              <div>
-                <h2 className="mb-1 text-lg font-semibold">{t("settings.shortcut.title")}</h2>
-                <p className="text-muted-foreground text-sm">
-                  {t("settings.shortcut.description")}
-                </p>
-              </div>
-
-              <div className="space-y-0">
-                <div className="flex items-center justify-between py-2.5">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium">{t("settings.shortcut.showMain")}</label>
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {t("settings.shortcut.showMainDesc")}
-                    </p>
-                  </div>
-                  <ShortcutInput value={shortcut} onChange={handleShortcutChange} />
-                </div>
-              </div>
-            </div>
-          )}
+          {activeSection === "shortcut" && <ShortcutSection />}
 
           {activeSection === "terminal" && <TerminalSection />}
 
@@ -198,6 +144,8 @@ export default function SettingsPage() {
           {activeSection === "proxy" && <ProxySection />}
 
           {activeSection === "data" && <DataSection />}
+
+          {activeSection === "filePreview" && <FilePreviewSection />}
 
           {activeSection === "ccs" && <CcsAppConfigSection />}
 

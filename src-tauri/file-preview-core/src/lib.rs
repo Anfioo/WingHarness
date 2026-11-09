@@ -4,9 +4,13 @@
 //! the rest parse in the webview. This crate does the one thing they cannot:
 //! hand back a file's bytes, confined to the root the caller named.
 //!
-//! There is no single root here, and no provider for one: each command takes the
+//! There is no single root here, and no provider for one: each call takes the
 //! root of the preview or project window that is asking, so two projects never
 //! reach each other's files.
+//!
+//! The size cap is a parameter rather than a constant: the app's settings own
+//! it, and the thin command layer in `src/commands/file_preview.rs` reads it
+//! from the config on every call.
 
 mod commands;
 mod confine;
@@ -15,15 +19,8 @@ mod mime;
 
 use std::path::PathBuf;
 
-pub use commands::{preview_bytes, preview_metadata};
+pub use commands::{metadata_at, read_bytes};
 pub use meta::PreviewMeta;
-
-/// The largest file the preview will read into memory.
-///
-/// The whole file lands in a `Uint8Array` and usually a blob beside it, so this
-/// is a guard against a stray multi-gigabyte file, not a policy: 64 MiB is
-/// generous for a PDF, image or short video and cheap to hold twice.
-pub const PREVIEW_MAX_BYTES: u64 = 64 * 1024 * 1024;
 
 /// The root the caller named, checked to be an existing directory.
 pub(crate) fn project_root(root: &str) -> Result<PathBuf, String> {

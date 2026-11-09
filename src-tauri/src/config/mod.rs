@@ -45,6 +45,9 @@ pub struct Config {
     pub ai_config: AiConfig,
     /// The outbound proxy the app and the tools it spawns use.
     pub proxy: ProxyConfig,
+    /// 文件预览页的读取上限与高亮开关。
+    #[serde(rename = "filePreview")]
+    pub file_preview: FilePreviewConfig,
     /// Whether the app runs in networked mode.
     ///
     /// Standalone (the default) hides the sidebar's account menu; networked
@@ -66,6 +69,43 @@ pub struct ProxyConfig {
     /// Comma-separated hosts that bypass the proxy. Loopback is always added.
     #[serde(rename = "noProxy")]
     pub no_proxy: String,
+}
+
+/// The preview page's limits and display options.
+///
+/// The threshold is what the backend refuses to read and what the metadata's
+/// `overCap` flag reports, so it is enforced where the bytes are read rather
+/// than only in the page. The bounds keep a hand-edited `config.json` from
+/// asking the webview to hold an unreasonable amount of memory.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct FilePreviewConfig {
+    /// Largest file, in bytes, the preview will read.
+    pub max_bytes: u64,
+    /// Syntax-highlight text previews and the file editor.
+    pub highlight: bool,
+}
+
+/// 64 MiB: generous for a PDF, image or short video and cheap to hold twice.
+pub const DEFAULT_FILE_PREVIEW_BYTES: u64 = 64 * 1024 * 1024;
+pub const MIN_FILE_PREVIEW_BYTES: u64 = 1024 * 1024;
+pub const MAX_FILE_PREVIEW_BYTES: u64 = 1024 * 1024 * 1024;
+
+impl Default for FilePreviewConfig {
+    fn default() -> Self {
+        Self {
+            max_bytes: DEFAULT_FILE_PREVIEW_BYTES,
+            highlight: true,
+        }
+    }
+}
+
+impl FilePreviewConfig {
+    /// The threshold every read uses, with the bounds applied.
+    pub fn bytes_cap(&self) -> u64 {
+        self.max_bytes
+            .clamp(MIN_FILE_PREVIEW_BYTES, MAX_FILE_PREVIEW_BYTES)
+    }
 }
 
 /// Names reqwest and most command-line tools read to find a proxy. Both cases
@@ -127,6 +167,15 @@ impl Config {
             self.proxy.url = format!("http://{}", self.proxy.url);
         }
         self.proxy.no_proxy = self.proxy.no_proxy.trim().to_string();
+
+        // A missing key or a zero is "use the default"; anything else is pulled
+        // into the range the settings page offers, so the value on disk and the
+        // value the page shows never disagree.
+        self.file_preview.max_bytes = if self.file_preview.max_bytes == 0 {
+            DEFAULT_FILE_PREVIEW_BYTES
+        } else {
+            self.file_preview.bytes_cap()
+        };
     }
 }
 
@@ -349,8 +398,31 @@ mod tests {
         let config: Config = serde_json::from_str("{}").unwrap();
         assert_eq!(config.ai_config.enabled_agents, None);
         assert_eq!(config.proxy, ProxyConfig::default());
+        assert_eq!(config.file_preview, FilePreviewConfig::default());
         // Standalone is the default, so the sidebar's account stays hidden.
         assert!(!config.networked);
+    }
+
+    /// The preview threshold is normalized into the range the settings page
+    /// offers: zero means "never written" and becomes the default, while an
+    /// out-of-range value pinned to the nearest bound.
+    #[test]
+    fn file_preview_bytes_are_clamped() {
+        let mut config = Config::default();
+        assert_eq!(config.file_preview.max_bytes, DEFAULT_FILE_PREVIEW_BYTES);
+        assert!(config.file_preview.highlight);
+
+        config.file_preview.max_bytes = 0;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, DEFAULT_FILE_PREVIEW_BYTES);
+
+        config.file_preview.max_bytes = 1;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, MIN_FILE_PREVIEW_BYTES);
+
+        config.file_preview.max_bytes = u64::MAX;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, MAX_FILE_PREVIEW_BYTES);
     }
 
     /// A value pasted from a proxy app is usually `host:port`; the scheme is

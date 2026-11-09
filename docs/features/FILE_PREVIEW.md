@@ -1,9 +1,10 @@
 # File Preview
 
-The **文件预览** (File preview) page is a read-only viewer for the files in a
-project. It sits in the sidebar right after **笔记**, and works on whichever
-project the page's project picker selects — the same folder the **项目** page
-opens in a window, confined by the backend.
+The **文件预览** (File preview) page previews the files in a project. It sits in
+the sidebar right after **笔记**, and works on whichever project the page's
+project picker selects — the same folder the **项目** page opens in a window,
+confined by the backend. Text-like files can also be edited in place; everything
+else is display only.
 
 ## How it works
 
@@ -34,13 +35,19 @@ opens in a window, confined by the backend.
 | Command | Parameters | Returns | Notes |
 |---------|------------|---------|-------|
 | `preview_metadata` | `path`, `root` | `PreviewMeta` | `/`-rooted path; size, mime, `previewable`, `overCap` |
-| `preview_bytes` | `path`, `root` | raw IPC bytes | Refused past the 64 MiB cap and for anything outside the project root |
+| `preview_bytes` | `path`, `root` | raw IPC bytes | Refused past the configured threshold and for anything outside the project root |
 
 `path` is always root-relative and `/`-rooted, the form the file tree already
 speaks. `root` comes from the caller: the page passes the project its picker
 selected, the project window passes its own folder, and the notes page passes the
 notes directory — so a preview always reads from the same place the file was
 listed.
+
+The size threshold is read from `config.json` on every call
+(`filePreview.maxBytes`), so a change in **设置 → 文件预览设置** applies to the
+next file opened without a restart. The default is 64 MiB; the settings page
+offers 1 MiB–1 GiB and the backend clamps to the same range, which keeps a
+hand-edited config from asking the webview to hold the whole disk.
 
 ## Supported formats
 
@@ -61,6 +68,47 @@ listed.
 
 Anything else falls back to text detection, and shows "不支持预览此文件" when the
 bytes are not text.
+
+## Settings
+
+**设置 → 文件预览设置** (Settings → File preview) holds the two options this
+page reads, both stored under `filePreview` in `config.json`:
+
+- **文件大小阈值** — `maxBytes`, stored in bytes and shown in MB.
+- **语法高亮** — `highlight`, which reaches the text preview and the editor,
+  here and in the preview tabs of the **项目** and **笔记** pages.
+
+The sections share `useConfigDraft`, which saves 400 ms after the last change and
+then emits `config-changed`; `useFilePreviewConfig` listens for that event, so an
+open preview window repaints with the new settings without a reload.
+
+## Editing
+
+The pencil in the toolbar opens the raw file in a lightweight editor. It is shown
+only when the viewer treats the file as text — Markdown, JSON/YAML/XML/TOML,
+source code, logs — or when the fallback decoded the bytes as text, and never for
+a file past the threshold. Spreadsheets, documents and images stay read-only.
+
+- **The editor is not codelet.** It is
+  [`src/components/code-editor.tsx`](../../src/components/code-editor.tsx): a
+  textarea with transparent text over a highlighted `<pre>`, the trick the Clash
+  settings page introduced. The caret, selection, undo and IME stay native, and a
+  deferred value keeps highlighting off the typing path (and off entirely past
+  200 000 characters). The Clash page is another caller of the same component.
+- **Raw text, not the preview.** The editor reads through `project_read`, so
+  Markdown is edited as Markdown rather than as the rendered HTML, and JSON as
+  the file has it rather than the indented copy the viewer prints.
+- **Saves are compare-and-set.** `project_write` carries the etag from the read
+  and refuses the write when the file changed on disk meanwhile; the error is
+  shown as a toast and the text stays in the editor. CRLF files keep their line
+  endings.
+- **Ctrl/Cmd+S** saves without leaving the keyboard; **Tab** inserts two spaces.
+  A dot in the toolbar marks unsaved changes, and picking another file or
+  project — or **退出编辑** — asks before discarding them.
+- **Highlighting follows the file name.** `languageOf` maps the path to a
+  highlight.js grammar registered by
+  [`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts); an
+  unknown extension is plain text.
 
 ## In the editors
 
@@ -85,10 +133,12 @@ writes in place of bytes.
 
 ## Limits
 
-- **Read-only.** Nothing on this page writes to disk; use **项目** to edit.
-- **64 MiB cap.** Bigger files are listed but not read; the pane says so instead
-  of loading them. The cap is enforced in the backend as well as advertised in
-  the metadata, so a direct call cannot sidestep it.
+- **Text files are editable; everything else is not.** A viewer that renders a
+  structured format (HTML, spreadsheets, documents, images, archives) has no
+  editor, and a file past the threshold is not read at all.
+- **Configurable cap, default 64 MiB.** Bigger files are listed but not read; the
+  pane says so instead of loading them. The cap is enforced in the backend as
+  well as advertised in the metadata, so a direct call cannot sidestep it.
 - **Dark mode.** Viewer content keeps its light "paper" colors on purpose — a
   document should look like a document in either theme. The surrounding chrome
   follows the theme.

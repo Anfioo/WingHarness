@@ -1,5 +1,7 @@
 import { BookPreview, EmailPreview, MediaPreview } from './ExtendedPreview'
-import { lazy, Suspense, useEffect, useState } from 'react'
+import hljs from 'highlight.js/lib/core'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { languageOf } from '@/lib/git-core/highlight'
 import { PreviewBoundary } from './PreviewBoundary'
 import '../preview.css'
 import './visualPreview.css'
@@ -8,13 +10,13 @@ import { formatBytes } from '../lib/format'
 import type { FileMetadata, OpenTab, ViewerDescriptor } from '../types'
 import type { ArchiveItem, LoadState, PresentationSlide, SheetTable, WordOutlineItem } from './previewTypes'
 
-type PreviewProps = { tab?: OpenTab; viewer?: ViewerDescriptor; payload: FileMetadata | null; state: LoadState }
+type PreviewProps = { tab?: OpenTab; viewer?: ViewerDescriptor; payload: FileMetadata | null; state: LoadState; highlight?: boolean }
 
 export function Preview(props: PreviewProps) {
   return <PreviewBoundary key={props.payload?.path}><PreviewBody {...props} /></PreviewBoundary>
 }
 
-function PreviewBody({ tab, viewer, payload, state }: PreviewProps) {
+function PreviewBody({ tab, viewer, payload, state, highlight = false }: PreviewProps) {
   if (!tab) return <div className="empty-view">打开一个文件以开始预览</div>
   if (state.status === 'loading') return <div className="empty-view">正在解析 {tab.name}...</div>
   if (state.status === 'error') return <div className="error-view">{state.message}</div>
@@ -57,7 +59,30 @@ function PreviewBody({ tab, viewer, payload, state }: PreviewProps) {
       </div>
     )
   }
-  return <pre className="text-view">{content.text}</pre>
+  return <TextPreview path={payload.path} text={content.text} highlight={highlight} />
+}
+
+// Highlighting a whole file costs one pass, not one per line; past this length
+// that pass is worth skipping — the file still reads fine uncolored.
+const MAX_HIGHLIGHT_CHARS = 400_000
+
+function TextPreview({ path, text, highlight }: { path: string; text: string; highlight: boolean }) {
+  const language = highlight ? languageOf(path) : null
+  const html = useMemo(() => {
+    if (!language || text.length > MAX_HIGHLIGHT_CHARS) return null
+    try {
+      return hljs.highlight(text, { language, ignoreIllegals: true }).value
+    } catch {
+      return null
+    }
+  }, [language, text])
+
+  if (html === null) return <pre className="text-view">{text}</pre>
+  return (
+    <pre className="text-view">
+      <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} />
+    </pre>
+  )
 }
 
 function WordPreview({ html, outline, kind }: { html: string; outline: WordOutlineItem[]; kind: string }) {
