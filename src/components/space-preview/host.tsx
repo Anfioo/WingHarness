@@ -519,6 +519,7 @@ export function PreviewHost({
                     value={text}
                     language={languageOf(current.name)}
                     ariaLabel={t("spacePreview.host.edit", { defaultValue: "Edit" })}
+                    showFind
                     onChange={setText}
                     onSave={() => void save()}
                   />
