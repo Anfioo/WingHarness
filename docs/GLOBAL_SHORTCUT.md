@@ -63,24 +63,43 @@ pnpm add @tauri-apps/plugin-global-shortcut
 
 ### Utility Functions (`src/lib/shortcut.ts`)
 
-#### Convert Keyboard Event to Shortcut String
+#### Shortcut strings (`src/lib/shortcut-spec.ts`)
+
+A stored shortcut is one string in either of two forms:
+
+- a combination — `Ctrl+Shift+A`, `Super+A` (the Windows key) — which is what
+  the plugin can register;
+- a preset — `preset:space`, `preset:doubleCtrl`, `preset:altSpace`,
+  `preset:winSpace` — for triggers the OS registration API cannot express.
 
 ```typescript
-import { convertToShortcut } from "@/lib/shortcut";
+import {
+  DoublePressTracker,
+  formatCombo,
+  keyFromEvent,
+  modifiersFromEvent,
+  parseCombo,
+  shortcutMatchesEvent,
+} from "@/lib/shortcut-spec";
 
-// Example: Ctrl+Shift+A
-const shortcut = convertToShortcut(keyboardEvent);
+parseCombo("Ctrl+Shift+A"); // { modifiers: ["Ctrl", "Shift"], key: "A" }
+formatCombo(["Super"], "A"); // "Super+A"
+keyFromEvent(keyboardEvent); // "A", "Space", "F5", …
 ```
 
-**Supported Modifiers:**
-- `Ctrl` / `Cmd` (macOS)
-- `Alt`
-- `Shift`
+- `keyFromEvent` reads `event.code`, not `event.key`: with Shift held `key` is
+  the shifted character, which would never match what the picker wrote.
+- `shortcutMatchesEvent(spec, event, tracker)` answers "does this keydown fire
+  the stored shortcut?". The `DoublePressTracker` must be kept by the caller
+  across keydowns — the double Ctrl can only be recognised from two events.
+- `isEditableTarget(event.target)` is the guard an in-app listener needs before
+  it treats a keypress as a shortcut rather than as typing.
 
-**Special Keys:**
-- `Space`, `Enter`, `Esc`
-- Arrow keys: `Up`, `Down`, `Left`, `Right`
-- Single characters: automatically uppercase
+**Supported modifiers:** `Ctrl`, `Shift`, `Alt`, `Super` (the Windows key).
+
+**Supported keys:** letters, digits, `F1`–`F12`, `Space`, `Enter`, `Tab`, `Esc`,
+backspace/delete/insert, arrows, home/end/page up/page down, and the common
+punctuation keys — all in the names the plugin's parser accepts.
 
 #### Register Shortcut
 
@@ -107,36 +126,72 @@ await unregisterShortcut("Ctrl+Shift+A");
 await unregisterAllShortcut();
 ```
 
-### UI Component (`src/components/shortcut-input.tsx`)
+### UI Component (`src/components/shortcut-field.tsx`)
 
-Pre-built component for capturing keyboard shortcuts:
+One reusable control for every shortcut setting:
 
 ```typescript
-import { ShortcutInput } from "@/components/shortcut-input";
+import { ShortcutField } from "@/components/shortcut-field";
 
 function Settings() {
   const [shortcut, setShortcut] = useState("Ctrl+Shift+A");
 
   return (
-    <ShortcutInput
+    <ShortcutField
       value={shortcut}
       onChange={setShortcut}
+      presets={["space", "doubleCtrl", "altSpace", "winSpace"]}
     />
   );
 }
 ```
 
 **Features:**
-- Click to focus and capture keyboard input
-- Press `Backspace` or `Delete` to clear
-- Visual feedback with clear button
-- i18n support for placeholder text
+
+- Shows the current trigger as key caps; the picker opens on click
+- Presets above the custom picker, when `presets` is passed
+- Shift/Ctrl/Alt/Win as toggles, at most two at a time
+- The key can be picked from a list or pressed live ("Press keys")
+- `onChange("")` clears the setting
+- i18n for the placeholder, the presets, the named keys and the picker's labels
+
+The component owns no persistence: it hands back a string and the caller decides
+where it goes. Leave `presets` out for a setting that the OS registers — a bare
+Space or a double Ctrl cannot go through the plugin.
+
+## In-app triggers
+
+A preset can only be handled inside the app, because the key it watches (Space,
+Ctrl on its own) would otherwise be swallowed system-wide:
+
+```typescript
+import { DoublePressTracker, isEditableTarget, shortcutMatchesEvent } from "@/lib/shortcut-spec";
+
+const doubleCtrl = new DoublePressTracker();
+
+function onKeyDown(event: KeyboardEvent) {
+  if (isEditableTarget(event.target)) return;
+  if (shortcutMatchesEvent(shortcut, event, doubleCtrl)) {
+    event.preventDefault();
+    openQuickPreview();
+  }
+}
+
+useEffect(() => {
+  window.addEventListener("keydown", onKeyDown);
+  return () => window.removeEventListener("keydown", onKeyDown);
+}, [shortcut]);
+```
+
+Because the listener lives in the webview, such a trigger only fires while the
+app's window has focus — which is also what makes it safe to give it Space. The
+setting's "?" tip should say so.
 
 ## Complete Example
 
 ```typescript
 import { useEffect, useState } from "react";
-import { ShortcutInput } from "@/components/shortcut-input";
+import { ShortcutField } from "@/components/shortcut-field";
 import { registerShortcut, unregisterShortcut } from "@/lib/shortcut";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -164,7 +219,7 @@ function Settings() {
   return (
     <div>
       <label>Global Shortcut:</label>
-      <ShortcutInput value={shortcut} onChange={setShortcut} />
+      <ShortcutField value={shortcut} onChange={setShortcut} />
     </div>
   );
 }
@@ -173,10 +228,13 @@ function Settings() {
 ## Best Practices
 
 1. **Always Unregister**: Clean up shortcuts when component unmounts or shortcut changes
-2. **Validate Input**: Ensure shortcuts include at least one modifier key
+2. **Validate Input**: A combination handed to OS registration needs at least one
+   modifier (presets are in-app and never registered)
 3. **Avoid Conflicts**: Check if shortcut is already registered before registering
-4. **User Feedback**: Show toast notifications when shortcuts are set/changed
-5. **Persistence**: Save user-defined shortcuts to local storage or settings file
+4. **User Feedback**: Show toast notifications when a shortcut is set/changed
+5. **Persistence**: Store user-defined shortcuts in the config file, per the
+   project's storage rule; only the legacy show-main shortcut still lives in
+   `localStorage`
 
 ## Troubleshooting
 
@@ -199,17 +257,22 @@ if (registered) {
 
 ## API Reference
 
-### `convertToShortcut(event: KeyboardEvent): string`
+### `parseCombo(spec: string): ComboSpec | null`
 
-Converts browser KeyboardEvent to Tauri shortcut format.
+Splits a combination into its modifiers and key; null when the string is not a
+combination. `formatCombo` is the inverse and writes the canonical order.
 
-**Returns:** Shortcut string (e.g., "Ctrl+Shift+A") or empty string if invalid
+### `shortcutMatchesEvent(spec, event, tracker): boolean`
+
+Whether this keydown fires the stored shortcut, preset or combination. The
+`DoublePressTracker` is the caller's, kept across keydowns for the double Ctrl.
 
 ### `registerShortcut(shortcut: string, callback: () => void, oldShortcut?: string): Promise<void>`
 
 Registers a global shortcut with callback function.
 
 **Parameters:**
+
 - `shortcut`: Shortcut string to register
 - `callback`: Function to execute when shortcut is pressed
 - `oldShortcut`: Optional previous shortcut to unregister

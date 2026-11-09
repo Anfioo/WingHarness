@@ -242,6 +242,48 @@
       "cleared": "Shortcut cleared!"
     }
   },
+  "shortcutField": {
+    "placeholder": "Click to set",
+    "presetsTitle": "Presets",
+    "customTitle": "Custom",
+    "record": "Press keys",
+    "recording": "Listening…",
+    "recordHint": "Press a modifier and a key, or pick them below.",
+    "preview": "Result",
+    "apply": "Apply",
+    "clear": "Clear",
+    "incomplete": "Pick a modifier and a key",
+    "keys": {
+      "space": "Space",
+      "enter": "Enter",
+      "tab": "Tab",
+      "escape": "Esc",
+      "backspace": "Backspace",
+      "delete": "Delete",
+      "insert": "Insert",
+      "up": "Up",
+      "down": "Down",
+      "left": "Left",
+      "right": "Right",
+      "home": "Home",
+      "end": "End",
+      "pageUp": "PageUp",
+      "pageDown": "PageDown"
+    },
+    "groups": {
+      "letters": "Letters",
+      "digits": "Digits",
+      "function": "Function keys",
+      "navigation": "Editing keys",
+      "symbols": "Symbols"
+    },
+    "presets": {
+      "space": "Space",
+      "doubleCtrl": "Double Ctrl",
+      "altSpace": "Alt + Space",
+      "winSpace": "Win + Space"
+    }
+  },
   "releaseVersion": {
     "options": {
       "patch": "Patch",

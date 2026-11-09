@@ -241,6 +241,48 @@
       "cleared": "已取消快捷键！"
     }
   },
+  "shortcutField": {
+    "placeholder": "点击设置",
+    "presetsTitle": "预设",
+    "customTitle": "自定义",
+    "record": "按下按键",
+    "recording": "等待按键…",
+    "recordHint": "按下一个修饰键和一个按键，或在下方选择。",
+    "preview": "结果",
+    "apply": "应用",
+    "clear": "清除",
+    "incomplete": "请选择修饰键和按键",
+    "keys": {
+      "space": "空格",
+      "enter": "回车",
+      "tab": "Tab",
+      "escape": "Esc",
+      "backspace": "退格",
+      "delete": "删除",
+      "insert": "插入",
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右",
+      "home": "Home",
+      "end": "End",
+      "pageUp": "PageUp",
+      "pageDown": "PageDown"
+    },
+    "groups": {
+      "letters": "字母",
+      "digits": "数字",
+      "function": "功能键",
+      "navigation": "编辑键",
+      "symbols": "符号"
+    },
+    "presets": {
+      "space": "空格",
+      "doubleCtrl": "双击 Ctrl",
+      "altSpace": "Alt + 空格",
+      "winSpace": "Win + 空格"
+    }
+  },
   "releaseVersion": {
     "options": {
       "patch": "补丁版本",
