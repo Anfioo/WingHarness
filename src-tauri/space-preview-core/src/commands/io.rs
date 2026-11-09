@@ -1,11 +1,12 @@
 //! File inspection and ranged reads.
 //!
-//! B1 implements these. `sp_inspect_file` is the only entry that admits a path
-//! into the allowlist; the two reads only accept paths it admitted.
+//! Thin forwarders: decode the wire arguments and hand the work to `crate::io`.
+
+use std::path::Path;
 
 use tauri::State;
 
-use crate::error::{SpacePreviewError, SpacePreviewResult};
+use crate::error::SpacePreviewResult;
 use crate::models::PreviewFileInfo;
 use crate::state::PreviewState;
 
@@ -14,8 +15,7 @@ pub fn sp_inspect_file(
     state: State<'_, PreviewState>,
     path: String,
 ) -> SpacePreviewResult<PreviewFileInfo> {
-    let _ = (&state, path);
-    Err(SpacePreviewError::internal("not implemented"))
+    crate::io::inspect(Path::new(&path), &state)
 }
 
 #[tauri::command]
@@ -24,8 +24,8 @@ pub fn sp_read_prefix(
     path: String,
     limit: usize,
 ) -> SpacePreviewResult<tauri::ipc::Response> {
-    let _ = (&state, path, limit);
-    Err(SpacePreviewError::internal("not implemented"))
+    let bytes = crate::io::read_prefix(Path::new(&path), limit, &state)?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]
@@ -35,6 +35,6 @@ pub fn sp_read_range(
     offset: usize,
     limit: usize,
 ) -> SpacePreviewResult<tauri::ipc::Response> {
-    let _ = (&state, path, offset, limit);
-    Err(SpacePreviewError::internal("not implemented"))
+    let bytes = crate::io::read_range(Path::new(&path), offset, limit, &state)?;
+    Ok(tauri::ipc::Response::new(bytes))
 }

@@ -10,10 +10,12 @@
 pub mod agent;
 pub mod commands;
 pub mod error;
+pub mod io;
 pub mod models;
 pub mod paths;
 pub mod prefs;
 pub mod state;
+pub mod text;
 
 pub use error::{SpacePreviewError, SpacePreviewResult};
 pub use models::*;

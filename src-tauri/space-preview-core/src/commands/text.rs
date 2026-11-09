@@ -1,12 +1,12 @@
 //! Text write-back.
 //!
-//! B1 implements this: the encoding is applied in the backend because the
-//! browser's `TextEncoder` only writes UTF-8, and the `etag` guards against a
-//! change on disk between the read and the write.
+//! Thin forwarder: the encoding and the etag check live in `crate::text`.
+
+use std::path::Path;
 
 use tauri::State;
 
-use crate::error::{SpacePreviewError, SpacePreviewResult};
+use crate::error::SpacePreviewResult;
 use crate::models::WriteResult;
 use crate::state::PreviewState;
 
@@ -18,6 +18,5 @@ pub fn sp_write_text(
     encoding: String,
     etag: Option<String>,
 ) -> SpacePreviewResult<WriteResult> {
-    let _ = (&state, path, text, encoding, etag);
-    Err(SpacePreviewError::internal("not implemented"))
+    crate::text::write_text(Path::new(&path), &text, &encoding, etag.as_deref(), &state)
 }
