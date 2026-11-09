@@ -190,14 +190,7 @@
     },
     "filePreview": {
       "title": "File preview",
-      "description": "How the file preview page reads and displays files.",
-      "maxSize": "Size threshold",
-      "maxSizeHint": "Files larger than this are listed but never opened: the backend refuses to read past the threshold.",
-      "maxSizeUnit": "MB",
-      "highlight": "Syntax highlighting",
-      "highlightHint": "Colours code and markup in text previews and in the file editor.",
-      "autoSave": "Changes save automatically and apply to the next file you open.",
-      "loadFailed": "Could not load the file preview settings."
+      "description": "How the file preview opens and displays files."
     },
     "appearance": {
       "title": "Appearance",

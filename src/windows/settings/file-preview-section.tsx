@@ -6,7 +6,6 @@ import {
   getPreviewPreferences,
   setAgentEnabled,
   type AgentStatus,
-  type FilePreviewConfig,
   type PreviewPreferences,
   type TextEncoding,
 } from "@/commands";
@@ -22,12 +21,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { useConfigDraft } from "@/hooks/use-config-draft";
 import { useSpacePreviewPreferences } from "@/hooks/use-space-preview-preferences";
-
-/** The range the backend clamps to, mirrored here so the field cannot lie. */
-const MB = 1024 * 1024;
-const MAX_SIZE = { min: 1, max: 1024 };
 
 /** A value past the allowed range is pulled to the nearest bound, not dropped. */
 function clamp(value: number, min: number, max: number): number {
@@ -114,18 +108,15 @@ function Row({
 }
 
 /**
- * How the preview page reads and paints files.
+ * How the preview opens and paints files.
  *
- * Two stores are edited here. The threshold and the highlight switch live in
- * `config.json` and are enforced by the old byte reader; the space switch, the
- * reading width, the font size and the default encoding live in `preview.json`
- * and are shared with the preview host and the tray. The space switch goes
- * through the agent command so the hook is retuned immediately instead of on the
- * next restart.
+ * The space switch, the reading width, the font size and the default encoding
+ * live in `preview.json` and are shared with the preview host and the tray. The
+ * space switch goes through the agent command so the hook is retuned immediately
+ * instead of on the next restart.
  */
 export function FilePreviewSection() {
   const { t } = useAppTranslation();
-  const { draft, setDraft, loading } = useConfigDraft("file preview");
   const { preferences, loading: preferencesLoading, save } = useSpacePreviewPreferences();
   const [agent, setAgent] = useState<AgentStatus | null>(null);
 
@@ -157,12 +148,6 @@ export function FilePreviewSection() {
       stop?.();
     };
   }, []);
-
-  const update = (patch: Partial<FilePreviewConfig>) => {
-    setDraft((current) =>
-      current ? { ...current, filePreview: { ...current.filePreview, ...patch } } : current
-    );
-  };
 
   const updatePreferences = async (patch: Partial<PreviewPreferences>) => {
     try {
@@ -203,46 +188,12 @@ export function FilePreviewSection() {
       : t("spacePreview.settings.disabled", { defaultValue: "Off" })
     : null;
 
-  const config = draft?.filePreview;
-
   return (
     <div className="space-y-4">
       <div>
         <h2 className="mb-1 text-lg font-semibold">{t("settings.filePreview.title")}</h2>
         <p className="text-muted-foreground text-sm">{t("settings.filePreview.description")}</p>
       </div>
-
-      {loading && !config ? (
-        <Skeleton className="h-40 rounded-xl" />
-      ) : config ? (
-        <div className="border-border divide-y rounded-xl border px-4">
-          <Row
-            label={t("settings.filePreview.maxSize")}
-            hint={t("settings.filePreview.maxSizeHint")}
-          >
-            <NumberField
-              value={Math.round(config.maxBytes / MB)}
-              min={MAX_SIZE.min}
-              max={MAX_SIZE.max}
-              unit={t("settings.filePreview.maxSizeUnit")}
-              onChange={(mb) => update({ maxBytes: mb * MB })}
-            />
-          </Row>
-          <Row
-            label={t("settings.filePreview.highlight")}
-            hint={t("settings.filePreview.highlightHint")}
-          >
-            <Switch
-              checked={config.highlight}
-              onCheckedChange={(highlight) => update({ highlight })}
-            />
-          </Row>
-        </div>
-      ) : (
-        <p className="text-muted-foreground text-sm">{t("settings.filePreview.loadFailed")}</p>
-      )}
-
-      <p className="text-muted-foreground text-xs">{t("settings.filePreview.autoSave")}</p>
 
       <div>
         <h3 className="mb-1 text-sm font-semibold">

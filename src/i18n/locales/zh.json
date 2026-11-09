@@ -189,14 +189,7 @@
     },
     "filePreview": {
       "title": "文件预览设置",
-      "description": "文件预览页读取和显示文件的方式。",
-      "maxSize": "文件大小阈值",
-      "maxSizeHint": "超过此大小的文件仍会列出，但不会打开：后端会拒绝读取超过阈值的内容。",
-      "maxSizeUnit": "MB",
-      "highlight": "语法高亮",
-      "highlightHint": "在文本预览和文件编辑器中为代码和标记着色。",
-      "autoSave": "修改后自动保存，对下次打开的文件生效。",
-      "loadFailed": "读取文件预览设置失败。"
+      "description": "文件预览打开和显示文件的方式。"
     },
     "appearance": {
       "title": "外观",
