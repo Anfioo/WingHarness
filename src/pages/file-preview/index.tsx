@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ExternalLink, FolderTree } from "lucide-react";
+import { FolderTree } from "lucide-react";
 import { toast } from "sonner";
-import { openPreview, type RemoteEntry } from "@/commands";
+import type { RemoteEntry } from "@/commands";
 import { AppShell } from "@/components/app-shell";
 import { absolutePath } from "@/components/file-preview/absolute-path";
 import { FileTree } from "@/components/file-preview/file-tree";
@@ -46,16 +46,6 @@ export default function FilePreviewPage() {
     [t]
   );
 
-  const openInWindow = useCallback(() => {
-    if (!target) return;
-    void openPreview([target.path]).catch((error: unknown) =>
-      toast.error(
-        t("spacePreview.host.openFailed", { defaultValue: "The window could not be opened." }),
-        { description: error instanceof Error ? error.message : String(error) }
-      )
-    );
-  }, [t, target]);
-
   return (
     <AppShell>
       <section className="flex h-full w-full flex-col gap-4">
@@ -73,16 +63,6 @@ export default function FilePreviewPage() {
               <div className="border-border flex h-10 shrink-0 items-center gap-2 border-b px-3">
                 <FolderTree className="text-muted-foreground size-4" />
                 <span className="text-sm font-medium">{t("filePreview.treeTitle")}</span>
-                <button
-                  type="button"
-                  aria-label={t("spacePreview.toolbar.openInWindow")}
-                  title={t("spacePreview.toolbar.openInWindow")}
-                  disabled={!target}
-                  onClick={openInWindow}
-                  className="hover:bg-accent ml-auto rounded-md p-1.5 disabled:opacity-50"
-                >
-                  <ExternalLink className="size-4" />
-                </button>
               </div>
               <div className="min-h-0 flex-1 overflow-auto p-1">
                 {/* Keyed on the root: the tree's loaded folders belong to the
