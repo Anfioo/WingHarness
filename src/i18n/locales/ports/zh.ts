@@ -4,8 +4,6 @@ const ports = {
   actions: {
     refresh: "刷新",
     settings: "设置",
-    pin: "固定端口",
-    unpin: "取消固定",
     kill: "结束进程",
     close: "关闭",
     cancel: "取消",
@@ -19,6 +17,7 @@ const ports = {
   toolbar: {
     searchPlaceholder: "按端口或进程名搜索",
     searchAria: "搜索端口",
+    clearSearch: "清空搜索",
     filterAria: "按状态筛选",
     updated: "更新于 {{time}}",
     paused: "窗口隐藏时已暂停",
@@ -55,12 +54,9 @@ const ports = {
   kill: {
     title: "结束进程？",
     description: "这会结束 {{name}}（PID {{pid}}）并释放端口 {{port}}。如需要会请求管理员权限。",
-    process: "{{name}}（PID {{pid}}）",
     confirm: "结束进程",
     success: "进程已结束。",
-    denied: "Windows 拒绝了这个操作。请重试并同意管理员提示。",
     cancelled: "已取消管理员授权。",
-    failed: "无法结束该进程。",
   },
   detail: {
     title: "端口 {{port}}",
@@ -88,7 +84,6 @@ const ports = {
       body: "这个端口当前空闲。",
     },
     loadFailed: "无法读取端口详情。",
-    close: "关闭",
   },
   settings: {
     title: "端口设置",
