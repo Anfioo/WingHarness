@@ -59,9 +59,14 @@ pub fn get_config() -> ConfigView {
 }
 
 /// Saves the configuration and returns the reloaded view.
+///
+/// The proxy is pushed into the process environment here as well: requests made
+/// after this call use the new setting without a restart.
 #[tauri::command]
 pub fn save_config(config: Config) -> Result<ConfigView, String> {
     config::save(&config)?;
+    // Read back rather than use the argument: `save` normalizes the values.
+    config::apply_proxy_env(&config::load().proxy);
     Ok(view())
 }
 

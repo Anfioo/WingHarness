@@ -1,6 +1,12 @@
 import { invokeCommand } from "../../base";
 import type { AppConfig, ConfigView } from "./types";
 
+/**
+ * Emitted after a save, so other windows re-read the parts of the config they
+ * draw — the sidebar's account menu follows the networked mode.
+ */
+export const CONFIG_CHANGED_EVENT = "config-changed";
+
 export function getConfig(): Promise<ConfigView> {
   return invokeCommand("get_config", {});
 }
