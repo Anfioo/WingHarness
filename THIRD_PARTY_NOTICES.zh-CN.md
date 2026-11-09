@@ -111,6 +111,22 @@ SQL Server、ClickHouse 与 Oracle 分支、`specta` 类型生成、keychain 密
 一致。该 crate 现在是自有引擎并在本仓库中修改。移植记录见
 `src-tauri/shaic-core/UPSTREAM.md`。
 
+### SpacePreview
+
+- 项目：[SpacePreview](https://github.com/likehao19/SpacePreview)
+- 版本：0.10.22
+- 许可证：MIT
+- 许可证文本：[licenses/SpacePreview-LICENSE.txt](./licenses/SpacePreview-LICENSE.txt)
+
+SpacePreview / Copyright (c) 2026 likehao19 / 按 MIT 许可证授权。预览引擎、查看器与
+Windows 空格集成的一部分改编自 SpacePreview。`src-tauri/space-preview-core` 是其
+Rust 侧（文件探测与分段读取、带编码的文本写回、HTML 资源、PowerPoint 转换、系统
+图标与 Windows 空格代理）；`src/lib/space-preview` 与
+`src/components/space-preview` 是移植的格式引擎、Web Worker、查看器与作用域化样式
+表，服务于升级后的文件预览页、独立预览窗口与编辑器预览页签。CAD、3D 模型、RAW
+图像、设计稿缩略图与 Graphviz（EPL-2.0）分支未移植。移植记录见
+`src-tauri/space-preview-core/UPSTREAM.md` 与 `src/components/space-preview/UPSTREAM.md`。
+
 ### TizuMark
 
 - 项目：[TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
@@ -166,6 +182,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | 包 | 许可证 |
 |----|--------|
 | `7z-wasm` | LGPL + unRAR 限制 —— 见 §3 |
+| `@asciidoctor/core` | MIT |
 | `@codemirror/commands` | MIT |
 | `@codemirror/lang-markdown` | MIT |
 | `@codemirror/language` | MIT |
@@ -175,6 +192,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@dnd-kit/core` | MIT |
 | `@dnd-kit/sortable` | MIT |
 | `@dnd-kit/utilities` | MIT |
+| `@kenjiuno/msgreader` | Apache-2.0 |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
 | `@tailwindcss/vite` | MIT |
@@ -189,6 +207,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |
 | `ag-psd` | MIT |
+| `buffer` | MIT |
 | `cfb` | Apache-2.0 |
 | `chart.js` | MIT |
 | `class-variance-authority` | Apache-2.0 |
@@ -196,21 +215,28 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `cmdk` | MIT |
 | `cn` | MIT |
 | `codelet` | MIT |
+| `comlink` | Apache-2.0 |
+| `docx-preview` | Apache-2.0 |
 | `dompurify` | MPL-2.0 OR Apache-2.0 |
 | `exceljs` | MIT |
+| `fast-xml-parser` | MIT |
 | `fflate` | MIT |
+| `fzstd` | MIT |
 | `highlight.js` | BSD-3-Clause |
 | `i18next` | MIT |
 | `i18next-browser-languagedetector` | MIT |
 | `icojs` | MIT |
 | `jszip` | MIT OR GPL-3.0-or-later |
 | `katex` | MIT |
+| `libarchive.js` | MIT |
+| `lottie-web` | MIT |
 | `lucide-react` | ISC |
 | `mammoth` | BSD-2-Clause |
 | `marked` | MIT |
 | `mermaid` | MIT |
 | `mind-elixir` | MIT |
 | `node-unrar-js` | MIT |
+| `opentype.js` | MIT |
 | `papaparse` | MIT |
 | `pdfjs-dist` | Apache-2.0 |
 | `postal-mime` | MIT-0 |
@@ -220,10 +246,15 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `react-day-picker` | MIT |
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
+| `rtf.js` | MIT |
+| `seek-bzip` | MIT |
 | `sonner` | MIT |
+| `sql.js` | MIT |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
+| `xlsx` | Apache-2.0 |
+| `xz-decompress` | MIT |
 | `yaml` | ISC |
 | `zustand` | MIT |
 
@@ -250,6 +281,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
 | `log` | MIT OR Apache-2.0 |
+| `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
 | `png` | MIT OR Apache-2.0 |

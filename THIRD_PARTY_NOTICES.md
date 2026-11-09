@@ -123,6 +123,25 @@ OrcaSVN, as stated in `svn-core/src/lib.rs`.
 were byte-identical at import. The crate is now a first-party engine and is
 edited here. See `src-tauri/shaic-core/UPSTREAM.md` for the porting record.
 
+### SpacePreview
+
+- Project: [SpacePreview](https://github.com/likehao19/SpacePreview)
+- Version: 0.10.22
+- License: MIT
+- License text: [licenses/SpacePreview-LICENSE.txt](./licenses/SpacePreview-LICENSE.txt)
+
+SpacePreview / Copyright (c) 2026 likehao19 / Licensed under the MIT License.
+Portions of the preview engines, viewers and Windows Space integration are
+adapted from SpacePreview. `src-tauri/space-preview-core` is the Rust side
+(file inspection and ranged reads, text write-back with encodings, HTML
+resources, PowerPoint conversion, system icons and the Windows space agent);
+`src/lib/space-preview` and `src/components/space-preview` are the ported format
+engines, Web Worker, viewers and scoped stylesheet, behind the upgraded File
+Preview page, the standalone preview window and the editors' preview tabs. The
+CAD, 3D-model, RAW-image, design-thumbnail and Graphviz (EPL-2.0) branches were
+not carried over. See `src-tauri/space-preview-core/UPSTREAM.md` and
+`src/components/space-preview/UPSTREAM.md`.
+
 ### TizuMark
 
 - Project: [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
@@ -183,6 +202,7 @@ its crate source.
 | Package | License |
 |---------|---------|
 | `7z-wasm` | LGPL + unRAR restriction — see §3 |
+| `@asciidoctor/core` | MIT |
 | `@codemirror/commands` | MIT |
 | `@codemirror/lang-markdown` | MIT |
 | `@codemirror/language` | MIT |
@@ -192,6 +212,7 @@ its crate source.
 | `@dnd-kit/core` | MIT |
 | `@dnd-kit/sortable` | MIT |
 | `@dnd-kit/utilities` | MIT |
+| `@kenjiuno/msgreader` | Apache-2.0 |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
 | `@tailwindcss/vite` | MIT |
@@ -206,6 +227,7 @@ its crate source.
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |
 | `ag-psd` | MIT |
+| `buffer` | MIT |
 | `cfb` | Apache-2.0 |
 | `chart.js` | MIT |
 | `class-variance-authority` | Apache-2.0 |
@@ -213,21 +235,28 @@ its crate source.
 | `cmdk` | MIT |
 | `cn` | MIT |
 | `codelet` | MIT |
+| `comlink` | Apache-2.0 |
+| `docx-preview` | Apache-2.0 |
 | `dompurify` | MPL-2.0 OR Apache-2.0 |
 | `exceljs` | MIT |
+| `fast-xml-parser` | MIT |
 | `fflate` | MIT |
+| `fzstd` | MIT |
 | `highlight.js` | BSD-3-Clause |
 | `i18next` | MIT |
 | `i18next-browser-languagedetector` | MIT |
 | `icojs` | MIT |
 | `jszip` | MIT OR GPL-3.0-or-later |
 | `katex` | MIT |
+| `libarchive.js` | MIT |
+| `lottie-web` | MIT |
 | `lucide-react` | ISC |
 | `mammoth` | BSD-2-Clause |
 | `marked` | MIT |
 | `mermaid` | MIT |
 | `mind-elixir` | MIT |
 | `node-unrar-js` | MIT |
+| `opentype.js` | MIT |
 | `papaparse` | MIT |
 | `pdfjs-dist` | Apache-2.0 |
 | `postal-mime` | MIT-0 |
@@ -237,10 +266,15 @@ its crate source.
 | `react-day-picker` | MIT |
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
+| `rtf.js` | MIT |
+| `seek-bzip` | MIT |
 | `sonner` | MIT |
+| `sql.js` | MIT |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
+| `xlsx` | Apache-2.0 |
+| `xz-decompress` | MIT |
 | `yaml` | ISC |
 | `zustand` | MIT |
 
@@ -267,6 +301,7 @@ its crate source.
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
 | `log` | MIT OR Apache-2.0 |
+| `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
 | `png` | MIT OR Apache-2.0 |

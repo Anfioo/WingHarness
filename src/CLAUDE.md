@@ -18,7 +18,8 @@ CSS v4 + shadcn/ui.
 - **Route table**: `lib/app-routes.ts` (`AppRouteId`, `appRoutes`)
 - **Pages** (`pages/`): `project` (the picker at `/` and one window per project),
   `git-repo`, `svn-workspace`, `api-client`, `systools`, `servers`, `database`,
-  `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`, `ai-config`,
+  `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`,
+  `preview-window` (the hidden standalone preview window), `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
   `mcp-hub`, `clash`, `plugins`, `private-registry`
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
