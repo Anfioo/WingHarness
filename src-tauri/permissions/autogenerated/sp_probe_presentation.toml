@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-probe-presentation"
+description = "Enables the sp_probe_presentation command without any pre-configured scope."
+commands.allow = ["sp_probe_presentation"]
+
+[[permission]]
+identifier = "deny-sp-probe-presentation"
+description = "Denies the sp_probe_presentation command without any pre-configured scope."
+commands.deny = ["sp_probe_presentation"]

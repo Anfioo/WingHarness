@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-read-range"
+description = "Enables the sp_read_range command without any pre-configured scope."
+commands.allow = ["sp_read_range"]
+
+[[permission]]
+identifier = "deny-sp-read-range"
+description = "Denies the sp_read_range command without any pre-configured scope."
+commands.deny = ["sp_read_range"]

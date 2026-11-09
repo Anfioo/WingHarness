@@ -22,6 +22,7 @@ members = [
     "frp-core",
     "md-editor-core",
     "db-core",
+    "space-preview-core",
 ]
 resolver = "2"
 
@@ -81,6 +82,9 @@ md-editor-core = { path = "md-editor-core" }
 # The database page's engine: data sources, live connections (SQLite, PostgreSQL,
 # MySQL), introspection, query execution and table editing.
 db-core = { path = "db-core" }
+# The file preview page's upgraded engine and the Windows space agent: file
+# inspection, ranged reads, text write-back, presentations and icons.
+space-preview-core = { path = "space-preview-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks

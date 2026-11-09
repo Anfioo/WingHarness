@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-navigate-file-selection"
+description = "Enables the sp_navigate_file_selection command without any pre-configured scope."
+commands.allow = ["sp_navigate_file_selection"]
+
+[[permission]]
+identifier = "deny-sp-navigate-file-selection"
+description = "Denies the sp_navigate_file_selection command without any pre-configured scope."
+commands.deny = ["sp_navigate_file_selection"]
