@@ -37,6 +37,7 @@ pub fn sp_agent_set_enabled(
     }
     crate::agent::set_enabled(stored.space_enabled);
     let status = crate::agent::status();
+    crate::commands::prefs::emit_preferences(&app, &stored);
     if let Err(error) = app.emit(
         AGENT_STATUS_EVENT,
         serde_json::json!({ "enabled": status.enabled, "running": status.running }),

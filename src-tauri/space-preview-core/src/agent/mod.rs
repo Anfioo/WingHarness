@@ -178,9 +178,25 @@ pub fn cancel_navigation() {
     windows_agent::cancel_navigation();
 }
 
-/// No file associations are registered yet, so a run never starts with files.
+/// The selection a fresh preview window should open with.
+///
+/// The window is normally hidden but loaded, so it receives `sp:preview-files`
+/// directly. If its page mounted after a hand-off, the unclaimed payload is
+/// still pending; returning it here lets the page pull once instead of waiting
+/// for an event it missed. Nothing is registered with the shell yet, so a run
+/// that starts without any hand-off still has nothing to open.
 pub fn initial_paths() -> InitialPaths {
-    InitialPaths::default()
+    let pending = PENDING_EMIT
+        .get()
+        .and_then(|slot| slot.lock().ok().and_then(|pending| pending.clone()));
+    match pending {
+        Some(pending) => InitialPaths {
+            paths: pending.paths,
+            text: pending.text,
+            file_manager: pending.file_manager,
+        },
+        None => InitialPaths::default(),
+    }
 }
 
 fn store_pending(pending: &PendingEmit) {
