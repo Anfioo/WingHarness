@@ -112,6 +112,27 @@ over. See `src-tauri/db-core/UPSTREAM.md` and
 `src-tauri/svn-core` and the SVN workspace pages are ported wholesale from
 OrcaSVN, as stated in `svn-core/src/lib.rs`.
 
+### Porter
+
+- Project: [Porter](https://github.com/t21dev/porter-app)
+- Version: v0.7.1
+- License: MIT
+- License text: [licenses/Porter-LICENSE.txt](./licenses/Porter-LICENSE.txt)
+
+Porter (https://github.com/t21dev/porter-app)
+Copyright (c) 2025 Porter App Contributors
+Licensed under the MIT License.
+Portions of the Windows TCP listener enumeration, port scan, process lookup,
+process termination and the port list/detail/settings UI are adapted from
+Porter.
+
+`src-tauri/ports-core` is the engine behind the ports page. It is rewritten, not
+copied: only the Windows TCP listener table, the scan's three states, the
+process lookup and termination path, the one-shot elevation behaviour and the
+DTOs are derived from Porter. The macOS, Linux and Flatpak paths, outbound
+connections, UDP, whole-app elevation and the shell/theme/update features were
+not carried over. See `src-tauri/ports-core/UPSTREAM.md` for the porting record.
+
 ### shaic
 
 - Project: [shaic](https://github.com/dariocurr/shaic)

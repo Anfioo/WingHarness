@@ -149,6 +149,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [MD_EDITOR.md](./docs/features/MD_EDITOR.md) — the multi-tab Markdown editor
 - [NOTES.md](./docs/features/NOTES.md) — Markdown notes in the data directory
 - [PLUGINS.md](./docs/features/PLUGINS.md) — the plugin format and its generated settings UI
+- [PORTS.md](./docs/features/PORTS.md) — TCP listening ports, pinned ports and ending the process behind a port
 - [PROJECT.md](./docs/features/PROJECT.md) — the project file explorer and editor
 - [SERVERS.md](./docs/features/SERVERS.md) — the SSH / SFTP server manager
 - [SVN.md](./docs/features/SVN.md) — the Subversion workspace
