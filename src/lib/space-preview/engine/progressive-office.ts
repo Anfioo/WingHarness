@@ -41,12 +41,14 @@ export async function readStructuredInStages(
   const load = async (name: string, required: boolean) => {
     const entry = entries.find((entry) => entry.name === name && !entry.directory);
     if (!entry) {
-      if (required) throw new Error(`文档缺少内容：${name}`);
+      if (required) throw new Error(`The document is missing its content: ${name}`);
       return undefined;
     }
     // Keep the existing expanded-XML bounds even when loading separate units.
     if (entry.size > 12 * 1024 * 1024 || expanded + entry.size > 48 * 1024 * 1024)
-      throw new Error('文档展开内容超过预览上限，已保留加载完成的内容。');
+      throw new Error(
+        'The expanded document content exceeds the preview limit; content loaded so far was kept.',
+      );
     expanded += entry.size;
     const bytes = await readZipEntry(entry, file.size, read);
     const result = await parseInWorker(

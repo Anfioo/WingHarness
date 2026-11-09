@@ -71,7 +71,7 @@ describe('preview routing and fallback', () => {
   });
   it('produces offsets, printable ASCII and magic detection', () => {
     const bytes = new Uint8Array([127, 69, 76, 70, 0, 65]);
-    expect(sniffMagic(bytes)).toBe('ELF 可执行文件');
+    expect(sniffMagic(bytes)).toBe('ELF executable');
     expect(hexDump(bytes)).toContain('00000000    7f 45 4c 46 00 41');
     expect(hexDump(bytes)).toContain('.ELF.A');
     expect(hexDump(new Uint8Array())).toBe('');
@@ -90,7 +90,7 @@ describe('read-only ZIP directory', () => {
         extractZipEntries(bytes, new Set(['readme.txt']), 100, 100)['readme.txt'],
       ),
     ).toBe('safe');
-    expect(() => extractZipEntries(bytes, new Set(['large.txt']), 100, 100)).toThrow('内存上限');
+    expect(() => extractZipEntries(bytes, new Set(['large.txt']), 100, 100)).toThrow('memory limit');
   });
   it('lists Unicode paths and sizes without extracting', () => {
     const bytes = zipSync({
@@ -107,7 +107,7 @@ describe('read-only ZIP directory', () => {
     expect(() => listZip(bytes.slice(0, -5))).toThrow();
     const damaged = bytes.slice();
     new DataView(damaged.buffer).setUint32(damaged.length - 6, 0x7fffffff, true);
-    expect(() => listZip(damaged)).toThrow('ZIP 目录损坏');
+    expect(() => listZip(damaged)).toThrow('ZIP directory is corrupt');
     expect(() => listZip(new Uint8Array([1, 2, 3]))).toThrow();
   });
 });

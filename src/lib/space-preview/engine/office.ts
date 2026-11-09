@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable @typescript-eslint/no-explicit-any -- Ported upstream code keeps its untyped XML/SheetJS values. */
 import { XMLParser } from 'fast-xml-parser';
 import { strFromU8 } from 'fflate';
 import { listZip, extractZipEntries } from './archive';
@@ -42,13 +41,14 @@ function xmlParts(bytes: Uint8Array, prefix: string) {
     entries.reduce((sum, e) => sum + e.size, 0) > 48 * 1024 * 1024 ||
     entries.some((e) => e.size > 12 * 1024 * 1024)
   )
-    throw new Error('文档 XML 过大，已停止解析。');
+    throw new Error('The document XML is too large; parsing was stopped.');
   const names = new Set(entries.map((e) => e.name));
   const parts = extractZipEntries(bytes, names, 12 * 1024 * 1024, 48 * 1024 * 1024);
   return (path: string, xmlParser = parser) => {
     if (!parts[path]) return {};
     const xml = strFromU8(parts[path]);
-    if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('文档包含不受支持的 XML 实体声明。');
+    if (/<!DOCTYPE|<!ENTITY/i.test(xml))
+      throw new Error('The document contains an unsupported XML entity declaration.');
     return xmlParser.parse(xml);
   };
 }
@@ -77,26 +77,26 @@ export function officeIndex(bytes: Uint8Array, kind: 'xlsx' | 'pptx') {
   const name = kind === 'xlsx' ? 'workbook' : 'presentation';
   const read = xmlParts(bytes, `${prefix}/`);
   const root = read(`${prefix}/${name}.xml`)[name];
-  if (!root) throw new Error('文档清单不存在。');
+  if (!root) throw new Error('The document manifest does not exist.');
   const rels = asArray<any>(read(`${prefix}/_rels/${name}.xml.rels`).Relationships?.Relationship);
   const items = asArray<any>(kind === 'xlsx' ? root.sheets?.sheet : root.sldIdLst?.sldId);
   if (items.length > (kind === 'xlsx' ? 100 : 500))
-    throw new Error('文档页数或工作表数量超过预览上限。');
+    throw new Error('The document exceeds the preview limit for pages or worksheets.');
   return items.map((item, index) => {
     const relation = rels.find(
       (rel) => rel['@_Id'] === item['@_relationshipId'] && rel['@_TargetMode'] !== 'External',
     );
-    if (!relation) throw new Error('文档内部引用无效。');
+    if (!relation) throw new Error('The document has an invalid internal reference.');
     return {
       path: partPath(prefix, relation['@_Target']),
-      name: String(item['@_name'] ?? `第 ${index + 1} 页`),
+      name: String(item['@_name'] ?? `Page ${index + 1}`),
     };
   });
 }
 export function readWorkbook(bytes: Uint8Array, selected?: number): WorkbookSheet[] {
   const read = xmlParts(bytes, 'xl/');
   const workbook = read('xl/workbook.xml').workbook;
-  if (!workbook) throw new Error('没有找到有效的 Excel 工作簿。');
+  if (!workbook) throw new Error('No valid Excel workbook was found.');
   const rels = asArray<any>(read('xl/_rels/workbook.xml.rels').Relationships?.Relationship);
   const shared = asArray(read('xl/sharedStrings.xml').sst?.si).map(textOf);
   const styles = read('xl/styles.xml').styleSheet;
@@ -110,7 +110,7 @@ export function readWorkbook(bytes: Uint8Array, selected?: number): WorkbookShee
   );
   const formats = asArray<any>(styles?.cellXfs?.xf).map((x) => Number(x['@_numFmtId']));
   const sheets = asArray<any>(workbook.sheets?.sheet);
-  if (sheets.length > 100) throw new Error('工作簿超过 100 个工作表。');
+  if (sheets.length > 100) throw new Error('The workbook exceeds 100 worksheets.');
   return sheets
     .filter((_, index) => selected === undefined || selected === index)
     .map((sheet) => {
@@ -167,7 +167,7 @@ export function readWorkbook(bytes: Uint8Array, selected?: number): WorkbookShee
               /* Retain the saved value for unsupported number formats. */
             }
           }
-          if ('f' in cell && !('v' in cell)) value = '（公式无缓存结果）';
+          if ('f' in cell && !('v' in cell)) value = '(formula has no cached result)';
           if (
             (!cell['@_t'] || cell['@_t'] === 'n') &&
             textOf(cell.v) &&
@@ -232,10 +232,10 @@ export function readWorkbook(bytes: Uint8Array, selected?: number): WorkbookShee
 export function readSlides(bytes: Uint8Array, selected?: number) {
   const read = xmlParts(bytes, 'ppt/');
   const presentation = read('ppt/presentation.xml').presentation;
-  if (!presentation) throw new Error('没有找到有效的 PowerPoint 演示文稿。');
+  if (!presentation) throw new Error('No valid PowerPoint presentation was found.');
   const rels = asArray<any>(read('ppt/_rels/presentation.xml.rels').Relationships?.Relationship);
   const slides = asArray<any>(presentation.sldIdLst?.sldId);
-  if (slides.length > 500) throw new Error('幻灯片超过 500 页，已停止解析。');
+  if (slides.length > 500) throw new Error('The presentation exceeds 500 slides; parsing was stopped.');
   return slides
     .filter((_, index) => selected === undefined || selected === index)
     .map((slide) => {
@@ -271,6 +271,6 @@ export function readSlides(bytes: Uint8Array, selected?: number) {
         }
       };
       collect(root);
-      return { title: paragraphs[0] ?? '无文字内容', paragraphs: paragraphs.slice(1) };
+      return { title: paragraphs[0] ?? 'No text content', paragraphs: paragraphs.slice(1) };
     });
 }

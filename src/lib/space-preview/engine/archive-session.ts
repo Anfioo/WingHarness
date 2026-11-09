@@ -68,7 +68,7 @@ export async function openArchive(
       entries: [entry],
       close: () => {},
       extract: async (_entry: ArchiveEntry, limit = 256 * 1024 * 1024) => {
-        if (data.length > limit || file.size > limit) throw new Error('内部文件超过设置上限。');
+        if (data.length > limit || file.size > limit) throw new Error('The inner file exceeds the configured limit.');
         return new Blob([data as Uint8Array<ArrayBuffer>]);
       },
     };
@@ -81,7 +81,7 @@ export async function openArchive(
     fail = reject;
   });
   void stopped.catch(() => {});
-  const close = (error: Error = new DOMException('已取消', 'AbortError')) => {
+  const close = (error: Error = new DOMException('Cancelled', 'AbortError')) => {
     clearTimeout(timer);
     signal.removeEventListener('abort', abort);
     worker.terminate();
@@ -89,15 +89,15 @@ export async function openArchive(
   };
   const abort = () => close();
   const timer = setTimeout(() => {
-    close(new Error('压缩包读取超过 120 秒，已停止。'));
+    close(new Error('Reading the archive exceeded 120 seconds; stopped.'));
   }, 120_000);
   worker.onerror = () => {
-    close(new Error('压缩包引擎加载失败。'));
+    close(new Error('The archive engine failed to load.'));
   };
   signal.addEventListener('abort', abort, { once: true });
   const call = <T>(value: Promise<T>) => Promise.race([value, stopped]);
   try {
-    if (signal.aborted) throw new DOMException('已取消', 'AbortError');
+    if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
     const Constructor = wrap<new (ready: () => void) => ArchiveClient>(worker);
     let ready: () => void = () => {};
     const initialized = new Promise<void>((resolve) => {
@@ -115,7 +115,7 @@ export async function openArchive(
     await call(loaded);
     if (password) await call(client.usePassword(password));
     const nativeEntries = await call(client.listFiles());
-    if (nativeEntries.length > 100_000) throw new Error('压缩包包含超过 100,000 个条目。');
+    if (nativeEntries.length > 100_000) throw new Error('The archive contains more than 100,000 entries.');
     const entries: ArchiveEntry[] = nativeEntries
       .filter((entry) => entry.type === 'FILE' || entry.type === 'DIR')
       .map((entry, index) => ({
@@ -131,15 +131,15 @@ export async function openArchive(
       entries,
       close,
       async extract(entry: ArchiveEntry, limit = 256 * 1024 * 1024) {
-        if (entry.size > limit) throw new Error('内部文件超过设置上限。');
+        if (entry.size > limit) throw new Error('The inner file exceeds the configured limit.');
         const extractionTimer = setTimeout(
-          () => close(new Error('内部文件解压超过 120 秒，已停止。')),
+          () => close(new Error('Decompressing the inner file exceeded 120 seconds; stopped.')),
           120_000,
         );
         try {
           const result = await call(client.extractSingleFile(entry.sourcePath!));
           if (!result?.fileData || result.fileData.byteLength !== entry.size)
-            throw new Error('内部文件读取失败，可能已损坏或需要密码。');
+            throw new Error('Failed to read the inner file; it may be corrupt or require a password.');
           return new Blob([result.fileData as Uint8Array<ArrayBuffer>]);
         } finally {
           clearTimeout(extractionTimer);

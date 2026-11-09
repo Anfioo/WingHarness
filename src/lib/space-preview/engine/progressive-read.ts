@@ -19,7 +19,7 @@ export async function readInStages(
       const chunk = await read(offset, length);
       signal.throwIfAborted();
       if (chunk.length !== length)
-        throw new Error('文件读取不完整，文件可能已被修改，请重新打开。');
+        throw new Error('The file read is incomplete; the file may have been modified, please reopen it.');
       chunks.push(chunk);
       offset += length;
       progress(Math.round((offset / size) * 100));

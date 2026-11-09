@@ -19,11 +19,11 @@ it('reads a small entry from a large ZIP using only bounded ranges and verifies 
   const compressed = await readZipEntry(entries[0], bytes.length, read);
   expect(new TextDecoder().decode(inflateZipEntry(compressed, entries[0]))).toBe('可读中文');
   expect(readCount).toBeLessThan(70000);
-  expect(() => inflateZipEntry(compressed, { ...entries[0], crc: 1 })).toThrow('校验');
+  expect(() => inflateZipEntry(compressed, { ...entries[0], crc: 1 })).toThrow('checksum');
   await expect(readZipEntry(entries[1], bytes.length, read)).rejects.toThrow('32 MB');
   await expect(
     readZipEntry({ ...entries[0], encrypted: true }, bytes.length, read),
-  ).rejects.toThrow('加密');
+  ).rejects.toThrow('encrypted');
 });
 
 it('bounds deflate expansion and rejects malformed directories', async () => {
@@ -35,7 +35,7 @@ it('bounds deflate expansion and rejects malformed directories', async () => {
   expect(inflateZipEntry(await readZipEntry(entry, bytes.length, read), entry).length).toBe(
     9 * 1024 * 1024,
   );
-  expect(() => inflateZipEntry(compressed, { ...entry, size: 10 })).toThrow('内存上限');
+  expect(() => inflateZipEntry(compressed, { ...entry, size: 10 })).toThrow('memory limit');
   expect(() => parseZipDirectory(directory.bytes.slice(0, -1), 1)).toThrow();
 });
 
@@ -68,7 +68,7 @@ it('lists and opens ZIP64 without loading its whole archive', async () => {
     ),
   ).toBe('zip64');
   view.setUint32(end + 72, 2, true);
-  await expect(readZipDirectory(result.length, read)).rejects.toThrow('分卷');
+  await expect(readZipDirectory(result.length, read)).rejects.toThrow('Multi-volume');
 });
 it('applies configured limits above 32 MiB with bounded reads and actual output checks', async () => {
   const size = 33 * 1024 * 1024;
@@ -84,11 +84,11 @@ it('applies configured limits above 32 MiB with bounded reads and actual output 
   const compressed = await readZipEntry(entry, bytes.length, read, 64 * 1024 * 1024);
   expect(Math.max(...lengths)).toBeLessThanOrEqual(4 * 1024 * 1024);
   expect(inflateZipEntry(compressed, entry, 64 * 1024 * 1024).length).toBe(size);
-  expect(() => inflateZipEntry(compressed, entry, 16 * 1024 * 1024)).toThrow('上限');
+  expect(() => inflateZipEntry(compressed, entry, 16 * 1024 * 1024)).toThrow('preview limit');
   const deflated = zipSync({ 'large.bin': new Uint8Array(size) });
   const range = async (offset: number, length: number) => deflated.slice(offset, offset + length);
   const index = await readZipDirectory(deflated.length, range);
   const item = parseZipDirectory(index.bytes, index.count)[0];
   const data = await readZipEntry(item, deflated.length, range, 64 * 1024 * 1024);
-  expect(() => inflateZipEntry(data, { ...item, size: 1 }, 64 * 1024 * 1024)).toThrow('内存上限');
+  expect(() => inflateZipEntry(data, { ...item, size: 1 }, 64 * 1024 * 1024)).toThrow('memory limit');
 }, 30_000);

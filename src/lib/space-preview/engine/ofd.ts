@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable no-control-regex -- OFD text runs are sanitised with a control-character test. */
 import { ofdResources } from './ofd-resources';
 import {
   inflateZipEntry,
@@ -220,7 +219,7 @@ export async function openOfd({
   const bytes = async (path: string) => {
     signal.throwIfAborted();
     const entry = lookup(path);
-    if (!entry) throw new Error(`OFD 缺少 ${path}`);
+    if (!entry) throw new Error(`OFD is missing ${path}.`);
     const raw = await readZipEntry(entry, size, read);
     signal.throwIfAborted();
     // Large fonts and images inflate off the UI thread; XML parts stay inline to avoid worker startup.
@@ -238,7 +237,7 @@ export async function openOfd({
     ).decode(data);
     const parsed = new DOMParser().parseFromString(source, 'application/xml');
     if (parsed.getElementsByTagName('parsererror').length)
-      throw new Error(`${path} 不是有效的 XML。`);
+      throw new Error(`${path} is not valid XML.`);
     return parsed.documentElement;
   };
   const cleanups = new Set<() => void>();
@@ -252,7 +251,7 @@ export async function openOfd({
   // Each DocBody is an independent document with its own resources, templates and seals.
   const openBody = async (body: Element, docIndex: number) => {
     const docPath = resolvePath('', text(child(body, 'DocRoot')));
-    if (!docPath) throw new Error('OFD.xml 未声明文档入口。');
+    if (!docPath) throw new Error('OFD.xml does not declare a document entry.');
     const doc = await xml(docPath);
     const docDir = dirname(docPath);
     // BaseLoc values are usually relative to Document.xml, but some writers emit package-root paths.
@@ -276,7 +275,7 @@ export async function openOfd({
       box,
       document: docIndex,
     }));
-    if (!pages.length) throw new Error('文档没有页面。');
+    if (!pages.length) throw new Error('The document has no pages.');
 
     const fonts = new Map<string, Font>();
     const media = new Map<string, string>();
@@ -598,7 +597,7 @@ export async function openOfd({
     };
     const loadPage = async (index: number) => {
       const page = pages[index];
-      if (!page) throw new Error('页码超出范围。');
+      if (!page) throw new Error('The page number is out of range.');
       const content = await xml(page.path);
       await Promise.all(
         children(content, 'PageRes').map((res) => loadRes(locate(dirname(page.path), text(res)))),
@@ -623,7 +622,7 @@ export async function openOfd({
         const check = () => {
           signal.throwIfAborted();
           pageSignal?.throwIfAborted();
-          if (closed || released) throw new DOMException('已取消', 'AbortError');
+          if (closed || released) throw new DOMException('Cancelled', 'AbortError');
         };
         cleanups.add(release);
         pageSignal?.addEventListener('abort', release, { once: true });
@@ -762,7 +761,7 @@ export async function openOfd({
 
   const root = await xml('OFD.xml');
   const bodies = all(root, 'DocBody');
-  if (!bodies.length) throw new Error('OFD.xml 未声明文档。');
+  if (!bodies.length) throw new Error('OFD.xml does not declare a document.');
   const opened = await Promise.allSettled(bodies.map(openBody));
   const documents = opened.flatMap((result) =>
     result.status === 'fulfilled' ? [result.value] : [],
@@ -775,7 +774,7 @@ export async function openOfd({
   );
   const owner = (index: number) => {
     const found = owners[index];
-    if (!found) throw new Error('页码超出范围。');
+    if (!found) throw new Error('The page number is out of range.');
     return found;
   };
   return {

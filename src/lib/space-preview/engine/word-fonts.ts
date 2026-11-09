@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable @typescript-eslint/no-explicit-any -- Ported upstream code keeps its untyped theme XML values. */
 import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 
 // docx-preview ignores eastAsiaTheme. Resolve it inside the in-memory package;

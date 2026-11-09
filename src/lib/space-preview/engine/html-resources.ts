@@ -39,11 +39,11 @@ export function htmlResources(read: (path: string) => Promise<Uint8Array>, signa
     signal.throwIfAborted();
     let pending = cache.get(path);
     if (!pending) {
-      if (cache.size >= 64 || budget <= 0) return Promise.reject(new Error('资源预算已用完'));
+      if (cache.size >= 64 || budget <= 0) return Promise.reject(new Error('The resource budget is exhausted.'));
       pending = read(path).then((bytes) => {
         signal.throwIfAborted();
         budget -= bytes.length;
-        if (budget < 0) throw new Error('资源预算已用完');
+        if (budget < 0) throw new Error('The resource budget is exhausted.');
         return bytes;
       });
       cache.set(path, pending);

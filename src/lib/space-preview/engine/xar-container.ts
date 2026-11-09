@@ -5,7 +5,7 @@ import type { ArchiveEntry } from '../worker/worker-types';
 
 export function xarHeader(bytes: Uint8Array) {
   if (bytes.length < 28 || new TextDecoder().decode(bytes.slice(0, 4)) !== 'xar!')
-    throw new Error('XAR 文件头无效。');
+    throw new Error('The XAR header is invalid.');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const header = view.getUint16(4),
     compressed = Number(view.getBigUint64(8)),
@@ -19,7 +19,7 @@ export function xarHeader(bytes: Uint8Array) {
     !size ||
     size > 16 * 1024 * 1024
   )
-    throw new Error('XAR 版本或目录大小无效。');
+    throw new Error('The XAR version or directory size is invalid.');
   return { header, compressed, size };
 }
 
@@ -27,15 +27,15 @@ export function inflateZlib(bytes: Uint8Array, expected: number, limit = 256 * 1
   const chunks: Uint8Array[] = [];
   let size = 0;
   if (!Number.isSafeInteger(expected) || expected < 0 || expected > limit)
-    throw new Error('XAR 展开大小无效或超过设置上限。');
+    throw new Error('The XAR expanded size is invalid or exceeds the configured limit.');
   const decoder = new Unzlib((chunk) => {
     size += chunk.length;
-    if (size > expected) throw new Error('XAR 展开大小超过目录记录。');
+    if (size > expected) throw new Error('The XAR expanded size exceeds the directory record.');
     chunks.push(chunk);
   });
   for (let offset = 0; offset < bytes.length; offset += 1024)
     decoder.push(bytes.subarray(offset, offset + 1024), offset + 1024 >= bytes.length);
-  if (size !== expected) throw new Error('XAR 解压内容已截断。');
+  if (size !== expected) throw new Error('The decompressed XAR content is truncated.');
   const result = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) {
@@ -48,17 +48,17 @@ export function inflateZlib(bytes: Uint8Array, expected: number, limit = 256 * 1
 export function parseXar(bytes: Uint8Array, total: number): ArchiveEntry[] {
   const header = xarHeader(bytes),
     base = header.header + header.compressed;
-  if (bytes.length < base || base > total) throw new Error('XAR 目录已截断。');
+  if (bytes.length < base || base > total) throw new Error('The XAR directory is truncated.');
   const xml = new TextDecoder('utf-8', { fatal: true }).decode(
     inflateZlib(bytes.subarray(header.header, base), header.size),
   );
-  if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('XAR 目录包含 XML 实体。');
+  if (/<!DOCTYPE|<!ENTITY/i.test(xml)) throw new Error('The XAR directory contains XML entities.');
   const parsed = new XMLParser({
     ignoreAttributes: false,
     processEntities: false,
     parseTagValue: false,
   }).parse(xml);
-  if (!parsed.xar?.toc) throw new Error('XAR 目录结构无效。');
+  if (!parsed.xar?.toc) throw new Error('The XAR directory structure is invalid.');
   type Node = {
     name: string;
     type: string;
@@ -69,12 +69,12 @@ export function parseXar(bytes: Uint8Array, total: number): ArchiveEntry[] {
   const stack = list(parsed.xar.toc.file).map((node) => ({ path: '', node }));
   const entries: ArchiveEntry[] = [];
   while (stack.length) {
-    if (entries.length + stack.length > 100_000) throw new Error('XAR 条目超过 100,000。');
+    if (entries.length + stack.length > 100_000) throw new Error('The XAR entry count exceeds 100,000.');
     const { path, node } = stack.pop()!;
     if (!node.name || /[/\\]/.test(node.name) || ['.', '..'].includes(node.name))
-      throw new Error('XAR 文件名无效。');
+      throw new Error('The XAR file name is invalid.');
     const name = path + node.name;
-    if (name.length > 4096) throw new Error('XAR 路径过长。');
+    if (name.length > 4096) throw new Error('The XAR path is too long.');
     if (node.type === 'directory') {
       entries.push({
         name: name + '/',
@@ -93,7 +93,7 @@ export function parseXar(bytes: Uint8Array, total: number): ArchiveEntry[] {
         offset < base ||
         offset > total - compressed
       )
-        throw new Error('XAR 数据范围无效。');
+        throw new Error('The XAR data range is invalid.');
       const encoding = node.data.encoding?.['@_style'] ?? 'application/octet-stream';
       entries.push({
         name,

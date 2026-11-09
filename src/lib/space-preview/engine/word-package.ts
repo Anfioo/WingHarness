@@ -23,13 +23,13 @@ export async function readWordPackage(file: PreviewFile, signal: AbortSignal) {
   );
   const xml = entries.filter((entry) => /\.(xml|rels)$/i.test(entry.name));
   if (!xml.some((entry) => entry.name === 'word/document.xml'))
-    throw new Error('文件不是有效的 DOCX。');
+    throw new Error('The file is not a valid DOCX.');
   if (
     xml.length > 1000 ||
     xml.some((entry) => entry.size > 16 * 1024 * 1024) ||
     xml.reduce((sum, entry) => sum + entry.size, 0) > 64 * 1024 * 1024
   )
-    throw new Error('文档结构超过预览上限。');
+    throw new Error('The document structure exceeds the preview limit.');
   const parts: Record<string, Uint8Array> = Object.create(null);
   for (const entry of xml) {
     const bytes = await readZipEntry(entry, file.size, read);
@@ -58,7 +58,7 @@ export async function readWordPackage(file: PreviewFile, signal: AbortSignal) {
         await new Promise((resolve) => setTimeout(resolve, 0));
         signal.throwIfAborted();
         if (entry.size > 16 * 1024 * 1024 || resourceBytes + entry.size > 64 * 1024 * 1024)
-          throw new Error('图片或字体超过预览资源上限。');
+          throw new Error('Images or fonts exceed the preview resource limit.');
         resourceBytes += entry.size;
         const bytes = await readZipEntry(entry, file.size, read);
         const result = await parseInWorker(

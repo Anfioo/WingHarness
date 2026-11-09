@@ -18,7 +18,7 @@ export function parseInWorker(
     };
     const abort = () => {
       cleanup();
-      reject(new DOMException('已取消', 'AbortError'));
+      reject(new DOMException('Cancelled', 'AbortError'));
     };
     const timeout =
       Math.max(request.bytes.byteLength, request.entry?.size ?? 0) > 512 * 1024
@@ -26,7 +26,11 @@ export function parseInWorker(
         : 10_000;
     const timer = setTimeout(() => {
       cleanup();
-      reject(new Error(`解析超过 ${timeout / 1000} 秒，已停止。可切换为文件信息预览。`));
+      reject(
+        new Error(
+          `Parsing exceeded ${timeout / 1000} seconds and was stopped. You can switch to the file information preview.`,
+        ),
+      );
     }, timeout);
     if (signal.aborted) {
       abort();
@@ -39,12 +43,13 @@ export function parseInWorker(
         return;
       }
       cleanup();
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- Conditional settle, no side-effect-free expression.
       event.data.error ? reject(new Error(event.data.error)) : resolve(event.data);
     };
     worker.onerror = () => {
       cleanup();
-      reject(new Error('解析失败，文件可能已损坏或格式不受支持。'));
+      reject(
+        new Error('Parsing failed; the file may be corrupt or its format may be unsupported.'),
+      );
     };
     worker.postMessage(request, [request.bytes.buffer as ArrayBuffer]);
   });

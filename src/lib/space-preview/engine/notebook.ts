@@ -15,8 +15,8 @@ export async function readNotebook(
 ) {
   const notebook = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes));
   if (notebook.nbformat !== 4 || !Array.isArray(notebook.cells))
-    throw new Error('只支持有效的 Jupyter Notebook v4。');
-  if (notebook.cells.length > 500) throw new Error('Notebook 超过 500 个单元格。');
+    throw new Error('Only valid Jupyter Notebook v4 is supported.');
+  if (notebook.cells.length > 500) throw new Error('The notebook exceeds 500 cells.');
   const language =
     typeof notebook.metadata?.language_info?.name === 'string'
       ? notebook.metadata.language_info.name
@@ -24,7 +24,7 @@ export async function readNotebook(
   let characters = 0;
   const bounded = (text: string) => {
     characters += text.length;
-    if (characters > 1000000) throw new Error('Notebook 正文与输出超过 1,000,000 字符。');
+    if (characters > 1000000) throw new Error('The notebook body and outputs exceed 1,000,000 characters.');
     return text;
   };
   const cells: string[] = [];
@@ -43,12 +43,12 @@ export async function readNotebook(
           if (plain) outputs += `<pre class="notebook-output">${escape(bounded(plain))}</pre>`;
         }
       cells.push(
-        `<section class="notebook-cell"><div class="notebook-cell-label">[${index + 1}] ${cell.cell_type === 'code' ? escape(language) : '文字'}</div><pre><code>${content}</code></pre>${outputs}</section>`,
+        `<section class="notebook-cell"><div class="notebook-cell-label">[${index + 1}] ${cell.cell_type === 'code' ? escape(language) : 'Text'}</div><pre><code>${content}</code></pre>${outputs}</section>`,
       );
     }
   }
   return {
     html: cells.join('\n'),
-    note: 'Notebook 只读预览 · 显示保存的代码和文本输出，不执行单元格；交互图表与图片输出暂不显示',
+    note: 'Notebook read-only preview · shows the saved code and text outputs, does not run cells; interactive charts and image outputs are not shown',
   };
 }

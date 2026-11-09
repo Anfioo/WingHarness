@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable @typescript-eslint/no-explicit-any -- Ported upstream code keeps its untyped workbook style values. */
 import type { WorkbookCellStyle } from '../worker/worker-types';
 
 const list = (value: any): any[] =>

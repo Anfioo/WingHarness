@@ -26,7 +26,7 @@ export async function readWebArchive(bytes: Uint8Array): Promise<WebArchive> {
     },
   );
   const mail = await PostalMime.parse(Uint8Array.from(source, (char) => char.charCodeAt(0)));
-  if (!mail.html) throw new Error('此网页存档没有 HTML 正文。');
+  if (!mail.html) throw new Error('This web archive has no HTML body.');
   return {
     html: mail.html,
     location: locations[0] ?? '',

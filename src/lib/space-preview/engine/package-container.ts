@@ -10,15 +10,15 @@ function span(offset: number, length: number, total: number) {
     length < 0 ||
     offset > total - length
   )
-    throw new Error('容器条目偏移或大小无效。');
+    throw new Error('The container entry offset or size is invalid.');
 }
 
 export function asarHeaderSize(bytes: Uint8Array) {
-  if (bytes.length < 16) throw new Error('ASAR 文件头已截断。');
+  if (bytes.length < 16) throw new Error('The ASAR header is truncated.');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint32(0, true) !== 4) throw new Error('ASAR 文件签名无效。');
+  if (view.getUint32(0, true) !== 4) throw new Error('The ASAR file signature is invalid.');
   const size = view.getUint32(4, true);
-  if (size < 8 || size > 16 * 1024 * 1024) throw new Error('ASAR 目录大小无效或超过 16 MB。');
+  if (size < 8 || size > 16 * 1024 * 1024) throw new Error('The ASAR directory size is invalid or exceeds 16 MB.');
   return 8 + size;
 }
 
@@ -34,9 +34,9 @@ export function parseAsar(bytes: Uint8Array, total: number): ArchiveEntry[] {
   const entries: ArchiveEntry[] = [];
   while (stack.length) {
     const { path, node } = stack.pop()!;
-    if (!node || typeof node !== 'object') throw new Error('ASAR 目录结构无效。');
+    if (!node || typeof node !== 'object') throw new Error('The ASAR directory structure is invalid.');
     if (path.length > 4096 || entries.length + stack.length > LIMIT)
-      throw new Error('ASAR 目录过大。');
+      throw new Error('The ASAR directory is too large.');
     if (node.files && typeof node.files === 'object') {
       if (path)
         entries.push({
@@ -48,7 +48,7 @@ export function parseAsar(bytes: Uint8Array, total: number): ArchiveEntry[] {
         });
       for (const [name, child] of Object.entries(node.files)) {
         if (!name || /[/\\]/.test(name) || name === '.' || name === '..')
-          throw new Error('ASAR 文件名无效。');
+          throw new Error('The ASAR file name is invalid.');
         stack.push({
           path: path ? `${path}/${name}` : name,
           node: child as Record<string, unknown>,
@@ -74,7 +74,7 @@ export function parseAsar(bytes: Uint8Array, total: number): ArchiveEntry[] {
 
 export function crxZipOffset(bytes: Uint8Array, total: number) {
   if (bytes.length < 16 || new TextDecoder().decode(bytes.subarray(0, 4)) !== 'Cr24')
-    throw new Error('CRX 文件签名无效。');
+    throw new Error('The CRX file signature is invalid.');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(4, true);
   const offset =
@@ -88,20 +88,20 @@ export function crxZipOffset(bytes: Uint8Array, total: number) {
 }
 
 export function pakHeaderSize(bytes: Uint8Array) {
-  if (bytes.length < 12) throw new Error('PAK 文件头已截断。');
+  if (bytes.length < 12) throw new Error('The PAK header is truncated.');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(0, true);
   const count =
     version === 4 ? view.getUint32(4, true) : version === 5 ? view.getUint16(8, true) : -1;
   const aliases = version === 5 ? view.getUint16(10, true) : 0;
   if (count < 0 || count + aliases > LIMIT)
-    throw new Error('仅支持 Chromium DataPack v4/v5，其他 PAK 游戏容器尚未支持。');
+    throw new Error('Only Chromium DataPack v4/v5 is supported; other PAK game containers are not supported yet.');
   return (version === 4 ? 9 : 12) + (count + 1) * 6 + aliases * 4;
 }
 
 export function parsePak(bytes: Uint8Array, total: number): ArchiveEntry[] {
   const header = pakHeaderSize(bytes);
-  if (bytes.length < header) throw new Error('PAK 目录已截断。');
+  if (bytes.length < header) throw new Error('The PAK directory is truncated.');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const version = view.getUint32(0, true),
     start = version === 4 ? 9 : 12;
@@ -111,7 +111,7 @@ export function parsePak(bytes: Uint8Array, total: number): ArchiveEntry[] {
       offset = view.getUint32(record + 2, true);
     const end = view.getUint32(record + 8, true);
     span(offset, end - offset, total);
-    if (offset < header) throw new Error('PAK 数据与目录重叠。');
+    if (offset < header) throw new Error('The PAK data overlaps the directory.');
     const name = `resource-${view.getUint16(record, true)}.dat`;
     return {
       name,
@@ -127,7 +127,7 @@ export function parsePak(bytes: Uint8Array, total: number): ArchiveEntry[] {
   for (let i = 0; i < aliases; i++) {
     const position = start + (count + 1) * 6 + i * 4;
     const target = view.getUint16(position + 2, true);
-    if (target >= entries.length) throw new Error('PAK 别名索引无效。');
+    if (target >= entries.length) throw new Error('The PAK alias index is invalid.');
     const name = `resource-${view.getUint16(position, true)}.dat`;
     entries.push({ ...entries[target], name, sourcePath: name, index: entries.length });
   }
@@ -139,17 +139,17 @@ export async function readCompound(bytes: Uint8Array, index?: number, limit = 25
     bytes.length < 512 ||
     new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(0, true) !== 0xe011cfd0
   )
-    throw new Error('OLE 复合文档签名无效。');
+    throw new Error('The OLE compound document signature is invalid.');
   const { CFB } = await import('xlsx');
   const compound = CFB.read(bytes, { type: 'array' }) as {
     FullPaths: string[];
     FileIndex: { type: number; size: number; content?: Uint8Array }[];
   };
-  if (compound.FullPaths.length > LIMIT) throw new Error('复合文档目录过大。');
+  if (compound.FullPaths.length > LIMIT) throw new Error('The compound document directory is too large.');
   if (index !== undefined) {
     const stream = compound.FileIndex[index];
-    if (!stream || stream.type !== 2 || !stream.content) throw new Error('复合文档流不存在。');
-    if (stream.size > limit) throw new Error('复合文档流超过设置上限。');
+    if (!stream || stream.type !== 2 || !stream.content) throw new Error('The compound document stream does not exist.');
+    if (stream.size > limit) throw new Error('The compound document stream exceeds the configured limit.');
     return { data: Uint8Array.from(stream.content) };
   }
   const root = compound.FullPaths[0];

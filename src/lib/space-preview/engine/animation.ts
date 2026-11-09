@@ -4,7 +4,7 @@ import { extractZipEntries, listZip } from './archive';
 import { extension } from './files';
 export function readAnimation(bytes: Uint8Array, name: string, page = 0) {
   let files: Record<string, Uint8Array> = {};
-  let names = ['动画'];
+  let names = ['Animation'];
   if (extension(name) === 'tgs') bytes = gunzipSync(bytes);
   if (extension(name) === 'lottie') {
     files = extractZipEntries(
@@ -19,10 +19,10 @@ export function readAnimation(bytes: Uint8Array, name: string, page = 0) {
     );
     const manifest = JSON.parse(new TextDecoder().decode(files['manifest.json']));
     names = manifest.animations.map((item: { id: string }) => item.id);
-    if (!names[page]) throw new Error('动画页码无效。');
+    if (!names[page]) throw new Error('The animation page number is invalid.');
     bytes = files[`animations/${names[page]}.json`];
   }
-  if (!bytes) throw new Error('动画内容不存在。');
+  if (!bytes) throw new Error('The animation content is missing.');
   const data = JSON.parse(new TextDecoder().decode(bytes));
   if (
     !Array.isArray(data.layers) ||
@@ -31,7 +31,7 @@ export function readAnimation(bytes: Uint8Array, name: string, page = 0) {
     !Number.isFinite(data.w) ||
     !Number.isFinite(data.h)
   )
-    throw new Error('文件不是有效的 Lottie 动画。');
+    throw new Error('The file is not a valid Lottie animation.');
   for (const asset of data.assets ?? []) {
     if (!asset.p) continue;
     const path = `${asset.u ?? ''}${asset.p}`.replace(/^\.\//, '');

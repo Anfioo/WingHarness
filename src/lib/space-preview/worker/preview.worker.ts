@@ -77,7 +77,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       : undefined;
     let result: WorkerResult;
     if (event.data.phase === 'package' && kind === 'epub')
-      result = { units: [{ path: epubPackagePath(bytes), name: '清单' }] };
+      result = { units: [{ path: epubPackagePath(bytes), name: 'Manifest' }] };
     else if (
       event.data.phase === 'index' &&
       (kind === 'xlsx' || kind === 'pptx' || kind === 'epub')
@@ -124,7 +124,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     } else if (kind === 'xar-data') {
       const entry = event.data.entry!;
       if (entry.method === 0) {
-        if (bytes.length !== entry.size) throw new Error('XAR 条目大小不一致。');
+        if (bytes.length !== entry.size) throw new Error('The XAR entry size does not match.');
         result = { data: bytes };
       } else if (entry.method === 8)
         result = {
@@ -134,7 +134,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
             event.data.archiveEntryLimit,
           ),
         };
-      else throw new Error('XAR 条目压缩算法尚未支持。');
+      else throw new Error('The XAR entry compression method is not supported yet.');
     } else if (kind === 'archive') result = { entries: listZip(bytes) };
     else if (kind === 'archive-directory')
       result = { entries: parseZipDirectory(bytes, event.data.count!) };
@@ -151,7 +151,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     else if (kind === 'csv')
       result = {
         sheets: [readDelimited(bytes, name, event.data.partial)],
-        note: '只读表格 · 保留原始单元格内容',
+        note: 'Read-only table · original cell contents are preserved',
       };
     else if (kind === 'odt' || kind === 'ods' || kind === 'odp')
       result = readOpenDocument(bytes, kind, publish);
@@ -173,7 +173,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         sheets: await (
           await import('../engine/legacy-workbook')
         ).readLegacyWorkbook(bytes, name, publish ? (sheets) => publish({ sheets }) : undefined),
-        note: '只读表格 · 显示已保存的值，不执行宏',
+        note: 'Read-only table · displays the saved values, does not run macros',
       };
     else if (kind === 'asciidoc') {
       const { default: initialize } = await import('@asciidoctor/core');
@@ -189,15 +189,17 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
     else if (kind === 'pptx') result = { slides: readSlides(bytes, event.data.unit) };
     else if (kind === 'archive-entry') {
       const entry = listZip(bytes).find((e) => e.name === event.data.entryName && !e.directory);
-      if (!entry) throw new Error('压缩包条目不存在。');
-      if (entry.size > 8 * 1024 * 1024) throw new Error('内部文件超过 8 MB 预览上限。');
+      if (!entry) throw new Error('The archive entry does not exist.');
+      if (entry.size > 8 * 1024 * 1024)
+        throw new Error('The inner file exceeds the 8 MB preview limit.');
       const data = extractZipEntries(
         bytes,
         new Set([entry.name]),
         8 * 1024 * 1024,
         8 * 1024 * 1024,
       )[entry.name];
-      if (!data || data.length > 8 * 1024 * 1024) throw new Error('内部文件无法读取或解压后过大。');
+      if (!data || data.length > 8 * 1024 * 1024)
+        throw new Error('The inner file could not be read or is too large after decompression.');
       result = { data };
     } else if (kind === 'docx') {
       const mammoth = await import('mammoth/mammoth.browser');
@@ -209,7 +211,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       result = { html: doc.value };
     } else {
       const ext = extension(name);
-      // eslint-disable-next-line prefer-const -- `text` is reassigned below; `encoding` shares the destructuring.
       let { text, encoding } =
         kind === 'html' || ['html', 'htm', 'xhtml'].includes(ext)
           ? decodeHtml(bytes, event.data.encoding, event.data.partial)

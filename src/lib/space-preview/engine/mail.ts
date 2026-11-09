@@ -21,14 +21,14 @@ export async function readMail(bytes: Uint8Array, name: string): Promise<MailCon
   if (extension(name) === 'eml') {
     const mail = await PostalMime.parse(bytes);
     return {
-      subject: mail.subject ?? '(无主题)',
+      subject: mail.subject ?? '(No subject)',
       from: mail.from ? address(mail.from) : '',
       to: (mail.to ?? []).map(address).join(', '),
       date: mail.date ?? '',
       html: mail.html,
       text: mail.text,
       attachments: mail.attachments.map((item, i) => ({
-        name: item.filename ?? `附件 ${i + 1}`,
+        name: item.filename ?? `Attachment ${i + 1}`,
         mime: item.mimeType,
         data:
           typeof item.content === 'string'
@@ -42,7 +42,7 @@ export async function readMail(bytes: Uint8Array, name: string): Promise<MailCon
   const mail = reader.getFileData();
   if (mail.error) throw new Error(mail.error);
   return {
-    subject: mail.subject ?? '(无主题)',
+    subject: mail.subject ?? '(No subject)',
     from: [mail.senderName, mail.senderEmail].filter(Boolean).join(' '),
     to: (mail.recipients ?? [])
       .map((item) => [item.name, item.email].filter(Boolean).join(' '))

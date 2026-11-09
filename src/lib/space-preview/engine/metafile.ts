@@ -11,22 +11,22 @@ export function metafileBounds(bytes: Uint8Array, emf: boolean) {
       view.getUint32(0, true) !== 1 ||
       view.getUint32(40, true) !== 0x464d4520
     )
-      throw new Error('EMF 文件头无效。');
+      throw new Error('The EMF header is invalid.');
     width = view.getInt32(16, true) - view.getInt32(8, true);
     height = view.getInt32(20, true) - view.getInt32(12, true);
     const length = view.getUint32(48, true);
-    if (length > bytes.length) throw new Error('EMF 数据已截断。');
+    if (length > bytes.length) throw new Error('The EMF data is truncated.');
     while (position < length) {
-      if (position + 8 > length) throw new Error('EMF 记录已截断。');
+      if (position + 8 > length) throw new Error('The EMF record is truncated.');
       const size = view.getUint32(position + 4, true);
-      if (size < 8 || size % 4 || position + size > length) throw new Error('EMF 记录大小无效。');
+      if (size < 8 || size % 4 || position + size > length) throw new Error('The EMF record size is invalid.');
       position += size;
-      if (++records > 100_000) throw new Error('矢量记录超过 100,000。');
+      if (++records > 100_000) throw new Error('The vector record count exceeds 100,000.');
     }
   } else {
-    if (bytes.length < 18) throw new Error('WMF 文件头已截断。');
+    if (bytes.length < 18) throw new Error('The WMF header is truncated.');
     if (view.getUint32(0, true) === 0x9ac6cdd7) {
-      if (bytes.length < 40) throw new Error('WMF 文件头已截断。');
+      if (bytes.length < 40) throw new Error('The WMF header is truncated.');
       width = view.getInt16(10, true) - view.getInt16(6, true);
       height = view.getInt16(12, true) - view.getInt16(8, true);
       position = 22;
@@ -35,26 +35,26 @@ export function metafileBounds(bytes: Uint8Array, emf: boolean) {
       ![1, 2].includes(view.getUint16(position, true)) ||
       view.getUint16(position + 2, true) !== 9
     )
-      throw new Error('WMF 文件头无效。');
+      throw new Error('The WMF header is invalid.');
     const length = position + view.getUint32(position + 6, true) * 2;
-    if (length > bytes.length) throw new Error('WMF 数据已截断。');
+    if (length > bytes.length) throw new Error('The WMF data is truncated.');
     position += 18;
     while (position < length) {
-      if (position + 6 > length) throw new Error('WMF 记录已截断。');
+      if (position + 6 > length) throw new Error('The WMF record is truncated.');
       const size = view.getUint32(position, true) * 2,
         type = view.getUint16(position + 4, true);
-      if (size < 6 || position + size > length) throw new Error('WMF 记录大小无效。');
+      if (size < 6 || position + size > length) throw new Error('The WMF record size is invalid.');
       if (type === 0x020c && size >= 10) {
         height = Math.abs(view.getInt16(position + 6, true));
         width = Math.abs(view.getInt16(position + 8, true));
       }
       position += size;
-      if (++records > 100_000) throw new Error('矢量记录超过 100,000。');
+      if (++records > 100_000) throw new Error('The vector record count exceeds 100,000.');
       if (type === 0) break; // META_EOF may be followed by alignment padding.
     }
   }
   if (width <= 0 || height <= 0 || width > 1_000_000 || height > 1_000_000)
-    throw new Error('矢量画布尺寸无效。');
+    throw new Error('The vector canvas size is invalid.');
   return { width, height, records };
 }
 

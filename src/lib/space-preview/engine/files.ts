@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable no-control-regex -- The text/binary sniff must test control characters by definition. */
 import type { PreviewFile } from '../bridge';
 
 export const extension = (name: string) => name.split('.').pop()!.toLowerCase();
@@ -40,14 +39,14 @@ export function decodeText(bytes: Uint8Array, selected: TextEncoding = 'auto', p
       odd += Number(sample[i + 1] === 0);
     }
     if (odd >= 2 && odd / pairs > 0.1 && even / pairs < 0.05)
-      return { text: decode('utf-16le'), encoding: 'UTF-16 LE（推测）' };
+      return { text: decode('utf-16le'), encoding: 'UTF-16 LE (guessed)' };
     if (even >= 2 && even / pairs > 0.1 && odd / pairs < 0.05)
-      return { text: decode('utf-16be'), encoding: 'UTF-16 BE（推测）' };
+      return { text: decode('utf-16be'), encoding: 'UTF-16 BE (guessed)' };
   }
   try {
     return { text: decode('utf-8', true), encoding: 'UTF-8' };
   } catch {
-    return { text: decode('gb18030'), encoding: 'GB18030（推测）' };
+    return { text: decode('gb18030'), encoding: 'GB18030 (guessed)' };
   }
 }
 
@@ -88,12 +87,12 @@ export function hexDump(bytes: Uint8Array): string {
 }
 export function sniffMagic(bytes: Uint8Array) {
   const hex = Array.from(bytes.slice(0, 8), (b) => b.toString(16).padStart(2, '0')).join('');
-  if (hex.startsWith('7f454c46')) return 'ELF 可执行文件';
-  if (hex.startsWith('4d5a')) return 'Windows 可执行文件';
-  if (hex.startsWith('504b0304')) return 'ZIP / OOXML 容器';
-  if (hex.startsWith('53514c6974652066')) return 'SQLite 数据库';
-  if (hex.startsWith('d0cf11e0')) return 'OLE 复合文档（旧版 Office 容器，不能按纯文本解码）';
-  if (hex.startsWith('89504e47')) return 'PNG 图像';
-  if (hex.startsWith('25504446')) return 'PDF 文档';
-  return '通用二进制文件';
+  if (hex.startsWith('7f454c46')) return 'ELF executable';
+  if (hex.startsWith('4d5a')) return 'Windows executable';
+  if (hex.startsWith('504b0304')) return 'ZIP / OOXML container';
+  if (hex.startsWith('53514c6974652066')) return 'SQLite database';
+  if (hex.startsWith('d0cf11e0')) return 'OLE compound document (legacy Office container, cannot be decoded as text)';
+  if (hex.startsWith('89504e47')) return 'PNG image';
+  if (hex.startsWith('25504446')) return 'PDF document';
+  return 'Generic binary file';
 }

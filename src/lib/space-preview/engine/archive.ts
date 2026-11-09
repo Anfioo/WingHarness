@@ -25,7 +25,7 @@ export function extractZipEntries(
       length += data.length;
       total += data.length;
       if (length > perFileLimit || total > totalLimit) {
-        failure = new Error('解压内容超过预览内存上限。');
+        failure = new Error('The decompressed content exceeds the preview memory limit.');
         file.terminate();
         return;
       }
@@ -48,7 +48,7 @@ export function extractZipEntries(
     if (failure) throw failure;
   }
   for (const name of names)
-    if (!output[name]) throw new Error('压缩包内部条目不完整或名称编码不受支持。');
+    if (!output[name]) throw new Error('The archive entry is incomplete or its name encoding is not supported.');
   return output;
 }
 
@@ -65,22 +65,22 @@ export function listZip(bytes: Uint8Array): ArchiveEntry[] {
       break;
     }
   }
-  if (end < 0) throw new Error('不是有效的 ZIP 文件，或文件尚未完整下载。');
+  if (end < 0) throw new Error('Not a valid ZIP file, or the file has not been fully downloaded.');
   const count = view.getUint16(end + 10, true);
   if (view.getUint16(end + 4, true) !== 0 || view.getUint16(end + 6, true) !== 0)
-    throw new Error('暂不支持分卷 ZIP。');
+    throw new Error('Multi-volume ZIP is not supported yet.');
   if (count === 65535 || view.getUint32(end + 16, true) === 0xffffffff)
-    throw new Error('暂不支持 ZIP64，请使用文件信息预览。');
-  if (count > 10_000) throw new Error('压缩包超过 10,000 个条目，已停止解析。');
+    throw new Error('ZIP64 is not supported yet; use the file information preview instead.');
+  if (count > 10_000) throw new Error('The archive has more than 10,000 entries; parsing stopped.');
   let pos = view.getUint32(end + 16, true);
   const entries: ArchiveEntry[] = [];
   for (let index = 0; index < count; index++) {
     if (pos + 46 > end || view.getUint32(pos, true) !== 0x02014b50)
-      throw new Error('ZIP 目录损坏。');
+      throw new Error('The ZIP directory is corrupt.');
     const length = view.getUint16(pos + 28, true);
     const next =
       pos + 46 + length + view.getUint16(pos + 30, true) + view.getUint16(pos + 32, true);
-    if (next > end) throw new Error('ZIP 条目越界。');
+    if (next > end) throw new Error('The ZIP entry is out of bounds.');
     const name = new TextDecoder(
       view.getUint16(pos + 8, true) & 0x800 ? 'utf-8' : 'gb18030',
     ).decode(bytes.subarray(pos + 46, pos + 46 + length));

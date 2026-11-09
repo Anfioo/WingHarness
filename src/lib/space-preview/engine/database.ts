@@ -12,9 +12,9 @@ export function isSqliteDatabase(bytes: Uint8Array): boolean {
 export function databaseError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/file is not a database|file is encrypted/i.test(message))
-    return '无法读取此数据库：文件可能经过加密，或并非标准 SQLite 格式。';
+    return 'Unable to read this database: the file may be encrypted or not a standard SQLite database.';
   if (/database disk image is malformed|malformed database schema/i.test(message))
-    return 'SQLite 数据结构不完整或已损坏，无法读取。';
+    return 'The SQLite schema is incomplete or corrupt and cannot be read.';
   return message;
 }
 
@@ -43,8 +43,8 @@ export function databaseTables(database: Database): DatabaseTable[] {
 export function databasePage(database: Database, table: string, page: number): DatabasePage {
   const tables = databaseTables(database);
   const schema = tables.find((item) => item.name === table);
-  if (!schema) throw new Error('数据库表不存在。');
-  if (!Number.isSafeInteger(page) || page < 0) throw new Error('数据库页码无效。');
+  if (!schema) throw new Error('The database table does not exist.');
+  if (!Number.isSafeInteger(page) || page < 0) throw new Error('The database page number is invalid.');
   const count = Number(database.exec(`SELECT count(*) FROM ${identifier(table)}`)[0].values[0][0]);
   const statement = database.prepare(`SELECT * FROM ${identifier(table)} LIMIT ? OFFSET ?`);
   try {

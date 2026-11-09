@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable no-control-regex -- Legacy Office records are delimited by control characters. */
 import { CFB } from 'xlsx';
 
 function streams(bytes: Uint8Array) {
@@ -8,7 +7,7 @@ function streams(bytes: Uint8Array) {
   };
   return (name: string) => {
     const data = container.FileIndex.find((item) => item.name === name)?.content;
-    if (!data) throw new Error(`旧版 Office 缺少 ${name} 数据流。`);
+    if (!data) throw new Error(`Legacy Office is missing the ${name} stream.`);
     return Uint8Array.from(data);
   };
 }
@@ -23,7 +22,7 @@ function range(offset: number, size: number, length: number) {
     size < 0 ||
     offset > length - size
   )
-    throw new Error('旧版 Office 数据已截断。');
+    throw new Error('The legacy Office data is truncated.');
 }
 
 export function readLegacyWord(bytes: Uint8Array) {
@@ -32,20 +31,21 @@ export function readLegacyWord(bytes: Uint8Array) {
     fib = view(document);
   range(0, 34, document.length);
   if (fib.getUint16(0, true) !== 0xa5ec || fib.getUint16(2, true) < 0xc1)
-    throw new Error('仅支持 Word 97–2003 二进制 DOC。');
+    throw new Error('Only Word 97–2003 binary DOC files are supported.');
   const flags = fib.getUint16(10, true);
-  if (flags & 0x8100) throw new Error('加密 Word 文档需要密码，暂不支持。');
+  if (flags & 0x8100)
+    throw new Error('Encrypted Word documents require a password and are not supported yet.');
   let position = 34 + fib.getUint16(32, true) * 2;
   range(position, 2, document.length);
   const longs = fib.getUint16(position, true),
     longStart = position + 2;
   range(longStart, longs * 4 + 2, document.length);
-  if (longs < 4) throw new Error('Word 字符目录无效。');
+  if (longs < 4) throw new Error('The Word character directory is invalid.');
   const characters = fib.getUint32(longStart + 12, true);
   position = longStart + longs * 4;
   const pairs = fib.getUint16(position, true),
     pairStart = position + 2;
-  if (pairs <= 33) throw new Error('Word 缺少文本片段目录。');
+  if (pairs <= 33) throw new Error('The Word document is missing its text piece table.');
   range(pairStart, pairs * 8, document.length);
   const table = stream(flags & 0x200 ? '1Table' : '0Table');
   const fc = fib.getUint32(pairStart + 33 * 8, true),
@@ -59,17 +59,17 @@ export function readLegacyWord(bytes: Uint8Array) {
     position += 3 + tv.getUint16(position + 1, true);
   }
   range(position, 5, end);
-  if (table[position] !== 2) throw new Error('Word 文本片段格式无效。');
+  if (table[position] !== 2) throw new Error('The Word text piece format is invalid.');
   const size = tv.getUint32(position + 1, true),
     start = position + 5;
-  if (size < 4 || (size - 4) % 12) throw new Error('Word 文本片段大小无效。');
+  if (size < 4 || (size - 4) % 12) throw new Error('The Word text piece size is invalid.');
   range(start, size, end);
   const count = (size - 4) / 12;
   const pieces: string[] = [];
   for (let i = 0; i < count; i++) {
     const from = tv.getUint32(start + i * 4, true),
       to = tv.getUint32(start + (i + 1) * 4, true);
-    if (to < from) throw new Error('Word 字符范围无效。');
+    if (to < from) throw new Error('The Word character range is invalid.');
     if (from >= characters) break;
     const cp = Math.min(to, characters) - from;
     const packed = tv.getUint32(start + (count + 1) * 4 + i * 8 + 2, true);
@@ -97,7 +97,7 @@ export function readLegacyWord(bytes: Uint8Array) {
       .split('\n')
       .map((line) => `<p>${escape(line) || '<br>'}</p>`)
       .join(''),
-    note: '旧版 Word · 文字速览，不包含原始页面布局',
+    note: 'Legacy Word · text overview, without the original page layout',
   };
 }
 
@@ -111,7 +111,7 @@ export function readLegacySlides(bytes: Uint8Array) {
     slide?: { title: string; paragraphs: string[] },
     depth = 0,
   ) => {
-    if (depth > 64) throw new Error('PowerPoint 记录嵌套过深。');
+    if (depth > 64) throw new Error('The PowerPoint record nesting is too deep.');
     for (let position = start; position < end;) {
       range(position, 8, end);
       const flags = dv.getUint16(position, true),
@@ -120,11 +120,11 @@ export function readLegacySlides(bytes: Uint8Array) {
       const content = position + 8,
         finish = content + size;
       range(content, size, end);
-      if (type === 0x2f14) throw new Error('加密 PowerPoint 文稿暂不支持。');
+      if (type === 0x2f14) throw new Error('Encrypted PowerPoint presentations are not supported yet.');
       if ((flags & 15) === 15) {
         let current = slide;
         if (type === 1006) {
-          current = { title: `幻灯片 ${slides.length + 1}`, paragraphs: [] };
+          current = { title: `Slide ${slides.length + 1}`, paragraphs: [] };
           slides.push(current);
         }
         scan(content, finish, current, depth + 1);
@@ -143,6 +143,9 @@ export function readLegacySlides(bytes: Uint8Array) {
     }
   };
   scan(0, data.length);
-  if (!slides.length) throw new Error('文稿没有可读幻灯片；此旧版 PowerPoint 变体尚未支持。');
-  return { slides, note: '旧版 PowerPoint · 文字速览，不包含原始页面布局' };
+  if (!slides.length)
+    throw new Error(
+      'The presentation has no readable slides; this legacy PowerPoint variant is not supported yet.',
+    );
+  return { slides, note: 'Legacy PowerPoint · text overview, without the original page layout' };
 }

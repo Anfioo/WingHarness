@@ -26,7 +26,9 @@ export async function readOfficeXmlPackage(file: PreviewFile, signal: AbortSigna
     entries.reduce((total, entry) => total + entry.size, 0) > 31 * 1024 * 1024 ||
     entries.some((entry) => entry.size > 8 * 1024 * 1024 || entry.compressed > 8 * 1024 * 1024)
   )
-    throw new Error('文档 XML 超过 31 MB、1,000 个部分或单个部分超过 8 MB，请使用默认应用。');
+    throw new Error(
+      'The document XML exceeds 31 MB, 1,000 parts, or 8 MB for a single part; use the default application.',
+    );
   const parts: Record<string, Uint8Array> = Object.create(null);
   for (const entry of entries) {
     const bytes = await readZipEntry(entry, file.size, read);

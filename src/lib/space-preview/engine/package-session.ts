@@ -37,7 +37,7 @@ export async function openPackage(file: PreviewFile, signal: AbortSignal) {
       close: () => {},
       async extract(entry: ArchiveEntry, limit = 256 * 1024 * 1024) {
         if (entry.size > limit || entry.compressed > limit)
-          throw new Error('内部文件超过设置上限。');
+          throw new Error('The inner file exceeds the configured limit.');
         const bytes = await readZipEntry(entry, file.size - base, zipRead, limit);
         const result = await parseInWorker(
           { kind: 'archive-data', name: file.name, bytes, entry, archiveEntryLimit: limit },
@@ -56,7 +56,7 @@ export async function openPackage(file: PreviewFile, signal: AbortSignal) {
       : ext === 'asar'
         ? asarHeaderSize(await read(0, 16))
         : pakHeaderSize(await read(0, 12));
-  if (length > file.size) throw new Error('容器目录已截断。');
+  if (length > file.size) throw new Error('The container directory is truncated.');
   const parsed = await parseInWorker(
     {
       kind: 'package-directory',
@@ -70,10 +70,10 @@ export async function openPackage(file: PreviewFile, signal: AbortSignal) {
     entries: parsed.entries!,
     close: () => {},
     async extract(entry: ArchiveEntry, limit = 256 * 1024 * 1024) {
-      if (entry.size > limit || entry.compressed > limit) throw new Error('内部文件超过设置上限。');
+      if (entry.size > limit || entry.compressed > limit) throw new Error('The inner file exceeds the configured limit.');
       if (xar) {
         if (entry.compressed > limit || ![0, 8].includes(entry.method!))
-          throw new Error('此 XAR 条目压缩算法尚未支持或超过设置上限。');
+          throw new Error('The compression method of this XAR entry is not supported yet or exceeds the configured limit.');
         const bytes = await read(entry.offset!, entry.compressed);
         const result = await parseInWorker(
           { kind: 'xar-data', name: file.name, bytes, entry, archiveEntryLimit: limit },

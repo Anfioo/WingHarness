@@ -8,13 +8,13 @@ export function decompressStream(bytes: Uint8Array, zstandard: boolean, limit = 
   let size = 0;
   const output = (chunk: Uint8Array) => {
     size += chunk.length;
-    if (size > limit) throw new Error('压缩流展开后超过设置上限。');
+    if (size > limit) throw new Error('The decompressed stream exceeds the configured limit.');
     chunks.push(chunk);
   };
   const decoder = zstandard ? new Decompress(output) : new Gunzip(output);
   for (let position = 0; position < bytes.length; position += 1024)
     decoder.push(bytes.subarray(position, position + 1024), position + 1024 >= bytes.length);
-  if (!bytes.length) throw new Error('压缩流为空。');
+  if (!bytes.length) throw new Error('The compressed stream is empty.');
   const result = new Uint8Array(size);
   let offset = 0;
   for (const chunk of chunks) {
@@ -35,7 +35,7 @@ export async function decompressArchiveStream(
   let size = 0;
   const output = (chunk: Uint8Array) => {
     size += chunk.length;
-    if (size > limit) throw new Error('压缩流展开后超过设置上限。');
+    if (size > limit) throw new Error('The decompressed stream exceeds the configured limit.');
     chunks.push(chunk);
   };
   if (format === 'xz') {

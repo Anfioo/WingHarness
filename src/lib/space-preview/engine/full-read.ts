@@ -18,7 +18,7 @@ export async function readWholeFile(
     const length = Math.min(READ_SIZE, size - offset);
     const part = await read(offset, length);
     signal.throwIfAborted();
-    if (part.length !== length) throw new Error('文件读取不完整，文件可能已被修改，请重新打开。');
+    if (part.length !== length) throw new Error('The file read is incomplete; the file may have been modified, please reopen it.');
     bytes.set(part, offset);
     progress(Math.round(((offset + length) / size) * 100));
   }

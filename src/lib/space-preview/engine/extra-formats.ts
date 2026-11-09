@@ -1,5 +1,4 @@
 // Ported from SpacePreview (MIT). See src-tauri/space-preview-core/UPSTREAM.md.
-/* eslint-disable @typescript-eslint/no-explicit-any, no-useless-escape -- Ported upstream code keeps its untyped XML values and escape style. */
 import { XMLParser } from 'fast-xml-parser';
 import { strFromU8 } from 'fflate';
 import { decodeText, extension } from './files';
@@ -52,11 +51,12 @@ export function readDelimited(bytes: Uint8Array, name: string, partial = false):
       if (c === '\r' && text[i + 1] === '\n') i++;
     } else if (c === '"' && !field && !closed) quoted = true;
     else {
-      if (closed) throw new Error('表格引号闭合后出现了非分隔符内容。');
+      if (closed) throw new Error('Unexpected content follows a closing quote in the table.');
       field += c;
     }
   }
-  if (quoted && !partial) throw new Error('表格存在未闭合的引号，无法完整解析。');
+  if (quoted && !partial)
+    throw new Error('The table has an unclosed quote and cannot be fully parsed.');
   if (!partial && (row.length || field || closed || text.endsWith(delimiter))) {
     cell();
     rows.push(row);
@@ -85,7 +85,8 @@ function xml(bytes: Uint8Array): Node[] {
   // EPUB 2 commonly declares the XHTML public DTD. Drop the declaration;
   // never load it, and still reject internal subsets/custom entity declarations.
   const source = strFromU8(bytes).replace(/<!DOCTYPE\s+html(?:\s+[^<>\[\]]*)?>/i, '');
-  if (/<!DOCTYPE|<!ENTITY/i.test(source)) throw new Error('文档包含不受支持的 XML 实体声明。');
+  if (/<!DOCTYPE|<!ENTITY/i.test(source))
+    throw new Error('The document contains an unsupported XML entity declaration.');
   return xmlParser.parse(source);
 }
 function text(n: Node): string {
@@ -152,11 +153,11 @@ export function readOpenDocument(
   publish?: (value: WorkerResult) => void,
 ): WorkerResult {
   const content = extract(bytes, ['content.xml'])['content.xml'];
-  if (!content) throw new Error('没有找到 OpenDocument 的 content.xml。');
+  if (!content) throw new Error('The OpenDocument content.xml was not found.');
   const nodes = xml(content);
   if (kind === 'odt') {
     const body = find(nodes, 'text')[0];
-    if (!body) throw new Error('没有找到有效的 OpenDocument 文字内容。');
+    if (!body) throw new Error('No valid OpenDocument text content was found.');
     const blocks = kids(body);
     let html = '';
     for (let index = 0; index < blocks.length; index += 200) {
@@ -167,12 +168,12 @@ export function readOpenDocument(
   }
   if (kind === 'odp') {
     const pages = find(nodes, 'page');
-    if (pages.length > 500) throw new Error('演示文稿超过 500 页。');
+    if (pages.length > 500) throw new Error('The presentation exceeds 500 slides.');
     const slides: NonNullable<WorkerResult['slides']> = [];
     pages.forEach((page, i) => {
       const paragraphs = find(kids(page), 'p').map(text).filter(Boolean);
       slides.push({
-        title: paragraphs[0] || attr(page, 'name') || `幻灯片 ${i + 1}`,
+        title: paragraphs[0] || attr(page, 'name') || `Slide ${i + 1}`,
         paragraphs: paragraphs.slice(1),
       });
       publish?.({ slides });
@@ -180,7 +181,7 @@ export function readOpenDocument(
     return { slides };
   }
   const tables = find(nodes, 'table');
-  if (tables.length > 100) throw new Error('工作簿超过 100 个工作表。');
+  if (tables.length > 100) throw new Error('The workbook exceeds 100 worksheets.');
   let cellBudget = 500_000;
   const sheets: WorkbookSheet[] = [];
   tables.forEach((table, i) => {
@@ -210,7 +211,7 @@ export function readOpenDocument(
       if (count > 5000 - rows.length) truncated = true;
       const available = Math.min(count, 5000 - rows.length);
       cellBudget -= available * Math.max(1, cells.length);
-      if (cellBudget < 0) throw new Error('工作簿展开内容超过 500,000 个单元格。');
+      if (cellBudget < 0) throw new Error('The expanded workbook exceeds 500,000 cells.');
       for (let r = 0; r < available; r++) rows.push([...cells]);
       columns = Math.max(columns, cells.length);
       if (rows.length === 5000) {
@@ -226,11 +227,12 @@ export function readOpenDocument(
 }
 
 function resolvePart(base: string, relative: string): string {
-  if (/^[a-z]+:|^[/\\]/i.test(relative)) throw new Error('电子书包含外部或无效章节路径。');
+  if (/^[a-z]+:|^[/\\]/i.test(relative))
+    throw new Error('The e-book contains an external or invalid chapter path.');
   const segments = base.split('/').slice(0, -1);
   for (const part of decodeURIComponent(relative.split('#')[0]).split('/')) {
     if (part === '..') {
-      if (!segments.length) throw new Error('电子书章节路径超出容器。');
+      if (!segments.length) throw new Error('The e-book chapter path escapes the container.');
       segments.pop();
     } else if (part && part !== '.') segments.push(part);
   }
@@ -238,27 +240,28 @@ function resolvePart(base: string, relative: string): string {
 }
 export function epubPackagePath(bytes: Uint8Array) {
   const container = extract(bytes, ['META-INF/container.xml'])['META-INF/container.xml'];
-  if (!container) throw new Error('没有找到 EPUB 容器信息。');
+  if (!container) throw new Error('The EPUB container information was not found.');
   const root = find(xml(container), 'rootfile')[0];
   const packagePath = root && resolvePart('', attr(root, 'full-path'));
-  if (!packagePath) throw new Error('EPUB 缺少书籍清单。');
+  if (!packagePath) throw new Error('The EPUB is missing its package document.');
   return packagePath;
 }
 export function epubIndex(bytes: Uint8Array) {
   const packagePath = epubPackagePath(bytes);
   const packageBytes = extract(bytes, [packagePath])[packagePath];
-  if (!packageBytes) throw new Error('EPUB 书籍清单不存在。');
+  if (!packageBytes) throw new Error('The EPUB package document does not exist.');
   const book = xml(packageBytes);
   const manifest = find(book, 'item');
   const spine = find(book, 'itemref').filter((n) => attr(n, 'linear') !== 'no');
-  if (!spine.length || spine.length > 300) throw new Error('EPUB 无有效章节或章节超过 300 个。');
+  if (!spine.length || spine.length > 300)
+    throw new Error('The EPUB has no valid chapters or exceeds 300 chapters.');
   const paths = spine.map((n) => {
     const item = manifest.find((m) => attr(m, 'id') === attr(n, 'idref'));
     if (!item || !['application/xhtml+xml', 'text/html'].includes(attr(item, 'media-type')))
-      throw new Error('EPUB 包含不支持的章节格式。');
+      throw new Error('The EPUB contains an unsupported chapter format.');
     return resolvePart(packagePath, attr(item, 'href'));
   });
-  return paths.map((path, index) => ({ path, name: `第 ${index + 1} 章` }));
+  return paths.map((path, index) => ({ path, name: `Chapter ${index + 1}` }));
 }
 export function readEpub(bytes: Uint8Array, selected?: number): WorkerResult {
   const paths = epubIndex(bytes)
@@ -267,13 +270,14 @@ export function readEpub(bytes: Uint8Array, selected?: number): WorkerResult {
   const parts = extract(bytes, paths);
   return {
     chapters: paths.map((path, i) => {
-      if (!parts[path]) throw new Error('EPUB 缺少章节内容。');
+      if (!parts[path]) throw new Error('The EPUB is missing chapter content.');
       const nodes = xml(parts[path]);
       const body = find(nodes, 'body')[0];
-      if (!body) throw new Error('EPUB 章节不可读，可能加密或已损坏。');
+      if (!body)
+        throw new Error('The EPUB chapter is unreadable; it may be encrypted or corrupt.');
       const heading =
         find(kids(body), 'h1')[0] || find(kids(body), 'h2')[0] || find(nodes, 'title')[0];
-      return { title: heading ? text(heading) : `第 ${i + 1} 章`, html: prose(kids(body)) };
+      return { title: heading ? text(heading) : `Chapter ${i + 1}`, html: prose(kids(body)) };
     }),
   };
 }
@@ -284,9 +288,9 @@ export function readFictionBook(bytes: Uint8Array): WorkerResult {
   if (declared && !/^utf-16$/i.test(declared))
     source = new TextDecoder(declared, { fatal: true }).decode(bytes);
   const nodes = xml(new TextEncoder().encode(source));
-  if (!find(nodes, 'FictionBook').length) throw new Error('不是有效的 FB2 电子书。');
+  if (!find(nodes, 'FictionBook').length) throw new Error('This is not a valid FB2 e-book.');
   const bodies = find(nodes, 'body').filter((body) => attr(body, 'name') !== 'notes');
-  if (!bodies.length) throw new Error('FB2 没有可阅读的正文。');
+  if (!bodies.length) throw new Error('The FB2 has no readable body text.');
   const render = (nodes: Node[], level = 1): string =>
     nodes
       .map((node) => {
@@ -305,6 +309,6 @@ export function readFictionBook(bytes: Uint8Array): WorkerResult {
       .join('');
   return {
     html: bodies.map((body) => render(kids(body))).join(''),
-    note: 'FB2 文字阅读 · 不显示封面、图片与脚注',
+    note: 'FB2 text reading · covers, images and footnotes are not shown',
   };
 }

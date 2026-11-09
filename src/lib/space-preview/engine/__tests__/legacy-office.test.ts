@@ -45,12 +45,12 @@ describe('Office 97–2003 content', () => {
       '<p>中文标题</p><p>正文&lt;&amp;&gt;</p>',
     );
     new DataView(document.buffer).setUint16(10, 0x300, true);
-    expect(() => readLegacyWord(compound('WordDocument', document, table))).toThrow('加密');
+    expect(() => readLegacyWord(compound('WordDocument', document, table))).toThrow('Encrypted');
   });
   it('rejects DOC piece offsets beyond the original document', () => {
     const { document, table } = word();
     new DataView(table.buffer).setUint32(15, 999999, true);
-    expect(() => readLegacyWord(compound('WordDocument', document, table))).toThrow('截断');
+    expect(() => readLegacyWord(compound('WordDocument', document, table))).toThrow('truncated');
   });
   it('reads PPT Unicode and ANSI text atoms and checks record boundaries', () => {
     const text = '中文幻灯片',
@@ -67,6 +67,6 @@ describe('Office 97–2003 content', () => {
       { title: text, paragraphs: [text, 'Full content'] },
     ]);
     new DataView(slide.buffer).setUint32(4, slide.length, true);
-    expect(() => readLegacySlides(compound('PowerPoint Document', slide))).toThrow('截断');
+    expect(() => readLegacySlides(compound('PowerPoint Document', slide))).toThrow('truncated');
   });
 });

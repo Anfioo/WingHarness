@@ -172,7 +172,7 @@ export default function TrayMenuPage() {
     try {
       setAgent(await agentStatus());
     } catch {
-      // The agent is unavailable until B2 lands; leave the row disabled.
+      // The agent could not report its state; leave the row disabled.
       setAgent(null);
     }
   }, []);
