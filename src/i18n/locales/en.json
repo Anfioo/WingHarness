@@ -298,7 +298,13 @@
     "currentHint": "Where the app is reading and writing right now.",
     "defaultLabel": "Default",
     "pointerLabel": "Pointer file",
-    "pointerNote": "The data directory is recorded in this file. You can also edit it by hand."
+    "pointerNote": "The data directory is recorded in this file. You can also edit it by hand.",
+    "modeLabel": "Run mode",
+    "modeHint": "Standalone hides the account in the sidebar. Networked shows a guest account for now.",
+    "modeStandalone": "Standalone",
+    "modeNetworked": "Networked",
+    "modeSaved": "Run mode saved.",
+    "modeSaveFailed": "Failed to save the run mode."
   },
   "plugins": {
     "title": "Plugins",
