@@ -21,6 +21,11 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                // The proxy has to reach the environment before the first HTTP
+                // client is built anywhere in the app, and before any child
+                // process is spawned, so it is applied right after the config
+                // directory is known.
+                config::apply_proxy_env(&config::load().proxy);
                 // The git engine keeps everything it persists — recent repos,
                 // hosting accounts, and the window's own stores — under
                 // `<data dir>/.git-repo`, next to `ccs/` and `.mcphub/`, so the
