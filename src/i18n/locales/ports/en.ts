@@ -27,7 +27,7 @@ const ports = {
   list: {
     pinned: "Pinned ports",
     results: "Results ({{count}})",
-    resultsHint: "Matches across pinned and other ports.",
+    resultsHint: "Matches {{query}} across pinned and other ports.",
     other: "Other listening ports",
     showOther: "Show other ports",
     hideOther: "Hide other ports",
@@ -42,12 +42,13 @@ const ports = {
     noMatch: {
       title: "No matching ports",
       body: "Try a different search term or status filter.",
+      bodyWithQuery: "Nothing matches “{{query}}”. Try a different search term or status filter.",
     },
     notRunning: "Not running",
     unknownService: "Unknown service",
   },
   row: {
-    killAria: "End the process on port {{port}}",
+    killAria: "End the process on port {{port}} ({{name}})",
     pinAria: "Pin port {{port}}",
     unpinAria: "Unpin port {{port}}",
   },

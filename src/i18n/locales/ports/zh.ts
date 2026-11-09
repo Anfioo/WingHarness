@@ -27,7 +27,7 @@ const ports = {
   list: {
     pinned: "固定端口",
     results: "结果（{{count}}）",
-    resultsHint: "同时匹配固定端口与其他端口。",
+    resultsHint: "在固定端口与其他端口中匹配 {{query}}。",
     other: "其他监听端口",
     showOther: "展开其他端口",
     hideOther: "收起其他端口",
@@ -42,12 +42,13 @@ const ports = {
     noMatch: {
       title: "没有匹配的端口",
       body: "换一个搜索词或状态筛选试试。",
+      bodyWithQuery: "没有匹配“{{query}}”的端口。换一个搜索词或状态筛选试试。",
     },
     notRunning: "未运行",
     unknownService: "未知服务",
   },
   row: {
-    killAria: "结束占用端口 {{port}} 的进程",
+    killAria: "结束占用端口 {{port}} 的 {{name}} 进程",
     pinAria: "固定端口 {{port}}",
     unpinAria: "取消固定端口 {{port}}",
   },

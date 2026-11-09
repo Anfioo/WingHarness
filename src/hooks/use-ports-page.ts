@@ -42,6 +42,7 @@ export type PortsPageState = {
   refresh: () => void;
   kill: (pid: number) => Promise<void>;
   togglePin: (port: number) => Promise<void>;
+  /** Rejects when the write fails so the settings dialog can keep its draft. */
   saveSettings: (settings: PortsSettings) => Promise<void>;
   detailPort: number | null;
   openDetail: (port: number) => void;
@@ -212,17 +213,12 @@ export function usePortsPage(): PortsPageState {
     void Promise.all([loadAll(), loadPinned()]).finally(() => setRefreshing(false));
   }, [loadAll, loadPinned]);
 
-  const persist = useCallback(
-    async (next: PortsSettings) => {
-      try {
-        setSettings(await portsSettingsSet(next));
-        setError(null);
-      } catch (failure) {
-        toast.error(t(portsErrorKey(portsErrorCode(failure))));
-      }
-    },
-    [t]
-  );
+  // Surface the outcome to the caller: `togglePin` toasts a failure, while
+  // `saveSettings` lets it through so the dialog can keep its draft open.
+  const persist = useCallback(async (next: PortsSettings) => {
+    setSettings(await portsSettingsSet(next));
+    setError(null);
+  }, []);
 
   const togglePin = useCallback(
     async (port: number) => {
@@ -238,7 +234,11 @@ export function usePortsPage(): PortsPageState {
       const nextPinned = pinned.includes(port)
         ? pinned.filter((value) => value !== port)
         : [...pinned, port].sort((left, right) => left - right);
-      await persist({ ...current, pinnedPorts: nextPinned });
+      try {
+        await persist({ ...current, pinnedPorts: nextPinned });
+      } catch (failure) {
+        toast.error(t(portsErrorKey(portsErrorCode(failure))));
+      }
     },
     [persist, t]
   );

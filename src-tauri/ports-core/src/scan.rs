@@ -1,3 +1,6 @@
+// Ported from Porter (https://github.com/t21dev/porter-app), MIT License.
+// See ../UPSTREAM.md for the porting record.
+
 // TODO(B1): enumerate the TCP listening table and join it with process info.
 
 use crate::error::PortsResult;

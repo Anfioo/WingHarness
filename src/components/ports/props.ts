@@ -27,10 +27,11 @@ export type PortsListProps = {
   onTogglePin: (port: number) => void;
 };
 
-/** One row, rendered by the list; owned by the same lane as the list. */
+/** One row, rendered by the list; F2 defines the component in `port-row.tsx`. */
 export type PortRowProps = {
-  entry: PortEntry;
+  port: PortEntry;
   pinned: boolean;
+  showPin: boolean;
   onOpenDetail: (port: number) => void;
   onKill: (pid: number) => void;
   onTogglePin: (port: number) => void;
