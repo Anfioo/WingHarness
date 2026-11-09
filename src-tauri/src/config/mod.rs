@@ -45,6 +45,11 @@ pub struct Config {
     pub ai_config: AiConfig,
     /// The outbound proxy the app and the tools it spawns use.
     pub proxy: ProxyConfig,
+    /// Whether the app runs in networked mode.
+    ///
+    /// Standalone (the default) hides the sidebar's account menu; networked
+    /// mode shows it, with the guest placeholder until a real account exists.
+    pub networked: bool,
 }
 
 /// Proxy the app applies to its own HTTP clients and to its child processes.
@@ -344,6 +349,8 @@ mod tests {
         let config: Config = serde_json::from_str("{}").unwrap();
         assert_eq!(config.ai_config.enabled_agents, None);
         assert_eq!(config.proxy, ProxyConfig::default());
+        // Standalone is the default, so the sidebar's account stays hidden.
+        assert!(!config.networked);
     }
 
     /// A value pasted from a proxy app is usually `host:port`; the scheme is

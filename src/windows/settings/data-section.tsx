@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { emit } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { toast } from "sonner";
@@ -8,7 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { getConfig, setDataDir, type ConfigView } from "@/commands";
+import {
+  CONFIG_CHANGED_EVENT,
+  getConfig,
+  saveConfig,
+  setDataDir,
+  type ConfigView,
+} from "@/commands";
 
 /**
  * Where the app keeps everything it persists — plugins, logs, caches, and the
@@ -64,6 +71,24 @@ export function DataSection() {
     if (typeof chosen === "string") setInput(chosen);
   };
 
+  // The run mode is part of `config.json`, not the data-directory pointer, so it
+  // saves through the regular config document and tells the other windows to
+  // redraw the sidebar right away.
+  const setNetworked = async (networked: boolean) => {
+    if (!view || view.config.networked === networked) return;
+    setBusy(true);
+    try {
+      setView(await saveConfig({ ...view.config, networked }));
+      await emit(CONFIG_CHANGED_EVENT);
+      toast.success(t("data.modeSaved"));
+    } catch (error: unknown) {
+      console.error("Failed to save the run mode:", error);
+      toast.error(t("data.modeSaveFailed"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!view) {
     return (
       <div className="space-y-4">
@@ -103,6 +128,31 @@ export function DataSection() {
           </Button>
         </div>
       )}
+
+      <div className="border-border flex items-center justify-between gap-3 rounded-xl border px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">{t("data.modeLabel")}</p>
+          <p className="text-muted-foreground mt-0.5 text-xs">{t("data.modeHint")}</p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            size="sm"
+            variant={view.config.networked ? "outline" : "default"}
+            disabled={busy}
+            onClick={() => void setNetworked(false)}
+          >
+            {t("data.modeStandalone")}
+          </Button>
+          <Button
+            size="sm"
+            variant={view.config.networked ? "default" : "outline"}
+            disabled={busy}
+            onClick={() => void setNetworked(true)}
+          >
+            {t("data.modeNetworked")}
+          </Button>
+        </div>
+      </div>
 
       <div className="space-y-2">
         <label htmlFor="data-dir" className="text-sm font-medium">

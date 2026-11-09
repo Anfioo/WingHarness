@@ -1,5 +1,7 @@
-import { useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { ChevronRight, ChevronsUpDown, LogOut, Package, Sparkles, UserRound } from "lucide-react";
+import { CONFIG_CHANGED_EVENT, getConfig } from "@/commands";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,7 +30,7 @@ import {
 } from "@/components/ui/sidebar";
 import logo from "@/assets/app-icons/wingharness-logo.svg";
 import { cn } from "@/lib/utils";
-import { appRoutes } from "@/lib/app-routes";
+import { appRoutes, getAppRouteByPath } from "@/lib/app-routes";
 import { useRouter } from "@/lib/router";
 import { usePluginsStore } from "@/hooks/use-plugins-store";
 import { useCustomIcons } from "@/hooks/use-custom-icons";
@@ -81,6 +83,38 @@ export function AppSidebar({ activePath }: AppSidebarProps) {
       ? leaf.href === activePath
       : activePath === PLUGIN_FOCUS_PATH && leaf.ref === activePluginId;
 
+  // The header names the entry the sidebar currently has selected, so it follows
+  // both the route and the layout's custom labels.
+  const activeLeaf =
+    groups
+      .flatMap((group) => group.items)
+      .flatMap((item) => (item.kind === "parent" ? item.children : [item]))
+      .find(isLeafActive) ?? null;
+  const activeLabel = activeLeaf?.label ?? getAppRouteByPath(activePath).navLabel;
+
+  // Standalone is the default and hides the account; networked mode shows the
+  // guest placeholder. The settings window saves the mode, so the footer is
+  // redrawn when it announces the change.
+  const [networked, setNetworked] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      getConfig()
+        .then((next) => {
+          if (alive) setNetworked(next.config.networked);
+        })
+        .catch((error: unknown) => {
+          console.error("Failed to load the run mode:", error);
+        });
+    };
+    load();
+    const unlisten = listen(CONFIG_CHANGED_EVENT, load);
+    return () => {
+      alive = false;
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   return (
     <Sidebar
       collapsible="icon"
@@ -89,11 +123,11 @@ export function AppSidebar({ activePath }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" tooltip="WingHarness">
+            <SidebarMenuButton size="lg" tooltip={activeLabel}>
               <img src={logo} alt="" className="size-8 rounded-lg" />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">WingHarness</span>
-                <span className="text-muted-foreground truncate text-xs">Desktop Template</span>
+                <span className="text-muted-foreground truncate text-xs">{activeLabel}</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -123,9 +157,11 @@ export function AppSidebar({ activePath }: AppSidebarProps) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarUserMenu />
-      </SidebarFooter>
+      {networked && (
+        <SidebarFooter>
+          <SidebarUserMenu />
+        </SidebarFooter>
+      )}
       <SidebarRail />
     </Sidebar>
   );

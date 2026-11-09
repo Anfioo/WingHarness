@@ -297,7 +297,13 @@
     "currentHint": "应用当前读写所在的位置。",
     "defaultLabel": "默认",
     "pointerLabel": "指针文件",
-    "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。"
+    "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。",
+    "modeLabel": "运行模式",
+    "modeHint": "单机模式隐藏侧边栏底部的账户；联网模式先显示一个访客账户。",
+    "modeStandalone": "单机",
+    "modeNetworked": "联网",
+    "modeSaved": "运行模式已保存。",
+    "modeSaveFailed": "保存运行模式失败。"
   },
   "plugins": {
     "title": "插件",
