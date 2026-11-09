@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { ArrowLeft, ExternalLink, Pencil, RotateCw, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -37,6 +38,14 @@ export interface PreviewTarget {
 export interface PreviewHostProps {
   mode: "embedded" | "window";
   target: PreviewTarget | null;
+  /** Open in the text view, as Shift+Space asks for. */
+  text?: boolean;
+  /**
+   * Whether unsaved edits would be lost if the target changed. The host cannot
+   * veto a prop change, so the caller asks before switching; the preview window
+   * also uses it to confirm before hiding.
+   */
+  onDirtyChange?: (dirty: boolean) => void;
   onClose?: () => void;
   onEdited?: (next: PreviewTarget) => void;
   className?: string;
@@ -87,6 +96,8 @@ function detectedEncoding(label: string): TextEncoding {
 export function PreviewHost({
   mode,
   target,
+  text: textMode = false,
+  onDirtyChange,
   onClose,
   onEdited,
   className,
@@ -122,7 +133,8 @@ export function PreviewHost({
     let active = true;
     void getPreviewPreferences()
       .then((value) => {
-        if (!active) return;
+        // A broadcast that beat this read is newer; keep it.
+        if (!active || lastSaved.current) return;
         lastSaved.current = value;
         setPreferences(value);
       })
@@ -132,11 +144,41 @@ export function PreviewHost({
     };
   }, []);
 
+  // The settings window and the tray write the same file. Follow their changes
+  // without echoing them back through the save below.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let active = true;
+    void listen<PreviewPreferences>("sp:preferences-changed", (event) => {
+      lastSaved.current = event.payload;
+      setPreferences(event.payload);
+    }).then((unlisten) => {
+      if (active) stop = unlisten;
+      else unlisten();
+    });
+    return () => {
+      active = false;
+      stop?.();
+    };
+  }, []);
+
   useEffect(() => {
     if (!lastSaved.current || lastSaved.current === preferences) return;
     const timer = window.setTimeout(() => {
       lastSaved.current = preferences;
-      void savePreviewPreferences(preferences).catch(() => {});
+      // Re-read before writing: the tray and the settings window save the same
+      // object, and a stale copy here would revert the space switch.
+      const { readingWidth, fontSize, defaultEncoding: encoding } = preferences;
+      void getPreviewPreferences()
+        .then((latest) =>
+          savePreviewPreferences({
+            ...latest,
+            readingWidth,
+            fontSize,
+            defaultEncoding: encoding,
+          })
+        )
+        .catch(() => {});
     }, 400);
     return () => window.clearTimeout(timer);
   }, [preferences]);
@@ -200,6 +242,13 @@ export function PreviewHost({
   const current = stack.length ? stack[stack.length - 1] : file;
   const kind = current ? detectKind(current.name) : "binary";
   const dirty = editing && text !== original;
+  const dirtyHandler = useRef(onDirtyChange);
+  useEffect(() => {
+    dirtyHandler.current = onDirtyChange;
+  });
+  useEffect(() => {
+    dirtyHandler.current?.(dirty);
+  }, [dirty]);
   const canEdit =
     !!current && !current.directory && !!current.path && EDITABLE.includes(kind) && !loading;
   const gestureActive = editing || READABLE.includes(kind);
@@ -492,7 +541,7 @@ export function PreviewHost({
                   <Preview
                     key={`${current.id}:${reload}`}
                     file={current}
-                    mode="auto"
+                    mode={textMode ? "text" : "auto"}
                     onOpen={(next) => setStack((value) => [...value, next])}
                   />
                 ) : (
