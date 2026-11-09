@@ -4,10 +4,11 @@
 //! decided at this layer beyond argument validation, so the shell behaviour has
 //! exactly one implementation.
 
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, State};
 
 use crate::error::{SpacePreviewError, SpacePreviewResult};
 use crate::models::{AgentStatus, InitialPaths};
+use crate::state::PreviewState;
 
 /// Broadcast to the pages and the tray menu after the switch changes.
 const AGENT_STATUS_EVENT: &str = "sp:agent-status";
@@ -19,12 +20,22 @@ pub fn sp_agent_status() -> SpacePreviewResult<AgentStatus> {
 
 /// Turn the Space handler on or off. The tray menu and the settings page both
 /// call this, and both read the result back through `sp:agent-status`.
+///
+/// The switch is persisted here as well: the tray has no other way to save it,
+/// and `agent::start` reads the same field on the next launch.
 #[tauri::command]
 pub fn sp_agent_set_enabled(
+    state: State<'_, PreviewState>,
     enabled: bool,
     app: tauri::AppHandle,
 ) -> SpacePreviewResult<AgentStatus> {
-    crate::agent::set_enabled(enabled);
+    let mut preferences = crate::prefs::load()?;
+    preferences.space_enabled = enabled;
+    let stored = crate::prefs::save(preferences)?;
+    if let Ok(mut cached) = state.prefs.lock() {
+        *cached = stored.clone();
+    }
+    crate::agent::set_enabled(stored.space_enabled);
     let status = crate::agent::status();
     if let Err(error) = app.emit(
         AGENT_STATUS_EVENT,
