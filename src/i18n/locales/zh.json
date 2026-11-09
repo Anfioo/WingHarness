@@ -170,6 +170,19 @@
       "autoSave": "修改后自动保存。",
       "loadFailed": "加载 agent 列表失败。"
     },
+    "proxy": {
+      "title": "代理",
+      "description": "应用发起网络请求时使用的代理，应用启动的工具同样适用。",
+      "urlLabel": "代理地址",
+      "urlHint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7891。留空则沿用环境变量或 Windows 系统中的代理。",
+      "urlPlaceholder": "http://127.0.0.1:7890",
+      "noProxyLabel": "直连列表",
+      "noProxyHint": "以逗号分隔的直连地址，例如内网域名。本机地址（localhost、127.0.0.1）始终直连。",
+      "noProxyPlaceholder": "localhost,127.0.0.1",
+      "autoSave": "修改后自动保存，对保存之后发起的请求生效；已在运行的客户端需重启。",
+      "envNote": "以 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 写入应用启动的子进程环境。",
+      "loadFailed": "读取代理设置失败。"
+    },
     "appearance": {
       "title": "外观",
       "description": "自定义应用的外观和语言",
