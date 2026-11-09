@@ -1,20 +1,21 @@
 //! HTML relative resources.
 //!
-//! B3 implements this: only resources inside the HTML file's own directory and
-//! its subdirectories may be read, so a crafted document cannot walk out with
-//! `..`.
+//! Thin forwarder: the directory confinement lives in `crate::html`.
+
+use std::path::Path;
 
 use tauri::State;
 
-use crate::error::{SpacePreviewError, SpacePreviewResult};
+use crate::error::SpacePreviewResult;
 use crate::state::PreviewState;
 
+/// Read the resource `path` references from the document at `base`.
 #[tauri::command]
 pub fn sp_read_html_resource(
     state: State<'_, PreviewState>,
     path: String,
     base: String,
 ) -> SpacePreviewResult<tauri::ipc::Response> {
-    let _ = (&state, path, base);
-    Err(SpacePreviewError::internal("not implemented"))
+    let bytes = crate::html::read_html_resource(Path::new(&path), Path::new(&base), &state)?;
+    Ok(tauri::ipc::Response::new(bytes))
 }

@@ -10,10 +10,13 @@
 pub mod agent;
 pub mod commands;
 pub mod error;
+pub mod html;
+pub mod icons;
 pub mod io;
 pub mod models;
 pub mod paths;
 pub mod prefs;
+pub mod presentation;
 pub mod state;
 pub mod text;
 
