@@ -1,5 +1,21 @@
 export interface AppConfig {
   aiConfig: AiConfig;
+  proxy: ProxyConfig;
+  /** Networked mode shows the sidebar's account menu; standalone hides it. */
+  networked: boolean;
+}
+
+/**
+ * The outbound proxy the app and the tools it starts use.
+ *
+ * An empty `url` means "leave the environment alone", so a proxy exported by the
+ * shell that launched the app keeps working.
+ */
+export interface ProxyConfig {
+  /** Proxy URL, e.g. `http://127.0.0.1:7890`. A bare `host:port` is read as HTTP. */
+  url: string;
+  /** Comma-separated hosts that bypass the proxy; loopback is always bypassed. */
+  noProxy: string;
 }
 
 /** One switch in the settings page's agent list. */

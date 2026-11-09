@@ -171,6 +171,19 @@
       "autoSave": "Changes save automatically.",
       "loadFailed": "Could not load the agent list."
     },
+    "proxy": {
+      "title": "Proxy",
+      "description": "The proxy the app uses for network requests, including the tools it starts.",
+      "urlLabel": "Proxy address",
+      "urlHint": "For example http://127.0.0.1:7890 or socks5://127.0.0.1:7891. Leave empty to use the proxy from the environment or Windows, if any.",
+      "urlPlaceholder": "http://127.0.0.1:7890",
+      "noProxyLabel": "Bypass list",
+      "noProxyHint": "Comma-separated hosts that connect directly, such as intranet.example.com. Localhost is always bypassed.",
+      "noProxyPlaceholder": "localhost,127.0.0.1",
+      "autoSave": "Changes save automatically and apply to requests made after saving; restart to cover clients that are already open.",
+      "envNote": "Exported as HTTP_PROXY, HTTPS_PROXY and ALL_PROXY to the app's child processes.",
+      "loadFailed": "Could not load the proxy settings."
+    },
     "appearance": {
       "title": "Appearance",
       "description": "Customize the appearance and language of the app",
@@ -285,7 +298,13 @@
     "currentHint": "Where the app is reading and writing right now.",
     "defaultLabel": "Default",
     "pointerLabel": "Pointer file",
-    "pointerNote": "The data directory is recorded in this file. You can also edit it by hand."
+    "pointerNote": "The data directory is recorded in this file. You can also edit it by hand.",
+    "modeLabel": "Run mode",
+    "modeHint": "Standalone hides the account in the sidebar. Networked shows a guest account for now.",
+    "modeStandalone": "Standalone",
+    "modeNetworked": "Networked",
+    "modeSaved": "Run mode saved.",
+    "modeSaveFailed": "Failed to save the run mode."
   },
   "plugins": {
     "title": "Plugins",

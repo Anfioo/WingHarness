@@ -84,9 +84,14 @@ the caller's origin additionally has to match.
 
 - `src/config/mod.rs` is deliberately plain `std` + `serde_json`, with no Tauri
   handle, so it stays usable from tests and tools
-- `config.json` holds the per-app settings: the Codex switch preferences and the
-  AI config sync's enabled agents. It holds no project — projects are their own
-  store, below
+- `config.json` holds the per-app settings: the Codex switch preferences, the
+  AI config sync's enabled agents, and the outbound proxy. It holds no project —
+  projects are their own store, below
+- The proxy is written into `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
+  `NO_PROXY` bypass list) at startup and again on save, so every reqwest client
+  built afterwards and every spawned tool picks it up without knowing about the
+  setting. `config::apply_proxy_env` owns this; an empty URL leaves a proxy that
+  the launching shell exported alone
 - `src/projects/mod.rs` is the project store: `<data dir>/projects.json`, with
   the recent list and the active project. It is plain `std` + `serde_json` for
   the same reason as `config`, and the backend never guesses a root from it —

@@ -7,6 +7,7 @@ import { ShortcutInput } from "@/components/shortcut-input.tsx";
 import { AppearanceSection } from "./appearance-section.tsx";
 import { TerminalSection } from "./terminal-section.tsx";
 import { PluginsSection } from "./plugins-section.tsx";
+import { ProxySection } from "./proxy-section.tsx";
 import { DataSection } from "./data-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
 import { AiConfigSection } from "./ai-config-section.tsx";
@@ -18,6 +19,7 @@ import {
   SquareTerminal,
   Package,
   Database,
+  Globe,
   SquarePen,
   FileText,
   Bot,
@@ -35,6 +37,7 @@ type SettingSection =
   | "shortcut"
   | "terminal"
   | "plugins"
+  | "proxy"
   | "data"
   | "editor"
   | "mdEditor"
@@ -100,6 +103,11 @@ export default function SettingsPage() {
       id: "plugins" as SettingSection,
       label: t("plugins.title"),
       icon: Package,
+    },
+    {
+      id: "proxy" as SettingSection,
+      label: t("settings.proxy.title"),
+      icon: Globe,
     },
     {
       id: "data" as SettingSection,
@@ -186,6 +194,8 @@ export default function SettingsPage() {
           {activeSection === "terminal" && <TerminalSection />}
 
           {activeSection === "plugins" && <PluginsSection />}
+
+          {activeSection === "proxy" && <ProxySection />}
 
           {activeSection === "data" && <DataSection />}
 
