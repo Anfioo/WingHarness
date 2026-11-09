@@ -53,16 +53,18 @@ attribution header.
   `pinnedPorts` and `pinnedOnly` live in `<data dir>/ports/settings.json`, are
   validated in Rust, written atomically and backed up when unreadable. The UI
   scale, theme, window chrome and update-check stores were not ported.
-- **Deduplicated by port.** Porter could return the same port once per socket
-  family/address. The list here has one ascending row per port, first row wins.
+- **Deterministic order.** Porter also kept one row per port, but collected the
+  rows in a `HashMap` (so the order was arbitrary) and preferred a listener over
+  a connection by sorting on the state string. Here the listener table is read
+  directly, the first row per port wins, and the list is sorted ascending.
 - **No shell or chrome features.** The custom title bar, theme and UI-scale
   stores, update check and release notes, the About dialog, the "not running as
   administrator" banner, the system-info footer and `get_system_info` were left
   behind; this app already has its own shell, updater and settings.
-- **Pinned scan is a separate command.** Porter derived the common-port list in
-  the frontend and called one scan for everything. `ports_pinned_scan` takes the
-  pinned ports and fills absent ones with `free` placeholders, so the pinned
-  section does not depend on the full table.
+- **Explicit pinned placeholders.** `ports_pinned_scan` corresponds to Porter's
+  `get_common_ports`, but a port nothing listens on comes back with no address
+  at all instead of a made-up `127.0.0.1`, and the command validates the request
+  (at most 50 ports, none zero) before scanning.
 
 ## Taking an upstream change
 
