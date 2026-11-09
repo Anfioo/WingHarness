@@ -109,7 +109,7 @@ export type {
   TraceEntry as ClashTraceEntry,
   ValidateView as ClashValidateView,
 } from "./services/clash/types";
-export { getConfig, saveConfig, setDataDir } from "./services/config";
+export { CONFIG_CHANGED_EVENT, getConfig, saveConfig, setDataDir } from "./services/config";
 export type {
   AgentOption,
   AiConfig,

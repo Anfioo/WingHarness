@@ -2,6 +2,8 @@ export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;
   filePreview: FilePreviewConfig;
+  /** Networked mode shows the sidebar's account menu; standalone hides it. */
+  networked: boolean;
 }
 
 /**
