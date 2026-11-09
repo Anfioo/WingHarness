@@ -280,7 +280,8 @@
       "space": "空格",
       "doubleCtrl": "双击 Ctrl",
       "altSpace": "Alt + 空格",
-      "winSpace": "Win + 空格"
+      "winSpace": "Win + 空格",
+      "ctrlW": "Ctrl + W"
     }
   },
   "releaseVersion": {

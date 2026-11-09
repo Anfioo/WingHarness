@@ -281,7 +281,8 @@
       "space": "Space",
       "doubleCtrl": "Double Ctrl",
       "altSpace": "Alt + Space",
-      "winSpace": "Win + Space"
+      "winSpace": "Win + Space",
+      "ctrlW": "Ctrl + W"
     }
   },
   "releaseVersion": {

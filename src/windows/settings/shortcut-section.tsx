@@ -4,9 +4,13 @@ import { toast } from "sonner";
 import { ShortcutField } from "@/components/shortcut-field";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { registerShortcut, unregisterShortcut } from "@/lib/shortcut";
+import type { ShortcutPresetId } from "@/lib/shortcut-spec";
 import { toggleWindow } from "@/lib/window";
 
 const SHOW_MAIN_KEY = "global-shortcut-show-main";
+
+/** Ctrl+W is the one-click offer for the show-main shortcut. */
+const SHOW_MAIN_PRESETS: readonly ShortcutPresetId[] = ["ctrlW"];
 
 /**
  * The shortcut settings.
@@ -61,7 +65,7 @@ export function ShortcutSection() {
               {t("settings.shortcut.showMainDesc")}
             </p>
           </div>
-          <ShortcutField value={showMain} onChange={changeShowMain} />
+          <ShortcutField value={showMain} onChange={changeShowMain} presets={SHOW_MAIN_PRESETS} />
         </div>
       </div>
     </div>

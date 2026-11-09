@@ -71,6 +71,9 @@ A stored shortcut is one string in either of two forms:
   the plugin can register;
 - a preset — `preset:space`, `preset:doubleCtrl`, `preset:altSpace`,
   `preset:winSpace` — for triggers the OS registration API cannot express.
+  A preset may also stand for an ordinary combination: `ctrlW` is stored as
+  `Ctrl+W`, making it an offer in the picker rather than a stored form of its
+  own.
 
 ```typescript
 import {
@@ -156,13 +159,16 @@ function Settings() {
 - i18n for the placeholder, the presets, the named keys and the picker's labels
 
 The component owns no persistence: it hands back a string and the caller decides
-where it goes. Leave `presets` out for a setting that the OS registers — a bare
-Space or a double Ctrl cannot go through the plugin.
+where it goes. A setting the OS registers can still take `presets` as long as
+each one stores a combination — `ctrlW` is stored as `Ctrl+W`. Leave them out
+when the presets are in-app triggers: a bare Space or a double Ctrl cannot go
+through the plugin.
 
 ## In-app triggers
 
-A preset can only be handled inside the app, because the key it watches (Space,
-Ctrl on its own) would otherwise be swallowed system-wide:
+A preset that is not a combination can only be handled inside the app, because
+the key it watches (Space, Ctrl on its own) would otherwise be swallowed
+system-wide:
 
 ```typescript
 import { DoublePressTracker, isEditableTarget, shortcutMatchesEvent } from "@/lib/shortcut-spec";

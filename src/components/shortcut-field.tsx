@@ -236,7 +236,9 @@ export function ShortcutField({
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {presets.map((id) => {
-                  const selected = draft.kind === "preset" && draft.id === id;
+                  // Compared by stored form, so a preset that is also a plain
+                  // combination is highlighted when the draft spells it out.
+                  const selected = draftSpec === presetSpec(id);
                   return (
                     <button
                       key={id}
