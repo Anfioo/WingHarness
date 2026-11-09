@@ -6,6 +6,7 @@ pub mod config;
 pub mod db;
 pub mod devtools;
 pub mod export;
+pub mod file_preview;
 pub mod fs_guard;
 pub mod greet;
 pub mod local_shell;

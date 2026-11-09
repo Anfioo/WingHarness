@@ -184,6 +184,17 @@
       "envNote": "Exported as HTTP_PROXY, HTTPS_PROXY and ALL_PROXY to the app's child processes.",
       "loadFailed": "Could not load the proxy settings."
     },
+    "filePreview": {
+      "title": "File preview",
+      "description": "How the file preview page reads and displays files.",
+      "maxSize": "Size threshold",
+      "maxSizeHint": "Files larger than this are listed but never opened: the backend refuses to read past the threshold.",
+      "maxSizeUnit": "MB",
+      "highlight": "Syntax highlighting",
+      "highlightHint": "Colours code and markup in text previews and in the file editor.",
+      "autoSave": "Changes save automatically and apply to the next file you open.",
+      "loadFailed": "Could not load the file preview settings."
+    },
     "appearance": {
       "title": "Appearance",
       "description": "Customize the appearance and language of the app",
@@ -229,6 +240,49 @@
       "showMainDesc": "Use shortcut to quickly show the main window",
       "setSuccess": "Shortcut set to {{shortcut}}!",
       "cleared": "Shortcut cleared!"
+    }
+  },
+  "shortcutField": {
+    "placeholder": "Click to set",
+    "presetsTitle": "Presets",
+    "customTitle": "Custom",
+    "record": "Press keys",
+    "recording": "Listening…",
+    "recordHint": "Press a modifier and a key, or pick them below.",
+    "preview": "Result",
+    "apply": "Apply",
+    "clear": "Clear",
+    "incomplete": "Pick a modifier and a key",
+    "keys": {
+      "space": "Space",
+      "enter": "Enter",
+      "tab": "Tab",
+      "escape": "Esc",
+      "backspace": "Backspace",
+      "delete": "Delete",
+      "insert": "Insert",
+      "up": "Up",
+      "down": "Down",
+      "left": "Left",
+      "right": "Right",
+      "home": "Home",
+      "end": "End",
+      "pageUp": "PageUp",
+      "pageDown": "PageDown"
+    },
+    "groups": {
+      "letters": "Letters",
+      "digits": "Digits",
+      "function": "Function keys",
+      "navigation": "Editing keys",
+      "symbols": "Symbols"
+    },
+    "presets": {
+      "space": "Space",
+      "doubleCtrl": "Double Ctrl",
+      "altSpace": "Alt + Space",
+      "winSpace": "Win + Space",
+      "ctrlW": "Ctrl + W"
     }
   },
   "releaseVersion": {
@@ -1217,7 +1271,16 @@
     "empty": "Pick a file on the left to preview it.",
     "reload": "Reload",
     "close": "Close preview",
-    "tooLarge": "The file is too large to preview."
+    "tooLarge": "The file is past the preview threshold. Raise it in Settings → File preview.",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Stop editing",
+    "dirty": "Unsaved changes",
+    "discardConfirm": "Discard the unsaved changes?",
+    "editFailed": "Could not open the file for editing.",
+    "saveFailed": "Could not save the file.",
+    "saved": "Saved."
   },
   "gitRepo": {
     "windowTitle": "Git repository",

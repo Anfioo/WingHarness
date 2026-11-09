@@ -7,7 +7,6 @@ use serde::Serialize;
 
 use crate::confine;
 use crate::mime::{extension, guess_mime, is_previewable};
-use crate::PREVIEW_MAX_BYTES;
 
 /// A file's identity and how the preview should treat it.
 ///
@@ -30,7 +29,10 @@ pub struct PreviewMeta {
 }
 
 /// Reads a file's metadata, refusing anything outside the working copy.
-pub fn metadata_at(root: &Path, relative: &str) -> Result<PreviewMeta, String> {
+///
+/// `max_bytes` is the caller's configured preview threshold, which decides the
+/// `over_cap` flag the page reads.
+pub fn metadata_at(root: &Path, relative: &str, max_bytes: u64) -> Result<PreviewMeta, String> {
     let target = confine::resolve(root, relative)?;
     let metadata =
         std::fs::metadata(&target).map_err(|error| format!("读取 {relative} 失败：{error}"))?;
@@ -53,7 +55,7 @@ pub fn metadata_at(root: &Path, relative: &str) -> Result<PreviewMeta, String> {
             .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
             .map(|duration| duration.as_secs()),
         previewable: is_previewable(&target),
-        over_cap: size > PREVIEW_MAX_BYTES,
+        over_cap: size > max_bytes,
     })
 }
 

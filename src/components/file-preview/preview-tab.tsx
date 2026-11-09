@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { previewBytes, previewMetadata } from "@/commands";
 import { PreviewPane } from "@/components/file-preview/preview-pane";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { useFilePreviewConfig } from "@/hooks/use-file-preview-config";
 import { bytesToObjectUrl } from "@/lib/preview/lib/bytes";
 import type { FileMetadata } from "@/lib/preview/types";
 import { loadPreview } from "@/lib/preview/viewers/loadPreview";
@@ -17,6 +18,7 @@ import type { LoadState } from "@/lib/preview/viewers/previewTypes";
  */
 export function PreviewTab({ path, name, root }: { path: string; name: string; root: string }) {
   const { t } = useAppTranslation();
+  const config = useFilePreviewConfig();
   const [payload, setPayload] = useState<FileMetadata | null>(null);
   const [state, setState] = useState<LoadState>({ status: "idle" });
   // Bumped by the reload button; the load effect reads it so a retry re-runs.
@@ -95,6 +97,7 @@ export function PreviewTab({ path, name, root }: { path: string; name: string; r
       onReload={() => setAttempt((count) => count + 1)}
       reloadLabel={t("filePreview.reload")}
       emptyLabel={t("filePreview.empty")}
+      highlight={config.highlight}
     />
   );
 }
