@@ -21,8 +21,8 @@
 		"tauri:build:ps:dev": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\build.ps1 -DevBuild",
 		"format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
 		"format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
-		"lint": "eslint src/**/*.{ts,tsx} vite.config.ts",
-		"lint:fix": "eslint src/**/*.{ts,tsx} vite.config.ts --fix",
+		"lint": "eslint src/**/*.{ts,tsx} vite.config.ts vitest.config.ts",
+		"lint:fix": "eslint src/**/*.{ts,tsx} vite.config.ts vitest.config.ts --fix",
 		"check": "pnpm format:check && pnpm lint && pnpm build",
 		"prepare": "husky"
 	},
