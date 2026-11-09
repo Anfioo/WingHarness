@@ -3,7 +3,19 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Persisted settings: the pinned port numbers and the "pinned only" view.
+/// How the other-listening-ports section is ordered.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PortGrouping {
+    /// One flat list ordered by port number.
+    #[default]
+    Port,
+    /// One collapsible group per process name.
+    App,
+}
+
+/// Persisted settings: the pinned port numbers, the "pinned only" view and the
+/// grouping of the other-ports section.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PortsSettings {
@@ -11,6 +23,8 @@ pub struct PortsSettings {
     pub pinned_ports: Vec<u16>,
     /// Show only the pinned ports.
     pub pinned_only: bool,
+    /// Group the other ports by port number or by application.
+    pub group_by: PortGrouping,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { portsErrorKey } from "@/hooks/use-ports-page";
+import { portsErrorKey } from "@/lib/ports/error-key";
 import { cn } from "@/lib/utils";
 
 import type { PortDetailSheetProps } from "./props";

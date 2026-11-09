@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { emit, listen } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import {
   isPortsError,
@@ -12,12 +13,14 @@ import {
   portsSettingsGet,
   portsSettingsSet,
   type PortEntry,
+  type PortGrouping,
   type PortsError,
-  type PortsErrorCode,
   type PortsSettings,
   type PortStatus,
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { portsErrorKey } from "@/lib/ports/error-key";
+import { PORTS_SETTINGS_CHANGED } from "@/lib/ports/settings-event";
 import { usePageActive } from "@/lib/page-active";
 
 export type PortCounts = { free: number; occupied: number; system: number };
@@ -34,6 +37,8 @@ export type PortsPageState = {
   setQuery: (query: string) => void;
   statuses: Set<PortStatus>;
   toggleStatus: (status: PortStatus) => void;
+  groupBy: PortGrouping;
+  setGrouping: (grouping: PortGrouping) => Promise<void>;
   loading: boolean;
   refreshing: boolean;
   paused: boolean;
@@ -42,13 +47,9 @@ export type PortsPageState = {
   refresh: () => void;
   kill: (pid: number) => Promise<void>;
   togglePin: (port: number) => Promise<void>;
-  /** Rejects when the write fails so the settings dialog can keep its draft. */
-  saveSettings: (settings: PortsSettings) => Promise<void>;
   detailPort: number | null;
   openDetail: (port: number) => void;
   closeDetail: () => void;
-  settingsOpen: boolean;
-  setSettingsOpen: (open: boolean) => void;
 };
 
 const ALL_PORTS_INTERVAL_MS = 3000;
@@ -62,24 +63,6 @@ function toPortsError(value: unknown): PortsError {
     message: value instanceof Error ? value.message : String(value),
     detail: null,
   };
-}
-
-/** The i18n key for a rejected command, used by toasts and the page's error row. */
-export function portsErrorKey(code: PortsErrorCode | "unknown"): string {
-  switch (code) {
-    case "not-found":
-      return "ports.error.notFound";
-    case "invalid-input":
-      return "ports.error.invalidInput";
-    case "access-denied":
-      return "ports.error.accessDenied";
-    case "elevation-cancelled":
-      return "ports.error.elevationCancelled";
-    case "elevation-failed":
-      return "ports.error.elevationFailed";
-    default:
-      return "ports.error.internal";
-  }
 }
 
 function matches(entry: PortEntry, statuses: Set<PortStatus>, query: string): boolean {
@@ -112,7 +95,6 @@ export function usePortsPage(): PortsPageState {
     () => document.visibilityState !== "hidden"
   );
   const [detailPort, setDetailPort] = useState<number | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // The polling callbacks outlive a settings change, so they read the latest
   // pinned list through a ref instead of a stale closure.
@@ -147,21 +129,32 @@ export function usePortsPage(): PortsPageState {
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const reloadSettings = useCallback(() => {
     portsSettingsGet()
-      .then((next) => {
-        if (!cancelled) setSettings(next);
-      })
+      .then((next) => setSettings(next))
       .catch((failure) => {
-        if (cancelled) return;
         setSettings(null);
         setError(toPortsError(failure));
       });
+  }, []);
+
+  // The Settings window owns the pinned list; it emits after every save so this
+  // page applies the change without waiting for a reload.
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    reloadSettings();
+    listen(PORTS_SETTINGS_CHANGED, () => reloadSettings()).then((dispose) => {
+      if (cancelled) dispose();
+      else unlisten = dispose;
+    });
+
     return () => {
       cancelled = true;
+      if (unlisten) unlisten();
     };
-  }, []);
+  }, [reloadSettings]);
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
@@ -213,11 +206,12 @@ export function usePortsPage(): PortsPageState {
     void Promise.all([loadAll(), loadPinned()]).finally(() => setRefreshing(false));
   }, [loadAll, loadPinned]);
 
-  // Surface the outcome to the caller: `togglePin` toasts a failure, while
-  // `saveSettings` lets it through so the dialog can keep its draft open.
+  // Surface the outcome to the caller: `togglePin` and `setGrouping` toast a
+  // failure. The other window renders the same settings, so it is told too.
   const persist = useCallback(async (next: PortsSettings) => {
     setSettings(await portsSettingsSet(next));
     setError(null);
+    void emit(PORTS_SETTINGS_CHANGED);
   }, []);
 
   const togglePin = useCallback(
@@ -243,11 +237,17 @@ export function usePortsPage(): PortsPageState {
     [persist, t]
   );
 
-  const saveSettings = useCallback(
-    async (next: PortsSettings) => {
-      await persist(next);
+  const setGrouping = useCallback(
+    async (groupBy: PortGrouping) => {
+      const current = settingsRef.current;
+      if (!current || current.groupBy === groupBy) return;
+      try {
+        await persist({ ...current, groupBy });
+      } catch (failure) {
+        toast.error(t(portsErrorKey(portsErrorCode(failure))));
+      }
     },
-    [persist]
+    [persist, t]
   );
 
   const kill = useCallback(
@@ -326,6 +326,8 @@ export function usePortsPage(): PortsPageState {
     setQuery,
     statuses,
     toggleStatus,
+    groupBy: settings?.groupBy ?? "port",
+    setGrouping,
     loading,
     refreshing,
     paused,
@@ -334,11 +336,8 @@ export function usePortsPage(): PortsPageState {
     refresh,
     kill,
     togglePin,
-    saveSettings,
     detailPort,
     openDetail,
     closeDetail,
-    settingsOpen,
-    setSettingsOpen,
   };
 }

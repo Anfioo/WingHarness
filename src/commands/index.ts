@@ -945,6 +945,7 @@ export {
 export type {
   PortDetail,
   PortEntry,
+  PortGrouping,
   PortsError,
   PortsErrorCode,
   PortsSettings,

@@ -17,7 +17,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{PortsError, PortsResult};
-use crate::models::{PortsSettings, DEFAULT_PINNED_PORTS, MAX_PINNED_PORTS};
+use crate::models::{PortGrouping, PortsSettings, DEFAULT_PINNED_PORTS, MAX_PINNED_PORTS};
 use crate::paths;
 
 const SETTINGS_FILE: &str = "settings.json";
@@ -35,6 +35,7 @@ struct StoredSettings {
     version: u32,
     pinned_ports: Vec<u16>,
     pinned_only: bool,
+    group_by: PortGrouping,
 }
 
 impl Default for StoredSettings {
@@ -43,6 +44,7 @@ impl Default for StoredSettings {
             version: SETTINGS_VERSION,
             pinned_ports: Vec::new(),
             pinned_only: false,
+            group_by: PortGrouping::Port,
         }
     }
 }
@@ -53,6 +55,7 @@ impl From<&PortsSettings> for StoredSettings {
             version: SETTINGS_VERSION,
             pinned_ports: settings.pinned_ports.clone(),
             pinned_only: settings.pinned_only,
+            group_by: settings.group_by,
         }
     }
 }
@@ -62,6 +65,7 @@ impl From<StoredSettings> for PortsSettings {
         Self {
             pinned_ports: stored.pinned_ports,
             pinned_only: stored.pinned_only,
+            group_by: stored.group_by,
         }
     }
 }
@@ -71,6 +75,7 @@ pub fn defaults() -> PortsSettings {
     PortsSettings {
         pinned_ports: DEFAULT_PINNED_PORTS.to_vec(),
         pinned_only: false,
+        group_by: PortGrouping::Port,
     }
 }
 
@@ -107,6 +112,7 @@ fn normalize(settings: PortsSettings) -> PortsResult<PortsSettings> {
     Ok(PortsSettings {
         pinned_ports: normalize_ports(&ports)?,
         pinned_only: settings.pinned_only,
+        group_by: settings.group_by,
     })
 }
 
@@ -289,6 +295,7 @@ mod tests {
         PortsSettings {
             pinned_ports,
             pinned_only,
+            group_by: PortGrouping::Port,
         }
     }
 
@@ -297,6 +304,7 @@ mod tests {
         let settings = defaults();
         assert_eq!(settings.pinned_ports, DEFAULT_PINNED_PORTS.to_vec());
         assert!(!settings.pinned_only);
+        assert_eq!(settings.group_by, PortGrouping::Port);
     }
 
     #[test]
@@ -317,6 +325,29 @@ mod tests {
         assert_eq!(value["version"], serde_json::json!(1));
         assert_eq!(value["pinnedPorts"], serde_json::json!([3000, 8080]));
         assert_eq!(value["pinnedOnly"], serde_json::json!(true));
+        assert_eq!(value["groupBy"], serde_json::json!("port"));
+    }
+
+    #[test]
+    fn the_grouping_round_trips_and_defaults_to_port() {
+        let directory = scratch("grouping");
+        let mut by_app = settings(vec![3000], false);
+        by_app.group_by = PortGrouping::App;
+
+        let saved = save_at(&directory, by_app).expect("save");
+        assert_eq!(saved.group_by, PortGrouping::App);
+        assert_eq!(load_at(&directory).expect("load").group_by, PortGrouping::App);
+
+        // A file written before the field existed keeps working.
+        std::fs::write(
+            settings_file(&directory),
+            br#"{"version":1,"pinnedPorts":[3000],"pinnedOnly":false}"#,
+        )
+        .expect("write settings");
+        assert_eq!(
+            load_at(&directory).expect("load").group_by,
+            PortGrouping::Port
+        );
     }
 
     #[test]

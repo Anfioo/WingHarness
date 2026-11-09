@@ -3,11 +3,9 @@ const ports = {
   subtitle: "See the TCP ports this machine listens on, and end the processes holding them.",
   actions: {
     refresh: "Refresh",
-    settings: "Settings",
     kill: "End process",
     close: "Close",
     cancel: "Cancel",
-    save: "Save",
   },
   status: {
     free: "Free",
@@ -18,6 +16,9 @@ const ports = {
     searchPlaceholder: "Search by port or process name",
     searchAria: "Search ports",
     clearSearch: "Clear search",
+    groupAria: "Group listening ports",
+    groupPort: "By port",
+    groupApp: "By app",
     filterAria: "Filter by status",
     updated: "Updated {{time}}",
     paused: "Paused while the window is hidden",
@@ -45,6 +46,7 @@ const ports = {
     },
     notRunning: "Not running",
     unknownService: "Unknown service",
+    noProcess: "No process",
   },
   row: {
     killAria: "End the process on port {{port}} ({{name}})",
@@ -101,6 +103,8 @@ const ports = {
     full: "You have reached the limit of 50 pinned ports.",
     duplicate: "That port is already pinned.",
     invalid: "Enter a port number between 1 and 65535.",
+    loadFailed: "The port settings could not be loaded.",
+    retry: "Retry",
   },
   error: {
     load: "The port list could not be loaded.",

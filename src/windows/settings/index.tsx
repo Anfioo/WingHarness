@@ -12,6 +12,7 @@ import { EditorSection } from "./editor-section.tsx";
 import { AiConfigSection } from "./ai-config-section.tsx";
 import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
 import { MdEditorSection } from "./md-editor-section.tsx";
+import { PortsSection } from "./ports-section.tsx";
 import {
   Palette,
   Keyboard,
@@ -21,6 +22,7 @@ import {
   SquarePen,
   FileText,
   Bot,
+  Plug,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { registerShortcut, unregisterShortcut } from "@/lib/shortcut.ts";
@@ -39,7 +41,8 @@ type SettingSection =
   | "editor"
   | "mdEditor"
   | "aiConfig"
-  | "ccs";
+  | "ccs"
+  | "ports";
 
 export default function SettingsPage() {
   const [shortcut, setShortcut] = useState<string>("");
@@ -126,6 +129,11 @@ export default function SettingsPage() {
       label: t("settings.aiConfig.title"),
       icon: Bot,
     },
+    {
+      id: "ports" as SettingSection,
+      label: t("ports.title"),
+      icon: Plug,
+    },
   ];
 
   return (
@@ -196,6 +204,8 @@ export default function SettingsPage() {
           {activeSection === "mdEditor" && <MdEditorSection />}
 
           {activeSection === "aiConfig" && <AiConfigSection />}
+
+          {activeSection === "ports" && <PortsSection />}
         </div>
       </div>
     </WindowFrame>

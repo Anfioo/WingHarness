@@ -50,9 +50,10 @@ attribution header.
   branches on `code` instead of matching English text.
 - **Settings are a file, not `localStorage`.** Porter kept the pinned list in
   the webview (`porter-pinned-ports`) and the scan options in `scanStore`. Here
-  `pinnedPorts` and `pinnedOnly` live in `<data dir>/ports/settings.json`, are
-  validated in Rust, written atomically and backed up when unreadable. The UI
-  scale, theme, window chrome and update-check stores were not ported.
+  `pinnedPorts`, `pinnedOnly` and the `groupBy` mode of the other-ports section
+  live in `<data dir>/ports/settings.json`, are validated in Rust, written
+  atomically and backed up when unreadable. The UI scale, theme, window chrome
+  and update-check stores were not ported.
 - **Deterministic order.** Porter also kept one row per port, but collected the
   rows in a `HashMap` (so the order was arbitrary) and preferred a listener over
   a connection by sorting on the state string. Here the listener table is read
