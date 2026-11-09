@@ -37,6 +37,7 @@ import {
 } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CodeEditor } from "@/components/code-editor";
 import {
   Dialog,
   DialogContent,
@@ -47,7 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
-import { CodeEditor, languageFor } from "./code-editor";
+import { languageFor } from "./languages";
 import {
   Empty,
   IconButton,

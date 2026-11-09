@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { emit } from "@tauri-apps/api/event";
 import { toast } from "sonner";
 import { getConfig, saveConfig, type AppConfig, type ConfigView } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -44,6 +45,9 @@ export function useConfigDraft(saveLabel: string) {
       try {
         const next = await saveConfig(draft);
         setView(next);
+        // Pages that render config-driven UI (the file preview's highlighting,
+        // for one) pick the change up in the window that is already open.
+        await emit("config-changed");
       } catch (error) {
         console.error(`Failed to auto-save ${saveLabel}:`, error);
       }
