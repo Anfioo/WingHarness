@@ -6,6 +6,7 @@ import { readFullBytes } from '@/lib/space-preview/bridge';
 import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import PreviewToolbar from './PreviewToolbar';
+import { errorText } from './errors';
 
 export default function AnimationPreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -54,7 +55,7 @@ export default function AnimationPreview({ file }: { file: PreviewFile }) {
         });
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError(errorText(e));
       });
     return () => {
       controller.abort();

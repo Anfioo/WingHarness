@@ -10,6 +10,7 @@ import {
   type DatabaseTable,
 } from '@/lib/space-preview/engine/database';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { errorText } from './errors';
 
 export default function DatabasePreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -71,7 +72,7 @@ export default function DatabasePreview({ file }: { file: PreviewFile }) {
       })
       .catch((e) => {
         if (!controller.signal.aborted) {
-          setError(e.message);
+          setError(errorText(e));
           setLoading(false);
         }
       });

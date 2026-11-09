@@ -3,6 +3,7 @@ import { ArrowLeft, ExternalLink, Pencil, RotateCw, Save, X } from "lucide-react
 import { toast } from "sonner";
 import {
   getPreviewPreferences,
+  inspectFile,
   openPreview,
   savePreviewPreferences,
   writeText,
@@ -14,9 +15,10 @@ import { languageOf } from "@/lib/git-core/highlight";
 import { cn } from "@/lib/utils";
 import { CodeEditor } from "@/components/code-editor";
 import type { PreviewFile } from "@/lib/space-preview/bridge";
-import { inspectPath, readFullBytes } from "@/lib/space-preview/bridge";
+import { readFullBytes } from "@/lib/space-preview/bridge";
 import { decodeText, formatSize } from "@/lib/space-preview/engine/files";
 import { detectKind } from "@/lib/space-preview/registry";
+import { errorText } from "./viewers/errors";
 import Preview from "./viewers/Preview";
 import { PreviewLoadingIndicator, PreviewLoadingProvider } from "./viewers/PreviewLoading";
 import { PreviewMenuTarget } from "./viewers/PreviewToolbar";
@@ -57,22 +59,29 @@ const READABLE = [
 const DEFAULT_PREFERENCES: PreviewPreferences = {
   version: 1,
   spaceEnabled: true,
-  readingWidth: 860,
-  fontSize: 16,
+  readingWidth: 900,
+  fontSize: 15,
   defaultEncoding: "auto",
 };
 
-// The bytes are decoded with the preferred encoding, so the write reuses it;
-// with "auto" the BOM decides, and a file without one is written back as UTF-8.
-function writeEncoding(bytes: Uint8Array, selected: TextEncoding): TextEncoding {
-  if (selected !== "auto") return selected;
-  if (bytes[0] === 0xff && bytes[1] === 0xfe) return "utf-16le";
-  if (bytes[0] === 0xfe && bytes[1] === 0xff) return "utf-16be";
-  return "utf-8";
-}
+const ENCODINGS: { value: TextEncoding; key: string; fallback: string }[] = [
+  { value: "auto", key: "spacePreview.encoding.auto", fallback: "Detect automatically" },
+  { value: "utf-8", key: "spacePreview.encoding.utf8", fallback: "UTF-8" },
+  { value: "utf-16le", key: "spacePreview.encoding.utf16le", fallback: "UTF-16 LE" },
+  { value: "utf-16be", key: "spacePreview.encoding.utf16be", fallback: "UTF-16 BE" },
+  { value: "gb18030", key: "spacePreview.encoding.gb18030", fallback: "GB18030" },
+  { value: "big5", key: "spacePreview.encoding.big5", fallback: "Big5" },
+  { value: "windows-1252", key: "spacePreview.encoding.windows1252", fallback: "Windows-1252" },
+  { value: "shift_jis", key: "spacePreview.encoding.shiftJis", fallback: "Shift-JIS" },
+];
 
-function failure(reason: unknown): string {
-  return reason instanceof Error ? reason.message : String(reason);
+// `decodeText` reports what "auto" settled on; writing back reuses it so a
+// guessed GB18030 or UTF-16 file keeps its encoding instead of becoming UTF-8.
+function detectedEncoding(label: string): TextEncoding {
+  if (label.startsWith("UTF-16 LE")) return "utf-16le";
+  if (label.startsWith("UTF-16 BE")) return "utf-16be";
+  if (label.startsWith("GB18030")) return "gb18030";
+  return "utf-8";
 }
 
 export function PreviewHost({
@@ -95,8 +104,19 @@ export function PreviewHost({
   const [original, setOriginal] = useState("");
   const [saving, setSaving] = useState(false);
   const [encoding, setEncoding] = useState<TextEncoding>("utf-8");
+  const [detected, setDetected] = useState<TextEncoding>("utf-8");
   const [etag, setEtag] = useState<string | undefined>(target?.etag);
   const lastSaved = useRef<PreviewPreferences | null>(null);
+  const sourceBytes = useRef<Uint8Array | null>(null);
+  const reading = useRef<AbortController | null>(null);
+  const targetPath = target?.path ?? null;
+  // Read by the path-keyed reset below without making the target object a
+  // dependency; callers often pass an inline literal.
+  const latestTarget = useRef(target);
+
+  useEffect(() => {
+    latestTarget.current = target;
+  });
 
   useEffect(() => {
     let active = true;
@@ -121,30 +141,45 @@ export function PreviewHost({
     return () => window.clearTimeout(timer);
   }, [preferences]);
 
+  // Keyed on the path, not the target object: a caller that passes an inline
+  // object would otherwise reset the edit state on every parent render.
   useEffect(() => {
+    reading.current?.abort();
+    sourceBytes.current = null;
+    setFile(null);
     setStack([]);
     setEditing(false);
     setText("");
     setOriginal("");
-    setEtag(target?.etag);
-  }, [target]);
+    setError("");
+    setEtag(latestTarget.current?.etag);
+  }, [targetPath]);
 
   useEffect(() => {
-    if (!target) {
-      setFile(null);
-      setError("");
+    if (!targetPath) {
       setLoading(false);
       return;
     }
     let active = true;
     setLoading(true);
     setError("");
-    void inspectPath(target.path)
-      .then((value) => {
-        if (active) setFile(value);
+    void inspectFile(targetPath)
+      .then((info) => {
+        if (!active) return;
+        setFile({
+          id: info.id,
+          name: info.name,
+          size: info.size,
+          modified: info.modified,
+          mime: info.mime,
+          path: info.path,
+          directory: info.directory,
+        });
+        // inspectPath drops the etag; the write conflict check needs it.
+        setEtag(info.etag);
       })
       .catch((reason) => {
-        if (active) setError(failure(reason));
+        if (active) setError(errorText(reason));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -152,7 +187,9 @@ export function PreviewHost({
     return () => {
       active = false;
     };
-  }, [target, reload]);
+  }, [targetPath, reload]);
+
+  useEffect(() => () => reading.current?.abort(), []);
 
   const update = useCallback(
     (next: Partial<Pick<PreviewPreferences, "readingWidth" | "fontSize" | "defaultEncoding">>) =>
@@ -168,38 +205,81 @@ export function PreviewHost({
   const gestureActive = editing || READABLE.includes(kind);
 
   const leaveEdit = useCallback(() => {
-    if (editing && dirty && !window.confirm(t("spacePreview.host.discardChanges"))) return false;
+    if (
+      editing &&
+      dirty &&
+      !window.confirm(
+        t("spacePreview.host.discardChanges", { defaultValue: "Discard the unsaved changes?" })
+      )
+    )
+      return false;
     setEditing(false);
+    sourceBytes.current = null;
     return true;
   }, [dirty, editing, t]);
 
+  const decodeInto = useCallback((bytes: Uint8Array, selected: TextEncoding) => {
+    const decoded = decodeText(bytes, selected);
+    setEncoding(selected);
+    setDetected(detectedEncoding(decoded.encoding));
+    setText(decoded.text);
+    setOriginal(decoded.text);
+  }, []);
+
   const startEdit = useCallback(async () => {
     if (!current) return;
+    reading.current?.abort();
+    const controller = new AbortController();
+    reading.current = controller;
     try {
-      const controller = new AbortController();
       const bytes = await readFullBytes(current, controller.signal);
-      const preferred = preferences.defaultEncoding;
-      const decoded = decodeText(bytes, preferred);
-      setEncoding(writeEncoding(bytes, preferred));
-      setText(decoded.text);
-      setOriginal(decoded.text);
+      if (controller.signal.aborted) return;
+      sourceBytes.current = bytes;
+      decodeInto(bytes, preferences.defaultEncoding);
       setEditing(true);
     } catch (reason) {
-      toast.error(t("spacePreview.host.editFailed"), { description: failure(reason) });
+      if (!controller.signal.aborted)
+        toast.error(
+          t("spacePreview.host.editFailed", {
+            defaultValue: "The file cannot be opened for editing.",
+          }),
+          { description: errorText(reason) }
+        );
+    } finally {
+      if (reading.current === controller) reading.current = null;
     }
-  }, [current, preferences.defaultEncoding, t]);
+  }, [current, decodeInto, preferences.defaultEncoding, t]);
+
+  // Re-decode the bytes read when the edit started; unsaved edits are dropped.
+  const changeEncoding = useCallback(
+    (next: TextEncoding) => {
+      const bytes = sourceBytes.current;
+      if (!bytes || next === encoding) return;
+      if (
+        dirty &&
+        !window.confirm(
+          t("spacePreview.host.discardChanges", { defaultValue: "Discard the unsaved changes?" })
+        )
+      )
+        return;
+      decodeInto(bytes, next);
+    },
+    [decodeInto, dirty, encoding, t]
+  );
 
   const save = useCallback(async () => {
     if (!current?.path || saving || text === original) return;
     setSaving(true);
     try {
-      const result = await writeText(current.path, text, encoding, etag);
+      const effective = encoding === "auto" ? detected : encoding;
+      const result = await writeText(current.path, text, effective, etag);
       setFile((value) =>
         value ? { ...value, size: result.size, modified: result.modified } : value
       );
       setEtag(result.etag);
       setOriginal(text);
       setEditing(false);
+      sourceBytes.current = null;
       setReload((value) => value + 1);
       onEdited?.({
         path: current.path,
@@ -207,13 +287,18 @@ export function PreviewHost({
         size: result.size,
         etag: result.etag,
       });
-      toast.success(t("spacePreview.host.saved"));
+      toast.success(t("spacePreview.host.saved", { defaultValue: "Saved" }));
     } catch (reason) {
-      toast.error(t("spacePreview.host.saveFailed"), { description: failure(reason) });
+      toast.error(
+        t("spacePreview.host.saveFailed", { defaultValue: "The file could not be saved." }),
+        {
+          description: errorText(reason),
+        }
+      );
     } finally {
       setSaving(false);
     }
-  }, [current, encoding, etag, onEdited, original, saving, t, text]);
+  }, [current, detected, encoding, etag, onEdited, original, saving, t, text]);
 
   const reloadFile = useCallback(() => {
     if (!leaveEdit()) return;
@@ -223,7 +308,12 @@ export function PreviewHost({
   const openInWindow = useCallback(() => {
     if (!current?.path) return;
     void openPreview([current.path]).catch((reason: unknown) =>
-      toast.error(t("spacePreview.host.openFailed"), { description: failure(reason) })
+      toast.error(
+        t("spacePreview.host.openFailed", { defaultValue: "The window could not be opened." }),
+        {
+          description: errorText(reason),
+        }
+      )
     );
   }, [current, t]);
 
@@ -249,8 +339,10 @@ export function PreviewHost({
                 {stack.length > 0 && (
                   <button
                     type="button"
-                    aria-label={t("spacePreview.host.back")}
-                    title={t("spacePreview.host.back")}
+                    aria-label={t("spacePreview.host.back", {
+                      defaultValue: "Back to the parent file",
+                    })}
+                    title={t("spacePreview.host.back", { defaultValue: "Back to the parent file" })}
                     className="hover:bg-accent rounded-md p-1.5"
                     onClick={() => {
                       if (leaveEdit()) setStack((value) => value.slice(0, -1));
@@ -263,7 +355,9 @@ export function PreviewHost({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium" title={current?.path}>
                     {current?.name ??
-                      (loading ? t("spacePreview.host.loading") : t("spacePreview.host.noFile"))}
+                      (loading
+                        ? t("spacePreview.host.loading", { defaultValue: "Loading…" })
+                        : t("spacePreview.host.noFile", { defaultValue: "No file selected" }))}
                   </p>
                   {current && (
                     <p className="text-muted-foreground text-xs">
@@ -289,7 +383,7 @@ export function PreviewHost({
                         onClick={() => void save()}
                       >
                         <Save className="size-4" />
-                        {t("spacePreview.host.save")}
+                        {t("spacePreview.host.save", { defaultValue: "Save" })}
                       </button>
                       <button
                         type="button"
@@ -297,16 +391,34 @@ export function PreviewHost({
                         onClick={() => leaveEdit()}
                       >
                         <X className="size-4" />
-                        {t("spacePreview.host.cancelEdit")}
+                        {t("spacePreview.host.cancelEdit", { defaultValue: "Cancel" })}
                       </button>
+                      <select
+                        aria-label={t("spacePreview.viewer.textEncoding", {
+                          defaultValue: "Text encoding",
+                        })}
+                        title={t("spacePreview.viewer.fileEncoding", {
+                          defaultValue: "File encoding",
+                        })}
+                        value={encoding}
+                        disabled={saving}
+                        onChange={(event) => changeEncoding(event.target.value as TextEncoding)}
+                        className="border-border bg-background text-foreground h-8 rounded-md border px-2 text-xs disabled:opacity-50"
+                      >
+                        {ENCODINGS.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {t(item.key, { defaultValue: item.fallback })}
+                          </option>
+                        ))}
+                      </select>
                     </>
                   ) : (
                     <>
                       {canEdit && (
                         <button
                           type="button"
-                          aria-label={t("spacePreview.host.edit")}
-                          title={t("spacePreview.host.edit")}
+                          aria-label={t("spacePreview.host.edit", { defaultValue: "Edit" })}
+                          title={t("spacePreview.host.edit", { defaultValue: "Edit" })}
                           className="hover:bg-accent rounded-md p-1.5"
                           onClick={() => void startEdit()}
                         >
@@ -315,8 +427,8 @@ export function PreviewHost({
                       )}
                       <button
                         type="button"
-                        aria-label={t("spacePreview.host.reload")}
-                        title={t("spacePreview.host.reload")}
+                        aria-label={t("spacePreview.host.reload", { defaultValue: "Reload" })}
+                        title={t("spacePreview.host.reload", { defaultValue: "Reload" })}
                         className="hover:bg-accent rounded-md p-1.5"
                         onClick={reloadFile}
                       >
@@ -325,8 +437,12 @@ export function PreviewHost({
                       {mode === "embedded" && current?.path && (
                         <button
                           type="button"
-                          aria-label={t("spacePreview.host.openInWindow")}
-                          title={t("spacePreview.host.openInWindow")}
+                          aria-label={t("spacePreview.host.openInWindow", {
+                            defaultValue: "Open in a window",
+                          })}
+                          title={t("spacePreview.host.openInWindow", {
+                            defaultValue: "Open in a window",
+                          })}
                           className="hover:bg-accent rounded-md p-1.5"
                           onClick={openInWindow}
                         >
@@ -336,8 +452,8 @@ export function PreviewHost({
                       {mode === "window" && onClose && (
                         <button
                           type="button"
-                          aria-label={t("spacePreview.host.close")}
-                          title={t("spacePreview.host.close")}
+                          aria-label={t("spacePreview.host.close", { defaultValue: "Close" })}
+                          title={t("spacePreview.host.close", { defaultValue: "Close" })}
                           className="hover:bg-accent rounded-md p-1.5"
                           onClick={close}
                         >
@@ -353,7 +469,7 @@ export function PreviewHost({
                   <CodeEditor
                     value={text}
                     language={languageOf(current.name)}
-                    ariaLabel={t("spacePreview.host.edit")}
+                    ariaLabel={t("spacePreview.host.edit", { defaultValue: "Edit" })}
                     onChange={setText}
                     onSave={() => void save()}
                   />
@@ -361,14 +477,16 @@ export function PreviewHost({
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
                     <div>
                       <p className="text-foreground font-medium">
-                        {t("spacePreview.host.loadFailed")}
+                        {t("spacePreview.host.loadFailed", {
+                          defaultValue: "The file could not be opened.",
+                        })}
                       </p>
                       <p className="mt-1 text-xs">{error}</p>
                     </div>
                   </div>
                 ) : loading && !current ? (
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
-                    {t("spacePreview.host.loading")}
+                    {t("spacePreview.host.loading", { defaultValue: "Loading…" })}
                   </div>
                 ) : current ? (
                   <Preview
@@ -381,9 +499,13 @@ export function PreviewHost({
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
                     <div>
                       <p className="text-foreground font-medium">
-                        {t("spacePreview.host.emptyTitle")}
+                        {t("spacePreview.host.emptyTitle", { defaultValue: "Nothing to preview" })}
                       </p>
-                      <p className="mt-1 text-xs">{t("spacePreview.host.emptyBody")}</p>
+                      <p className="mt-1 text-xs">
+                        {t("spacePreview.host.emptyBody", {
+                          defaultValue: "Select a file to preview it here.",
+                        })}
+                      </p>
                     </div>
                   </div>
                 )}

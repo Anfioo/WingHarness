@@ -10,6 +10,7 @@ import { useAppTranslation } from '@/hooks/use-app-translation';
 import HtmlPreview from './HtmlPreview';
 import FileIcon from './FileIcon';
 import { TextAppearanceControls } from './TextAppearance';
+import { errorText } from './errors';
 
 export default function MailPreview({
   file,
@@ -46,7 +47,7 @@ export default function MailPreview({
         }
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError(errorText(e));
       });
     return () => controller.abort();
   }, [file, t]);

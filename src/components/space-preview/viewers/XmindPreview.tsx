@@ -7,6 +7,7 @@ import { readXMind, type XMindSheet } from '@/lib/space-preview/engine/xmind';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import { usePreviewLoading } from './PreviewLoading';
 import PreviewToolbar from './PreviewToolbar';
+import { errorText } from './errors';
 
 export default function XmindPreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -30,7 +31,7 @@ export default function XmindPreview({ file }: { file: PreviewFile }) {
         if (!controller.signal.aborted) setSheets(value);
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(reason?.message ?? String(reason));
+        if (!controller.signal.aborted) setError(errorText(reason));
       });
     return () => controller.abort();
   }, [file]);
@@ -53,7 +54,7 @@ export default function XmindPreview({ file }: { file: PreviewFile }) {
       mind.scaleFit();
       setReady(true);
     } catch (reason) {
-      setError(String(reason));
+      setError(errorText(reason));
     }
     return () => mind.destroy();
   }, [sheets, sheet]);

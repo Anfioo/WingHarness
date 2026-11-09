@@ -252,6 +252,34 @@
   --shadow: 0 16px 60px #27243b12;
   color-scheme: light;
 }
+/* The app toggles dark mode with .dark on <html>; the source used a
+ * :root[data-theme] attribute, so that block is re-targeted here. */
+.dark .sp-preview {
+  --outline-bg: #24252b;
+  --outline-active: #293e53;
+  --office-canvas: #1d1e22;
+  --scroll-thumb: #70798a;
+  --scroll-hover: #a0aabd;
+  --editor-bg: #1e1f22;
+  --editor-text: #bcbec4;
+  --editor-gutter: #1e1f22;
+  --editor-number: #6f737a;
+  --editor-keyword: #cf8e6d;
+  --editor-string: #6aab73;
+  --editor-comment: #7a7e85;
+  --editor-function: #56a8f5;
+  --editor-literal: #2aacb8;
+  --accent: #78b4f2;
+  --bg: #202124;
+  --panel: #27292c;
+  --subtle: #303337;
+  --line: #404348;
+  --text: #e0e1e8;
+  --muted: #adb3bd;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+}
 .sp-preview, .sp-preview * {
   box-sizing: border-box;
 }
@@ -1429,6 +1457,19 @@
 .sp-preview .source-code .hljs-variable {
   color: var(--editor-text);
 }
+/* Syntax colors the source kept separate from the editor palette. */
+.dark .sp-preview .source-code .hljs-keyword {
+  color: #cba1e9;
+}
+.dark .sp-preview .source-code .hljs-string {
+  color: #adc6ab;
+}
+.dark .sp-preview .source-code .hljs-title {
+  color: #b0baec;
+}
+.dark .sp-preview .source-code .hljs-attr {
+  color: #dabf94;
+}
 .sp-preview .prose code {
   font-family: var(--font-code);
 }
@@ -2591,6 +2632,69 @@
 .sp-preview .ofd-canvas svg {
   display: block;
   user-select: text;
+}
+/* The three viewers below come from this repository rather than upstream, so
+ * their layout rules were not part of the ported sheet. */
+.sp-preview .mind-view {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+.sp-preview .mind-stage {
+  flex: 1;
+  width: 100%;
+  min-height: 420px;
+  background: var(--panel);
+  color: var(--text);
+}
+.sp-preview .slide-stage {
+  flex: 1;
+  overflow: auto;
+  padding: 20px;
+  background: var(--bg);
+}
+.sp-preview .slide-stage canvas {
+  display: block;
+  min-width: 320px;
+  height: auto;
+  margin: auto;
+  background: #fff;
+  box-shadow: 0 2px 12px #00000022;
+}
+.sp-preview .psd-preview {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.sp-preview .psd-layers {
+  position: relative;
+}
+.sp-preview .psd-layers summary {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.sp-preview .psd-layers ul {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 160px;
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  list-style: none;
+  white-space: nowrap;
 }
 .sp-preview .preview-loading-toast {
   position: fixed;

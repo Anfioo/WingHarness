@@ -288,7 +288,7 @@ export default function WordPreview({
           continuous.textContent = `.word-continuous{padding:0 ${horizontalPadding / 2}px!important;min-height:0!important}.word-continuous>section.docx{margin-bottom:0!important;border-radius:0!important;min-height:0!important;padding-top:0!important;padding-bottom:0!important}[data-word-section="0"] section.docx:first-child{padding-top:56px!important}`;
           target.head.append(continuous);
           mountWordScroll(target, count, renderSection, controller.signal, (error) =>
-            setError(documentError('Word', error)),
+            setError(documentError('Word', error, t)),
           );
           return;
         }
@@ -313,7 +313,7 @@ export default function WordPreview({
     };
     void load().catch((e) => {
       if (!controller.signal.aborted) {
-        setError(documentError(format === 'rtf' ? 'RTF' : 'Word', e));
+        setError(documentError(format === 'rtf' ? 'RTF' : 'Word', e, t));
         setStatus('');
       }
     });
@@ -322,9 +322,12 @@ export default function WordPreview({
   useEffect(() => {
     if (!rendered) return;
     const apply = () => {
-      const doc = frame.current?.contentDocument;
-      if (!doc || !frame.current) return;
-      const theme = getComputedStyle(document.documentElement);
+      const element = frame.current;
+      const doc = element?.contentDocument;
+      if (!doc || !element) return;
+      // The preview palette lives on .sp-preview rather than :root, so read the
+      // variables from the iframe element, which inherits them.
+      const theme = getComputedStyle(element);
       doc.body.style.background = theme.getPropertyValue('--office-canvas');
       for (const name of ['--office-canvas', '--scroll-thumb', '--scroll-hover'])
         doc.documentElement.style.setProperty(name, theme.getPropertyValue(name));

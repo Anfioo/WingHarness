@@ -13,6 +13,7 @@ import DocumentReader from './DocumentReader';
 import { TextAppearanceControls, useTextAppearance } from './TextAppearance';
 import { forwardPreviewWheel } from '@/lib/space-preview/engine/preview-gestures';
 import { forwardPreviewKey } from './keyboard';
+import { errorText } from './errors';
 
 export default function HtmlPreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -137,7 +138,7 @@ export default function HtmlPreview({ file }: { file: PreviewFile }) {
         : readFullBytes(file, controller.signal, setProgress).then((bytes) => publish(bytes))
     )
       .catch((e) => {
-        if (active) setError(e.message);
+        if (active) setError(errorText(e));
       })
       .finally(() => {
         if (active) setLoading(false);

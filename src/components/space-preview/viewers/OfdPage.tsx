@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import type { OfdBox, OfdDocument } from '@/lib/space-preview/engine/ofd';
 import { usePreviewLoading } from './PreviewLoading';
+import { errorText } from './errors';
 
 // Match the PDF reader's default scale: A4 width renders at the same CSS width as PDF pages.
 export const OFD_PX_PER_MM = (72 / 25.4) * 1.15;
@@ -61,7 +62,7 @@ export default function OfdPage({
           setError(
             t('spacePreview.viewer.ofdPageFailed', {
               defaultValue: 'This page cannot be rendered: {{reason}}',
-              reason: reason?.message ?? String(reason),
+              reason: errorText(reason),
             }),
           );
       });

@@ -3,6 +3,7 @@ import { FileQuestion, ExternalLink } from 'lucide-react';
 import { openPath } from '@/commands';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
+import { errorText } from './errors';
 
 export default function UnsupportedPreview({
   file,
@@ -29,7 +30,9 @@ export default function UnsupportedPreview({
       <p>{message}</p>
       <div className="unsupported-actions">
         {file?.path && (
-          <button onClick={() => void openPath(file.path!).catch((reason) => setError(String(reason)))}>
+          <button
+            onClick={() => void openPath(file.path!).catch((reason) => setError(errorText(reason)))}
+          >
             <ExternalLink size={16} />
             {t('spacePreview.viewer.openWithDefault', { defaultValue: 'Open with the default app' })}
           </button>

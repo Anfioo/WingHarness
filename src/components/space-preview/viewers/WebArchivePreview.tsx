@@ -5,6 +5,7 @@ import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import { materializeWebArchive } from '@/lib/space-preview/engine/web-archive';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import HtmlPreview from './HtmlPreview';
+import { errorText } from './errors';
 
 export default function WebArchivePreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -22,7 +23,7 @@ export default function WebArchivePreview({ file }: { file: PreviewFile }) {
         setPage({ ...file, path: undefined, blob, size: blob.size, mime: 'text/html' });
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError(errorText(e));
       });
     return () => controller.abort();
   }, [file]);

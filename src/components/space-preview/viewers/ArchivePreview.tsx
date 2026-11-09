@@ -13,6 +13,7 @@ import type { ArchiveEntry } from '@/lib/space-preview/worker/worker-types';
 import { openArchive } from '@/lib/space-preview/engine/archive-session';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import FileIcon from './FileIcon';
+import { errorText } from './errors';
 
 // An entry must fit in memory as both a compressed and an expanded blob.
 const ENTRY_LIMIT = 32 * 1024 * 1024;
@@ -123,7 +124,7 @@ export default function ArchivePreview({ file }: { file: PreviewFile }) {
       if (!controller.signal.aborted) setEntries(parsed.entries!);
     };
     void load().catch((e) => {
-      if (!controller.signal.aborted) setError(e.message);
+      if (!controller.signal.aborted) setError(errorText(e));
     });
     return () => {
       controller.abort();
@@ -202,7 +203,7 @@ export default function ArchivePreview({ file }: { file: PreviewFile }) {
         },
       ]);
     } catch (e) {
-      if (!controller.signal.aborted) setEntryError(e instanceof Error ? e.message : String(e));
+      if (!controller.signal.aborted) setEntryError(errorText(e));
     } finally {
       if (!controller.signal.aborted) setExtracting(false);
     }

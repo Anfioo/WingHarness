@@ -49,6 +49,7 @@ import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import type { WorkerRequest, WorkerResult } from '@/lib/space-preview/worker/worker-types';
 import { presentationEngine } from '@/lib/preview/viewers/presentationEngine';
 import { documentError } from './document-error';
+import { errorText } from './errors';
 import { useViewerPreferences } from './preferences';
 import { usePreviewLoading } from './PreviewLoading';
 import FoldableCode from './FoldableCode';
@@ -104,7 +105,7 @@ function useFileUrl(file: PreviewFile) {
       })
       .catch((reason: unknown) => {
         if (active)
-          setResource({ url: '', error: reason instanceof Error ? reason.message : String(reason) });
+          setResource({ url: '', error: errorText(reason) });
       });
     return () => {
       active = false;
@@ -143,6 +144,7 @@ export default function Preview({
   const [wordText, setWordText] = useState(false);
   const tooLarge = !file.blob && file.size > WHOLE_FILE_LIMIT;
   useEffect(() => {
+    setDetected(null);
     if (
       tooLarge ||
       shortcut ||
@@ -558,7 +560,7 @@ function PresentationPreview({ file }: { file: PreviewFile }) {
         setPdf(rendered);
       } catch (reason) {
         if (!active) return;
-        setNote(reason instanceof Error ? reason.message : String(reason));
+        setNote(errorText(reason));
       }
       if (active) setChecked(true);
     })();
@@ -653,7 +655,7 @@ function SlideCanvasPreview({ file }: { file: PreviewFile }) {
       })
       .catch((reason: unknown) => {
         if (active) {
-          setError(String(reason));
+          setError(errorText(reason));
           setBusy(false);
         }
       });
@@ -682,7 +684,7 @@ function SlideCanvasPreview({ file }: { file: PreviewFile }) {
         if (active && canvas.current) await instance.goToSlide(page, canvas.current);
       })
       .catch((reason: unknown) => {
-        if (active) setError(String(reason));
+        if (active) setError(errorText(reason));
       })
       .finally(() => {
         if (active) setBusy(false);
@@ -923,13 +925,13 @@ function PdfPreview({ file, presentation = false }: { file: PreviewFile; present
         });
       })
       .catch((reason) => {
-        if (!cancelled) setError(documentError('PDF', reason));
+        if (!cancelled) setError(documentError('PDF', reason, t));
       });
     return () => {
       cancelled = true;
       void task?.destroy();
     };
-  }, [url, retry]);
+  }, [url, retry, t]);
   useEffect(() => {
     if (!doc || !scroll.current) return;
     const scroller = scroll.current;
@@ -1186,13 +1188,13 @@ function OfdPreview({ file }: { file: PreviewFile }) {
         setDoc(document);
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(documentError('OFD', reason));
+        if (!controller.signal.aborted) setError(documentError('OFD', reason, t));
       });
     return () => {
       controller.abort();
       opened?.close();
     };
-  }, [file, retry]);
+  }, [file, retry, t]);
   useEffect(() => {
     if (!doc || !scroll.current || !/Mac/i.test(navigator.platform)) return;
     // Quick Look on macOS fits the whole page, matching the PDF reader.
@@ -1576,7 +1578,7 @@ function ParsedPreview({
     };
     void load()
       .catch((e) => {
-        if (!controller.signal.aborted) setError(String(e.message ?? e));
+        if (!controller.signal.aborted) setError(errorText(e));
       })
       .finally(() => {
         if (!controller.signal.aborted) setBackgroundLoading(false);
@@ -1859,7 +1861,7 @@ function BinaryPreview({
         if (active) setBytes(b);
       })
       .catch((e) => {
-        if (active) setError(String(e));
+        if (active) setError(errorText(e));
       });
     return () => {
       active = false;

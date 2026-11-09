@@ -6,6 +6,7 @@ import { psdPngBlob, readPsdDocument } from '@/lib/space-preview/engine/psd';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import { usePreviewLoading } from './PreviewLoading';
 import PreviewToolbar from './PreviewToolbar';
+import { errorText } from './errors';
 
 export default function PsdPreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -33,7 +34,7 @@ export default function PsdPreview({ file }: { file: PreviewFile }) {
         setImage(url);
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(reason?.message ?? String(reason));
+        if (!controller.signal.aborted) setError(errorText(reason));
       });
     return () => {
       controller.abort();

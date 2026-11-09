@@ -5,6 +5,7 @@ import type { PreviewFile } from '@/lib/space-preview/bridge';
 import { readFullBytes } from '@/lib/space-preview/bridge';
 import { fontCollection } from '@/lib/space-preview/engine/font-collection';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { errorText } from './errors';
 
 export default function FontPreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
@@ -101,7 +102,7 @@ export default function FontPreview({ file }: { file: PreviewFile }) {
         }
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted) setError(errorText(e));
       });
     return () => {
       controller.abort();
