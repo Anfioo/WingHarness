@@ -69,7 +69,9 @@ pnpm add @tauri-apps/plugin-global-shortcut
 
 - 组合键 —— `Ctrl+Shift+A`、`Super+A`（Win 键）—— 插件能注册的格式；
 - 预设 —— `preset:space`、`preset:doubleCtrl`、`preset:altSpace`、
-  `preset:winSpace` —— 系统注册 API 表达不了的触发方式。
+  `preset:winSpace` —— 系统注册 API 表达不了的触发方式。预设也可以只是一个
+  普通组合键：`ctrlW` 存成 `Ctrl+W`，它只是选择器里的一键入口，没有自己的
+  存储形式。
 
 ```typescript
 import {
@@ -153,13 +155,14 @@ function Settings() {
 - `onChange("")` 清除设置
 - 占位文字、预设、命名按键和选择器文案都走 i18n
 
-组件不负责持久化：它只交回字符串，存到哪里由调用方决定。系统注册的设置不要
-传 `presets` —— 单个空格或双击 Ctrl 无法通过插件注册。
+组件不负责持久化：它只交回字符串，存到哪里由调用方决定。系统注册的设置也可以
+传 `presets`，只要每个预设存的都是组合键 —— 例如 `ctrlW` 存成 `Ctrl+W`。如果
+预设是应用内触发（单个空格、双击 Ctrl），就不要传，它们无法通过插件注册。
 
 ## 应用内触发
 
-预设只能在应用内部处理，否则它监听的按键（空格、单独的 Ctrl）会被系统级地
-吞掉：
+不是组合键的预设只能在应用内部处理，否则它监听的按键（空格、单独的 Ctrl）会被
+系统级地吞掉：
 
 ```typescript
 import { DoublePressTracker, isEditableTarget, shortcutMatchesEvent } from "@/lib/shortcut-spec";

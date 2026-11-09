@@ -9,6 +9,10 @@
  *   Space, two Ctrl presses in a row — and so cannot travel through the OS
  *   registration API.
  *
+ * A preset may also stand for an ordinary combination the picker should offer
+ * with one click; `ctrlW` is one, and is stored as `Ctrl+W` so the OS can
+ * register it.
+ *
  * Keeping both in one string means a setting has one persisted value, whichever
  * kind of trigger it currently holds.
  */
@@ -22,12 +26,19 @@ export const SHORTCUT_MODIFIERS: readonly ShortcutModifier[] = ["Ctrl", "Shift",
 /** The picker stops at two modifiers on purpose — three is hard to press. */
 export const MAX_SHORTCUT_MODIFIERS = 2;
 
-/** Triggers that a combination string cannot express. */
-export type ShortcutPresetId = "space" | "doubleCtrl" | "altSpace" | "winSpace";
+/**
+ * Triggers offered as presets. Most cannot be expressed as a combination;
+ * `ctrlW` can, and exists so a setting can offer it with one click.
+ */
+export type ShortcutPresetId = "space" | "doubleCtrl" | "altSpace" | "winSpace" | "ctrlW";
 
 export function isShortcutPresetId(value: string): value is ShortcutPresetId {
   return (
-    value === "space" || value === "doubleCtrl" || value === "altSpace" || value === "winSpace"
+    value === "space" ||
+    value === "doubleCtrl" ||
+    value === "altSpace" ||
+    value === "winSpace" ||
+    value === "ctrlW"
   );
 }
 
@@ -36,8 +47,12 @@ export const DOUBLE_PRESS_WINDOW_MS = 400;
 
 const PRESET_PREFIX = "preset:";
 
-/** The stored form of a preset. */
+/**
+ * The stored form of a preset. A preset that is also a combination is stored as
+ * that combination, so an OS-registered setting can hold it.
+ */
 export function presetSpec(id: ShortcutPresetId): string {
+  if (id === "ctrlW") return "Ctrl+W";
   return `${PRESET_PREFIX}${id}`;
 }
 
@@ -261,6 +276,8 @@ export function shortcutMatchesEvent(
       return keyFromEvent(event) === "Space" && modifiersAre(event, ["Super"]);
     case "doubleCtrl":
       return doubleCtrl.feed(event);
+    case "ctrlW":
+      return keyFromEvent(event) === "W" && modifiersAre(event, ["Ctrl"]);
   }
 }
 
