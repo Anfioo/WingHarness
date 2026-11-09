@@ -355,6 +355,31 @@ mod tests {
     }
 
     #[test]
+    fn status_boundary_is_one_thousand() {
+        assert_eq!(status_of(Some(&brief(999)), 999), PortStatus::System);
+        assert_eq!(status_of(Some(&brief(1000)), 1000), PortStatus::Occupied);
+
+        // Without a process name nothing is known about the owner, so the row
+        // is free rather than system, whatever the PID.
+        assert_eq!(status_of(None, 999), PortStatus::Free);
+    }
+
+    #[test]
+    fn entry_for_carries_the_address_and_the_status() {
+        let listener = Listener {
+            port: 445,
+            address: "0.0.0.0".to_string(),
+            pid: 4,
+        };
+
+        let entry = entry_for(&listener, Some(brief(4)));
+
+        assert_eq!(entry.status, PortStatus::System);
+        assert_eq!(entry.address.as_deref(), Some("0.0.0.0"));
+        assert_eq!(entry.process.as_ref().map(|process| process.pid), Some(4));
+    }
+
+    #[test]
     fn listeners_are_deduped_by_port_and_sorted() {
         let listeners = vec![
             Listener {
@@ -408,6 +433,24 @@ mod tests {
 
         assert_eq!(scanned.len(), 1);
         assert_eq!(scanned[0].port, 8080);
+    }
+
+    #[test]
+    fn dedupe_and_scan_entries_accept_empty_input() {
+        assert!(dedupe(Vec::new()).is_empty());
+        assert!(scan_entries(&[], vec![entry(8080, PortStatus::Occupied)]).is_empty());
+    }
+
+    #[test]
+    fn detail_for_a_port_nothing_listens_on_matches_nothing() {
+        let listeners = vec![Listener {
+            port: 8080,
+            address: "0.0.0.0".to_string(),
+            pid: 4321,
+        }];
+
+        // The port is absent from the table, so no process table is read.
+        assert!(detail_for(7171, &listeners).expect("detail").is_none());
     }
 
     #[test]

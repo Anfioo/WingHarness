@@ -153,8 +153,25 @@ mod tests {
     fn rejects_system_pids() {
         // PID 4 is the Windows System process; any PID below 1000 is refused.
         for pid in [1, 4, 999] {
-            assert_eq!(code_for(pid), PortsErrorCode::InvalidInput);
+            if pid == std::process::id() {
+                continue;
+            }
+            let error = ensure_killable(pid).expect_err("the guard must reject this pid");
+            assert_eq!(error.code, PortsErrorCode::InvalidInput);
+            assert_eq!(error.detail.as_ref().unwrap()["field"], "pid");
+            assert!(
+                error.message.contains("System processes"),
+                "pid {pid} must fail the system check, not a later one: {}",
+                error.message
+            );
         }
+    }
+
+    #[test]
+    fn the_system_boundary_is_one_thousand() {
+        // The test process itself is never below the limit, so the constant is
+        // what pins the boundary; PID 999 is checked above.
+        assert_eq!(SYSTEM_PID_LIMIT, 1_000);
     }
 
     #[test]

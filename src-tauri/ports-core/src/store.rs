@@ -371,6 +371,84 @@ mod tests {
     }
 
     #[test]
+    fn exactly_fifty_pins_are_the_limit_and_are_accepted() {
+        let ports: Vec<u16> = (1..=50).collect();
+        let normalized =
+            normalize(settings(ports.clone(), true)).expect("50 pins are the limit, not over it");
+
+        assert_eq!(normalized.pinned_ports, ports);
+        assert!(normalized.pinned_only);
+    }
+
+    #[test]
+    fn save_creates_a_missing_directory() {
+        let base = scratch("create-directory");
+        let nested = base.join("ports");
+        assert!(!nested.exists());
+
+        save_at(&nested, settings(vec![3000], false)).expect("save");
+
+        assert!(settings_file(&nested).exists());
+    }
+
+    #[test]
+    fn load_from_a_missing_directory_is_defaults() {
+        let base = scratch("missing-directory");
+        let missing = base.join("not-created");
+
+        assert_eq!(load_at(&missing).expect("load"), defaults());
+        assert!(!missing.exists(), "a missing directory must not be created");
+    }
+
+    #[test]
+    fn a_document_with_no_fields_uses_the_defaults() {
+        let directory = scratch("empty-document");
+        std::fs::write(settings_file(&directory), b"{}").expect("write settings");
+
+        assert_eq!(load_at(&directory).expect("load"), PortsSettings::default());
+    }
+
+    #[test]
+    fn a_file_with_too_many_pins_falls_back_to_defaults() {
+        let directory = scratch("too-many-pins");
+        let ports: Vec<String> = (1..=51).map(|port| port.to_string()).collect();
+        let document = format!(
+            r#"{{"version":1,"pinnedPorts":[{}],"pinnedOnly":false}}"#,
+            ports.join(",")
+        );
+        std::fs::write(settings_file(&directory), document).expect("write settings");
+
+        assert_eq!(load_at(&directory).expect("load"), defaults());
+        assert!(!settings_file(&directory).exists());
+        assert_eq!(
+            file_names(&directory)
+                .into_iter()
+                .filter(|name| name.starts_with("settings.json.bak-"))
+                .count(),
+            1,
+            "the unusable file must be preserved"
+        );
+    }
+
+    #[test]
+    fn the_backup_name_carries_a_unix_timestamp() {
+        let directory = scratch("backup-name");
+        std::fs::write(settings_file(&directory), b"{ not json").expect("write broken file");
+
+        load_at(&directory).expect("load");
+
+        let backup = file_names(&directory)
+            .into_iter()
+            .find(|name| name.starts_with("settings.json.bak-"))
+            .expect("a backup must exist");
+        let stamp = backup.trim_start_matches("settings.json.bak-");
+        assert!(
+            !stamp.is_empty() && stamp.chars().all(|character| character.is_ascii_digit()),
+            "unexpected backup name: {backup}"
+        );
+    }
+
+    #[test]
     fn corrupt_file_is_backed_up_and_reset() {
         let directory = scratch("corrupt");
         std::fs::write(settings_file(&directory), b"{ not json").expect("write broken file");
