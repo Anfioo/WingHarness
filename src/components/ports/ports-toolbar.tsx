@@ -96,7 +96,7 @@ export function PortsToolbar({
               onQueryChange("");
               inputRef.current?.focus();
             }}
-            aria-label={t("ports.actions.close")}
+            aria-label={t("ports.toolbar.clearSearch")}
             className="text-muted-foreground hover:bg-accent hover:text-foreground absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded"
           >
             <X className="size-3.5" />

@@ -4,8 +4,6 @@ const ports = {
   actions: {
     refresh: "Refresh",
     settings: "Settings",
-    pin: "Pin port",
-    unpin: "Unpin port",
     kill: "End process",
     close: "Close",
     cancel: "Cancel",
@@ -19,6 +17,7 @@ const ports = {
   toolbar: {
     searchPlaceholder: "Search by port or process name",
     searchAria: "Search ports",
+    clearSearch: "Clear search",
     filterAria: "Filter by status",
     updated: "Updated {{time}}",
     paused: "Paused while the window is hidden",
@@ -56,12 +55,9 @@ const ports = {
     title: "End process?",
     description:
       "This stops {{name}} (PID {{pid}}) and frees port {{port}}. Administrator permission is requested if needed.",
-    process: "{{name}} (PID {{pid}})",
     confirm: "End process",
     success: "The process was ended.",
-    denied: "Windows denied this action. Try again and approve the administrator prompt.",
     cancelled: "The elevation prompt was cancelled.",
-    failed: "The process could not be ended.",
   },
   detail: {
     title: "Port {{port}}",
@@ -89,7 +85,6 @@ const ports = {
       body: "This port is free right now.",
     },
     loadFailed: "The port details could not be loaded.",
-    close: "Close",
   },
   settings: {
     title: "Port settings",
