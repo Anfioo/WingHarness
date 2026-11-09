@@ -19,7 +19,7 @@ import type { PreviewFile } from "@/lib/space-preview/bridge";
 import { readFullBytes } from "@/lib/space-preview/bridge";
 import { decodeText, formatSize } from "@/lib/space-preview/engine/files";
 import { detectKind } from "@/lib/space-preview/registry";
-import { errorText } from "./viewers/errors";
+import { errorText, previewErrorCodeKey } from "./viewers/errors";
 import Preview from "./viewers/Preview";
 import { PreviewLoadingIndicator, PreviewLoadingProvider } from "./viewers/PreviewLoading";
 import { PreviewMenuTarget } from "./viewers/PreviewToolbar";
@@ -40,6 +40,8 @@ export interface PreviewHostProps {
   target: PreviewTarget | null;
   /** Open in the text view, as Shift+Space asks for. */
   text?: boolean;
+  /** The hand-off held only folders, so the empty state says why nothing opened. */
+  folderOnly?: boolean;
   /**
    * Whether unsaved edits would be lost if the target changed. The host cannot
    * veto a prop change, so the caller asks before switching; the preview window
@@ -97,16 +99,26 @@ export function PreviewHost({
   mode,
   target,
   text: textMode = false,
+  folderOnly = false,
   onDirtyChange,
   onClose,
   onEdited,
   className,
 }: PreviewHostProps): ReactElement {
   const { t } = useAppTranslation();
+  // The backend rejects with a stable code and an English message; the code is
+  // what the UI translates, the message only covers a code it does not know.
+  const describe = useCallback(
+    (reason: unknown) => {
+      const key = previewErrorCodeKey(reason);
+      return key ? t(key, { defaultValue: errorText(reason) }) : errorText(reason);
+    },
+    [t]
+  );
   const [preferences, setPreferences] = useState<PreviewPreferences>(DEFAULT_PREFERENCES);
   const [file, setFile] = useState<PreviewFile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<unknown>(null);
   const [reload, setReload] = useState(0);
   const [stack, setStack] = useState<PreviewFile[]>([]);
   const [menuTarget, setMenuTarget] = useState<HTMLDivElement | null>(null);
@@ -193,7 +205,7 @@ export function PreviewHost({
     setEditing(false);
     setText("");
     setOriginal("");
-    setError("");
+    setError(null);
     setEtag(latestTarget.current?.etag);
   }, [targetPath]);
 
@@ -204,7 +216,7 @@ export function PreviewHost({
     }
     let active = true;
     setLoading(true);
-    setError("");
+    setError(null);
     void inspectFile(targetPath)
       .then((info) => {
         if (!active) return;
@@ -221,7 +233,7 @@ export function PreviewHost({
         setEtag(info.etag);
       })
       .catch((reason) => {
-        if (active) setError(errorText(reason));
+        if (active) setError(reason);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -292,12 +304,12 @@ export function PreviewHost({
           t("spacePreview.host.editFailed", {
             defaultValue: "The file cannot be opened for editing.",
           }),
-          { description: errorText(reason) }
+          { description: describe(reason) }
         );
     } finally {
       if (reading.current === controller) reading.current = null;
     }
-  }, [current, decodeInto, preferences.defaultEncoding, t]);
+  }, [current, decodeInto, describe, preferences.defaultEncoding, t]);
 
   // Re-decode the bytes read when the edit started; unsaved edits are dropped.
   const changeEncoding = useCallback(
@@ -341,13 +353,13 @@ export function PreviewHost({
       toast.error(
         t("spacePreview.host.saveFailed", { defaultValue: "The file could not be saved." }),
         {
-          description: errorText(reason),
+          description: describe(reason),
         }
       );
     } finally {
       setSaving(false);
     }
-  }, [current, detected, encoding, etag, onEdited, original, saving, t, text]);
+  }, [current, describe, detected, encoding, etag, onEdited, original, saving, t, text]);
 
   const reloadFile = useCallback(() => {
     if (!leaveEdit()) return;
@@ -360,11 +372,11 @@ export function PreviewHost({
       toast.error(
         t("spacePreview.host.openFailed", { defaultValue: "The window could not be opened." }),
         {
-          description: errorText(reason),
+          description: describe(reason),
         }
       )
     );
-  }, [current, t]);
+  }, [current, describe, t]);
 
   const close = useCallback(() => {
     if (!leaveEdit()) return;
@@ -523,7 +535,7 @@ export function PreviewHost({
                     onChange={setText}
                     onSave={() => void save()}
                   />
-                ) : error ? (
+                ) : error !== null ? (
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
                     <div>
                       <p className="text-foreground font-medium">
@@ -531,7 +543,7 @@ export function PreviewHost({
                           defaultValue: "The file could not be opened.",
                         })}
                       </p>
-                      <p className="mt-1 text-xs">{error}</p>
+                      <p className="mt-1 text-xs">{describe(error)}</p>
                     </div>
                   </div>
                 ) : loading && !current ? (
@@ -549,12 +561,23 @@ export function PreviewHost({
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
                     <div>
                       <p className="text-foreground font-medium">
-                        {t("spacePreview.host.emptyTitle", { defaultValue: "Nothing to preview" })}
+                        {folderOnly
+                          ? t("spacePreview.host.folderTitle", {
+                              defaultValue: "Folders are not previewed",
+                            })
+                          : t("spacePreview.host.emptyTitle", {
+                              defaultValue: "Nothing to preview",
+                            })}
                       </p>
                       <p className="mt-1 text-xs">
-                        {t("spacePreview.host.emptyBody", {
-                          defaultValue: "Select a file to preview it here.",
-                        })}
+                        {folderOnly
+                          ? t("spacePreview.viewer.folderNotPreviewed", {
+                              defaultValue:
+                                "Folders are explored in the project file tree, not in the preview.",
+                            })
+                          : t("spacePreview.host.emptyBody", {
+                              defaultValue: "Select a file to preview it here.",
+                            })}
                       </p>
                     </div>
                   </div>

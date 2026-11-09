@@ -20,8 +20,18 @@ const EDITABLE_TARGET = "input, textarea, select, [contenteditable='true']";
 
 export default function PreviewWindow() {
   const { t } = useAppTranslation();
-  const { entries, current, index, text, showId, setCurrentPath, next, previous, close } =
-    usePreviewWindowSession();
+  const {
+    entries,
+    current,
+    index,
+    text,
+    folderOnly,
+    showId,
+    setCurrentPath,
+    next,
+    previous,
+    close,
+  } = usePreviewWindowSession();
   const dirty = useRef(false);
 
   const handleDirtyChange = useCallback((value: boolean) => {
@@ -138,6 +148,7 @@ export default function PreviewWindow() {
           mode="window"
           target={current}
           text={text}
+          folderOnly={folderOnly}
           onDirtyChange={handleDirtyChange}
         />
       )}

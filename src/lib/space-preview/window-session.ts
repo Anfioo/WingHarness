@@ -31,6 +31,8 @@ interface SessionState {
   entries: PreviewEntry[];
   index: number;
   text: boolean;
+  /** The hand-off held only folders, which the preview does not open. */
+  folderOnly: boolean;
   /** Bumped on every hand-off; the host remounts on it to re-read a path. */
   showId: number;
 }
@@ -38,7 +40,13 @@ interface SessionState {
 const PREVIEW_FILES_EVENT = "sp:preview-files";
 const PREVIEW_CLOSED_EVENT = "sp:preview-closed";
 
-const EMPTY_STATE: SessionState = { entries: [], index: -1, text: false, showId: 0 };
+const EMPTY_STATE: SessionState = {
+  entries: [],
+  index: -1,
+  text: false,
+  folderOnly: false,
+  showId: 0,
+};
 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/);
@@ -47,22 +55,31 @@ function baseName(path: string): string {
 
 // inspectFile canonicalizes its answer, so the entries and the paths the Shell
 // reports back for navigation can be compared directly.
-async function toEntries(paths: string[]): Promise<PreviewEntry[]> {
+async function toEntries(
+  paths: string[]
+): Promise<{ entries: PreviewEntry[]; folderOnly: boolean }> {
   const inspected = await Promise.allSettled(paths.map((path) => inspectFile(path)));
   const entries: PreviewEntry[] = [];
+  let folders = 0;
   for (const result of inspected) {
     // Directories are not previewable; a path that vanished is simply dropped.
-    if (result.status !== "fulfilled" || result.value.directory) continue;
+    if (result.status !== "fulfilled") continue;
+    if (result.value.directory) {
+      folders++;
+      continue;
+    }
     entries.push({ path: result.value.path, name: result.value.name, size: result.value.size });
   }
-  return entries;
+  return { entries, folderOnly: entries.length === 0 && folders > 0 };
 }
 
 // A path the file manager moved to may not be part of the original selection;
 // then the window follows that new single selection instead of a stale list.
 function select(state: SessionState, entry: PreviewEntry): SessionState {
   const found = state.entries.findIndex((candidate) => candidate.path === entry.path);
-  return found >= 0 ? { ...state, index: found } : { ...state, entries: [entry], index: 0 };
+  return found >= 0
+    ? { ...state, index: found, folderOnly: false }
+    : { ...state, entries: [entry], index: 0, folderOnly: false };
 }
 
 function step(state: SessionState, direction: 1 | -1): SessionState {
@@ -76,6 +93,7 @@ export function usePreviewWindowSession(): {
   current: PreviewEntry | null;
   index: number;
   text: boolean;
+  folderOnly: boolean;
   showId: number;
   setCurrentPath: (path: string) => void;
   next: () => Promise<void>;
@@ -100,12 +118,13 @@ export function usePreviewWindowSession(): {
     if (key === lastKey.current) return;
     lastKey.current = key;
     const id = ++request.current;
-    void toEntries(payload.paths).then((entries) => {
+    void toEntries(payload.paths).then(({ entries, folderOnly }) => {
       if (id !== request.current) return;
       setState((current) => ({
         entries,
         index: entries.length > 0 ? 0 : -1,
         text: payload.text,
+        folderOnly,
         showId: current.showId + 1,
       }));
     });
@@ -132,7 +151,13 @@ export function usePreviewWindowSession(): {
         request.current++;
         // A later hand-off of the same selection is a new show, not a repeat.
         lastKey.current = null;
-        setState((current) => ({ ...current, entries: [], index: -1, text: false }));
+        setState((current) => ({
+          ...current,
+          entries: [],
+          index: -1,
+          text: false,
+          folderOnly: false,
+        }));
       })
     );
 
@@ -204,6 +229,7 @@ export function usePreviewWindowSession(): {
     current: state.entries[state.index] ?? null,
     index: state.index,
     text: state.text,
+    folderOnly: state.folderOnly,
     showId: state.showId,
     setCurrentPath,
     next,

@@ -11,3 +11,36 @@ export function errorText(reason: unknown): string {
   }
   return '';
 }
+
+/**
+ * i18n key for a stable `sp_*` error code, or `null` for a code without
+ * dedicated wording. The code names the category; `errorText` stays the
+ * fallback because the backend's message is English.
+ */
+export function previewErrorKey(code: string | null | undefined): string | null {
+  switch (code) {
+    case 'not-authorized':
+      return 'spacePreview.error.notAuthorized';
+    case 'not-found':
+      return 'spacePreview.error.notFound';
+    case 'too-large':
+      return 'spacePreview.error.tooLarge';
+    case 'invalid-input':
+      return 'spacePreview.error.invalidInput';
+    case 'unsupported':
+      return 'spacePreview.error.unsupported';
+    case 'internal':
+      return 'spacePreview.error.internal';
+    default:
+      return null;
+  }
+}
+
+/** i18n key for a command rejected by the backend, or `null` for any other throw. */
+export function previewErrorCodeKey(reason: unknown): string | null {
+  if (reason && typeof reason === 'object') {
+    const code = (reason as { code?: unknown }).code;
+    if (typeof code === 'string') return previewErrorKey(code);
+  }
+  return null;
+}
