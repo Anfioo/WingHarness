@@ -453,6 +453,46 @@ mod tests {
         assert!(detail_for(7171, &listeners).expect("detail").is_none());
     }
 
+    /// The whole path against the live table: bind a real listener and check it
+    /// comes back occupied under this process's own PID.
+    #[cfg(windows)]
+    #[test]
+    fn a_real_listener_is_reported_as_occupied() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+        let port = listener.local_addr().expect("local address").port();
+
+        let scanned = scan_ports(&[port]).expect("scan_ports");
+
+        assert_eq!(scanned.len(), 1);
+        assert_eq!(scanned[0].status, PortStatus::Occupied);
+        assert_eq!(
+            scanned[0].process.as_ref().map(|process| process.pid),
+            Some(std::process::id())
+        );
+        assert!(scanned[0].address.is_some());
+    }
+
+    /// The detail path against the live tables, for a port this process owns.
+    #[cfg(windows)]
+    #[test]
+    fn a_real_listener_detail_reports_the_process() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a local port");
+        let port = listener.local_addr().expect("local address").port();
+
+        let detail = port_detail(port)
+            .expect("port_detail")
+            .expect("the bound port should be listed");
+
+        assert_eq!(detail.port, port);
+        assert_eq!(detail.status, PortStatus::Occupied);
+        let process = detail.process.expect("the owning process");
+        assert_eq!(process.pid, std::process::id());
+        assert!(process.memory_bytes.is_some_and(|bytes| bytes > 0));
+        assert!(process.started_at.is_some_and(|seconds| seconds > 0));
+        assert!(process.path.is_some(), "the executable path should resolve");
+        assert!(process.user.is_some(), "the owning user should resolve");
+    }
+
     #[test]
     #[ignore = "reads the live TCP listener table"]
     fn list_listening_ports_reads_the_live_table() {
