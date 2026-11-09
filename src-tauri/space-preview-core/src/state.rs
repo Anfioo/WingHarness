@@ -67,3 +67,92 @@ fn canonicalize(path: &Path) -> SpacePreviewResult<PathBuf> {
         )),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or_default();
+        let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "space-preview-state-{label}-{}-{stamp}-{sequence}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    #[test]
+    fn a_read_before_the_inspect_is_refused() {
+        let directory = temp_dir("unadmitted");
+        let file = directory.join("note.txt");
+        fs::write(&file, b"hello").unwrap();
+        let state = PreviewState::default();
+
+        let error = state.check(&file).unwrap_err();
+
+        assert_eq!(error.code, "not-authorized");
+    }
+
+    #[test]
+    fn an_inspected_path_is_accepted_and_returned_canonical() {
+        let directory = temp_dir("admitted");
+        let file = directory.join("note.txt");
+        fs::write(&file, b"hello").unwrap();
+        let state = PreviewState::default();
+
+        let admitted = state.allow(&directory.join(".").join("note.txt")).unwrap();
+        let checked = state.check(&admitted).unwrap();
+
+        assert_eq!(checked, fs::canonicalize(&file).unwrap());
+        assert_eq!(admitted, checked);
+    }
+
+    #[test]
+    fn a_missing_path_is_not_found_rather_than_unauthorized() {
+        let directory = temp_dir("missing");
+        let state = PreviewState::default();
+
+        let error = state.allow(&directory.join("absent.txt")).unwrap_err();
+
+        assert_eq!(error.code, "not-found");
+    }
+
+    #[test]
+    fn clearing_drops_every_admission() {
+        let directory = temp_dir("cleared");
+        let file = directory.join("note.txt");
+        fs::write(&file, b"hello").unwrap();
+        let state = PreviewState::default();
+        let admitted = state.allow(&file).unwrap();
+
+        state.clear();
+
+        assert_eq!(state.check(&admitted).unwrap_err().code, "not-authorized");
+    }
+
+    #[test]
+    fn a_fresh_state_admits_nothing() {
+        let directory = temp_dir("fresh");
+        let file = directory.join("note.txt");
+        fs::write(&file, b"hello").unwrap();
+        let state = PreviewState::default();
+
+        assert_eq!(state.check(&file).unwrap_err().code, "not-authorized");
+    }
+
+    #[test]
+    fn the_cached_preferences_start_at_the_defaults() {
+        let state = PreviewState::default();
+
+        assert_eq!(*state.prefs.lock().unwrap(), PreviewPreferences::default());
+    }
+}

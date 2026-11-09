@@ -15,8 +15,18 @@ use crate::paths;
 
 /// Read the preferences, falling back to the defaults.
 pub fn load() -> SpacePreviewResult<PreviewPreferences> {
-    let path = paths::preferences_file();
-    let bytes = match fs::read(&path) {
+    load_from(&paths::preferences_file())
+}
+
+/// Store the whole preferences object, returning what was written.
+pub fn save(preferences: PreviewPreferences) -> SpacePreviewResult<PreviewPreferences> {
+    save_to(&paths::preferences_file(), preferences)
+}
+
+// The file is a parameter, not read from `paths`, so the behaviour here can be
+// tested without the process-global data directory.
+fn load_from(path: &Path) -> SpacePreviewResult<PreviewPreferences> {
+    let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             return Ok(PreviewPreferences::default());
@@ -36,22 +46,20 @@ pub fn load() -> SpacePreviewResult<PreviewPreferences> {
                 "space_preview_preferences_parse_failed path={} error={error}",
                 path.display()
             );
-            backup_corrupt_file(&path);
+            backup_corrupt_file(path);
             Ok(PreviewPreferences::default())
         }
     }
 }
 
-/// Store the whole preferences object, returning what was written.
-pub fn save(preferences: PreviewPreferences) -> SpacePreviewResult<PreviewPreferences> {
-    let path = paths::preferences_file();
+fn save_to(path: &Path, preferences: PreviewPreferences) -> SpacePreviewResult<PreviewPreferences> {
     let preferences = normalize(preferences);
     let bytes = serde_json::to_vec_pretty(&preferences).map_err(|error| {
         SpacePreviewError::internal(format!(
             "The preview preferences could not be serialized: {error}"
         ))
     })?;
-    write_atomic(&path, &bytes)?;
+    write_atomic(path, &bytes)?;
     Ok(preferences)
 }
 
@@ -117,4 +125,130 @@ fn backup_path(path: &Path) -> PathBuf {
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
     path.with_file_name(format!("{name}.bak-{stamp}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_dir(label: &str) -> PathBuf {
+        let stamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|elapsed| elapsed.as_nanos())
+            .unwrap_or_default();
+        let sequence = SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "space-preview-prefs-{label}-{}-{stamp}-{sequence}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    fn backup_files(directory: &Path) -> Vec<PathBuf> {
+        fs::read_dir(directory)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.file_name()
+                    .is_some_and(|name| name.to_string_lossy().contains(".bak-"))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_missing_file_reads_as_the_defaults() {
+        let directory = temp_dir("missing");
+        let path = directory.join("preview.json");
+
+        let preferences = load_from(&path).unwrap();
+
+        assert!(preferences.space_enabled);
+        assert_eq!(preferences.reading_width, 900);
+        assert_eq!(preferences.font_size, 15);
+        assert_eq!(preferences.default_encoding, "auto");
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn save_and_load_round_trip_every_field() {
+        let directory = temp_dir("round-trip");
+        let path = directory.join("nested").join("preview.json");
+        let saved = PreviewPreferences {
+            version: 1,
+            space_enabled: false,
+            reading_width: 1080,
+            font_size: 18,
+            default_encoding: "gb18030".to_owned(),
+        };
+
+        assert_eq!(save_to(&path, saved.clone()).unwrap(), saved);
+        assert_eq!(load_from(&path).unwrap(), saved);
+    }
+
+    #[test]
+    fn the_schema_version_is_ours_not_the_file_s() {
+        let directory = temp_dir("version");
+        let path = directory.join("preview.json");
+        let saved = PreviewPreferences {
+            version: 42,
+            space_enabled: true,
+            reading_width: 900,
+            font_size: 15,
+            default_encoding: "auto".to_owned(),
+        };
+
+        assert_eq!(save_to(&path, saved).unwrap().version, 1);
+
+        fs::write(&path, br#"{"version":42,"spaceEnabled":true,"readingWidth":900,"fontSize":15,"defaultEncoding":"auto"}"#).unwrap();
+        assert_eq!(load_from(&path).unwrap().version, 1);
+    }
+
+    #[test]
+    fn a_corrupt_file_is_backed_up_and_the_defaults_returned() {
+        let directory = temp_dir("corrupt");
+        let path = directory.join("preview.json");
+        fs::write(&path, b"{ not json").unwrap();
+
+        let preferences = load_from(&path).unwrap();
+
+        assert_eq!(preferences, PreviewPreferences::default());
+        assert!(!path.exists(), "the corrupt file must not stay in place");
+        let backups = backup_files(&directory);
+        assert_eq!(backups.len(), 1);
+        assert_eq!(fs::read(&backups[0]).unwrap(), b"{ not json");
+    }
+
+    #[test]
+    fn a_save_leaves_no_temporary_file_behind() {
+        let directory = temp_dir("temp-file");
+        let path = directory.join("preview.json");
+
+        save_to(&path, PreviewPreferences::default()).unwrap();
+
+        let names: Vec<String> = fs::read_dir(&directory)
+            .unwrap()
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, vec!["preview.json".to_owned()]);
+    }
+
+    #[test]
+    fn a_second_save_replaces_the_first() {
+        let directory = temp_dir("replace");
+        let path = directory.join("preview.json");
+        let mut preferences = PreviewPreferences::default();
+        save_to(&path, preferences.clone()).unwrap();
+        preferences.font_size = 22;
+
+        save_to(&path, preferences.clone()).unwrap();
+
+        assert_eq!(load_from(&path).unwrap().font_size, 22);
+        assert!(backup_files(&directory).is_empty());
+    }
 }

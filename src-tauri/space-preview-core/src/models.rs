@@ -54,7 +54,7 @@ pub struct InitialPaths {
 }
 
 /// The persisted preferences. They live in `preview.json`.
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewPreferences {
     pub version: u32,
