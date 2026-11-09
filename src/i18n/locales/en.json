@@ -1279,6 +1279,13 @@
     "saveFailed": "Could not save the file.",
     "saved": "Saved."
   },
+  "quickPreview": {
+    "title": "Quick look",
+    "emptyTitle": "Nothing to look at",
+    "emptyDescription": "Open the file preview page, pick a file or a folder, and press the quick-look shortcut.",
+    "hint": "Press Esc to close, or use the close button above.",
+    "openFailed": "Could not open the quick look window."
+  },
   "gitRepo": {
     "windowTitle": "Git repository",
     "welcomeTitle": "Open a repository",

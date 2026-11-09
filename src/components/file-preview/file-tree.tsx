@@ -17,15 +17,22 @@ import { cn } from "@/lib/utils";
  * all "pick a file to preview" needs.
  */
 type FileTreeProps = {
-  /** `/`-rooted path of the file currently open, or null. */
+  /** `/`-rooted path of the entry currently selected, or null. */
   selectedPath: string | null;
-  onSelectFile: (entry: RemoteEntry) => void;
+  /** Called for every entry; a directory also expands or collapses. */
+  onSelect: (entry: RemoteEntry) => void;
   /** Reported once when the tree cannot be read at all. */
   onError: (message: string) => void;
   labels: { loading: string; empty: string; failed: string };
+  /**
+   * A directory to open the tree at: every ancestor is loaded and expanded, the
+   * directory itself included, so its contents are on screen when it appears.
+   * Used by the quick look, which is opened on a folder.
+   */
+  revealPath?: string;
 };
 
-export function FileTree({ selectedPath, onSelectFile, onError, labels }: FileTreeProps) {
+export function FileTree({ selectedPath, onSelect, onError, labels, revealPath }: FileTreeProps) {
   const [root, setRoot] = useState<RemoteEntry | null>(null);
   const [childrenByPath, setChildrenByPath] = useState<Record<string, RemoteEntry[]>>({});
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
@@ -36,8 +43,8 @@ export function FileTree({ selectedPath, onSelectFile, onError, labels }: FileTr
   // initial load runs once instead of on every parent render.
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
-  const onSelectRef = useRef(onSelectFile);
-  onSelectRef.current = onSelectFile;
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +79,35 @@ export function FileTree({ selectedPath, onSelectFile, onError, labels }: FileTr
       });
     }
   }, []);
+
+  // Opens the tree at `revealPath`, one level at a time: each level has to be
+  // fetched before the next one exists to expand.
+  useEffect(() => {
+    if (!root || !revealPath) return;
+    const segments = revealPath.split("/").filter(Boolean);
+    if (segments.length === 0) return;
+
+    let cancelled = false;
+    void (async () => {
+      for (let index = 1; index <= segments.length; index += 1) {
+        const path = `/${segments.slice(0, index).join("/")}`;
+        try {
+          const result = await projectTree(path, { depth: 1 });
+          if (cancelled) return;
+          setChildrenByPath((previous) => ({ ...previous, [path]: result.entry.children ?? [] }));
+          setExpanded((previous) => new Set(previous).add(path));
+        } catch (error) {
+          if (cancelled) return;
+          onErrorRef.current(error instanceof Error ? error.message : String(error));
+          return;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [revealPath, root]);
 
   const toggleDirectory = useCallback(
     (path: string) => {
@@ -122,7 +158,10 @@ export function FileTree({ selectedPath, onSelectFile, onError, labels }: FileTr
         <div key={entry.path}>
           <button
             type="button"
-            onClick={() => (isDirectory ? toggleDirectory(entry.path) : onSelectRef.current(entry))}
+            onClick={() => {
+              onSelectRef.current(entry);
+              if (isDirectory) toggleDirectory(entry.path);
+            }}
             style={{ paddingLeft: `${8 + depth * 14}px` }}
             className={cn(
               "hover:bg-accent flex w-full items-center gap-1.5 rounded-md py-1 pr-2 text-left text-[13px]",

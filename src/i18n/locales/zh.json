@@ -1278,6 +1278,13 @@
     "saveFailed": "保存文件失败。",
     "saved": "已保存。"
   },
+  "quickPreview": {
+    "title": "速览",
+    "emptyTitle": "没有可速览的内容",
+    "emptyDescription": "打开文件预览页，选择文件或文件夹，再按速览快捷键。",
+    "hint": "按 Esc 关闭，或使用上方的关闭按钮。",
+    "openFailed": "无法打开速览窗口。"
+  },
   "gitRepo": {
     "windowTitle": "Git 仓库",
     "welcomeTitle": "打开仓库",

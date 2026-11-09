@@ -15,7 +15,10 @@ import { PreviewPane } from "@/components/file-preview/preview-pane";
 import { ProjectPicker } from "@/components/project-picker";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useFilePreviewConfig } from "@/hooks/use-file-preview-config";
+import { useShortcutConfig } from "@/hooks/use-shortcut-config";
 import { languageOf } from "@/lib/git-core/highlight";
+import { openQuickPreview } from "@/lib/quick-preview";
+import { DoublePressTracker, isEditableTarget, shortcutMatchesEvent } from "@/lib/shortcut-spec";
 import { bytesToObjectUrl } from "@/lib/preview/lib/bytes";
 import type { FileMetadata } from "@/lib/preview/types";
 import { loadPreview } from "@/lib/preview/viewers/loadPreview";
@@ -40,8 +43,12 @@ import type { LoadState } from "@/lib/preview/viewers/previewTypes";
 export default function FilePreviewPage() {
   const { t } = useAppTranslation();
   const config = useFilePreviewConfig();
+  const shortcuts = useShortcutConfig();
   const [root, setRoot] = useState("");
   const [payload, setPayload] = useState<FileMetadata | null>(null);
+  // The entry the tree marks, file or folder: a quick look can be opened on
+  // either, so the selection is wider than the file on screen.
+  const [selected, setSelected] = useState<RemoteEntry | null>(null);
   const [state, setState] = useState<LoadState>({ status: "idle" });
   const [overCap, setOverCap] = useState(false);
 
@@ -130,6 +137,44 @@ export default function FilePreviewPage() {
     [releaseUrls, root, t]
   );
 
+  /**
+   * The quick look's in-app trigger.
+   *
+   * It is matched here rather than registered with the OS: Space and a double
+   * Ctrl are not combinations the global-shortcut plugin can hold without
+   * taking them from every other program. Escape and typing are left alone —
+   * the listener is capture-phase so the tree's own Space activation does not
+   * fire first.
+   */
+  const selectedRef = useRef<RemoteEntry | null>(null);
+  selectedRef.current = selected;
+  useEffect(() => {
+    if (!root || !shortcuts.quickPreview) return;
+    const tracker = new DoublePressTracker();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.repeat || isEditableTarget(event.target)) return;
+      if (!shortcutMatchesEvent(shortcuts.quickPreview, event, tracker)) return;
+      const entry = selectedRef.current;
+      if (!entry) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void openQuickPreview({
+        root,
+        path: entry.path,
+        name: entry.name,
+        kind: entry.type,
+      }).catch((error: unknown) => {
+        toast.error(t("quickPreview.openFailed"), {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      });
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [root, shortcuts.quickPreview, t]);
+
   const reload = useCallback(() => {
     if (payload) void openFile({ path: payload.path, name: payload.name, type: "file" });
   }, [openFile, payload]);
@@ -210,6 +255,7 @@ export default function FilePreviewPage() {
             if (!leaveEdit()) return;
             releaseUrls();
             setPayload(null);
+            setSelected(null);
             setOverCap(false);
             setState({ status: "idle" });
             setRoot(next);
@@ -227,9 +273,16 @@ export default function FilePreviewPage() {
                     project it was built for, not to the one now selected. */}
                 <FileTree
                   key={root}
-                  selectedPath={payload?.path ?? null}
-                  onSelectFile={(entry) => {
+                  selectedPath={selected?.path ?? null}
+                  onSelect={(entry) => {
+                    if (entry.type === "directory") {
+                      // A folder is only the quick look's target; the file on
+                      // screen stays where it is.
+                      setSelected(entry);
+                      return;
+                    }
                     if (!leaveEdit()) return;
+                    setSelected(entry);
                     void openFile(entry);
                   }}
                   onError={onTreeError}

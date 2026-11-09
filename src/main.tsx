@@ -43,6 +43,7 @@ const pageMap = {
   "/claude-workflow": lazy(() => import("./pages/claude-workflow/index")),
   "/notes": lazy(() => import("./pages/notes/index")),
   "/file-preview": lazy(() => import("./pages/file-preview/index")),
+  "/quick-preview": lazy(() => import("./pages/quick-preview/index")),
   "/cc-switch": lazy(() => import("./pages/cc-switch/index")),
   "/about": lazy(() => import("./windows/about/index")),
   "/settings": lazy(() => import("./windows/settings/index")),
@@ -61,6 +62,7 @@ const pageMap = {
 const standalonePaths = new Set([
   "/about",
   "/settings",
+  "/quick-preview",
   "/project-window",
   "/git-repo-window",
   "/svn-workspace-window",

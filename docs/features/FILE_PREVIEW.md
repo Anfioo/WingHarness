@@ -110,6 +110,35 @@ a file past the threshold. Spreadsheets, documents and images stay read-only.
   [`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts); an
   unknown extension is plain text.
 
+## Quick look
+
+`Space` — or whichever trigger **设置 → 快捷键 → 文件速览** holds — opens the
+selected entry in a window of its own, leaving the page where it is. A file
+fills that window with the preview pane alone; a folder shows the file tree
+with a preview beside it, expanded at that folder.
+
+- **It is in-app, not OS-global.** Space, a double Ctrl, Alt+Space and Win+Space
+  cannot be registered with the global-shortcut plugin without taking them from
+  every other program, so the file preview page matches them itself: while the
+  window has focus and the caret is not in a field. This is what the system file
+  manager's Space preview does.
+- **The trigger is one stored string.** A preset (`preset:space`,
+  `preset:doubleCtrl`, `preset:altSpace`, `preset:winSpace`) or a combination
+  picked in the same [`ShortcutField`](../../src/components/shortcut-field.tsx)
+  the show-main shortcut uses is saved under `shortcuts.quickPreview` in
+  `config.json`. `useShortcutConfig` listens for `config-changed`, so a change in
+  the settings window applies to the next keypress.
+- **Nothing is stored.** The window is transient: closing it destroys it, it is
+  never a project and never a tab. [`src/lib/quick-preview.ts`](../../src/lib/quick-preview.ts)
+  opens it through `createWindow` with `alwaysOnTop`; a window that is already
+  open is shown again and told the new target through the `quick-preview-open`
+  event, because a reused window keeps the URL it was created with.
+- **Esc closes it.** [`src/pages/quick-preview/index.tsx`](../../src/pages/quick-preview/index.tsx)
+  is the window's route (`/quick-preview`, label `quick-preview`), listed in
+  `capabilities/default.json` so the commands it calls pass the ACL. It reuses
+  `FileTree` and `PreviewTab`, so the quick look parses files exactly as the page
+  does — and, being a look, offers no editing.
+
 ## In the editors
 
 The same viewer is registered as a codelet extension

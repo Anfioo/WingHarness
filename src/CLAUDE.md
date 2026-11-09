@@ -18,7 +18,7 @@ CSS v4 + shadcn/ui.
 - **Route table**: `lib/app-routes.ts` (`AppRouteId`, `appRoutes`)
 - **Pages** (`pages/`): `project` (the picker at `/` and one window per project),
   `git-repo`, `svn-workspace`, `api-client`, `systools`, `servers`, `database`,
-  `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`, `ai-config`,
+  `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`, `quick-preview` (the quick-look window), `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
   `mcp-hub`, `clash`, `plugins`, `private-registry`
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
@@ -95,7 +95,7 @@ project command from a page that has no root in play.
 
 - `lib/` — `router.tsx`, `app-routes.ts`, `shortcut.ts`, `window.ts`,
   `window-label.ts`, the per-feature window helpers (`project-windows.ts`,
-  `git-windows.ts`, `svn-windows.ts`, `database-windows.ts`), `updater.ts`,
+  `git-windows.ts`, `svn-windows.ts`, `database-windows.ts`, `quick-preview.ts`), `updater.ts`,
   `utils.ts`, plus the `editor/`, `preview/`, `fonts/`, `terminal/` and `theme/`
   subsystems
 - `features/` — one directory per feature that is larger than one page's own
@@ -104,7 +104,7 @@ project command from a page that has no root in play.
   views), `md-editor/`, `svn-workspace/`
 - `hooks/` — `use-app-translation` (use this one, not `useTranslation`
   directly: it also listens for the cross-window language change event),
-  `use-config-draft`, `use-file-preview-config`, `use-maximized`, `use-mobile`,
+  `use-config-draft`, `use-file-preview-config`, `use-shortcut-config`, `use-maximized`, `use-mobile`,
   `use-updater`, and the "*show home*" listeners (`use-project-home`,
   `use-git-home`, `use-svn-home`)
 - `components/ui/` — shadcn/ui primitives; leave these as generated

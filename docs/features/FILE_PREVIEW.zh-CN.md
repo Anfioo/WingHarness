@@ -99,6 +99,30 @@
   [`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts) 注册的
   highlight.js 语法；未知扩展名按纯文本处理。
 
+## 速览
+
+按 `空格`——或者**设置 → 快捷键 → 文件速览**里设置的任一触发方式——会在独立窗口
+里打开选中的条目，页面本身留在原处。文件会把该窗口填满成单独的预览面板；文件夹
+则显示文件树并在右侧带一个预览，打开时已展开到该文件夹。
+
+- **只在应用内生效，不是系统全局快捷键。** 空格、双击 Ctrl、Alt+空格、Win+空格
+  无法注册到全局快捷键插件而不从其他所有程序手里抢走这些按键，因此由文件预览页
+  自己匹配：仅在窗口获得焦点、且光标不在输入框里时响应。这与系统文件管理器的
+  空格速览一致。
+- **触发方式是同一个字符串。** 预设（`preset:space`、`preset:doubleCtrl`、
+  `preset:altSpace`、`preset:winSpace`）或在「显示主窗口」同一套
+  [`ShortcutField`](../../src/components/shortcut-field.tsx) 里挑选的组合键，都存在
+  `config.json` 的 `shortcuts.quickPreview` 之下。`useShortcutConfig` 监听
+  `config-changed`，因此在设置窗口里改完，下一次按键就按新值响应。
+- **什么都不保存。** 这个窗口是临时性的：关闭即销毁，既不会成为项目，也不会成为
+  标签页。[`src/lib/quick-preview.ts`](../../src/lib/quick-preview.ts) 通过
+  `createWindow` 以 `alwaysOnTop` 打开它；已经存在的窗口会被重新显示，并通过
+  `quick-preview-open` 事件收到新的目标，因为复用的窗口会保留创建时的 URL。
+- **Esc 关闭。** [`src/pages/quick-preview/index.tsx`](../../src/pages/quick-preview/index.tsx)
+  是它的路由（`/quick-preview`，窗口标签 `quick-preview`），已列在
+  `capabilities/default.json` 中，因此它调用的命令能通过 ACL。它复用 `FileTree`
+  与 `PreviewTab`，解析文件的方式与本页完全相同——但只是速览，不提供编辑。
+
 ## 在编辑器里
 
 同一套 viewer 也注册成了 codelet 扩展
