@@ -21,6 +21,12 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                let downloads_dir = app.path().download_dir().unwrap_or_else(|_| std::env::temp_dir());
+                app.manage(commands::moin::MoinState::new(
+                    app.handle().clone(),
+                    config::dir().join("moin"),
+                    downloads_dir,
+                ));
                 // The proxy has to reach the environment before the first HTTP
                 // client is built anywhere in the app, and before any child
                 // process is spawned, so it is applied right after the config
@@ -139,6 +145,9 @@ pub fn run() {
         // not stopped here it keeps running, and keeps the port it holds, long
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
+            if let Some(moin) = app.try_state::<commands::moin::MoinState>() {
+                tauri::async_runtime::block_on(moin.shutdown());
+            }
             plugins::registry::stop_all_running();
             // The Clash core is our child process: left alone it keeps the
             // proxy ports and the controller long after the window is gone.

@@ -23,6 +23,7 @@ members = [
     "md-editor-core",
     "db-core",
     "ports-core",
+    "moin-core",
 ]
 resolver = "2"
 
@@ -79,6 +80,8 @@ frp-core = { path = "frp-core" }
 # The Markdown editor's engine: document I/O with encoding fallback, settings,
 # recent files and the restored session.
 md-editor-core = { path = "md-editor-core" }
+# The moin download engine: HTTP tasks, resumable transfers and persistence.
+moin-core = { path = "moin-core" }
 # The database page's engine: data sources, live connections (SQLite, PostgreSQL,
 # MySQL), introspection, query execution and table editing.
 db-core = { path = "db-core" }

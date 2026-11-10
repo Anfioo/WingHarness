@@ -1,0 +1,26 @@
+[package]
+name = "moin-core"
+version = "0.0.1"
+description = "WingHarness HTTP download engine, queue and persistence."
+license = "GPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "moin_core"
+crate-type = ["rlib"]
+
+[dependencies]
+async-trait = "0.1"
+futures-util = "0.3"
+log = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream", "system-proxy"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "net", "process", "rt-multi-thread", "sync", "time"] }
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+
+[dev-dependencies]
+tempfile = "3"

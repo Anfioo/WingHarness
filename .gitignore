@@ -28,6 +28,17 @@ dist-ssr
 .resource/
 /.agents/
 
+# 本地开发计划 / 设计草稿：只用于指导开发，不进入版本库
+/Plan/
+
+# 构建产物：安装包与 Rust 产物目录
+*.exe
+*.msi
+*.dmg
+*.AppImage
+*.deb
+/src-tauri/target-*/
+
 # env files (can opt-in for committing if needed)
 .env*
 # Example plugins ship their config files so the demos run as-is; they hold no

@@ -17,6 +17,8 @@ import mdEditorEn from "./locales/md-editor/en";
 import mdEditorZh from "./locales/md-editor/zh";
 import portsEn from "./locales/ports/en";
 import portsZh from "./locales/ports/zh";
+import moinEn from "./locales/moin/en";
+import moinZh from "./locales/moin/zh";
 
 i18n
   .use(LanguageDetector)
@@ -33,6 +35,7 @@ i18n
           systools: systoolsEn,
           mdEditor: mdEditorEn,
           ports: portsEn,
+          moin: moinEn,
         },
       },
       zh: {
@@ -45,6 +48,7 @@ i18n
           systools: systoolsZh,
           mdEditor: mdEditorZh,
           ports: portsZh,
+          moin: moinZh,
         },
       },
     },

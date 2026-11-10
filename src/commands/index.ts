@@ -1000,3 +1000,32 @@ export type {
   ViewSettings,
 } from "./services/md-editor/types";
 export { isMdEditorError, mdEditorErrorCode } from "./services/md-editor/types";
+export {
+  moinAddDownload,
+  moinCancelDownload,
+  moinCreateCategory,
+  moinDeleteCategory,
+  moinDeleteDownload,
+  moinForgetDownload,
+  moinGetSettings,
+  moinListCategories,
+  moinListDownloads,
+  moinPatchSettings,
+  moinPauseDownload,
+  moinReorderCategories,
+  moinRemoveDownload,
+  moinSuggestCategory,
+  moinUpdateCategory,
+  moinResumeDownload,
+} from "./services/moin";
+export type { MoinAddDownloadArgs } from "./services/moin";
+export type {
+  MoinAddMethodKind,
+  MoinCategory,
+  MoinSettings,
+  MoinTask,
+  MoinTaskKind,
+  MoinTaskProgress,
+  MoinTaskStatus,
+  MoinTrigger,
+} from "./services/moin/types";
