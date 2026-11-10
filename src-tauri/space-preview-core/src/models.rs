@@ -75,10 +75,16 @@ pub struct PreviewPreferences {
     #[serde(default = "default_html")]
     pub html: String,
     /// The largest file a whole-file preview reads, in mebibytes.
-    #[serde(default = "default_max_preview_mib")]
+    ///
+    /// `rename_all` would spell this `maxPreviewMib`; the frontend's type says
+    /// `maxPreviewMiB`, so the capital B is pinned here.
+    #[serde(rename = "maxPreviewMiB", default = "default_max_preview_mib")]
     pub max_preview_mib: u32,
     /// The largest file an archive viewer extracts from an archive, in mebibytes.
-    #[serde(default = "default_max_archive_entry_mib")]
+    #[serde(
+        rename = "maxArchiveEntryMiB",
+        default = "default_max_archive_entry_mib"
+    )]
     pub max_archive_entry_mib: u32,
     /// Whether the standalone window keeps several files in tabs.
     #[serde(default = "default_tabs")]

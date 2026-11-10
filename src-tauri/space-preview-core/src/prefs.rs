@@ -259,6 +259,14 @@ mod tests {
     }
 
     #[test]
+    fn the_wire_names_carry_the_capital_b_the_frontend_reads() {
+        let json = serde_json::to_string(&PreviewPreferences::default()).unwrap();
+
+        assert!(json.contains("\"maxPreviewMiB\":512"), "{json}");
+        assert!(json.contains("\"maxArchiveEntryMiB\":256"), "{json}");
+    }
+
+    #[test]
     fn the_schema_version_is_ours_not_the_file_s() {
         let directory = temp_dir("version");
         let path = directory.join("preview.json");
