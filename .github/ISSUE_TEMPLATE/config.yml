@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 官网 / Project website
+    url: https://wingharness.anfioo.com/
+    about: 下载、文档与更新说明。 / Downloads, documentation and release notes.
+  - name: 报告安全漏洞 / Report a vulnerability
+    url: https://github.com/Anfioo/WingHarness/security
+    about: 安全问题请通过此入口私下报告，不要开公开 issue。 / Report security issues privately here, never in a public issue.
+  - name: 贡献指南 / Contributing guide
+    url: https://github.com/Anfioo/WingHarness/blob/main/CONTRIBUTING.md
+    about: 开发环境、约定，以及移植代码的许可证规则。 / Development setup, conventions and the licensing rules for ported code.
