@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
   ChevronRight,
+  Eye,
+  FolderOpen,
   Loader2,
   LogOut,
   Power,
@@ -17,6 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  agentStatus,
   clashApply,
   clashConnections,
   clashCoreStart,
@@ -32,8 +36,12 @@ import {
   clashSysProxySet,
   frpConnectionsList,
   frpProfilesList,
+  inspectFile,
+  openPreview,
   quitApp,
+  setAgentEnabled,
   setTrayMenuExpanded,
+  type AgentStatus,
   type ClashConnectionsView,
   type ClashCoreStatus,
   type ClashProfile,
@@ -97,6 +105,8 @@ export default function TrayMenuPage() {
   const [path, setPath] = useState<string[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** The space agent; null when it cannot report yet, which disables the row. */
+  const [agent, setAgent] = useState<AgentStatus | null>(null);
   /** Only the newest load may write state; a slow poll must not undo a switch. */
   const requestId = useRef(0);
   /** The previous counters every rate is measured against. */
@@ -153,6 +163,17 @@ export default function TrayMenuPage() {
       });
     } catch {
       // The flyout reports its own failures; the row keeps its last count.
+    }
+  }, []);
+
+  // ── Space agent ──────────────────────────────────────────────────────────
+
+  const loadAgent = useCallback(async () => {
+    try {
+      setAgent(await agentStatus());
+    } catch {
+      // The agent could not report its state; leave the row disabled.
+      setAgent(null);
     }
   }, []);
 
@@ -255,6 +276,7 @@ export default function TrayMenuPage() {
   useEffect(() => {
     void load();
     void loadFrp();
+    void loadAgent();
     const unlisten = listen("tray-menu:opened", () => {
       cancelOpen();
       cancelClose();
@@ -265,11 +287,12 @@ export default function TrayMenuPage() {
       setError(null);
       void load();
       void loadFrp();
+      void loadAgent();
     });
     return () => {
       void unlisten.then((off) => off());
     };
-  }, [cancelClose, cancelOpen, load, loadFrp]);
+  }, [cancelClose, cancelOpen, load, loadAgent, loadFrp]);
 
   useEffect(() => {
     if (panel !== "clash") return;
@@ -454,6 +477,25 @@ export default function TrayMenuPage() {
       shadow: false,
       center: true,
     });
+
+  // The toggle stays open on click: the row itself is the feedback.
+  const togglePreview = useCallback(() => {
+    if (!agent || busy !== null) return;
+    void runAction("preview", async () => {
+      setAgent(await setAgentEnabled(!agent.enabled));
+    });
+  }, [agent, busy, runAction]);
+
+  // Hide the popup first, then ask for a file: the native dialog would
+  // otherwise paint over the menu.
+  const openFile = useCallback(() => {
+    void runAction("open-file", async () => {
+      const picked = await openFileDialog({ multiple: false, title: t("tray.openFile") });
+      if (typeof picked !== "string") return;
+      await inspectFile(picked);
+      await openPreview([picked]);
+    });
+  }, [runAction, t]);
 
   /**
    * Hover and click behaviour shared by the rows that own a flyout. Moving
@@ -702,7 +744,7 @@ export default function TrayMenuPage() {
         >
           {panel !== null && side === "left" && activePanel}
 
-          <div className="bg-popover text-popover-foreground border-border flex h-[177px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
+          <div className="bg-popover text-popover-foreground border-border flex h-[241px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
             <MenuItem
               icon={SquareArrowOutUpRight}
               label={t("tray.show")}
@@ -713,6 +755,23 @@ export default function TrayMenuPage() {
               label={t("tray.settings")}
               onSelect={() => run(openSettings)}
             />
+
+            <ToggleRow
+              icon={Eye}
+              label={t("tray.preview")}
+              checked={Boolean(agent?.enabled)}
+              disabled={busy !== null || agent === null}
+              trailing={
+                agent ? (
+                  <span className="text-muted-foreground/70 truncate text-[10px]">
+                    {agent.enabled ? t("tray.previewOn") : t("tray.previewOff")}
+                  </span>
+                ) : null
+              }
+              onToggle={togglePreview}
+            />
+
+            <MenuItem icon={FolderOpen} label={t("tray.openFile")} onSelect={() => run(openFile)} />
 
             <MenuItem
               icon={Zap}

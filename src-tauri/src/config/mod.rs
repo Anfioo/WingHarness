@@ -9,6 +9,7 @@ use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -42,7 +43,93 @@ pub struct Config {
     /// AI 配置同步（shaic）设置。
     #[serde(rename = "aiConfig")]
     pub ai_config: AiConfig,
+    /// The outbound proxy the app and the tools it spawns use.
+    pub proxy: ProxyConfig,
+    /// 文件预览页的读取上限与高亮开关。
+    #[serde(rename = "filePreview")]
+    pub file_preview: FilePreviewConfig,
+    /// Whether the app runs in networked mode.
+    ///
+    /// Standalone (the default) hides the sidebar's account menu; networked
+    /// mode shows it, with the guest placeholder until a real account exists.
+    pub networked: bool,
 }
+
+/// Proxy the app applies to its own HTTP clients and to its child processes.
+///
+/// Stored as a URL rather than a host/port pair so it covers whatever the user
+/// already has — `http://`, `https://` or `socks5://`. An empty `url` means
+/// "leave the environment alone", which keeps a proxy exported by the shell that
+/// launched the app working.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
+#[serde(default)]
+pub struct ProxyConfig {
+    /// Proxy URL, e.g. `http://127.0.0.1:7890`.
+    pub url: String,
+    /// Comma-separated hosts that bypass the proxy. Loopback is always added.
+    #[serde(rename = "noProxy")]
+    pub no_proxy: String,
+}
+
+/// The preview page's limits and display options.
+///
+/// The threshold is what the backend refuses to read and what the metadata's
+/// `overCap` flag reports, so it is enforced where the bytes are read rather
+/// than only in the page. The bounds keep a hand-edited `config.json` from
+/// asking the webview to hold an unreasonable amount of memory.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct FilePreviewConfig {
+    /// Largest file, in bytes, the preview will read.
+    pub max_bytes: u64,
+    /// Syntax-highlight text previews and the file editor.
+    pub highlight: bool,
+}
+
+/// 64 MiB: generous for a PDF, image or short video and cheap to hold twice.
+pub const DEFAULT_FILE_PREVIEW_BYTES: u64 = 64 * 1024 * 1024;
+pub const MIN_FILE_PREVIEW_BYTES: u64 = 1024 * 1024;
+pub const MAX_FILE_PREVIEW_BYTES: u64 = 1024 * 1024 * 1024;
+
+impl Default for FilePreviewConfig {
+    fn default() -> Self {
+        Self {
+            max_bytes: DEFAULT_FILE_PREVIEW_BYTES,
+            highlight: true,
+        }
+    }
+}
+
+impl FilePreviewConfig {
+    /// The threshold every read uses, with the bounds applied.
+    pub fn bytes_cap(&self) -> u64 {
+        self.max_bytes
+            .clamp(MIN_FILE_PREVIEW_BYTES, MAX_FILE_PREVIEW_BYTES)
+    }
+}
+
+/// Names reqwest and most command-line tools read to find a proxy. Both cases
+/// are written because tools differ in which one they look at.
+const PROXY_VARS: [&str; 6] = [
+    "HTTP_PROXY",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "http_proxy",
+    "https_proxy",
+    "all_proxy",
+];
+const NO_PROXY_VARS: [&str; 2] = ["NO_PROXY", "no_proxy"];
+
+/// Loopback hosts must never be proxied. The app talks to local services over
+/// HTTP — the Clash controller, for one — and a proxy in global mode would route
+/// those requests back into itself.
+const LOOPBACK_BYPASS: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
+
+/// Whether this process currently carries proxy variables that *we* wrote.
+/// Only those are removed when the setting is cleared, so a proxy exported by
+/// the shell that started the app is never destroyed by an empty config.
+static PROXY_APPLIED: AtomicBool = AtomicBool::new(false);
+static NO_PROXY_APPLIED: AtomicBool = AtomicBool::new(false);
 
 /// AI 配置同步（shaic）设置。
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
@@ -72,6 +159,23 @@ impl Config {
                 .filter(|id| seen.insert(id.to_ascii_lowercase()))
                 .collect()
         });
+
+        self.proxy.url = self.proxy.url.trim().to_string();
+        // A bare `host:port` is how proxy apps usually display their address.
+        // Without a scheme reqwest cannot parse it, so it is assumed to be HTTP.
+        if !self.proxy.url.is_empty() && !self.proxy.url.contains("://") {
+            self.proxy.url = format!("http://{}", self.proxy.url);
+        }
+        self.proxy.no_proxy = self.proxy.no_proxy.trim().to_string();
+
+        // A missing key or a zero is "use the default"; anything else is pulled
+        // into the range the settings page offers, so the value on disk and the
+        // value the page shows never disagree.
+        self.file_preview.max_bytes = if self.file_preview.max_bytes == 0 {
+            DEFAULT_FILE_PREVIEW_BYTES
+        } else {
+            self.file_preview.bytes_cap()
+        };
     }
 }
 
@@ -96,6 +200,52 @@ pub fn dir() -> PathBuf {
 /// back to when no directory is configured.
 pub fn default_dir() -> PathBuf {
     DEFAULT_DIR.get().cloned().unwrap_or_else(fallback_dir)
+}
+
+/// Points this process — and everything it spawns — at the configured proxy.
+///
+/// reqwest reads these variables when it builds a client, so every request made
+/// afterwards goes through the proxy without each caller knowing about the
+/// setting. Child processes inherit them too, which is why the setting replaces
+/// launching the app from a console with the proxy already exported.
+///
+/// Called once at startup, before any client is built, and again whenever the
+/// setting is saved. Already-built clients keep the proxy they were created
+/// with; restarting is the only way to reach those.
+pub fn apply_proxy_env(proxy: &ProxyConfig) {
+    let url = proxy.url.trim();
+    if url.is_empty() {
+        if PROXY_APPLIED.swap(false, Ordering::SeqCst) {
+            for key in PROXY_VARS {
+                env::remove_var(key);
+            }
+        }
+        if NO_PROXY_APPLIED.swap(false, Ordering::SeqCst) {
+            for key in NO_PROXY_VARS {
+                env::remove_var(key);
+            }
+        }
+        return;
+    }
+
+    for key in PROXY_VARS {
+        env::set_var(key, url);
+    }
+    PROXY_APPLIED.store(true, Ordering::SeqCst);
+
+    // The user's list, with loopback ensured on top. Written even when the field
+    // is empty: a proxy in global mode must still not swallow local requests.
+    let mut bypass: Vec<&str> = LOOPBACK_BYPASS.to_vec();
+    for entry in proxy.no_proxy.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+        if !bypass.iter().any(|kept| kept.eq_ignore_ascii_case(entry)) {
+            bypass.push(entry);
+        }
+    }
+    let bypass = bypass.join(",");
+    for key in NO_PROXY_VARS {
+        env::set_var(key, &bypass);
+    }
+    NO_PROXY_APPLIED.store(true, Ordering::SeqCst);
 }
 
 /// The directory the pointer currently names, read fresh from disk.
@@ -247,6 +397,92 @@ mod tests {
     fn partial_json_falls_back_to_defaults() {
         let config: Config = serde_json::from_str("{}").unwrap();
         assert_eq!(config.ai_config.enabled_agents, None);
+        assert_eq!(config.proxy, ProxyConfig::default());
+        assert_eq!(config.file_preview, FilePreviewConfig::default());
+        // Standalone is the default, so the sidebar's account stays hidden.
+        assert!(!config.networked);
+    }
+
+    /// The preview threshold is normalized into the range the settings page
+    /// offers: zero means "never written" and becomes the default, while an
+    /// out-of-range value pinned to the nearest bound.
+    #[test]
+    fn file_preview_bytes_are_clamped() {
+        let mut config = Config::default();
+        assert_eq!(config.file_preview.max_bytes, DEFAULT_FILE_PREVIEW_BYTES);
+        assert!(config.file_preview.highlight);
+
+        config.file_preview.max_bytes = 0;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, DEFAULT_FILE_PREVIEW_BYTES);
+
+        config.file_preview.max_bytes = 1;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, MIN_FILE_PREVIEW_BYTES);
+
+        config.file_preview.max_bytes = u64::MAX;
+        config.normalize();
+        assert_eq!(config.file_preview.max_bytes, MAX_FILE_PREVIEW_BYTES);
+    }
+
+    /// A value pasted from a proxy app is usually `host:port`; the scheme is
+    /// filled in so reqwest can parse it, and an explicit scheme is kept.
+    #[test]
+    fn proxy_url_is_trimmed_and_gets_a_default_scheme() {
+        let mut config = Config::default();
+        config.proxy.url = " 127.0.0.1:7890 ".to_string();
+        config.proxy.no_proxy = " localhost,127.0.0.1 ".to_string();
+        config.normalize();
+        assert_eq!(config.proxy.url, "http://127.0.0.1:7890");
+        assert_eq!(config.proxy.no_proxy, "localhost,127.0.0.1");
+
+        config.proxy.url = "socks5://127.0.0.1:7891".to_string();
+        config.normalize();
+        assert_eq!(config.proxy.url, "socks5://127.0.0.1:7891");
+    }
+
+    #[test]
+    fn proxy_round_trips_through_json() {
+        let mut config = Config::default();
+        config.proxy.url = "http://127.0.0.1:7890".to_string();
+        config.proxy.no_proxy = "localhost".to_string();
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"noProxy\":\"localhost\""), "{json}");
+
+        let back: Config = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.proxy, config.proxy);
+    }
+
+    #[test]
+    fn proxy_env_is_applied_and_cleared() {
+        let keys = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"];
+        let saved: Vec<Option<String>> = keys.iter().map(|key| env::var(key).ok()).collect();
+
+        apply_proxy_env(&ProxyConfig {
+            url: "http://127.0.0.1:7890".to_string(),
+            no_proxy: "localhost".to_string(),
+        });
+        for key in keys {
+            assert_eq!(env::var(key).ok().as_deref(), Some("http://127.0.0.1:7890"));
+        }
+        assert_eq!(
+            env::var("NO_PROXY").ok().as_deref(),
+            Some("localhost,127.0.0.1,::1")
+        );
+
+        apply_proxy_env(&ProxyConfig::default());
+        for key in keys {
+            assert!(env::var(key).is_err(), "{key} should be removed");
+        }
+        assert!(env::var("NO_PROXY").is_err());
+
+        for (key, value) in keys.iter().zip(saved) {
+            match value {
+                Some(value) => env::set_var(key, value),
+                None => env::remove_var(key),
+            }
+        }
     }
 
     /// Enabled agents default to `None` ("every agent"); an explicit list is the

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-read-prefix"
+description = "Enables the sp_read_prefix command without any pre-configured scope."
+commands.allow = ["sp_read_prefix"]
+
+[[permission]]
+identifier = "deny-sp-read-prefix"
+description = "Denies the sp_read_prefix command without any pre-configured scope."
+commands.deny = ["sp_read_prefix"]

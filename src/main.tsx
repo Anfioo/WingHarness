@@ -26,6 +26,7 @@ const pageMap = {
   "/systools": lazy(() => import("./pages/systools/index")),
   "/systools-window": lazy(() => import("./pages/systools/window")),
   "/servers": lazy(() => import("./pages/servers/index")),
+  "/ports": lazy(() => import("./pages/ports/index")),
   "/database": lazy(() => import("./pages/database/index")),
   "/database-window": lazy(() => import("./pages/database/window")),
   "/frp": lazy(() => import("./pages/frp/index")),
@@ -43,6 +44,7 @@ const pageMap = {
   "/claude-workflow": lazy(() => import("./pages/claude-workflow/index")),
   "/notes": lazy(() => import("./pages/notes/index")),
   "/file-preview": lazy(() => import("./pages/file-preview/index")),
+  "/preview-window": lazy(() => import("./pages/preview-window/index")),
   "/cc-switch": lazy(() => import("./pages/cc-switch/index")),
   "/about": lazy(() => import("./windows/about/index")),
   "/settings": lazy(() => import("./windows/settings/index")),
@@ -73,6 +75,7 @@ const standalonePaths = new Set([
   "/plugin-window",
   "/sidebar-manager",
   "/tray-menu",
+  "/preview-window",
   "/update",
 ]);
 

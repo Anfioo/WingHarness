@@ -393,6 +393,21 @@ export function highlightLine(code: string, language: string | null): string {
   return highlightLineState(code, language).html;
 }
 
+/**
+ * Highlights a whole document in one pass.
+ *
+ * A grammar id that is not registered returns null instead of throwing, so the
+ * caller can render the text unchanged.
+ */
+export function highlightText(text: string, language: string | null): string | null {
+  if (!language) return null;
+  try {
+    return hljs.highlight(text, { language: grammarOf(language), ignoreIllegals: true }).value;
+  } catch {
+    return null;
+  }
+}
+
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

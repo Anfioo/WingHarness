@@ -1,111 +1,45 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FolderTree } from "lucide-react";
 import { toast } from "sonner";
-import { previewBytes, previewMetadata, type RemoteEntry } from "@/commands";
+import type { RemoteEntry } from "@/commands";
 import { AppShell } from "@/components/app-shell";
+import { absolutePath } from "@/components/file-preview/absolute-path";
 import { FileTree } from "@/components/file-preview/file-tree";
-import { PreviewPane } from "@/components/file-preview/preview-pane";
+import { PreviewHost, type PreviewTarget } from "@/components/space-preview/host";
 import { ProjectPicker } from "@/components/project-picker";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { bytesToObjectUrl } from "@/lib/preview/lib/bytes";
-import type { FileMetadata } from "@/lib/preview/types";
-import { loadPreview } from "@/lib/preview/viewers/loadPreview";
-import { objectUrlsFrom } from "@/lib/preview/viewers/previewResources";
-import type { LoadState } from "@/lib/preview/viewers/previewTypes";
 
 /**
  * Preview the files of one project, chosen at the top of the page.
  *
  * The tree is the same one the project editor reads — `project_tree`, one level
- * at a time — but nothing here writes: pick a file and it is read through
- * `preview_bytes` and handed to the viewer registry, which parses it in the
- * webview. The only backend work is reading bytes.
+ * at a time — and the selected file is handed to `PreviewHost`, the same host
+ * the project and notes tabs and the standalone preview window render. The host
+ * owns the engine, the edit mode, the save and its encoding, so a file shows
+ * the same way wherever it is opened.
  *
- * The root comes from the page's project picker; the backend refuses anything
- * that escapes it.
+ * The tree spells its paths `/`-rooted; the backend wants an absolute Windows
+ * path, so the two are joined here before the host sees them.
  */
 export default function FilePreviewPage() {
   const { t } = useAppTranslation();
   const [root, setRoot] = useState("");
-  const [payload, setPayload] = useState<FileMetadata | null>(null);
-  const [state, setState] = useState<LoadState>({ status: "idle" });
+  const [selection, setSelection] = useState<{ path: string; name: string } | null>(null);
+  // The host cannot veto a target change, so the last dirty value is kept here
+  // and the page asks before switching files or projects.
+  const dirtyRef = useRef(false);
 
-  // Blob URLs made for a preview that is no longer on screen. Both kinds are
-  // tracked here: the one built from the file's bytes, and any the renderers
-  // made themselves (archive entries, PSD, decoded media).
-  const ownedUrls = useRef<Set<string>>(new Set());
-  const abortRef = useRef<AbortController | null>(null);
-  // Monotonic: a slower earlier request must not overwrite a newer selection.
-  const requestRef = useRef(0);
-
-  const releaseUrls = useCallback(() => {
-    for (const url of ownedUrls.current) URL.revokeObjectURL(url);
-    ownedUrls.current.clear();
-  }, []);
-
-  useEffect(
-    () => () => {
-      abortRef.current?.abort();
-      releaseUrls();
-    },
-    [releaseUrls]
+  const target = useMemo<PreviewTarget | null>(
+    () => (selection ? { path: absolutePath(root, selection.path), name: selection.name } : null),
+    [root, selection]
   );
 
-  const openFile = useCallback(
-    async (entry: RemoteEntry) => {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-      const request = ++requestRef.current;
-
-      releaseUrls();
-      // The name is known before the read, so the toolbar and the loading pane
-      // have something to show while the file is fetched.
-      setPayload({ path: entry.path, name: entry.name, mime: "", size: entry.size ?? 0 });
-      setState({ status: "loading" });
-
-      try {
-        const meta = await previewMetadata(entry.path, root);
-        if (request !== requestRef.current) return;
-        const metadata: FileMetadata = {
-          path: meta.path,
-          name: meta.name,
-          extension: meta.extension,
-          mime: meta.mime,
-          size: meta.size,
-          modified: meta.modified,
-        };
-        setPayload(metadata);
-
-        if (meta.overCap) {
-          setState({ status: "error", message: t("filePreview.tooLarge") });
-          return;
-        }
-
-        const bytes = await previewBytes(entry.path, root);
-        if (request !== requestRef.current) return;
-
-        const url = bytesToObjectUrl(bytes, meta.mime);
-        ownedUrls.current.add(url);
-        const result = await loadPreview(metadata, url, controller.signal);
-        if (request !== requestRef.current) return;
-        for (const owned of objectUrlsFrom(result)) ownedUrls.current.add(owned);
-        setState(result);
-      } catch (error) {
-        if (request !== requestRef.current) return;
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setState({
-          status: "error",
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    },
-    [releaseUrls, root, t]
-  );
-
-  const reload = useCallback(() => {
-    if (payload) void openFile({ path: payload.path, name: payload.name, type: "file" });
-  }, [openFile, payload]);
+  const confirmDiscard = useCallback(() => {
+    if (!dirtyRef.current) return true;
+    return window.confirm(
+      t("spacePreview.editor.discardConfirm", { defaultValue: "Discard the unsaved changes?" })
+    );
+  }, [t]);
 
   const onTreeError = useCallback(
     (message: string) => toast.error(t("filePreview.treeFailed"), { description: message }),
@@ -118,9 +52,8 @@ export default function FilePreviewPage() {
         <ProjectPicker
           value={root}
           onChange={(next) => {
-            releaseUrls();
-            setPayload(null);
-            setState({ status: "idle" });
+            if (!confirmDiscard()) return;
+            setSelection(null);
             setRoot(next);
           }}
         />
@@ -136,8 +69,11 @@ export default function FilePreviewPage() {
                     project it was built for, not to the one now selected. */}
                 <FileTree
                   key={root}
-                  selectedPath={payload?.path ?? null}
-                  onSelectFile={(entry) => void openFile(entry)}
+                  selectedPath={selection?.path ?? null}
+                  onSelectFile={(entry: RemoteEntry) => {
+                    if (!confirmDiscard()) return;
+                    setSelection({ path: entry.path, name: entry.name });
+                  }}
                   onError={onTreeError}
                   labels={{
                     loading: t("filePreview.treeLoading"),
@@ -149,12 +85,13 @@ export default function FilePreviewPage() {
             </aside>
 
             <section className="border-border bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border shadow-sm">
-              <PreviewPane
-                payload={payload}
-                state={state}
-                onReload={reload}
-                reloadLabel={t("filePreview.reload")}
-                emptyLabel={t("filePreview.empty")}
+              <PreviewHost
+                mode="embedded"
+                target={target}
+                onDirtyChange={(dirty) => {
+                  dirtyRef.current = dirty;
+                }}
+                className="min-h-0 flex-1"
               />
             </section>
           </div>

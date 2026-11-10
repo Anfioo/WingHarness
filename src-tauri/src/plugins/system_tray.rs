@@ -1,6 +1,8 @@
 // Only the platforms that keep a native menu build one.
 #[cfg(not(target_os = "windows"))]
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+#[cfg(not(target_os = "windows"))]
+use tauri_plugin_dialog::DialogExt;
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -41,6 +43,10 @@ pub fn update_tray_menu(app: &AppHandle, show_text: &str, quit_text: &str) -> Re
             "system-tray",
             &[
                 &MenuItem::with_id(app, "show", show_text, true, None::<&str>)
+                    .map_err(|e| e.to_string())?,
+                &MenuItem::with_id(app, "preview-toggle", "Space Preview", true, None::<&str>)
+                    .map_err(|e| e.to_string())?,
+                &MenuItem::with_id(app, "open-file", "Open File…", true, None::<&str>)
                     .map_err(|e| e.to_string())?,
                 &PredefinedMenuItem::separator(app).map_err(|e| e.to_string())?,
                 &MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)
@@ -102,6 +108,43 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                             let _ = window.set_focus();
                         }
                     }
+                    "preview-toggle" => {
+                        #[cfg(not(target_os = "windows"))]
+                        {
+                            let mut preferences =
+                                space_preview_core::prefs::load().unwrap_or_default();
+                            preferences.space_enabled = !preferences.space_enabled;
+                            let enabled = preferences.space_enabled;
+                            match space_preview_core::prefs::save(preferences) {
+                                Ok(_) => space_preview_core::agent::set_enabled(enabled),
+                                Err(error) => {
+                                    log::warn!("space_preview_tray_toggle_failed error={error}");
+                                }
+                            }
+                        }
+                    }
+                    "open-file" => {
+                        #[cfg(not(target_os = "windows"))]
+                        {
+                            let handle = app.clone();
+                            app.dialog().file().pick_file(move |picked| {
+                                let Some(path) = picked else {
+                                    return;
+                                };
+                                if let Some(window) = handle.get_webview_window("preview") {
+                                    let _ = window.show();
+                                    let _ = window.set_focus();
+                                }
+                                let _ = handle.emit(
+                                    "sp:preview-files",
+                                    serde_json::json!({
+                                        "paths": [path.to_string()],
+                                        "text": false,
+                                    }),
+                                );
+                            });
+                        }
+                    }
                     "quit" => {
                         app.exit(0);
                     }
@@ -117,6 +160,8 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                     "system-tray",
                     &[
                         &MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "preview-toggle", "Space Preview", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "open-file", "Open File…", true, None::<&str>)?,
                         &PredefinedMenuItem::separator(app)?,
                         &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
                     ],

@@ -32,4 +32,20 @@ export default tseslint.config(
       "react-hooks/immutability": "off",
     },
   },
+  {
+    // Ported upstream code (MIT, see src-tauri/space-preview-core/UPSTREAM.md).
+    // It stays close to its source, so these patterns are allowed here instead of
+    // being annotated file by file.
+    files: [
+      "src/lib/space-preview/engine/**/*.{ts,tsx}",
+      "src/lib/space-preview/worker/**/*.{ts,tsx}",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
+      "no-control-regex": "off",
+      "no-useless-escape": "off",
+      "prefer-const": "off",
+    },
+  },
 );

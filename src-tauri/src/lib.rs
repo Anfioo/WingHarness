@@ -21,6 +21,11 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                // The proxy has to reach the environment before the first HTTP
+                // client is built anywhere in the app, and before any child
+                // process is spawned, so it is applied right after the config
+                // directory is known.
+                config::apply_proxy_env(&config::load().proxy);
                 // The git engine keeps everything it persists — recent repos,
                 // hosting accounts, and the window's own stores — under
                 // `<data dir>/.git-repo`, next to `ccs/` and `.mcphub/`, so the
@@ -59,6 +64,13 @@ pub fn run() {
                 // `session.json` under `<data dir>/md-editor`, so the whole
                 // feature moves with the data directory.
                 let _ = md_editor_core::paths::CONFIG_DIR.set(config::dir().join("md-editor"));
+                // The preview feature keeps `preview.json` and the rendered
+                // presentation PDFs under `<data dir>/preview`, so the whole
+                // feature moves with the data directory like the others.
+                let _ = space_preview_core::paths::CONFIG_DIR.set(config::dir().join("preview"));
+                // The ports page keeps `settings.json` under `<data dir>/ports`,
+                // so the whole feature moves with the data directory.
+                let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
@@ -83,6 +95,12 @@ pub fn run() {
             app.manage(prism_core::ClashState::new(app.handle().clone()));
             app.manage(server_core::ServerState::new(app.handle().clone()));
             app.manage(frp_core::FrpState::new(app.handle().clone()));
+            app.manage(space_preview_core::state::PreviewState::default());
+            // The Windows space agent hooks the keyboard while Explorer, the
+            // desktop or Everything has focus. A0 leaves the entry point empty;
+            // B2 implements the hook, the Shell COM reader and Everything.
+            #[cfg(windows)]
+            space_preview_core::agent::start(app.handle().clone());
             // The identifier is not asserted against `config::IDENTIFIER`: dev
             // builds override it (see `src-tauri/tauri.dev.conf.json`) so they
             // can run next to an installed build.
@@ -102,7 +120,7 @@ pub fn run() {
         // would save it as visible and pop it up on the next start.
         .plugin(
             tauri_plugin_window_state::Builder::new()
-                .with_denylist(&["tray-menu"])
+                .with_denylist(&["tray-menu", "preview"])
                 .build(),
         )
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -132,6 +150,10 @@ pub fn run() {
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
             plugins::registry::stop_all_running();
+            // The space agent owns a low-level keyboard hook and a STA worker;
+            // leaking them would keep the hook installed after the app is gone.
+            #[cfg(windows)]
+            space_preview_core::agent::stop();
             // The Clash core is our child process: left alone it keeps the
             // proxy ports and the controller long after the window is gone.
             if let Some(clash) = app.try_state::<prism_core::ClashState>() {

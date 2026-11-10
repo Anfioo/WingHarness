@@ -112,6 +112,27 @@ over. See `src-tauri/db-core/UPSTREAM.md` and
 `src-tauri/svn-core` and the SVN workspace pages are ported wholesale from
 OrcaSVN, as stated in `svn-core/src/lib.rs`.
 
+### Porter
+
+- Project: [Porter](https://github.com/t21dev/porter-app)
+- Version: v0.7.1
+- License: MIT
+- License text: [licenses/Porter-LICENSE.txt](./licenses/Porter-LICENSE.txt)
+
+Porter (https://github.com/t21dev/porter-app)
+Copyright (c) 2025 Porter App Contributors
+Licensed under the MIT License.
+Portions of the Windows TCP listener enumeration, port scan, process lookup,
+process termination and the port list/detail/settings UI are adapted from
+Porter.
+
+`src-tauri/ports-core` is the engine behind the ports page. It is rewritten, not
+copied: only the Windows TCP listener table, the scan's three states, the
+process lookup and termination path, the one-shot elevation behaviour and the
+DTOs are derived from Porter. The macOS, Linux and Flatpak paths, outbound
+connections, UDP, whole-app elevation and the shell/theme/update features were
+not carried over. See `src-tauri/ports-core/UPSTREAM.md` for the porting record.
+
 ### shaic
 
 - Project: [shaic](https://github.com/dariocurr/shaic)
@@ -122,6 +143,25 @@ OrcaSVN, as stated in `svn-core/src/lib.rs`.
 `src-tauri/shaic-core` derives from the `core/` crate of shaic; fifty-one files
 were byte-identical at import. The crate is now a first-party engine and is
 edited here. See `src-tauri/shaic-core/UPSTREAM.md` for the porting record.
+
+### SpacePreview
+
+- Project: [SpacePreview](https://github.com/likehao19/SpacePreview)
+- Version: 0.10.22
+- License: MIT
+- License text: [licenses/SpacePreview-LICENSE.txt](./licenses/SpacePreview-LICENSE.txt)
+
+SpacePreview / Copyright (c) 2026 likehao19 / Licensed under the MIT License.
+Portions of the preview engines, viewers and Windows Space integration are
+adapted from SpacePreview. `src-tauri/space-preview-core` is the Rust side
+(file inspection and ranged reads, text write-back with encodings, HTML
+resources, PowerPoint conversion, system icons and the Windows space agent);
+`src/lib/space-preview` and `src/components/space-preview` are the ported format
+engines, Web Worker, viewers and scoped stylesheet, behind the upgraded File
+Preview page, the standalone preview window and the editors' preview tabs. The
+CAD, 3D-model, RAW-image, design-thumbnail and Graphviz (EPL-2.0) branches were
+not carried over. See `src-tauri/space-preview-core/UPSTREAM.md` and
+`src/components/space-preview/UPSTREAM.md`.
 
 ### TizuMark
 
@@ -183,6 +223,7 @@ its crate source.
 | Package | License |
 |---------|---------|
 | `7z-wasm` | LGPL + unRAR restriction — see §3 |
+| `@asciidoctor/core` | MIT |
 | `@codemirror/commands` | MIT |
 | `@codemirror/lang-markdown` | MIT |
 | `@codemirror/language` | MIT |
@@ -192,6 +233,7 @@ its crate source.
 | `@dnd-kit/core` | MIT |
 | `@dnd-kit/sortable` | MIT |
 | `@dnd-kit/utilities` | MIT |
+| `@kenjiuno/msgreader` | Apache-2.0 |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
 | `@tailwindcss/vite` | MIT |
@@ -206,6 +248,7 @@ its crate source.
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |
 | `ag-psd` | MIT |
+| `buffer` | MIT |
 | `cfb` | Apache-2.0 |
 | `chart.js` | MIT |
 | `class-variance-authority` | Apache-2.0 |
@@ -213,21 +256,28 @@ its crate source.
 | `cmdk` | MIT |
 | `cn` | MIT |
 | `codelet` | MIT |
+| `comlink` | Apache-2.0 |
+| `docx-preview` | Apache-2.0 |
 | `dompurify` | MPL-2.0 OR Apache-2.0 |
 | `exceljs` | MIT |
+| `fast-xml-parser` | MIT |
 | `fflate` | MIT |
+| `fzstd` | MIT |
 | `highlight.js` | BSD-3-Clause |
 | `i18next` | MIT |
 | `i18next-browser-languagedetector` | MIT |
 | `icojs` | MIT |
 | `jszip` | MIT OR GPL-3.0-or-later |
 | `katex` | MIT |
+| `libarchive.js` | MIT |
+| `lottie-web` | MIT |
 | `lucide-react` | ISC |
 | `mammoth` | BSD-2-Clause |
 | `marked` | MIT |
 | `mermaid` | MIT |
 | `mind-elixir` | MIT |
 | `node-unrar-js` | MIT |
+| `opentype.js` | MIT |
 | `papaparse` | MIT |
 | `pdfjs-dist` | Apache-2.0 |
 | `postal-mime` | MIT-0 |
@@ -237,10 +287,15 @@ its crate source.
 | `react-day-picker` | MIT |
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
+| `rtf.js` | MIT |
+| `seek-bzip` | MIT |
 | `sonner` | MIT |
+| `sql.js` | MIT |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
+| `xlsx` | Apache-2.0 |
+| `xz-decompress` | MIT |
 | `yaml` | ISC |
 | `zustand` | MIT |
 
@@ -267,6 +322,7 @@ its crate source.
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
 | `log` | MIT OR Apache-2.0 |
+| `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
 | `png` | MIT OR Apache-2.0 |
@@ -316,9 +372,9 @@ exceptions are:
 
 | Package | License | Pulled in by | Note |
 |---------|---------|--------------|------|
-| `elkjs` | EPL-2.0 | `mermaid` | Ships inside the JavaScript bundle. EPL-2.0 is not on the porting gate's allowed list, so its use is an open item: either confirm the EPL-2.0 secondary-license option for the shipped build or stop bundling the ELK layout. |
+| `elkjs` | EPL-2.0 | `mermaid` | **Not redistributed.** `vite.config.ts` aliases the package to `src/lib/elk-stub.ts` because EPL-2.0 is not on the porting gate's allowed list. A diagram that explicitly asks for an ELK layout reports that the layout is unavailable; every other mermaid layout uses dagre. |
 | `lightningcss`, `lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`, `vite` | Build-time only; not redistributed in the application. |
-| `buffers` | none stated | `exceljs` → `unzipper` → `binary` | The package declares no `license` field and ships no license file. Whether its code reaches the Excel viewer bundle needs confirmation; if it does, replace or license it. |
+| `buffers` | none stated | `exceljs` → `unzipper` → `binary` | **Not redistributed.** Vite resolves ExcelJS's `browser` entry (`dist/exceljs.min.js`), which uses JSZip and contains no `unzipper`, `binary` or `buffers` code. |
 
 MPL-2.0 is a file-level copyleft and is compatible with GPL-3.0-only; the
 MPL-2.0 components above are build tooling and are not redistributed. The

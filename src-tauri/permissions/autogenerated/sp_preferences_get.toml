@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-preferences-get"
+description = "Enables the sp_preferences_get command without any pre-configured scope."
+commands.allow = ["sp_preferences_get"]
+
+[[permission]]
+identifier = "deny-sp-preferences-get"
+description = "Denies the sp_preferences_get command without any pre-configured scope."
+commands.deny = ["sp_preferences_get"]

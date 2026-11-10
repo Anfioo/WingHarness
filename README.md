@@ -30,7 +30,7 @@ product:
 - **Local terminal** — a real pseudo-console (`portable-pty`) rendered in the webview
 - **Notes** — a Markdown store under the data directory, edited with the bundled codelet editor
 - **Project file browser** — a directory tree served one level at a time and confined to a single root
-- **Read-only file preview** — Word, Excel, PowerPoint, PDF, images, archives, e-books, PSD, XMind, audio and video, all parsed in the webview
+- **File preview** — Word, Excel, PowerPoint, PDF, images, archives, e-books, PSD, XMind, audio and video parsed in the webview, text editing with encoding selection, and a standalone window that the Space key opens from Explorer, the desktop or Everything
 - **Data directory settings** — every piece of persisted state lives under one configurable directory
 - **About and settings windows** — each one a worked example of a second window with its own route
 - **Auto-update** — signed releases published by GitHub Actions, installed through Tauri's updater
@@ -80,7 +80,7 @@ pnpm check          # prettier --check, eslint, tsc, vite build
 .
 ├── src/                      # Frontend (React + TypeScript)
 │   ├── main.tsx              # Entry: pageMap + standalonePaths
-│   ├── pages/                # Main-window pages: start, local-terminal, notes, file-preview, project
+│   ├── pages/                # Main-window pages: start, local-terminal, notes, file-preview, project; preview-window is its own window
 │   ├── windows/              # Own-window routes: about, settings, tray-menu
 │   ├── components/           # Shell, title bar, sidebar, file preview, shadcn/ui primitives
 │   ├── lib/                  # router, app-routes, editor, preview viewers, fonts, terminal, theme
@@ -89,7 +89,8 @@ pnpm check          # prettier --check, eslint, tsc, vite build
 │   └── i18n/                 # i18next setup + locales/{en,zh}.json
 ├── src-tauri/                # Backend (Rust)
 │   ├── src/                  # commands/, config/, fonts/, theme/, plugins/ (tray)
-│   ├── file-preview/         # Workspace crate: the preview page's byte reader
+│   ├── file-preview/         # Workspace crate: the legacy preview page's byte reader
+│   ├── space-preview-core/   # Workspace crate: preview I/O, text encodings, Windows space agent
 │   └── tauri.conf.json       # Windows, bundle and updater configuration
 ├── docs/                     # Cross-cutting guides; feature guides in features/
 └── scripts/                  # Release versioning, theme presets, build.ps1
@@ -103,13 +104,15 @@ pnpm check          # prettier --check, eslint, tsc, vite build
 | `/local-terminal` | `pages/local-terminal/index.tsx` | main window |
 | `/notes` | `pages/notes/index.tsx` | main window |
 | `/file-preview` | `pages/file-preview/index.tsx` | main window |
+| `/preview-window` | `pages/preview-window/index.tsx` | own window |
 | `/project` | `pages/project/index.tsx` | main window |
 | `/about` | `windows/about/index.tsx` | own window |
 | `/settings` | `windows/settings/index.tsx` | own window |
 | `/tray-menu` | `windows/tray-menu/index.tsx` | own window |
 
-Main-window pages are wrapped in the shared `AppShell`; the three window routes
-are listed in `standalonePaths` and render their own frame.
+Main-window pages are wrapped in the shared `AppShell`; the window routes are
+listed in `standalonePaths` and render their own frame. `/preview-window` is
+declared hidden and shown by the preview's space agent.
 
 ## Adding Things
 
@@ -158,13 +161,14 @@ repository yet.
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
 | [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |
 | [DATABASE.md](./docs/features/DATABASE.md) | Data sources, tabbed data-source windows with persisted query files and tabs, SQL console, execution plans, table data and object management |
-| [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | Read-only viewer, supported formats, how to add one |
+| [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | The preview engine, the standalone Space window, text editing, supported formats, how to add one |
 | [FRP.md](./docs/features/FRP.md) | FRP console: generated `frpc` configs, child processes, logs |
 | [GIT.md](./docs/features/GIT.md) | Local Git client, one window per repository |
 | [MCP_HUB.md](./docs/features/MCP_HUB.md) | One local endpoint in front of the local MCP servers |
 | [MD_EDITOR.md](./docs/features/MD_EDITOR.md) | Multi-tab Markdown editor over files left in place |
 | [NOTES.md](./docs/features/NOTES.md) | Markdown notes kept in the data directory |
 | [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
+| [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |

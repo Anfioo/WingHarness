@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-list-directory"
+description = "Enables the sp_list_directory command without any pre-configured scope."
+commands.allow = ["sp_list_directory"]
+
+[[permission]]
+identifier = "deny-sp-list-directory"
+description = "Denies the sp_list_directory command without any pre-configured scope."
+commands.deny = ["sp_list_directory"]

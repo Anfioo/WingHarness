@@ -22,6 +22,8 @@ members = [
     "frp-core",
     "md-editor-core",
     "db-core",
+    "space-preview-core",
+    "ports-core",
 ]
 resolver = "2"
 
@@ -81,6 +83,12 @@ md-editor-core = { path = "md-editor-core" }
 # The database page's engine: data sources, live connections (SQLite, PostgreSQL,
 # MySQL), introspection, query execution and table editing.
 db-core = { path = "db-core" }
+# The file preview page's upgraded engine and the Windows space agent: file
+# inspection, ranged reads, text write-back, presentations and icons.
+space-preview-core = { path = "space-preview-core" }
+# The ports page's engine: TCP listener enumeration, pinned ports and process
+# termination (Windows only).
+ports-core = { path = "ports-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
@@ -111,7 +119,10 @@ tokio-util = "0.7"
 portable-pty = "0.8"
 base64 = "0.22"
 font-kit = "0.14"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+# `system-proxy` is part of the default feature set and would otherwise be
+# switched off here: without it reqwest ignores HTTP_PROXY / HTTPS_PROXY, which
+# is exactly how the app's proxy setting reaches every client.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "socks", "system-proxy"] }
 regex = "1"
 sha2 = "0.10"
 url = "2"

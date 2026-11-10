@@ -8,3 +8,10 @@ src/components/ui
 # under src/lib/preview (preview.css, types.ts) are still formatted.
 src/lib/preview/viewers
 src/lib/preview/lib
+# Ported from SpacePreview; kept in its upstream style so a reformat does not
+# bury the real edits. Host-owned files under src/lib/space-preview are still
+# formatted.
+src/lib/space-preview/engine
+src/lib/space-preview/worker
+src/components/space-preview/viewers
+src/components/space-preview/space-preview.css

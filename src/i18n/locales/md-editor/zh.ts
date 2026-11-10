@@ -123,7 +123,7 @@ export default {
     diagramTooMany: "图表数量过多，其余图表按代码显示。",
   },
   settings: {
-    title: "Markdown 编辑器",
+    title: "Markdown",
     loadFailed: "加载设置失败。",
     saveFailed: "保存设置失败。",
     retry: "重试",

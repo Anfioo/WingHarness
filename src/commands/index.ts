@@ -109,8 +109,15 @@ export type {
   TraceEntry as ClashTraceEntry,
   ValidateView as ClashValidateView,
 } from "./services/clash/types";
-export { getConfig, saveConfig, setDataDir } from "./services/config";
-export type { AgentOption, AiConfig, AppConfig, ConfigView } from "./services/config/types";
+export { CONFIG_CHANGED_EVENT, getConfig, saveConfig, setDataDir } from "./services/config";
+export type {
+  AgentOption,
+  AiConfig,
+  AppConfig,
+  ConfigView,
+  FilePreviewConfig,
+  ProxyConfig,
+} from "./services/config/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";
 export type { PreviewMeta } from "./services/file-preview";
@@ -928,6 +935,33 @@ export type {
 } from "./services/frp/types";
 export { frpErrorCode, isFrpError } from "./services/frp/types";
 export {
+  portsDetail,
+  portsKill,
+  portsKillElevated,
+  portsList,
+  portsPinnedScan,
+  portsSettingsGet,
+  portsSettingsSet,
+} from "./services/ports";
+export {
+  DEFAULT_PINNED_PORTS,
+  MAX_PINNED_PORTS,
+  isPortsError,
+  portsErrorCode,
+} from "./services/ports/types";
+export type {
+  PortDetail,
+  PortEntry,
+  PortGrouping,
+  PortsError,
+  PortsErrorCode,
+  PortsSettings,
+  PortStatus,
+  ProcessBrief,
+  ProcessDetail,
+  Protocol,
+} from "./services/ports/types";
+export {
   mdEditorExportPdf,
   mdEditorFileMeta,
   mdEditorOpenFile,
@@ -966,3 +1000,36 @@ export type {
   ViewSettings,
 } from "./services/md-editor/types";
 export { isMdEditorError, mdEditorErrorCode } from "./services/md-editor/types";
+export {
+  agentStatus,
+  cancelFileNavigation,
+  fileIcon,
+  getPreviewPreferences,
+  hidePreview,
+  initialPaths,
+  inspectFile,
+  listDirectory,
+  navigateFileSelection,
+  openPreview,
+  probePresentation,
+  readHtmlResource,
+  readPrefix,
+  readRange,
+  renderPresentation,
+  savePreviewPreferences,
+  setAgentEnabled,
+  writeText,
+} from "./services/space-preview";
+export type {
+  AgentStatus,
+  DirectoryPage,
+  InitialPaths,
+  PreviewFileInfo,
+  PreviewFont,
+  PreviewHtmlView,
+  PreviewKey,
+  PreviewPreferences,
+  TextEncoding,
+  // The project file service already exports its own `WriteResult`.
+  WriteResult as SpacePreviewWriteResult,
+} from "./services/space-preview/types";

@@ -13,6 +13,7 @@ import {
   NotebookPen,
   Network,
   Package,
+  Plug,
   Send,
   Server,
   Sparkles,
@@ -30,7 +31,8 @@ export type AppRouteGroup =
   | "agents"
   | "servers"
   | "frp"
-  | "mdEditor";
+  | "mdEditor"
+  | "ports";
 
 /**
  * 侧栏 / 页头用的图标。大多是 lucide 图标，但 CC Switch 用它自己的品牌 logo
@@ -61,7 +63,8 @@ export type AppRouteId =
   | "notes"
   | "filePreview"
   | "project"
-  | "mdEditor";
+  | "mdEditor"
+  | "ports";
 
 export type AppRoute = {
   id: AppRouteId;
@@ -147,6 +150,17 @@ export const appRoutes: AppRoute[] = [
     icon: Wrench,
     scope: "Windows 系统工具 / 六个页签",
     items: ["启动项", "卸载与残留", "系统优化", "磁盘分析", "重复文件", "大文件"],
+  },
+  {
+    id: "ports",
+    group: "ports",
+    path: "/ports",
+    title: "端口",
+    navLabel: "端口",
+    description: "查看本机监听的 TCP 端口，定位并结束占用端口的进程。",
+    icon: Plug,
+    scope: "本机",
+    items: ["监听端口", "固定端口", "结束进程"],
   },
   {
     id: "servers",
