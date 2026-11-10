@@ -170,6 +170,30 @@
       "autoSave": "修改后自动保存。",
       "loadFailed": "加载 agent 列表失败。"
     },
+    "proxy": {
+      "title": "代理",
+      "description": "应用发起网络请求时使用的代理，应用启动的工具同样适用。",
+      "urlLabel": "代理地址",
+      "urlHint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7891。留空则沿用环境变量或 Windows 系统中的代理。",
+      "urlPlaceholder": "http://127.0.0.1:7890",
+      "noProxyLabel": "直连列表",
+      "noProxyHint": "以逗号分隔的直连地址，例如内网域名。本机地址（localhost、127.0.0.1）始终直连。",
+      "noProxyPlaceholder": "localhost,127.0.0.1",
+      "autoSave": "修改后自动保存，对保存之后发起的请求生效；已在运行的客户端需重启。",
+      "envNote": "以 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 写入应用启动的子进程环境。",
+      "loadFailed": "读取代理设置失败。"
+    },
+    "filePreview": {
+      "title": "文件预览设置",
+      "description": "文件预览页读取和显示文件的方式。",
+      "maxSize": "文件大小阈值",
+      "maxSizeHint": "超过此大小的文件仍会列出，但不会打开：后端会拒绝读取超过阈值的内容。",
+      "maxSizeUnit": "MB",
+      "highlight": "语法高亮",
+      "highlightHint": "在文本预览和文件编辑器中为代码和标记着色。",
+      "autoSave": "修改后自动保存，对下次打开的文件生效。",
+      "loadFailed": "读取文件预览设置失败。"
+    },
     "appearance": {
       "title": "外观",
       "description": "自定义应用的外观和语言",
@@ -215,6 +239,49 @@
       "showMainDesc": "使用快捷键快速显示主窗口",
       "setSuccess": "已将快捷键设为 {{shortcut}}！",
       "cleared": "已取消快捷键！"
+    }
+  },
+  "shortcutField": {
+    "placeholder": "点击设置",
+    "presetsTitle": "预设",
+    "customTitle": "自定义",
+    "record": "按下按键",
+    "recording": "等待按键…",
+    "recordHint": "按下一个修饰键和一个按键，或在下方选择。",
+    "preview": "结果",
+    "apply": "应用",
+    "clear": "清除",
+    "incomplete": "请选择修饰键和按键",
+    "keys": {
+      "space": "空格",
+      "enter": "回车",
+      "tab": "Tab",
+      "escape": "Esc",
+      "backspace": "退格",
+      "delete": "删除",
+      "insert": "插入",
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右",
+      "home": "Home",
+      "end": "End",
+      "pageUp": "PageUp",
+      "pageDown": "PageDown"
+    },
+    "groups": {
+      "letters": "字母",
+      "digits": "数字",
+      "function": "功能键",
+      "navigation": "编辑键",
+      "symbols": "符号"
+    },
+    "presets": {
+      "space": "空格",
+      "doubleCtrl": "双击 Ctrl",
+      "altSpace": "Alt + 空格",
+      "winSpace": "Win + 空格",
+      "ctrlW": "Ctrl + W"
     }
   },
   "releaseVersion": {
@@ -284,7 +351,13 @@
     "currentHint": "应用当前读写所在的位置。",
     "defaultLabel": "默认",
     "pointerLabel": "指针文件",
-    "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。"
+    "pointerNote": "数据目录记录在此文件中，你也可以手动编辑它。",
+    "modeLabel": "运行模式",
+    "modeHint": "单机模式隐藏侧边栏底部的账户；联网模式先显示一个访客账户。",
+    "modeStandalone": "单机",
+    "modeNetworked": "联网",
+    "modeSaved": "运行模式已保存。",
+    "modeSaveFailed": "保存运行模式失败。"
   },
   "plugins": {
     "title": "插件",
@@ -1197,7 +1270,16 @@
     "empty": "从左侧选择一个文件开始预览。",
     "reload": "重新读取",
     "close": "关闭预览",
-    "tooLarge": "文件过大，无法预览。"
+    "tooLarge": "文件超过预览阈值，无法预览。可在 设置 → 文件预览设置 中调整。",
+    "edit": "编辑",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "退出编辑",
+    "dirty": "有未保存的修改",
+    "discardConfirm": "确定放弃未保存的修改吗？",
+    "editFailed": "无法打开文件进行编辑。",
+    "saveFailed": "保存文件失败。",
+    "saved": "已保存。"
   },
   "gitRepo": {
     "windowTitle": "Git 仓库",

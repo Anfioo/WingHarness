@@ -1,34 +1,59 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FolderTree } from "lucide-react";
 import { toast } from "sonner";
-import { previewBytes, previewMetadata, type RemoteEntry } from "@/commands";
+import {
+  previewBytes,
+  previewMetadata,
+  projectRead,
+  projectWrite,
+  type RemoteEntry,
+} from "@/commands";
 import { AppShell } from "@/components/app-shell";
+import { CodeEditor } from "@/components/code-editor";
 import { FileTree } from "@/components/file-preview/file-tree";
 import { PreviewPane } from "@/components/file-preview/preview-pane";
 import { ProjectPicker } from "@/components/project-picker";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { useFilePreviewConfig } from "@/hooks/use-file-preview-config";
+import { languageOf } from "@/lib/git-core/highlight";
 import { bytesToObjectUrl } from "@/lib/preview/lib/bytes";
 import type { FileMetadata } from "@/lib/preview/types";
 import { loadPreview } from "@/lib/preview/viewers/loadPreview";
 import { objectUrlsFrom } from "@/lib/preview/viewers/previewResources";
+import { resolveViewer } from "@/lib/preview/viewers/registry";
 import type { LoadState } from "@/lib/preview/viewers/previewTypes";
 
 /**
  * Preview the files of one project, chosen at the top of the page.
  *
  * The tree is the same one the project editor reads — `project_tree`, one level
- * at a time — but nothing here writes: pick a file and it is read through
- * `preview_bytes` and handed to the viewer registry, which parses it in the
- * webview. The only backend work is reading bytes.
+ * at a time — and the preview is read through `preview_bytes` and handed to the
+ * viewer registry, which parses it in the webview. Text-like files can also be
+ * edited here: the editor reads the raw text through `project_read` (not the
+ * rendered preview — Markdown is shown as HTML, JSON is re-indented) and writes
+ * it back through `project_write`, whose etag refuses a write over a file that
+ * changed on disk in the meantime.
  *
  * The root comes from the page's project picker; the backend refuses anything
  * that escapes it.
  */
 export default function FilePreviewPage() {
   const { t } = useAppTranslation();
+  const config = useFilePreviewConfig();
   const [root, setRoot] = useState("");
   const [payload, setPayload] = useState<FileMetadata | null>(null);
   const [state, setState] = useState<LoadState>({ status: "idle" });
+  const [overCap, setOverCap] = useState(false);
+
+  // Editing: the raw text, the tag it was read with, and whether it is back on
+  // disk. `dirty` is derived — typing a file back to its original text is not a
+  // change.
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const [original, setOriginal] = useState("");
+  const [etag, setEtag] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const dirty = editing && text !== original;
 
   // Blob URLs made for a preview that is no longer on screen. Both kinds are
   // tracked here: the one built from the file's bytes, and any the renderers
@@ -59,6 +84,7 @@ export default function FilePreviewPage() {
       const request = ++requestRef.current;
 
       releaseUrls();
+      setOverCap(false);
       // The name is known before the read, so the toolbar and the loading pane
       // have something to show while the file is fetched.
       setPayload({ path: entry.path, name: entry.name, mime: "", size: entry.size ?? 0 });
@@ -78,6 +104,7 @@ export default function FilePreviewPage() {
         setPayload(metadata);
 
         if (meta.overCap) {
+          setOverCap(true);
           setState({ status: "error", message: t("filePreview.tooLarge") });
           return;
         }
@@ -107,6 +134,68 @@ export default function FilePreviewPage() {
     if (payload) void openFile({ path: payload.path, name: payload.name, type: "file" });
   }, [openFile, payload]);
 
+  /**
+   * Leaves edit mode, asking first when there is text to lose. Returns false
+   * when the user says no, so the caller can cancel the navigation too.
+   */
+  const leaveEdit = useCallback(() => {
+    if (!editing) return true;
+    if (dirty && !window.confirm(t("filePreview.discardConfirm"))) return false;
+    setEditing(false);
+    return true;
+  }, [dirty, editing, t]);
+
+  const startEdit = useCallback(async () => {
+    if (!payload) return;
+    try {
+      const result = await projectRead(payload.path, root);
+      setText(result.text);
+      setOriginal(result.text);
+      setEtag(result.etag);
+      setEditing(true);
+    } catch (error) {
+      toast.error(t("filePreview.editFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }, [payload, root, t]);
+
+  const saveEdit = useCallback(async () => {
+    if (!payload || saving || text === original) return;
+    setSaving(true);
+    try {
+      await projectWrite(payload.path, text, etag, root);
+      setEditing(false);
+      toast.success(t("filePreview.saved"));
+      // Read it back through the viewer path: the preview should show what is
+      // on disk now, not what the editor happens to hold.
+      void openFile({ path: payload.path, name: payload.name, type: "file" });
+    } catch (error) {
+      toast.error(t("filePreview.saveFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [etag, openFile, original, payload, root, saving, t, text]);
+
+  const cancelEdit = useCallback(() => {
+    leaveEdit();
+  }, [leaveEdit]);
+
+  /**
+   * Text-like means the viewer treats the file as text, or the fallback found
+   * decodable text under an extension nobody claimed. Anything rendered from a
+   * structured format (HTML, sheets, documents) is left alone. Waiting for a
+   * ready state also keeps the pencil away from a file that is still being read
+   * — it may yet turn out to be past the threshold.
+   */
+  const canEdit = useMemo(() => {
+    if (!payload || overCap || state.status !== "ready") return false;
+    if (resolveViewer(payload.name).editable) return true;
+    return state.content.kind === "text";
+  }, [payload, overCap, state]);
+
   const onTreeError = useCallback(
     (message: string) => toast.error(t("filePreview.treeFailed"), { description: message }),
     [t]
@@ -118,8 +207,10 @@ export default function FilePreviewPage() {
         <ProjectPicker
           value={root}
           onChange={(next) => {
+            if (!leaveEdit()) return;
             releaseUrls();
             setPayload(null);
+            setOverCap(false);
             setState({ status: "idle" });
             setRoot(next);
           }}
@@ -137,7 +228,10 @@ export default function FilePreviewPage() {
                 <FileTree
                   key={root}
                   selectedPath={payload?.path ?? null}
-                  onSelectFile={(entry) => void openFile(entry)}
+                  onSelectFile={(entry) => {
+                    if (!leaveEdit()) return;
+                    void openFile(entry);
+                  }}
                   onError={onTreeError}
                   labels={{
                     loading: t("filePreview.treeLoading"),
@@ -155,6 +249,28 @@ export default function FilePreviewPage() {
                 onReload={reload}
                 reloadLabel={t("filePreview.reload")}
                 emptyLabel={t("filePreview.empty")}
+                highlight={config.highlight}
+                onEdit={canEdit ? () => void startEdit() : undefined}
+                editLabel={t("filePreview.edit")}
+                editing={editing}
+                dirty={dirty}
+                dirtyLabel={t("filePreview.dirty")}
+                saving={saving}
+                onSave={() => void saveEdit()}
+                saveLabel={saving ? t("filePreview.saving") : t("filePreview.save")}
+                onCancel={cancelEdit}
+                cancelLabel={t("filePreview.cancel")}
+                editor={
+                  <CodeEditor
+                    value={text}
+                    language={payload ? languageOf(payload.path) : null}
+                    highlight={config.highlight}
+                    onChange={setText}
+                    onSave={() => void saveEdit()}
+                    ariaLabel={payload?.name ?? ""}
+                    className="h-full"
+                  />
+                }
               />
             </section>
           </div>

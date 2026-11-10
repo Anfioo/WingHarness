@@ -109,8 +109,15 @@ export type {
   TraceEntry as ClashTraceEntry,
   ValidateView as ClashValidateView,
 } from "./services/clash/types";
-export { getConfig, saveConfig, setDataDir } from "./services/config";
-export type { AgentOption, AiConfig, AppConfig, ConfigView } from "./services/config/types";
+export { CONFIG_CHANGED_EVENT, getConfig, saveConfig, setDataDir } from "./services/config";
+export type {
+  AgentOption,
+  AiConfig,
+  AppConfig,
+  ConfigView,
+  FilePreviewConfig,
+  ProxyConfig,
+} from "./services/config/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";
 export type { PreviewMeta } from "./services/file-preview";

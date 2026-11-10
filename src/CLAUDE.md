@@ -104,8 +104,9 @@ project command from a page that has no root in play.
   views), `md-editor/`, `svn-workspace/`
 - `hooks/` — `use-app-translation` (use this one, not `useTranslation`
   directly: it also listens for the cross-window language change event),
-  `use-config-draft`, `use-maximized`, `use-mobile`, `use-updater`, and the
-  "*show home*" listeners (`use-project-home`, `use-git-home`, `use-svn-home`)
+  `use-config-draft`, `use-file-preview-config`, `use-maximized`, `use-mobile`,
+  `use-updater`, and the "*show home*" listeners (`use-project-home`,
+  `use-git-home`, `use-svn-home`)
 - `components/ui/` — shadcn/ui primitives; leave these as generated
 - `i18n/index.ts` — i18next configuration
 

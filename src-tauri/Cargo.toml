@@ -115,7 +115,10 @@ tokio-util = "0.7"
 portable-pty = "0.8"
 base64 = "0.22"
 font-kit = "0.14"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+# `system-proxy` is part of the default feature set and would otherwise be
+# switched off here: without it reqwest ignores HTTP_PROXY / HTTPS_PROXY, which
+# is exactly how the app's proxy setting reaches every client.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "socks", "system-proxy"] }
 regex = "1"
 sha2 = "0.10"
 url = "2"
