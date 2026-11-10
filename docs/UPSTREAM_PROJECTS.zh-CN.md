@@ -58,6 +58,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [McpHub](https://github.com/Soflutionltd/McpHub) | MIT | `src-tauri/src/mcphub`、`mcp-hub` 页面 | 每个源文件都保留归属声明 |
 | [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`、`servers` 页面 | 属改写，无相同文件；`server-core/UPSTREAM.md` |
 | [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`、`frp` 页面 | 属改写，无相同文件；`frp-core/UPSTREAM.md` |
+| [Porter](https://github.com/t21dev/porter-app) | MIT | `ports-core`、`ports` 页面 | 属改写，无相同文件；`ports-core/UPSTREAM.md` |
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` 页面、`claude_history.rs` | 行为移植；1 个相同的通用小工具 `cn.ts` |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | 文件头注明 Vendored from `@ekaone/use-claude` (MIT) |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`、`cc-switch` 页面 | 图标取自其 `src/icons/extracted`；读取其 SQLite 数据库 |
@@ -71,8 +72,8 @@ WingHarness 源自作者自己的私有工作流应用
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
-  `shaic-core` 与 `db-core`。各上游的许可证文本放在 `licenses/`；GPL 上游指向本项
-  目的 `LICENSE`。
+  `ports-core`、`shaic-core` 与 `db-core`。各上游的许可证文本放在 `licenses/`；
+  GPL 上游指向本项目的 `LICENSE`。
 
 ### 仅参考 —— 未复制代码
 
@@ -113,3 +114,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-06 | 数据库 P2：把 `ide-db` 的内省部分（`sql.rs` 的目录查询、`lib.rs` 的 DTO）加入为 `db-core/src/{sql,objects}.rs`，对应 `db_databases`、`db_schemas`、`db_tables`、`db_table_details`、`db_schema_objects`。 |
 | 2026-11-07 | 数据库 P3：多语句执行、表分页与行编辑、DDL 生成、补全、带页签的窗口与 CodeMirror 控制台，取自 `ide-db` 及 openidea 的前端；新增 `src/pages/database/UPSTREAM.md`，更新 `db-core/UPSTREAM.md`。 |
 | 2026-11-07 | 数据库 P4（工作区）：查询文件、页签持久化与行数上限作为本仓原创的 `db-core` 工作区，执行计划取自 `ide-db` 的 `plan.rs`；树分组、表格交互与页签栏行为对齐 openidea。已更新 `db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md`。 |
+| 2026-11-09 | 端口管理：`src-tauri/ports-core` 与端口页面移植自 Porter（MIT）；新增 `ports-core/UPSTREAM.md` 与成对的功能文档 `docs/features/PORTS.md` / `.zh-CN.md`。 |

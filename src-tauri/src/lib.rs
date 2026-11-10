@@ -64,6 +64,9 @@ pub fn run() {
                 // `session.json` under `<data dir>/md-editor`, so the whole
                 // feature moves with the data directory.
                 let _ = md_editor_core::paths::CONFIG_DIR.set(config::dir().join("md-editor"));
+                // The ports page keeps `settings.json` under `<data dir>/ports`,
+                // so the whole feature moves with the data directory.
+                let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
