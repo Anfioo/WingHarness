@@ -68,8 +68,8 @@ pnpm add @tauri-apps/plugin-global-shortcut
 设置里存的是一个字符串，只有两种形式：
 
 - 组合键 —— `Ctrl+Shift+A`、`Super+A`（Win 键）—— 插件能注册的格式；
-- 预设 —— `preset:space`、`preset:doubleCtrl`、`preset:altSpace`、
-  `preset:winSpace` —— 系统注册 API 表达不了的触发方式。预设也可以只是一个
+- 预设 —— `preset:space`、`preset:doubleCtrl`、`preset:winSpace` —— 系统注册 API
+  表达不了的触发方式。预设也可以只是一个
   普通组合键：`ctrlW` 存成 `Ctrl+W`，它只是选择器里的一键入口，没有自己的
   存储形式。
 
@@ -140,7 +140,7 @@ function Settings() {
     <ShortcutField
       value={shortcut}
       onChange={setShortcut}
-      presets={["space", "doubleCtrl", "altSpace", "winSpace"]}
+      presets={["space", "doubleCtrl", "winSpace"]}
     />
   );
 }

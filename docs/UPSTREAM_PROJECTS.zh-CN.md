@@ -63,6 +63,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | 文件头注明 Vendored from `@ekaone/use-claude` (MIT) |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`、`cc-switch` 页面 | 图标取自其 `src/icons/extracted`；读取其 SQLite 数据库 |
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`、数据库页面（`src/pages/database`）：SQL 编辑器、结果表格、对象树、工作区页签、执行计划 | 按本项目约定改写，无相同文件；`db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md` |
+| [SpacePreview](https://github.com/likehao19/SpacePreview) | MIT | `space-preview-core`、`src/lib/space-preview`、`src/components/space-preview`、`preview-window` | 版本 0.10.22（`db531eb`）；引擎与查看器近乎逐字移植，宿主与独立窗口属重写；`space-preview-core/UPSTREAM.md` 与 `src/components/space-preview/UPSTREAM.md` |
 
 **这一组的说明**
 
@@ -72,8 +73,9 @@ WingHarness 源自作者自己的私有工作流应用
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
-  `ports-core`、`shaic-core` 与 `db-core`。各上游的许可证文本放在 `licenses/`；
-  GPL 上游指向本项目的 `LICENSE`。
+  `ports-core`、`shaic-core`、`db-core` 与 `space-preview-core`。预览的两半各有
+  一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
+  指向本项目的 `LICENSE`。
 
 ### 仅参考 —— 未复制代码
 
@@ -115,3 +117,5 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-07 | 数据库 P3：多语句执行、表分页与行编辑、DDL 生成、补全、带页签的窗口与 CodeMirror 控制台，取自 `ide-db` 及 openidea 的前端；新增 `src/pages/database/UPSTREAM.md`，更新 `db-core/UPSTREAM.md`。 |
 | 2026-11-07 | 数据库 P4（工作区）：查询文件、页签持久化与行数上限作为本仓原创的 `db-core` 工作区，执行计划取自 `ide-db` 的 `plan.rs`；树分组、表格交互与页签栏行为对齐 openidea。已更新 `db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md`。 |
 | 2026-11-09 | 端口管理：`src-tauri/ports-core` 与端口页面移植自 Porter（MIT）；新增 `ports-core/UPSTREAM.md` 与成对的功能文档 `docs/features/PORTS.md` / `.zh-CN.md`。 |
+| 2026-11-10 | 记录 SpacePreview 为**已移植**：其 Rust 侧成为 `space-preview-core`，引擎与查看器成为 `src/lib/space-preview` 与 `src/components/space-preview`，服务于升级后的文件预览页、独立预览窗口与编辑器预览页签。CAD/3D/RAW/设计稿及 Graphviz（EPL-2.0）分支未移植。 |
+| 2026-11-10 | 许可证审查后续：mermaid 把 `elkjs`（EPL-2.0）带进了打包产物；`vite.config.ts` 现在将其别名到 `src/lib/elk-stub.ts`，不再随包分发该代码。`buffers`（无许可证）经确认不会进入 Excel 查看器的打包产物，因为 Vite 解析的是 ExcelJS 的浏览器构建。 |

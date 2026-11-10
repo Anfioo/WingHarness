@@ -39,6 +39,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/notes.rs` | `notes_delete`, `notes_list`, `notes_mkdir`, `notes_rename`, `notes_write` | 5 |
 | `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` — each takes the project `root` as its first argument | 7 |
 | `commands/projects.rs` | `project_active`, `project_forget`, `project_recent_list`, `project_remember`, `project_set_active` | 5 |
+| `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
 | `commands/updater.rs` | `cancel_update_download`, `download_and_install_update`, `is_update_download_active` | 3 |
@@ -76,18 +77,18 @@ two compiles and then fails at runtime with "not allowed by ACL".
 Why the ACL matters here: without an application manifest of its own, Tauri
 checks access control only for plugin commands, so *every* application command
 becomes callable from *any* webview. With the manifest in place the capability
-grants these permissions to `main`, `about`, `settings`, `tray-menu`, the
-`database-*` data source windows and the `project-*` project windows only, and
-the caller's origin additionally has to match.
+grants these permissions to `main`, `about`, `settings`, the `tray-menu` popup,
+the `preview` window, the `database-*` data source windows and the `project-*`
+project windows only, and the caller's origin additionally has to match.
 
 ## Config and Data Directory
 
 - `src/config/mod.rs` is deliberately plain `std` + `serde_json`, with no Tauri
   handle, so it stays usable from tests and tools
 - `config.json` holds the per-app settings: the Codex switch preferences, the
-  AI config sync's enabled agents, the outbound proxy, and the file preview's
-  threshold and highlight switch. It holds no project — projects are their own
-  store, below
+  AI config sync's enabled agents, and the outbound proxy. It holds no project —
+  projects are their own store, below — and the preview's own preferences are
+  `preview.json`, not here
 - The proxy is written into `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
   `NO_PROXY` bypass list) at startup and again on save, so every reqwest client
   built afterwards and every spawned tool picks it up without knowing about the
@@ -101,18 +102,27 @@ the caller's origin additionally has to match.
   directory actually in use. It lives there on purpose: it has to be found before
   the app knows where anything else is
 - `config::dir()` is where every piece of persisted state goes — notes, cached
-  fonts, config, projects. It is resolved once at startup, so changing it takes
-  effect after a restart
+  fonts, config, projects, `preview.json` and the converted presentation PDFs. It
+  is resolved once at startup, so changing it takes effect after a restart
 - `config::init(dir)` is called from `.setup()`; nothing injects a global project
   root any more — `preview_metadata` / `preview_bytes` take theirs as an argument
 
 ## Crates
 
-`file-preview/` is a workspace member: the preview page's byte reader, kept
-separate so it can be tested and reasoned about without Tauri. Its functions take
-the project root and the size cap as parameters; `commands/file_preview.rs` is
-the thin Tauri layer that reads the cap from the config on every call. See
+`space-preview-core/` is a workspace member: the engine behind the File Preview
+page, the standalone preview window and the editors' preview tabs — file
+inspection and ranged reads behind an in-memory path allowlist, text write-back
+with `encoding_rs` and an etag compare-and-set, HTML resources, PowerPoint COM
+conversion with a cached PDF, system file icons, `preview.json`, and the Windows
+space agent (low-level keyboard hook, Shell COM selection, Everything). It is a
+MIT port from [SpacePreview](https://github.com/likehao19/SpacePreview);
+`space-preview-core/UPSTREAM.md` records what differs. See
 [../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
+
+`file-preview/` is the earlier workspace member: a byte reader over a project
+root and a size cap, with `commands/file_preview.rs` as its thin Tauri layer.
+The pages that used it now render the space-preview host instead; the crate and
+its two commands stay until the old subsystem is removed.
 
 `db-core/` is a workspace member: the database engine behind the databases page
 and its data source windows, and behind the project page's database panel —
@@ -143,11 +153,11 @@ crates), which are Rust dependencies.
 
 ## Windows
 
-`tauri.conf.json` declares `main` and the hidden `tray-menu` popup. The `about`
-and `settings` windows are created on demand by the frontend
-(`createWindow()` in `src/lib/window.ts`), which is why they do not appear there.
-Every label the frontend can create — including the `database-*` data source
-windows and the `project-*` project windows — is listed in
+`tauri.conf.json` declares `main`, the hidden `tray-menu` popup and the hidden
+`preview` window. The `about` and `settings` windows are created on demand by the
+frontend (`createWindow()` in `src/lib/window.ts`), which is why they do not
+appear there. Every label the frontend can create — including the `database-*`
+data source windows and the `project-*` project windows — is listed in
 `capabilities/default.json`.
 
 ## Key Dependencies
@@ -174,7 +184,7 @@ cover the download side, which both builds need.
 
 ```
 src-tauri/
-├── Cargo.toml              # Dependencies; [workspace] members = ["file-preview", "db-core"]
+├── Cargo.toml              # Dependencies; [workspace] members = ["file-preview", "space-preview-core", "db-core", …]
 ├── build.rs                # ACL guard: COMMANDS vs capabilities/default.json
 ├── tauri.conf.json         # Windows, bundle, updater endpoint placeholders
 ├── tauri.dev.conf.json     # Dev-build identifier override
@@ -182,7 +192,8 @@ src-tauri/
 │   └── default.json        # Permissions, granted to the window labels listed there
 ├── permissions/
 │   └── autogenerated/      # One allow-<command>.toml per command
-├── file-preview/           # Workspace crate: the preview page's backend
+├── file-preview/           # Workspace crate: the earlier preview byte reader
+├── space-preview-core/     # Workspace crate: preview I/O, encodings, presentations, icons, space agent
 ├── db-core/                # Workspace crate: the database engine (settings, pools, history, workspace, plans)
 ├── icons/
 └── src/

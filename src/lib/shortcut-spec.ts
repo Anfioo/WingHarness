@@ -30,16 +30,10 @@ export const MAX_SHORTCUT_MODIFIERS = 2;
  * Triggers offered as presets. Most cannot be expressed as a combination;
  * `ctrlW` can, and exists so a setting can offer it with one click.
  */
-export type ShortcutPresetId = "space" | "doubleCtrl" | "altSpace" | "winSpace" | "ctrlW";
+export type ShortcutPresetId = "space" | "doubleCtrl" | "winSpace" | "ctrlW";
 
 export function isShortcutPresetId(value: string): value is ShortcutPresetId {
-  return (
-    value === "space" ||
-    value === "doubleCtrl" ||
-    value === "altSpace" ||
-    value === "winSpace" ||
-    value === "ctrlW"
-  );
+  return value === "space" || value === "doubleCtrl" || value === "winSpace" || value === "ctrlW";
 }
 
 /** How long two Ctrl presses may be apart and still count as a double press. */
@@ -270,8 +264,6 @@ export function shortcutMatchesEvent(
   switch (preset) {
     case "space":
       return keyFromEvent(event) === "Space" && modifiersAre(event, []);
-    case "altSpace":
-      return keyFromEvent(event) === "Space" && modifiersAre(event, ["Alt"]);
     case "winSpace":
       return keyFromEvent(event) === "Space" && modifiersAre(event, ["Super"]);
     case "doubleCtrl":

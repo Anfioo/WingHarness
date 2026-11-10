@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-open-preview"
+description = "Enables the sp_open_preview command without any pre-configured scope."
+commands.allow = ["sp_open_preview"]
+
+[[permission]]
+identifier = "deny-sp-open-preview"
+description = "Denies the sp_open_preview command without any pre-configured scope."
+commands.deny = ["sp_open_preview"]

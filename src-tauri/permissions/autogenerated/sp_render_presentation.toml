@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-render-presentation"
+description = "Enables the sp_render_presentation command without any pre-configured scope."
+commands.allow = ["sp_render_presentation"]
+
+[[permission]]
+identifier = "deny-sp-render-presentation"
+description = "Denies the sp_render_presentation command without any pre-configured scope."
+commands.deny = ["sp_render_presentation"]

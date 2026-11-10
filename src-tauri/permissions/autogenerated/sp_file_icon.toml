@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-file-icon"
+description = "Enables the sp_file_icon command without any pre-configured scope."
+commands.allow = ["sp_file_icon"]
+
+[[permission]]
+identifier = "deny-sp-file-icon"
+description = "Denies the sp_file_icon command without any pre-configured scope."
+commands.deny = ["sp_file_icon"]

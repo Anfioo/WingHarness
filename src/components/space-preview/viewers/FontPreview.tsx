@@ -1,0 +1,233 @@
+import { usePreviewLoading } from './PreviewLoading';
+import { useEffect, useState } from 'react';
+import PreviewToolbar from './PreviewToolbar';
+import type { PreviewFile } from '@/lib/space-preview/bridge';
+import { readFullBytes } from '@/lib/space-preview/bridge';
+import { fontCollection } from '@/lib/space-preview/engine/font-collection';
+import { useAppTranslation } from '@/hooks/use-app-translation';
+import { CompactSelect } from '@/components/compact-select';
+import { errorText } from './errors';
+
+export default function FontPreview({ file }: { file: PreviewFile }) {
+  const { t } = useAppTranslation();
+  const [font, setFont] = useState('');
+  const [name, setName] = useState(file.name);
+  const [glyphs, setGlyphs] = useState<string[]>([]);
+  const [sample, setSample] = useState(
+    'Innovation in China 中国智造，慧及全球 0123456789',
+  );
+  const [version, setVersion] = useState('');
+  const [outline, setOutline] = useState('');
+  const [fallback, setFallback] = useState('');
+  const [showGlyphs, setShowGlyphs] = useState(false);
+  const [shown, setShown] = useState(256);
+  const [error, setError] = useState('');
+  usePreviewLoading(
+    !font && !error,
+    t('spacePreview.viewer.parsingFont', { defaultValue: 'Parsing the font' }),
+  );
+  const [page, setPage] = useState(0);
+  const [count, setCount] = useState(1);
+  const specimenFamily = `${font}, "SimSun", "Songti SC", serif`;
+  useEffect(() => {
+    const controller = new AbortController();
+    let face: FontFace | undefined;
+    setFont('');
+    setError('');
+    setGlyphs([]);
+    setName(file.name);
+    setVersion('');
+    setOutline('');
+    setFallback('');
+    setShowGlyphs(false);
+    setShown(256);
+    void readFullBytes(file, controller.signal)
+      .then(async (source) => {
+        const collection = fontCollection(source, page);
+        const bytes = collection.bytes;
+        setCount(collection.count);
+        // Native IDs contain Windows paths. Never put path escapes into a CSS family name.
+        const family = `preview-font-${crypto.randomUUID()}`;
+        face = new FontFace(family, bytes.buffer as ArrayBuffer);
+        await face.load();
+        if (controller.signal.aborted) return;
+        document.fonts.add(face);
+        setFont(family);
+        try {
+          const { parse } = await import('opentype.js');
+          const parsed = parse(bytes.buffer as ArrayBuffer);
+          if (controller.signal.aborted) return;
+          setName(parsed.names.fullName?.en ?? file.name);
+          setVersion(parsed.names.version?.en ?? '');
+          setOutline(
+            parsed.outlinesFormat === 'truetype'
+              ? t('spacePreview.viewer.outlineTrueType', {
+                  defaultValue: 'OpenType · TrueType outlines',
+                })
+              : parsed.outlinesFormat === 'cff'
+                ? t('spacePreview.viewer.outlineCff', {
+                    defaultValue: 'OpenType · CFF outlines',
+                  })
+                : parsed.outlinesFormat,
+          );
+          setFallback(
+            parsed.tables.cmap?.glyphIndexMap?.['中'.codePointAt(0)!]
+              ? t('spacePreview.viewer.fontFallback', {
+                  defaultValue: 'Missing characters use a system fallback font.',
+                })
+              : t('spacePreview.viewer.fontNoChinese', {
+                  defaultValue:
+                    'This font has no Chinese glyphs; Chinese text uses a system fallback font while Latin text and digits use this font.',
+                }),
+          );
+          // Read character coverage directly; do not decode every glyph's outline at startup.
+          const mapping = parsed.tables.cmap?.glyphIndexMap ?? {};
+          setGlyphs(
+            Object.keys(mapping)
+              .map(Number)
+              .filter((code) => code >= 32 && code <= 0x10ffff && mapping[code] !== 0)
+              .sort((a, b) => a - b)
+              .map((code) => String.fromCodePoint(code)),
+          );
+        } catch {
+          // WOFF2 is decoded by the system's font engine; it can still render samples.
+          if (!controller.signal.aborted) {
+            setFallback(
+              t('spacePreview.viewer.fontNoGlyphInfo', {
+                defaultValue:
+                  'The glyph coverage could not be read; missing characters use a system fallback font.',
+              }),
+            );
+            setGlyphs(Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'));
+          }
+        }
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(errorText(e));
+      });
+    return () => {
+      controller.abort();
+      if (face) document.fonts.delete(face);
+    };
+  }, [file, page, t]);
+  return (
+    <div className="font-preview">
+      <PreviewToolbar className="content-toolbar">
+        <span>{name}</span>
+        {count > 1 && (
+          <label className="preview-menu-option">
+            <span>
+              {t('spacePreview.viewer.fontCollection', { defaultValue: 'Font collection' })}
+            </span>
+            <CompactSelect
+              ariaLabel={t('spacePreview.viewer.fontCollection', {
+                defaultValue: 'Font collection',
+              })}
+              value={String(page)}
+              onChange={(value) => setPage(Number(value))}
+              options={Array.from({ length: count }, (_, i) => ({
+                value: String(i),
+                label: t('spacePreview.viewer.fontNumber', {
+                  defaultValue: 'Font {{number}}',
+                  number: i + 1,
+                }),
+              }))}
+            />
+          </label>
+        )}
+      </PreviewToolbar>
+      {error ? (
+        <p className="preview-message" role="alert">
+          {t('spacePreview.viewer.fontLoadFailed', {
+            defaultValue: 'The font failed to load: {{error}}',
+            error,
+          })}
+        </p>
+      ) : !font ? (
+        <div className="preview-message" role="status">
+          <span className="spinner" />
+          {t('spacePreview.viewer.loadingFont', { defaultValue: 'Loading the font…' })}
+        </div>
+      ) : (
+        <article className="font-paper">
+          <h1>{name}</h1>
+          <div className="font-metadata">
+            {version && (
+              <p>
+                {t('spacePreview.viewer.fontVersion', {
+                  defaultValue: 'Version: {{version}}',
+                  version: version.replace(/^Version\s*/i, ''),
+                })}
+              </p>
+            )}
+            {outline && <p>{outline}</p>}
+            {fallback && <p className="font-fallback-note">{fallback}</p>}
+          </div>
+          <div className="font-character-lines" style={{ fontFamily: specimenFamily }}>
+            <p>abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ</p>
+            <p>0123456789.:,; '" (!?) +-*/=</p>
+          </div>
+          <label className="font-sample-label">
+            {t('spacePreview.viewer.previewText', { defaultValue: 'Preview text' })}
+            <input
+              aria-label={t('spacePreview.viewer.fontPreviewText', {
+                defaultValue: 'Font preview text',
+              })}
+              value={sample}
+              onChange={(event) => setSample(event.target.value)}
+            />
+          </label>
+          <div
+            className="font-size-specimens"
+            aria-label={t('spacePreview.viewer.fontSizes', {
+              defaultValue: 'Font preview at several sizes',
+            })}
+          >
+            {[12, 18, 24, 36, 48, 60, 72].map((size) => (
+              <div className="font-size-row" key={size}>
+                <span className="font-size-label">{size}</span>
+                <span
+                  className="font-size-text"
+                  style={{ fontFamily: specimenFamily, fontSize: `${size}pt` }}
+                >
+                  {sample}
+                </span>
+              </div>
+            ))}
+          </div>
+          <details
+            className="font-glyph-details"
+            open={showGlyphs}
+            onToggle={(event) => setShowGlyphs(event.currentTarget.open)}
+          >
+            <summary>
+              {t('spacePreview.viewer.glyphPreview', {
+                defaultValue: 'Glyph preview · {{total}} characters',
+                total: glyphs.length.toLocaleString(),
+              })}
+            </summary>
+            {showGlyphs && (
+              <>
+                <div className="font-glyphs" style={{ fontFamily: specimenFamily }}>
+                  {glyphs.slice(0, shown).map((glyph) => (
+                    <span
+                      key={glyph}
+                      title={`U+${glyph.codePointAt(0)!.toString(16).toUpperCase()}`}
+                    >
+                      {glyph}
+                    </span>
+                  ))}
+                </div>
+                {shown < glyphs.length && (
+                  <button onClick={() => setShown((value) => value + 256)}>
+                    {t('spacePreview.viewer.showMoreGlyphs', { defaultValue: 'Show more glyphs' })}
+                  </button>
+                )}
+              </>
+            )}
+          </details>
+        </article>
+      )}
+    </div>
+  );
+}

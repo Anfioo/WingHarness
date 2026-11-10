@@ -29,7 +29,7 @@
 - **本地终端** —— 真正的伪终端（`portable-pty`），渲染在 webview 里
 - **笔记** —— 存放在数据目录下的 Markdown 库，用内置的 codelet 编辑器编辑
 - **项目文件浏览器** —— 按需逐层返回的目录树，被限制在单一根目录内
-- **只读文件预览** —— Word、Excel、PowerPoint、PDF、图片、压缩包、电子书、PSD、XMind、音视频，全部在 webview 里解析
+- **文件预览** —— Word、Excel、PowerPoint、PDF、图片、压缩包、电子书、PSD、XMind、音视频全部在 webview 里解析，纯文本可带编码选择编辑；还有独立预览窗口，在 Explorer、桌面或 Everything 里按空格即可打开
 - **数据目录设置** —— 所有持久化数据都落在同一个可配置目录下
 - **关于窗口与设置窗口** —— 各自是「第二个窗口 + 独立路由」的完整示例
 - **自动更新** —— GitHub Actions 发布签名版本，由 Tauri updater 安装
@@ -79,7 +79,7 @@ pnpm check          # prettier --check、eslint、tsc、vite build
 .
 ├── src/                      # 前端（React + TypeScript）
 │   ├── main.tsx              # 入口：pageMap + standalonePaths
-│   ├── pages/                # 主窗口页面：start、local-terminal、notes、file-preview、project
+│   ├── pages/                # 主窗口页面：start、local-terminal、notes、file-preview、project；preview-window 是独立窗口
 │   ├── windows/              # 独立窗口路由：about、settings、tray-menu
 │   ├── components/           # 外壳、标题栏、侧边栏、文件预览、shadcn/ui 原语
 │   ├── lib/                  # router、app-routes、editor、preview viewers、fonts、terminal、theme
@@ -88,7 +88,8 @@ pnpm check          # prettier --check、eslint、tsc、vite build
 │   └── i18n/                 # i18next 配置与 locales/{en,zh}.json
 ├── src-tauri/                # 后端（Rust）
 │   ├── src/                  # commands/、config/、fonts/、theme/、plugins/（托盘）
-│   ├── file-preview/         # workspace crate：预览页的字节读取
+│   ├── file-preview/         # workspace crate：旧预览页的字节读取
+│   ├── space-preview-core/   # workspace crate：预览读写、文本编码、Windows 空格代理
 │   └── tauri.conf.json       # 窗口、打包与更新配置
 ├── docs/                     # 跨功能文档；功能文档在 features/ 下
 └── scripts/                  # 版本发布、主题预设、build.ps1
@@ -102,13 +103,14 @@ pnpm check          # prettier --check、eslint、tsc、vite build
 | `/local-terminal` | `pages/local-terminal/index.tsx` | 主窗口 |
 | `/notes` | `pages/notes/index.tsx` | 主窗口 |
 | `/file-preview` | `pages/file-preview/index.tsx` | 主窗口 |
+| `/preview-window` | `pages/preview-window/index.tsx` | 独立窗口 |
 | `/project` | `pages/project/index.tsx` | 主窗口 |
 | `/about` | `windows/about/index.tsx` | 独立窗口 |
 | `/settings` | `windows/settings/index.tsx` | 独立窗口 |
 | `/tray-menu` | `windows/tray-menu/index.tsx` | 独立窗口 |
 
-主窗口页面由共享的 `AppShell` 包住；三个独立窗口路由写在 `standalonePaths` 里，
-自带外壳。
+主窗口页面由共享的 `AppShell` 包住；独立窗口路由写在 `standalonePaths` 里，自带
+外壳。`/preview-window` 声明为隐藏，由预览的空格代理显示。
 
 ## 如何扩展
 
@@ -154,7 +156,7 @@ pnpm dlx shadcn@latest add button
 | [CC_SWITCH.zh-CN.md](./docs/features/CC_SWITCH.zh-CN.md) | AI 编码 CLI 的供应商管理 |
 | [CLAUDE_CODE.zh-CN.md](./docs/features/CLAUDE_CODE.zh-CN.md) | Claude 对话、历史与工作流三个页面 |
 | [DATABASE.zh-CN.md](./docs/features/DATABASE.zh-CN.md) | 数据源、带页签的数据源窗口（查询文件与页签持久化）、SQL 控制台、执行计划、表数据与对象管理 |
-| [FILE_PREVIEW.zh-CN.md](./docs/features/FILE_PREVIEW.zh-CN.md) | 只读预览、支持的格式、如何新增一种格式 |
+| [FILE_PREVIEW.zh-CN.md](./docs/features/FILE_PREVIEW.zh-CN.md) | 预览引擎、独立空格窗口、文本编辑、支持的格式、如何新增一种格式 |
 | [FRP.zh-CN.md](./docs/features/FRP.zh-CN.md) | FRP 控制台：生成 `frpc` 配置、子进程与日志 |
 | [GIT.zh-CN.md](./docs/features/GIT.zh-CN.md) | 本地 Git 客户端，每个仓库一个窗口 |
 | [MCP_HUB.zh-CN.md](./docs/features/MCP_HUB.zh-CN.md) | 用一个本地端点聚合本地 MCP 服务器 |

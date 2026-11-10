@@ -130,6 +130,22 @@ macOS、Linux 与 Flatpak 路径、出站连接、UDP、整应用提权，以及
 一致。该 crate 现在是自有引擎并在本仓库中修改。移植记录见
 `src-tauri/shaic-core/UPSTREAM.md`。
 
+### SpacePreview
+
+- 项目：[SpacePreview](https://github.com/likehao19/SpacePreview)
+- 版本：0.10.22
+- 许可证：MIT
+- 许可证文本：[licenses/SpacePreview-LICENSE.txt](./licenses/SpacePreview-LICENSE.txt)
+
+SpacePreview / Copyright (c) 2026 likehao19 / 按 MIT 许可证授权。预览引擎、查看器与
+Windows 空格集成的一部分改编自 SpacePreview。`src-tauri/space-preview-core` 是其
+Rust 侧（文件探测与分段读取、带编码的文本写回、HTML 资源、PowerPoint 转换、系统
+图标与 Windows 空格代理）；`src/lib/space-preview` 与
+`src/components/space-preview` 是移植的格式引擎、Web Worker、查看器与作用域化样式
+表，服务于升级后的文件预览页、独立预览窗口与编辑器预览页签。CAD、3D 模型、RAW
+图像、设计稿缩略图与 Graphviz（EPL-2.0）分支未移植。移植记录见
+`src-tauri/space-preview-core/UPSTREAM.md` 与 `src/components/space-preview/UPSTREAM.md`。
+
 ### TizuMark
 
 - 项目：[TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
@@ -185,6 +201,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | 包 | 许可证 |
 |----|--------|
 | `7z-wasm` | LGPL + unRAR 限制 —— 见 §3 |
+| `@asciidoctor/core` | MIT |
 | `@codemirror/commands` | MIT |
 | `@codemirror/lang-markdown` | MIT |
 | `@codemirror/language` | MIT |
@@ -194,6 +211,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@dnd-kit/core` | MIT |
 | `@dnd-kit/sortable` | MIT |
 | `@dnd-kit/utilities` | MIT |
+| `@kenjiuno/msgreader` | Apache-2.0 |
 | `@lezer/highlight` | MIT |
 | `@mind-elixir/import-xmind` | MIT |
 | `@tailwindcss/vite` | MIT |
@@ -208,6 +226,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |
 | `ag-psd` | MIT |
+| `buffer` | MIT |
 | `cfb` | Apache-2.0 |
 | `chart.js` | MIT |
 | `class-variance-authority` | Apache-2.0 |
@@ -215,21 +234,28 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `cmdk` | MIT |
 | `cn` | MIT |
 | `codelet` | MIT |
+| `comlink` | Apache-2.0 |
+| `docx-preview` | Apache-2.0 |
 | `dompurify` | MPL-2.0 OR Apache-2.0 |
 | `exceljs` | MIT |
+| `fast-xml-parser` | MIT |
 | `fflate` | MIT |
+| `fzstd` | MIT |
 | `highlight.js` | BSD-3-Clause |
 | `i18next` | MIT |
 | `i18next-browser-languagedetector` | MIT |
 | `icojs` | MIT |
 | `jszip` | MIT OR GPL-3.0-or-later |
 | `katex` | MIT |
+| `libarchive.js` | MIT |
+| `lottie-web` | MIT |
 | `lucide-react` | ISC |
 | `mammoth` | BSD-2-Clause |
 | `marked` | MIT |
 | `mermaid` | MIT |
 | `mind-elixir` | MIT |
 | `node-unrar-js` | MIT |
+| `opentype.js` | MIT |
 | `papaparse` | MIT |
 | `pdfjs-dist` | Apache-2.0 |
 | `postal-mime` | MIT-0 |
@@ -239,10 +265,15 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `react-day-picker` | MIT |
 | `react-i18next` | MIT |
 | `react-resizable-panels` | MIT |
+| `rtf.js` | MIT |
+| `seek-bzip` | MIT |
 | `sonner` | MIT |
+| `sql.js` | MIT |
 | `tailwind-merge` | MIT |
 | `tailwindcss` | MIT |
 | `utif` | MIT |
+| `xlsx` | Apache-2.0 |
+| `xz-decompress` | MIT |
 | `yaml` | ISC |
 | `zustand` | MIT |
 
@@ -269,6 +300,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
 | `log` | MIT OR Apache-2.0 |
+| `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
 | `png` | MIT OR Apache-2.0 |
@@ -317,9 +349,9 @@ Apache-2.0、BSD、ISC 或其兼容组合。例外如下：
 
 | 包 | 许可证 | 引入路径 | 说明 |
 |----|--------|----------|------|
-| `elkjs` | EPL-2.0 | `mermaid` | 会进入 JavaScript 产物。EPL-2.0 不在移植门槛的允许清单内，因此这是一项待办：确认所发布构建适用 EPL-2.0 的次级许可证条款，或不再打包 ELK 布局。 |
+| `elkjs` | EPL-2.0 | `mermaid` | **不随产物分发。** `vite.config.ts` 将该包别名到 `src/lib/elk-stub.ts`，因为 EPL-2.0 不在移植门槛的允许清单内。显式请求 ELK 布局的图表会提示该布局不可用；其余 Mermaid 布局一律使用 dagre。 |
 | `lightningcss`、`lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`、`vite` | 仅构建期使用，不随应用分发。 |
-| `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | 该包既没有 `license` 字段，也没有许可证文件。需要确认其代码是否进入 Excel 查看器产物；若进入，应替换或取得许可。 |
+| `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | **不随产物分发。** Vite 解析的是 ExcelJS 的 `browser` 入口（`dist/exceljs.min.js`），该构建使用 JSZip，不含 `unzipper`、`binary` 或 `buffers` 代码。 |
 
 MPL-2.0 是文件级著佐权，与 GPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
 产物分发。Apache-2.0 全文见

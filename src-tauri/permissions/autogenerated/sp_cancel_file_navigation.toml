@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sp-cancel-file-navigation"
+description = "Enables the sp_cancel_file_navigation command without any pre-configured scope."
+commands.allow = ["sp_cancel_file_navigation"]
+
+[[permission]]
+identifier = "deny-sp-cancel-file-navigation"
+description = "Denies the sp_cancel_file_navigation command without any pre-configured scope."
+commands.deny = ["sp_cancel_file_navigation"]

@@ -1000,3 +1000,36 @@ export type {
   ViewSettings,
 } from "./services/md-editor/types";
 export { isMdEditorError, mdEditorErrorCode } from "./services/md-editor/types";
+export {
+  agentStatus,
+  cancelFileNavigation,
+  fileIcon,
+  getPreviewPreferences,
+  hidePreview,
+  initialPaths,
+  inspectFile,
+  listDirectory,
+  navigateFileSelection,
+  openPreview,
+  probePresentation,
+  readHtmlResource,
+  readPrefix,
+  readRange,
+  renderPresentation,
+  savePreviewPreferences,
+  setAgentEnabled,
+  writeText,
+} from "./services/space-preview";
+export type {
+  AgentStatus,
+  DirectoryPage,
+  InitialPaths,
+  PreviewFileInfo,
+  PreviewFont,
+  PreviewHtmlView,
+  PreviewKey,
+  PreviewPreferences,
+  TextEncoding,
+  // The project file service already exports its own `WriteResult`.
+  WriteResult as SpacePreviewWriteResult,
+} from "./services/space-preview/types";
