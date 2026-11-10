@@ -1,0 +1,144 @@
+# Types / 类型
+- name: bug
+  color: ee0701
+  description: "Something is not working as expected. / 功能异常或行为不符合预期。"
+- name: new-feature
+  color: 0e8a16
+  description: "A new feature or option. / 新增功能或选项。"
+- name: enhancement
+  color: 1d76db
+  description: "An improvement to existing behaviour, not a new feature. / 在现有行为上的改进，不引入新功能。"
+- name: refactor
+  color: 1d76db
+  description: "Code restructuring with no behaviour change. / 不改变行为的代码重构。"
+- name: performance
+  color: 1d76db
+  description: "Faster or lighter, with the same behaviour. / 行为不变的前提下提升性能或降低开销。"
+- name: documentation
+  color: 0052cc
+  description: "Documentation only. / 仅涉及文档。"
+- name: ci
+  color: 1d76db
+  description: "CI configuration and workflows. / 持续集成配置与工作流。"
+- name: dependencies
+  color: 1d76db
+  description: "Dependency upgrades or downgrades. / 依赖升级或降级。"
+- name: maintenance
+  color: 2af79e
+  description: "Housekeeping that fits nowhere else. / 其他维护性工作。"
+- name: breaking-change
+  color: ee0701
+  description: "Breaks existing users, data or configuration. / 破坏现有用户、数据或配置的兼容性。"
+- name: security
+  color: ee0701
+  description: "A security issue that needs handling first. / 需要优先处理的安全问题。"
+- name: port
+  color: 5319e7
+  description: "Carried over from an upstream open-source project. / 从上游开源项目移植的功能。"
+- name: question
+  color: d876e3
+  description: "A usage or configuration question. / 使用或配置类问题。"
+
+# Status / 状态
+- name: in-progress
+  color: fbca04
+  description: "Someone is working on it. / 正在处理中。"
+- name: needs-info
+  color: fef2c0
+  description: "Waiting for more information from the reporter. / 等待报告者补充信息。"
+- name: stale
+  color: fef2c0
+  description: "No activity for a long time. / 长时间没有活动。"
+- name: no-stale
+  color: fef2c0
+  description: "Exempt from the stale sweep. / 不参与过期清理。"
+- name: duplicate
+  color: cfd3d7
+  description: "Already reported elsewhere. / 已有相同的问题或请求。"
+- name: invalid
+  color: e4e669
+  description: "Not a bug, or not actionable. / 不是有效问题或无法处理。"
+- name: wontfix
+  color: ffffff
+  description: "Decided not to work on this. / 决定不处理。"
+- name: good first issue
+  color: 7057ff
+  description: "A small, self-contained place to start. / 适合作为第一个贡献的小任务。"
+- name: help wanted
+  color: 008672
+  description: "An extra pair of hands or some expertise is welcome. / 需要额外的人手或领域经验。"
+
+# Priority / 优先级
+- name: "priority: critical"
+  color: ee0701
+  description: "Data loss, a crash or a security hole. / 数据丢失、崩溃或安全漏洞。"
+- name: "priority: high"
+  color: b60205
+  description: "Blocks normal use; fix before anything else. / 阻断正常使用，应先于其他问题处理。"
+- name: "priority: medium"
+  color: 0e8a16
+  description: "Should be fixed, but there is a workaround. / 应当修复，但有临时替代方案。"
+- name: "priority: low"
+  color: e4ea8a
+  description: "Nice to have, whenever there is time. / 有空再做的改进。"
+
+# Platform / 平台
+- name: "platform: windows"
+  color: 0078d7
+  description: "Windows-specific. / 仅与 Windows 相关。"
+- name: "platform: macos"
+  color: 000000
+  description: "macOS-specific. / 仅与 macOS 相关。"
+- name: "platform: linux"
+  color: fcc624
+  description: "Linux-specific. / 仅与 Linux 相关。"
+
+# Areas / 模块
+- name: "area: ui"
+  color: c5def5
+  description: "Window shell, routing, theme and shared components. / 窗口外壳、路由、主题与通用组件。"
+- name: "area: terminal"
+  color: 1d76db
+  description: "The pseudo-console page. / 伪终端页面。"
+- name: "area: preview"
+  color: 1d76db
+  description: "File viewers and the Space-key preview window. / 文件预览与空格键预览窗口。"
+- name: "area: database"
+  color: 1d76db
+  description: "Data sources, the SQL console and table management. / 数据源、SQL 控制台与表管理。"
+- name: "area: git"
+  color: 1d76db
+  description: "The local Git client. / 本地 Git 客户端。"
+- name: "area: svn"
+  color: 1d76db
+  description: "The Subversion workspace. / Subversion 工作区。"
+- name: "area: servers"
+  color: 0052cc
+  description: "SSH and SFTP server management. / SSH 与 SFTP 服务器管理。"
+- name: "area: ports"
+  color: 0052cc
+  description: "Listening ports and the processes behind them. / 监听端口及其进程。"
+- name: "area: frp"
+  color: 0052cc
+  description: "The FRP console and frpc processes. / FRP 控制台与 frpc 进程。"
+- name: "area: system-tools"
+  color: 0052cc
+  description: "The Windows maintenance console. / Windows 维护控制台。"
+- name: "area: ai"
+  color: 5319e7
+  description: "AI config sync and provider switching. / AI 配置同步与供应商切换。"
+- name: "area: claude"
+  color: 5319e7
+  description: "The Claude chat, history and workflow pages. / Claude 对话、历史与工作流页面。"
+- name: "area: mcp"
+  color: 5319e7
+  description: "The local MCP gateway. / 本地 MCP 网关。"
+- name: "area: settings"
+  color: c5def5
+  description: "The settings and about windows. / 设置与关于窗口。"
+- name: "area: i18n"
+  color: c5def5
+  description: "Translations and locale files. / 翻译与语言文件。"
+- name: "area: build"
+  color: c5def5
+  description: "Packaging, releases and the updater. / 打包、发布与自动更新。"
