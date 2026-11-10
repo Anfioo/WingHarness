@@ -101,6 +101,7 @@ English `message` only as the fallback, via
 | An HTML resource | 32 MiB | `html::MAX_RESOURCE` |
 | WMF / EMF | 16 MiB | the metafile viewer |
 | TIFF | 32 MiB | the TIFF viewer |
+| Highlighting a text / source file | 400,000 characters | `text-preview.ts` (`MAX_HIGHLIGHT_CHARS`) |
 
 A whole-file preview is assembled from ranges by
 `engine/full-read.ts`, so a file at the limit is never held twice.
@@ -167,6 +168,21 @@ get an explanation instead of a blank pane; see `unsupportedFormatHint`.
   `preview.json`; the host listens for `sp:preferences-changed`, and its own
   changes are written 400 ms after the last one, re-reading the file first so a
   concurrent tray toggle is not reverted.
+
+## The text view
+
+Text and source files render as a single `<pre>` holding the whole document, not
+one element per line, so a long file costs one text node instead of tens of
+thousands of them.
+
+- Highlighting is one pass over the document with the editor's own grammars
+  ([`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts)) and the
+  theme's `.hljs-*` colours. An extension those grammars do not cover, and any
+  file past the 400,000-character cap, are shown as plain text.
+- The toolbar shows the detected encoding and the line count, and offers the same
+  encoding list as the editor.
+- Reading only: the host's pencil swaps in `CodeEditor`, which stays the app's
+  editor.
 
 ## Editing
 
@@ -279,6 +295,9 @@ The same host is registered as a codelet custom editor
 
 - **Text-like files are editable; structured formats are not.** A document,
   spreadsheet, image or archive viewer has no editor.
+- **Long text stays one `<pre>`.** The highlight pass is skipped above 400,000
+  characters, so a large log or source file renders uncoloured rather than being
+  split into an element per line.
 - **64 MiB for a whole-file preview.** Larger files are listed but not read; the
   pane says so instead of loading them, and the backend's per-range cap makes a
   direct call unable to sidestep it.

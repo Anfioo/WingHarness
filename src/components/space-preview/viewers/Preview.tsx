@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import {
   FileQuestion,
@@ -18,6 +18,7 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import pdfWorker from './pdf.worker.ts?worker&url';
 import { probePresentation } from '@/commands';
 import type { TextEncoding } from '@/commands';
+import { TEXT_ENCODINGS } from '@/components/code-editor';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
 import {
@@ -34,6 +35,7 @@ import {
   type PreviewKind,
 } from '@/lib/space-preview/registry';
 import {
+  decodeText,
   extension,
   formatSize,
   hasBinarySignature,
@@ -43,8 +45,8 @@ import {
 import { readInStages } from '@/lib/space-preview/engine/progressive-read';
 import { readStructuredInStages } from '@/lib/space-preview/engine/progressive-office';
 import { readOfficeXmlPackage } from '@/lib/space-preview/engine/office-range';
-import { sourceLanguage } from '@/lib/space-preview/engine/source-languages';
 import { renderMetafile } from '@/lib/space-preview/engine/metafile';
+import { previewText } from '@/lib/space-preview/text-preview';
 import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import type { WorkerRequest, WorkerResult } from '@/lib/space-preview/worker/worker-types';
 import { presentationEngine } from '@/lib/preview/viewers/presentationEngine';
@@ -52,8 +54,6 @@ import { documentError } from './document-error';
 import { errorText } from './errors';
 import { useViewerPreferences } from './preferences';
 import { usePreviewLoading } from './PreviewLoading';
-import FoldableCode from './FoldableCode';
-import ReadingWidth from './ReadingWidth';
 import PreviewToolbar, { PreviewMenu } from './PreviewToolbar';
 import {
   PreviewAdjustmentIndicator,
@@ -216,7 +216,7 @@ export default function Preview({
   if (kind === 'web-archive') return <WebArchivePreview key={file.id} file={file} />;
   if (kind === 'rtf')
     return wordText ? (
-      <ParsedPreview file={file} kind="text" onLayout={() => setWordText(false)} />
+      <TextPreview file={file} onLayout={() => setWordText(false)} />
     ) : (
       <WordPreview key={file.id} file={file} format="rtf" onText={() => setWordText(true)} />
     );
@@ -235,6 +235,7 @@ export default function Preview({
     return <MediaPreview file={file} audio={kind === 'audio'} />;
   if (kind === 'binary') return <BinaryPreview file={file} />;
   if (kind === 'archive') return <ArchivePreview key={file.id} file={file} />;
+  if (kind === 'text') return <TextPreview key={file.id} file={file} />;
   return (
     <ParsedPreview
       file={file}
@@ -1408,11 +1409,9 @@ function ParsedPreview({
   const [progress, setProgress] = useState(0);
   const [backgroundLoading, setBackgroundLoading] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [binary, setBinary] = useState(false);
   const [error, setError] = useState('');
-  const [wrap, setWrap] = useState(false);
   usePreviewLoading(
-    (!result || backgroundLoading) && !error && !binary,
+    (!result || backgroundLoading) && !error,
     progress >= 100
       ? t('spacePreview.viewer.parsingContents', { defaultValue: 'Parsing the file contents' })
       : result
@@ -1420,52 +1419,8 @@ function ParsedPreview({
         : t('spacePreview.viewer.readingFile', { defaultValue: 'Reading the file' }),
     progress > 0 && progress < 100 ? progress : undefined,
   );
-  const [query, setQuery] = useState('');
-  const plainText =
-    sourceLanguage(file.name) === 'plaintext' &&
-    ['txt', 'text', 'dat', 'license', 'readme'].includes(extension(file.name));
   const [encodingOverride, setEncoding] = useState<TextEncoding | null>(null);
   const encoding = encodingOverride ?? preferences.defaultEncoding;
-  const continuousCode = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const code = continuousCode.current;
-    const registry = (
-      CSS as unknown as {
-        highlights?: {
-          set: (name: string, highlight: Highlight) => void;
-          get: (name: string) => Highlight | undefined;
-          delete: (name: string) => boolean;
-        };
-      }
-    ).highlights;
-    if (!code || !query || !registry || typeof Highlight === 'undefined') return;
-    const highlight = new Highlight();
-    const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
-    let node = walker.nextNode() as Text | null;
-    let offset = 0;
-    const locate = (position: number): [Text, number] | undefined => {
-      while (node && offset + node.length < position) {
-        offset += node.length;
-        node = walker.nextNode() as Text | null;
-      }
-      if (node) return [node, position - offset];
-    };
-    const pattern = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    for (const match of (code.textContent ?? '').matchAll(pattern)) {
-      const start = locate(match.index);
-      const end = locate(match.index + match[0].length);
-      if (start && end) {
-        const range = document.createRange();
-        range.setStart(...start);
-        range.setEnd(...end);
-        highlight.add(range);
-      }
-    }
-    registry.set('text-search', highlight);
-    return () => {
-      if (registry.get('text-search') === highlight) registry.delete('text-search');
-    };
-  }, [query, result]);
   const container = [
     'archive',
     'docx',
@@ -1483,11 +1438,10 @@ function ParsedPreview({
     const controller = new AbortController();
     setError('');
     setResult(null);
-    setBinary(false);
     setProgress(0);
     setBackgroundLoading(false);
     const stagedText =
-      file.size > 512 * 1024 && ['text', 'markdown', 'csv', 'asciidoc'].includes(kind);
+      file.size > 512 * 1024 && ['markdown', 'csv', 'asciidoc'].includes(kind);
     const stagedOffice = file.size > MiB && ['xlsx', 'pptx', 'epub'].includes(kind);
     const largeOffice =
       file.size > limit && ['docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp'].includes(kind);
@@ -1502,28 +1456,6 @@ function ParsedPreview({
       return;
     }
     const load = async () => {
-      if (kind === 'text') {
-        const prefix = await readBytes(file, 16384);
-        controller.signal.throwIfAborted();
-        const registered = detectKind(file.name);
-        const textSource = [
-          'text',
-          'markdown',
-          'html',
-          'rtf',
-          'asciidoc',
-          'fb2',
-          'notebook',
-          'diagram',
-        ].includes(registered);
-        if (
-          hasBinarySignature(prefix) ||
-          (!textSource && !['text', 'html', 'rtf'].includes(sniffKind(prefix)))
-        ) {
-          setBinary(true);
-          return;
-        }
-      }
       if (stagedText) {
         setBackgroundLoading(true);
         await readInStages(
@@ -1555,7 +1487,6 @@ function ParsedPreview({
       const bytes = await (largeOffice
         ? readOfficeXmlPackage(file, controller.signal)
         : [
-              'text',
               'markdown',
               'html',
               'csv',
@@ -1586,7 +1517,6 @@ function ParsedPreview({
     return () => controller.abort();
   }, [file, kind, limit, container, encoding, retry, t]);
   if (error && !result) return <ErrorNotice message={error} />;
-  if (binary) return <BinaryPreview file={file} textFallback />;
   if (!result)
     return [
       'markdown',
@@ -1716,29 +1646,79 @@ function ParsedPreview({
       </>
     );
   }
-  const continuous = file.size > 512 * 1024 || (result.lines ?? 0) > 5000;
-  const matching = new Set<number>();
-  if (query)
-    (result.text ?? '').split('\n').forEach((line, i) => {
-      if (line.toLowerCase().includes(query.toLowerCase())) matching.add(i);
+  return null;
+}
+
+/**
+ * The read-only text view: the whole document in a single `<pre>`.
+ *
+ * Highlighting is one pass over the file with the editor's own grammars, and it
+ * is skipped above the character cap, so a long file costs one text node instead
+ * of one node per line. The file is still edited by the host's `CodeEditor`; this
+ * viewer only ever reads.
+ */
+function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => void }) {
+  const { t } = useAppTranslation();
+  const { preferences } = useViewerPreferences();
+  const [encodingOverride, setEncodingOverride] = useState<TextEncoding | null>(null);
+  const encoding = encodingOverride ?? preferences.defaultEncoding;
+  const [text, setText] = useState<{ text: string; encoding: string } | null>(null);
+  const [binary, setBinary] = useState(false);
+  const [error, setError] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [retry, setRetry] = useState(0);
+  usePreviewLoading(
+    !text && !binary && !error,
+    progress > 0 && progress < 100
+      ? t('spacePreview.viewer.loadingWholeFile', {
+          defaultValue: 'Loading the whole file… {{percent}}%',
+          percent: progress,
+        })
+      : t('spacePreview.viewer.readingFile', { defaultValue: 'Reading the file' }),
+    progress > 0 && progress < 100 ? progress : undefined,
+  );
+  useEffect(() => {
+    const controller = new AbortController();
+    setText(null);
+    setBinary(false);
+    setError('');
+    setProgress(0);
+    const load = async () => {
+      const prefix = await readBytes(file, 16384);
+      controller.signal.throwIfAborted();
+      if (hasBinarySignature(prefix) || !['text', 'html', 'rtf'].includes(sniffKind(prefix))) {
+        setBinary(true);
+        return;
+      }
+      const bytes = await readFullBytes(file, controller.signal, setProgress);
+      controller.signal.throwIfAborted();
+      setText(decodeText(bytes, encoding));
+    };
+    void load().catch((e) => {
+      if (!controller.signal.aborted) setError(errorText(e));
     });
+    return () => controller.abort();
+  }, [file, encoding, retry]);
+  const rendered = useMemo(() => (text ? previewText(text.text, file.name) : null), [text, file.name]);
+  const lines = useMemo(() => {
+    if (!text) return 0;
+    let count = 1;
+    for (let i = text.text.indexOf('\n'); i >= 0; i = text.text.indexOf('\n', i + 1)) count += 1;
+    return count;
+  }, [text]);
+  if (error) return <ErrorNotice message={error} onRetry={() => setRetry((value) => value + 1)} />;
+  if (binary) return <BinaryPreview file={file} textFallback />;
+  if (!text) return <Loading progress={progress} />;
   return (
-    <div className={`text-preview ${plainText ? 'plain-text' : 'source-code'}`}>
-      {loadingStatus}
-      <TextAppearanceControls />
+    <div className="text-preview">
       <PreviewToolbar className="content-toolbar">
         <span className="toolbar-summary">
-          {result.encoding}
-          <b>·</b>
-          {result.language}
+          {text.encoding}
           <b>·</b>
           {t('spacePreview.viewer.lineCount', {
             defaultValue: '{{count}} lines',
-            count: result.lines,
+            count: lines,
           })}
-          {result.truncated
-            ? ` · ${t('spacePreview.viewer.contentTruncated', { defaultValue: 'content truncated' })}`
-            : ''}
         </span>
         <div className="toolbar-right">
           {onLayout && (
@@ -1746,56 +1726,29 @@ function ParsedPreview({
               {t('spacePreview.viewer.pagePreview', { defaultValue: 'Page preview' })}
             </button>
           )}
-          <button
-            aria-pressed={wrap}
-            className={wrap ? 'selected' : ''}
-            onClick={() => setWrap((value) => !value)}
-          >
-            {t('spacePreview.viewer.wrapLines', { defaultValue: 'Wrap lines' })}
-          </button>
-          {encodingControl}
-          <label className="search">
-            <Search size={14} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('spacePreview.viewer.findText', { defaultValue: 'Find text' })}
-              aria-label={t('spacePreview.viewer.findText', { defaultValue: 'Find text' })}
-            />
-            {query && <small>{matching.size}</small>}
+          <label className="preview-menu-option">
+            <span>{t('spacePreview.viewer.fileEncoding', { defaultValue: 'File encoding' })}</span>
+            <select
+              aria-label={t('spacePreview.viewer.textEncoding', { defaultValue: 'Text encoding' })}
+              value={encoding}
+              onChange={(e) => setEncodingOverride(e.target.value as TextEncoding)}
+            >
+              {TEXT_ENCODINGS.map((item) => (
+                <option key={item.value} value={item.value}>
+                  {t(item.key, { defaultValue: item.fallback })}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
       </PreviewToolbar>
-      <ReadingWidth
-        kind="code"
-        gutterWidth={
-          continuous && wrap ? 0 : Math.max(36, String(result.lines ?? 1).length * 8 + 12)
-        }
-      >
-        <div className={`code-scroll ${wrap ? 'wrap' : ''}`}>
-          {continuous ? (
-            <pre className="continuous-pre">
-              {!wrap && (
-                <span className="continuous-line-numbers" aria-hidden="true">
-                  {Array.from({ length: result.lines ?? 1 }, (_, i) => i + 1).join('\n')}
-                </span>
-              )}
-              <code
-                ref={continuousCode}
-                className="continuous-content"
-                dangerouslySetInnerHTML={{ __html: result.html || ' ' }}
-              />
-            </pre>
-          ) : (
-            <FoldableCode
-              html={result.html ?? ''}
-              text={result.text ?? ''}
-              language={result.language ?? sourceLanguage(file.name)}
-              query={query}
-            />
-          )}
-        </div>
-      </ReadingWidth>
+      <pre className="bg-muted text-foreground m-0 min-h-0 flex-1 overflow-auto p-[18px] font-mono text-[13px] leading-[1.55] whitespace-pre-wrap">
+        {rendered?.html ? (
+          <code className="hljs" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+        ) : (
+          text.text
+        )}
+      </pre>
     </div>
   );
 }
