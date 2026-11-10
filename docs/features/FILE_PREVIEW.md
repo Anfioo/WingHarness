@@ -324,12 +324,12 @@ The defaults are:
 ```
 
 `src/lib/space-preview/preferences.ts` resets anything a damaged file or an
-older build left behind to its default. **设置 → 文件预览设置** is one page of
-five tabs — **预览 / 资源与性能 / 多文件预览 / 快捷键 / 使用指南** — under a
-fixed space switch that stays visible on every tab. It edits every value and
-saves automatically; the reading width and font size are also adjustable in the
-viewer's own reading-width control, which writes the same file. The preview key
-lives in **设置 → 快捷键 → 文件预览** (Space or Win + Space) and
+older build left behind to its default. **Settings → File preview** is one page
+of five tabs — **Preview / Resources / Multiple files / Shortcuts / Guide** —
+under a fixed space switch that stays visible on every tab. It edits every value
+and saves automatically; the reading width and font size are also adjustable in
+the viewer's own reading-width control, which writes the same file. The preview
+key lives in **Settings → Shortcuts → File preview** (Space or Win + Space) and
 retunes the running agent without a restart. A file written before a field
 existed reads that field's default instead of being discarded.
 

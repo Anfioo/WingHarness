@@ -123,7 +123,7 @@ export default {
     diagramTooMany: "Too many diagrams; the rest are shown as code.",
   },
   settings: {
-    title: "Markdown Editor",
+    title: "Markdown",
     loadFailed: "Could not load the settings.",
     saveFailed: "Could not save the settings.",
     retry: "Retry",
