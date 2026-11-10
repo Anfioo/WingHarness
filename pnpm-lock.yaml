@@ -177,8 +177,8 @@ importers:
         specifier: ^12.2.0
         version: 12.2.0
       mind-elixir:
-        specifier: 5.12.2
-        version: 5.12.2
+        specifier: 6.0.0
+        version: 6.0.0
       node-unrar-js:
         specifier: 2.0.2
         version: 2.0.2
@@ -3676,8 +3676,8 @@ packages:
     resolution: {integrity: sha512-VP79XUPxV2CigYP3jWwAUFSku2aKqBH7uTAapFWCBqutsbmDo96KY5o8uh6U+/YSIn5OxJnXp73beVkpqMIGhA==}
     engines: {node: '>=18'}
 
-  mind-elixir@5.12.2:
-    resolution: {integrity: sha512-G9eyrmjp6Ot+Llf5oPZPj2N5ivzDVwiQpiJEaX7uTUvIRkUwkyoTW1vSKKayl6ZzRoEWE87zupEdlEJWwtqqVg==}
+  mind-elixir@6.0.0:
+    resolution: {integrity: sha512-8eBJMZggSAOSpD/dq9nhOflhOJ4Su2eeePBzKPHATp7VFt3ojqEjcuUasiVH36Xarp2yoceJ7QYMR1STsVxhTw==}
 
   minimatch@10.2.4:
     resolution: {integrity: sha512-oRjTw/97aTBN0RHbYCdtF1MQfvusSIBQM0IZEgzl6426+8jSC0nF1a/GmnVLpfB9yyr6g6FTqWqiZVbxrtaCIg==}
@@ -8210,7 +8210,7 @@ snapshots:
 
   mimic-function@5.0.1: {}
 
-  mind-elixir@5.12.2: {}
+  mind-elixir@6.0.0: {}
 
   minimatch@10.2.4:
     dependencies:
