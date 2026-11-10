@@ -163,6 +163,7 @@ pnpm dlx shadcn@latest add button
 | [MD_EDITOR.zh-CN.md](./docs/features/MD_EDITOR.zh-CN.md) | 多标签 Markdown 编辑器，文件留在原处 |
 | [NOTES.zh-CN.md](./docs/features/NOTES.zh-CN.md) | 存放在数据目录中的 Markdown 笔记 |
 | [PLUGINS.zh-CN.md](./docs/features/PLUGINS.zh-CN.md) | 插件格式、清单文件，以及自动生成设置界面 |
+| [PORTS.zh-CN.md](./docs/features/PORTS.zh-CN.md) | 本机监听的 TCP 端口、固定端口，以及结束占用端口的进程 |
 | [PROJECT.zh-CN.md](./docs/features/PROJECT.zh-CN.md) | 项目文件浏览与编辑 |
 | [SERVERS.zh-CN.md](./docs/features/SERVERS.zh-CN.md) | SSH / SFTP 服务器管理 |
 | [SVN.zh-CN.md](./docs/features/SVN.zh-CN.md) | 原生 Subversion 工作副本 |

@@ -935,6 +935,33 @@ export type {
 } from "./services/frp/types";
 export { frpErrorCode, isFrpError } from "./services/frp/types";
 export {
+  portsDetail,
+  portsKill,
+  portsKillElevated,
+  portsList,
+  portsPinnedScan,
+  portsSettingsGet,
+  portsSettingsSet,
+} from "./services/ports";
+export {
+  DEFAULT_PINNED_PORTS,
+  MAX_PINNED_PORTS,
+  isPortsError,
+  portsErrorCode,
+} from "./services/ports/types";
+export type {
+  PortDetail,
+  PortEntry,
+  PortGrouping,
+  PortsError,
+  PortsErrorCode,
+  PortsSettings,
+  PortStatus,
+  ProcessBrief,
+  ProcessDetail,
+  Protocol,
+} from "./services/ports/types";
+export {
   mdEditorExportPdf,
   mdEditorFileMeta,
   mdEditorOpenFile,

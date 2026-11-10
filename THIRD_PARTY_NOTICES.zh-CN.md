@@ -100,6 +100,25 @@ SQL Server、ClickHouse 与 Oracle 分支、`specta` 类型生成、keychain 密
 `src-tauri/svn-core` 与 SVN 工作区页面整体移植自 OrcaSVN，`svn-core/src/lib.rs`
 中有说明。
 
+### Porter
+
+- 项目：[Porter](https://github.com/t21dev/porter-app)
+- 版本：v0.7.1
+- 许可证：MIT
+- 许可证文本：[licenses/Porter-LICENSE.txt](./licenses/Porter-LICENSE.txt)
+
+Porter (https://github.com/t21dev/porter-app)
+Copyright (c) 2025 Porter App Contributors
+Licensed under the MIT License.
+Portions of the Windows TCP listener enumeration, port scan, process lookup,
+process termination and the port list/detail/settings UI are adapted from
+Porter.
+
+`src-tauri/ports-core` 是端口页面的引擎。它属改写而非复制：只有 Windows TCP
+监听表、扫描的三态、进程查询与结束路径、一次性提权行为以及 DTO 派生自 Porter。
+macOS、Linux 与 Flatpak 路径、出站连接、UDP、整应用提权，以及外壳、主题与更新类
+功能都没有移植。移植记录见 `src-tauri/ports-core/UPSTREAM.md`。
+
 ### shaic
 
 - 项目：[shaic](https://github.com/dariocurr/shaic)
