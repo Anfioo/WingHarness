@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-set-settings"
+description = "Enables the moin_set_settings command without any pre-configured scope."
+commands.allow = ["moin_set_settings"]
+
+[[permission]]
+identifier = "deny-moin-set-settings"
+description = "Denies the moin_set_settings command without any pre-configured scope."
+commands.deny = ["moin_set_settings"]

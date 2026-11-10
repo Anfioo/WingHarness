@@ -74,6 +74,7 @@ functions and types — it is the only thing components import:
 | `file-preview` | metadata and raw bytes for the preview page, read from the `root` the caller passes |
 | `fonts` | enumerating installed font families |
 | `local-shell` | the terminal's pseudo-console, and its font list |
+| `moin` | 29 commands for HTTP downloads, queue actions, categories, settings, aria2 detection and extension RPC |
 | `notes` | the Markdown store |
 | `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
 | `space-preview` | the space preview engine's `sp_*` commands: file inspection and ranged reads, text write-back, preferences, the standalone window, system icons and the Windows space agent |

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-suggest-category"
+description = "Enables the moin_suggest_category command without any pre-configured scope."
+commands.allow = ["moin_suggest_category"]
+
+[[permission]]
+identifier = "deny-moin-suggest-category"
+description = "Denies the moin_suggest_category command without any pre-configured scope."
+commands.deny = ["moin_suggest_category"]

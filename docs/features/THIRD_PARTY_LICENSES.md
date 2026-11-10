@@ -12,15 +12,18 @@ app or going online.
   in the system browser.
 - **Full notices** — the complete `THIRD_PARTY_NOTICES` file for the current
   language, in a scrollable pane.
+- **moin MIT** — the complete upstream MIT license text, embedded in the app in a
+  separate scrollable pane so the required copyright and permission notices are
+  available offline.
 - The application's own licence, GPL-3.0-only, is stated in the header.
 
 ## Where the content comes from
 
-| Piece | Source |
-|-------|--------|
-| Upstream list | `UPSTREAMS` in [`src/windows/about/index.tsx`](../../src/windows/about/index.tsx) |
-| Notices text | [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) and [`THIRD_PARTY_NOTICES.zh-CN.md`](../../THIRD_PARTY_NOTICES.zh-CN.md), imported with Vite's `?raw` |
-| Licence texts | [`licenses/`](../../licenses/) |
+| Piece         | Source                                                                                                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upstream list | `UPSTREAMS` in [`src/windows/about/index.tsx`](../../src/windows/about/index.tsx)                                                                                                                  |
+| Notices text  | [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) and [`THIRD_PARTY_NOTICES.zh-CN.md`](../../THIRD_PARTY_NOTICES.zh-CN.md), imported with Vite's `?raw`                                     |
+| Licence texts | moin MIT is imported from [`licenses/moin-LICENSE.txt`](../../licenses/moin-LICENSE.txt) into the offline About dialog; the other source license files remain under [`licenses/`](../../licenses/) |
 
 The notices are embedded at build time, so the dialog works offline and needs no
 Tauri command or extra bundle resource. Both languages are bundled; the dialog

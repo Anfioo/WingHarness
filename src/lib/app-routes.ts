@@ -12,6 +12,7 @@ import {
   History,
   NotebookPen,
   Network,
+  Download,
   Package,
   Plug,
   Send,
@@ -338,6 +339,17 @@ export const appRoutes: AppRoute[] = [
     icon: FileText,
     scope: "文档 / 预览 / 导出",
     items: ["标签页", "大纲", "阅读", "源码", "分屏", "导出"],
+  },
+  {
+    id: "moin",
+    group: "moin",
+    path: "/moin",
+    title: "下载",
+    navLabel: "下载",
+    description: "管理 HTTP/HTTPS 下载队列、进度与下载设置。",
+    icon: Download,
+    scope: "HTTP/HTTPS 下载 / 队列 / 分类",
+    items: ["多连接分段下载", "队列与续传", "分类规则", "浏览器扩展"],
   },
 ];
 

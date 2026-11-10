@@ -43,6 +43,7 @@ const pageMap = {
   "/claude-history": lazy(() => import("./pages/claude-history/index")),
   "/claude-workflow": lazy(() => import("./pages/claude-workflow/index")),
   "/notes": lazy(() => import("./pages/notes/index")),
+  "/moin": lazy(() => import("./pages/moin/index")),
   "/file-preview": lazy(() => import("./pages/file-preview/index")),
   "/preview-window": lazy(() => import("./pages/preview-window/index")),
   "/cc-switch": lazy(() => import("./pages/cc-switch/index")),

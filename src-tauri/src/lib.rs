@@ -133,6 +133,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(plugins::system_tray::init());
 
@@ -149,6 +150,12 @@ pub fn run() {
         // not stopped here it keeps running, and keeps the port it holds, long
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
+            if let Some(moin) = app.try_state::<moin_core::MoinState>() {
+                moin_core::shutdown(&moin);
+            }
+            // The listener holds a loopback port; releasing it here keeps the
+            // next start from finding it busy.
+            moin_core::rpc::stop();
             plugins::registry::stop_all_running();
             // The space agent owns a low-level keyboard hook and a STA worker;
             // leaking them would keep the hook installed after the app is gone.
