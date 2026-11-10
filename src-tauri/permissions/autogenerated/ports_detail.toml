@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-ports-detail"
+description = "Enables the ports_detail command without any pre-configured scope."
+commands.allow = ["ports_detail"]
+
+[[permission]]
+identifier = "deny-ports-detail"
+description = "Denies the ports_detail command without any pre-configured scope."
+commands.deny = ["ports_detail"]
