@@ -63,6 +63,7 @@ import {
 import OfficePreview from './OfficePreview';
 import DocumentReader, { ReadingLayout } from './DocumentReader';
 import WordPreview from './WordPreview';
+import FoldableCode from './FoldableCode';
 import PdfPage from './PdfPage';
 import OfdPage, { OFD_PX_PER_MM } from './OfdPage';
 import type { OfdDocument } from '@/lib/space-preview/engine/ofd';
@@ -1659,12 +1660,11 @@ function prettyJson(text: string): string {
 }
 
 /**
- * The read-only text view: the whole document in a single `<pre>`.
- *
- * Highlighting is one pass over the file with the editor's own grammars, and it
- * is skipped above the character cap, so a long file costs one text node instead
- * of one node per line. The file is still edited by the host's `CodeEditor`; this
- * viewer only ever reads.
+ * The read-only text view. Below the configured size it keeps the foldable
+ * line view — line numbers, folding and the app's own highlighter. Above the
+ * threshold it switches to a single `<pre>`, so a long file costs one text
+ * node instead of one per line. The file is still edited by the host's
+ * `CodeEditor`; this viewer only ever reads.
  */
 function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => void }) {
   const { t } = useAppTranslation();
@@ -1713,7 +1713,11 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
     });
     return () => controller.abort();
   }, [file, encoding, retry]);
-  const rendered = useMemo(() => (text ? previewText(text.text, file.name) : null), [text, file.name]);
+  const fast = file.size > preferences.textPreviewThresholdKb * 1024;
+  const rendered = useMemo(
+    () => (text && fast ? previewText(text.text, file.name) : null),
+    [text, fast, file.name],
+  );
   const lines = useMemo(() => {
     if (!text) return 0;
     let count = 1;
@@ -1756,13 +1760,17 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
           </label>
         </div>
       </PreviewToolbar>
-      <pre className="bg-muted text-foreground m-0 min-h-0 flex-1 overflow-auto p-[18px] font-mono text-[13px] leading-[1.55] whitespace-pre-wrap">
-        {rendered?.html ? (
-          <code className="hljs" dangerouslySetInnerHTML={{ __html: rendered.html }} />
-        ) : (
-          text.text
-        )}
-      </pre>
+      {fast ? (
+        <pre className="bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6 whitespace-pre">
+          {rendered?.html ? (
+            <code className="hljs" dangerouslySetInnerHTML={{ __html: rendered.html }} />
+          ) : (
+            text.text
+          )}
+        </pre>
+      ) : (
+        <FoldableCode name={file.name} text={text.text} />
+      )}
     </div>
   );
 }

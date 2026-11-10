@@ -12,13 +12,16 @@ export default {
   settings: {
     behavior: "Preview behavior",
     behaviorHint:
-      "The space key, the reading width, the font size and the encoding apply to every preview window.",
+      "The space key, the reading width, the font size, the encoding and the text-file threshold apply to every preview window.",
     autoSave: "Changes save automatically.",
     spaceEnabled: "Space preview",
     spaceEnabledHint: "Press Space on a selected file in Explorer, the desktop or Everything.",
     readingWidth: "Reading width",
     fontSize: "Font size",
     defaultEncoding: "Default encoding",
+    textThreshold: "Text file threshold",
+    textThresholdHint:
+      "Text files up to this size open in the foldable line view; larger files switch to the fast single-block view.",
     running: "Running",
     disabled: "Off",
     enabledNotRunning: "Enabled, not running",
@@ -120,6 +123,9 @@ export default {
     fitDiagram: "Fit the diagram",
     fitWidth: "Fit to width",
     fitWindow: "Fit the window",
+    foldCollapse: "Collapse line {{line}}",
+    foldExpand: "Expand line {{line}}",
+    foldSummary: "… {{count}} lines",
     folderNotPreviewed: "Folders are explored in the project file tree, not in the preview.",
     fontCollection: "Font collection",
     fontFallback: "Missing characters use a system fallback font.",

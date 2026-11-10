@@ -110,10 +110,10 @@ function Row({
 /**
  * How the preview opens and paints files.
  *
- * The space switch, the reading width, the font size and the default encoding
- * live in `preview.json` and are shared with the preview host and the tray. The
- * space switch goes through the agent command so the hook is retuned immediately
- * instead of on the next restart.
+ * The space switch, the reading width, the font size, the default encoding and
+ * the text-file threshold live in `preview.json` and are shared with the preview
+ * host and the tray. The space switch goes through the agent command so the hook
+ * is retuned immediately instead of on the next restart.
  */
 export function FilePreviewSection() {
   const { t } = useAppTranslation();
@@ -241,6 +241,20 @@ export function FilePreviewSection() {
               max={32}
               unit="px"
               onChange={(fontSize) => void updatePreferences({ fontSize })}
+            />
+          </Row>
+          <Row
+            label={t("spacePreview.settings.textThreshold")}
+            hint={t("spacePreview.settings.textThresholdHint")}
+          >
+            <NumberField
+              value={preferences.textPreviewThresholdKb}
+              min={1}
+              max={65536}
+              unit="KB"
+              onChange={(textPreviewThresholdKb) =>
+                void updatePreferences({ textPreviewThresholdKb })
+              }
             />
           </Row>
           <Row label={t("spacePreview.settings.defaultEncoding")}>

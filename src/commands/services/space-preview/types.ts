@@ -55,4 +55,6 @@ export interface PreviewPreferences {
   readingWidth: number;
   fontSize: number;
   defaultEncoding: TextEncoding;
+  /** Files larger than this many kilobytes skip the foldable line view. */
+  textPreviewThresholdKb: number;
 }

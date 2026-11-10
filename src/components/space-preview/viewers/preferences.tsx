@@ -9,6 +9,7 @@ export interface ViewerPreferences {
   readingWidth: number;
   fontSize: number;
   defaultEncoding: TextEncoding;
+  textPreviewThresholdKb: number;
 }
 
 interface PreferencesValue {

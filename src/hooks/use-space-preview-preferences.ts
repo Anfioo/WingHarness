@@ -15,6 +15,7 @@ const DEFAULT_PREFERENCES: PreviewPreferences = {
   readingWidth: 900,
   fontSize: 15,
   defaultEncoding: "auto",
+  textPreviewThresholdKb: 500,
 };
 
 export function useSpacePreviewPreferences(): {

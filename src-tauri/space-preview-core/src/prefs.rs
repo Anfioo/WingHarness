@@ -171,6 +171,7 @@ mod tests {
         assert_eq!(preferences.reading_width, 900);
         assert_eq!(preferences.font_size, 15);
         assert_eq!(preferences.default_encoding, "auto");
+        assert_eq!(preferences.text_preview_threshold_kb, 500);
         assert!(!path.exists());
     }
 
@@ -184,6 +185,7 @@ mod tests {
             reading_width: 1080,
             font_size: 18,
             default_encoding: "gb18030".to_owned(),
+            text_preview_threshold_kb: 2048,
         };
 
         assert_eq!(save_to(&path, saved.clone()).unwrap(), saved);
@@ -200,12 +202,15 @@ mod tests {
             reading_width: 900,
             font_size: 15,
             default_encoding: "auto".to_owned(),
+            text_preview_threshold_kb: 500,
         };
 
         assert_eq!(save_to(&path, saved).unwrap().version, 1);
 
         fs::write(&path, br#"{"version":42,"spaceEnabled":true,"readingWidth":900,"fontSize":15,"defaultEncoding":"auto"}"#).unwrap();
-        assert_eq!(load_from(&path).unwrap().version, 1);
+        let loaded = load_from(&path).unwrap();
+        assert_eq!(loaded.version, 1);
+        assert_eq!(loaded.text_preview_threshold_kb, 500);
     }
 
     #[test]

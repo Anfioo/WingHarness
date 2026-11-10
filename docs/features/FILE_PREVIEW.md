@@ -171,18 +171,23 @@ get an explanation instead of a blank pane; see `unsupportedFormatHint`.
 
 ## The text view
 
-Text and source files render as a single `<pre>` holding the whole document, not
-one element per line, so a long file costs one text node instead of tens of
-thousands of them.
+Text and source files have two read-only renderings, chosen by the file size
+against the **text file threshold** preference (default 500 KB):
 
-- Highlighting is one pass over the document with the editor's own grammars
-  ([`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts)) and the
-  theme's `.hljs-*` colours. An extension those grammars do not cover, and any
-  file past the 400,000-character cap, are shown as plain text.
-- The toolbar shows the detected encoding and the line count, and offers the same
-  encoding list as the editor.
-- Reading only: the host's pencil swaps in `CodeEditor`, which stays the app's
-  editor.
+- **Below the threshold — the foldable line view.** One element per line with
+  line numbers, plus fold controls for JSON and XML. Lines are highlighted one
+  at a time with the app's own grammars
+  ([`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts)),
+  carrying block comments across lines, and the colours are the theme's global
+  `.hljs-*` map rather than the ported viewers' fixed palette.
+- **Above it — the fast view.** The whole document in a single `<pre>`,
+  highlighted in one pass, so a long file costs one text node instead of tens of
+  thousands. Past the 400,000-character cap the highlight pass is skipped and the
+  text is plain.
+
+Both show the detected encoding and the line count in the toolbar and offer the
+same encoding list as the editor. They are read only: the host's pencil swaps in
+`CodeEditor`, which stays the app's editor.
 
 ## Editing
 
@@ -256,14 +261,17 @@ The defaults are:
   "spaceEnabled": true,
   "readingWidth": 900,
   "fontSize": 15,
-  "defaultEncoding": "auto"
+  "defaultEncoding": "auto",
+  "textPreviewThresholdKb": 500
 }
 ```
 
 `src/lib/space-preview/preferences.ts` clamps anything a damaged file or an
-older build left behind. **设置 → 文件预览设置** edits all four values and saves
+older build left behind. **设置 → 文件预览设置** edits all five values and saves
 automatically; the reading width and font size are also adjustable in the
-viewer's own reading-width control, which writes the same file.
+viewer's own reading-width control, which writes the same file. A file written
+before the threshold existed reads with the 500 KB default instead of being
+discarded.
 
 ## Editor preview tabs
 
@@ -295,9 +303,10 @@ The same host is registered as a codelet custom editor
 
 - **Text-like files are editable; structured formats are not.** A document,
   spreadsheet, image or archive viewer has no editor.
-- **Long text stays one `<pre>`.** The highlight pass is skipped above 400,000
-  characters, so a large log or source file renders uncoloured rather than being
-  split into an element per line.
+- **Large text switches to one `<pre>`.** Above the text-file threshold the
+  foldable line view gives way to a single block; above 400,000 characters the
+  highlight pass is skipped as well, so a large log renders uncoloured rather
+  than being split into an element per line.
 - **64 MiB for a whole-file preview.** Larger files are listed but not read; the
   pane says so instead of loading them, and the backend's per-range cap makes a
   direct call unable to sidestep it.

@@ -62,6 +62,13 @@ pub struct PreviewPreferences {
     pub reading_width: u32,
     pub font_size: u32,
     pub default_encoding: String,
+    /// Files larger than this many kilobytes skip the line view.
+    #[serde(default = "default_text_preview_threshold_kb")]
+    pub text_preview_threshold_kb: u32,
+}
+
+fn default_text_preview_threshold_kb() -> u32 {
+    500
 }
 
 impl Default for PreviewPreferences {
@@ -72,6 +79,7 @@ impl Default for PreviewPreferences {
             reading_width: 900,
             font_size: 15,
             default_encoding: "auto".to_owned(),
+            text_preview_threshold_kb: default_text_preview_threshold_kb(),
         }
     }
 }

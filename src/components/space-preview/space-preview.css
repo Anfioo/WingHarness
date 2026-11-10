@@ -2735,3 +2735,20 @@
     animation: none;
   }
 }
+/* Host addition: the text view follows the app theme. The ported palette above
+ * stays fixed and light for the document viewers, while the foldable code lines
+ * use the app's tokens and the global highlight.js class map. */
+.sp-preview .text-preview .foldable-code {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+.sp-preview .text-preview .foldable-code .line-number {
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border-right: 1px solid hsl(var(--border));
+  margin-right: 12px;
+}
+.sp-preview .text-preview .foldable-code .fold-gutter button,
+.sp-preview .text-preview .foldable-code .fold-summary {
+  color: hsl(var(--muted-foreground));
+}

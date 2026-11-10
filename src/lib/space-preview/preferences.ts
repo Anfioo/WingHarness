@@ -16,6 +16,7 @@ export const previewDefaults: PreviewPreferences = {
   readingWidth: 900,
   fontSize: 15,
   defaultEncoding: "auto",
+  textPreviewThresholdKb: 500,
 };
 
 const encodings: TextEncoding[] = [
@@ -52,6 +53,13 @@ export function normalizePreferences(value: Partial<PreviewPreferences>): Previe
     defaultEncoding: encodings.includes(value.defaultEncoding as TextEncoding)
       ? value.defaultEncoding!
       : previewDefaults.defaultEncoding,
+    textPreviewThresholdKb:
+      typeof value.textPreviewThresholdKb === "number" &&
+      Number.isInteger(value.textPreviewThresholdKb) &&
+      value.textPreviewThresholdKb >= 1 &&
+      value.textPreviewThresholdKb <= 65536
+        ? value.textPreviewThresholdKb
+        : previewDefaults.textPreviewThresholdKb,
   };
 }
 

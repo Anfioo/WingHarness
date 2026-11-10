@@ -73,6 +73,7 @@ const DEFAULT_PREFERENCES: PreviewPreferences = {
   readingWidth: 900,
   fontSize: 15,
   defaultEncoding: "auto",
+  textPreviewThresholdKb: 500,
 };
 
 const ENCODINGS: { value: TextEncoding; key: string; fallback: string }[] = [
@@ -389,6 +390,7 @@ export function PreviewHost({
         readingWidth: preferences.readingWidth,
         fontSize: preferences.fontSize,
         defaultEncoding: preferences.defaultEncoding,
+        textPreviewThresholdKb: preferences.textPreviewThresholdKb,
       }}
       update={update}
     >
