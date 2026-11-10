@@ -132,7 +132,7 @@ code 映射到 `spacePreview.error.*`，英文 `message` 只作兜底，见
 | 字体 | `ttf otf woff woff2 ttc` |
 | PSD | `psd psb` |
 | XMind | `xmind` |
-| 图表 | `mermaid mmd`——只保留 mermaid；Graphviz 未移植 |
+| 图表 | `mermaid mmd`——只保留 mermaid；Graphviz 未移植，ELK 布局也未打包（elkjs 为 EPL-2.0） |
 | Lottie | `lottie tgs`，以及任何 `*.lottie.json` |
 | 归档 / 容器 | `zip jar apk ipa cbz whl nupkg vsix xpi 7z rar tar tgz gz bz2 xz lz zst cb7 cbr cbt iso xar cpio ar deb asar crx cfb msi appx msix …`——48 种容器，在 Worker 里走 libarchive |
 | 音视频 | `mp3 wav ogg flac aac m4a mp4 webm mov m4v ogv` |

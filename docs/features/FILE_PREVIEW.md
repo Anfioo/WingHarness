@@ -141,7 +141,7 @@ the file information.
 | Font | `ttf otf woff woff2 ttc` |
 | PSD | `psd psb` |
 | XMind | `xmind` |
-| Diagram | `mermaid mmd` — mermaid only; Graphviz is not ported |
+| Diagram | `mermaid mmd` — mermaid only; Graphviz is not ported, and the ELK layout is not bundled (elkjs is EPL-2.0) |
 | Lottie | `lottie tgs`, and any `*.lottie.json` |
 | Archive / container | `zip jar apk ipa cbz whl nupkg vsix xpi 7z rar tar tgz gz bz2 xz lz zst cb7 cbr cbt iso xar cpio ar deb asar crx cfb msi appx msix …` — 48 containers, via libarchive in a Worker |
 | Audio / video | `mp3 wav ogg flac aac m4a mp4 webm mov m4v ogv` |

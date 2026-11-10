@@ -24,6 +24,9 @@ export default defineConfig(async () => ({
       "@": path.resolve(__dirname, "./src"),
       // PDF.js and libarchive expect Node's Buffer to exist.
       buffer: "buffer/",
+      // elkjs is EPL-2.0, which the licence gate in docs/UPSTREAM_PROJECTS.md
+      // does not allow. Only mermaid's opt-in ELK layouts import it.
+      "elkjs/lib/elk.bundled.js": path.resolve(__dirname, "./src/lib/elk-stub.ts"),
     },
   },
 

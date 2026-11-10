@@ -330,9 +330,9 @@ Apache-2.0、BSD、ISC 或其兼容组合。例外如下：
 
 | 包 | 许可证 | 引入路径 | 说明 |
 |----|--------|----------|------|
-| `elkjs` | EPL-2.0 | `mermaid` | 会进入 JavaScript 产物。EPL-2.0 不在移植门槛的允许清单内，因此这是一项待办：确认所发布构建适用 EPL-2.0 的次级许可证条款，或不再打包 ELK 布局。 |
+| `elkjs` | EPL-2.0 | `mermaid` | **不随产物分发。** `vite.config.ts` 将该包别名到 `src/lib/elk-stub.ts`，因为 EPL-2.0 不在移植门槛的允许清单内。显式请求 ELK 布局的图表会提示该布局不可用；其余 Mermaid 布局一律使用 dagre。 |
 | `lightningcss`、`lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`、`vite` | 仅构建期使用，不随应用分发。 |
-| `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | 该包既没有 `license` 字段，也没有许可证文件。需要确认其代码是否进入 Excel 查看器产物；若进入，应替换或取得许可。 |
+| `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | **不随产物分发。** Vite 解析的是 ExcelJS 的 `browser` 入口（`dist/exceljs.min.js`），该构建使用 JSZip，不含 `unzipper`、`binary` 或 `buffers` 代码。 |
 
 MPL-2.0 是文件级著佐权，与 GPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
 产物分发。Apache-2.0 全文见

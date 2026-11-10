@@ -87,6 +87,9 @@ highlight.js → DOMPurify (`renderMarkdown` in `preview/render.ts`).
 - Headings get slug ids; duplicates are disambiguated with `-2`, `-3`, …
 - Highlighting is budgeted: a whole-document cap and a per-block cap keep large
   code blocks from stalling the render.
+- `mermaid` fences render through mermaid's default dagre layout. Its ELK
+  layouts are not bundled — elkjs is EPL-2.0, which the licence gate forbids — so
+  a diagram that asks for one reports an error instead.
 - Local images are read through `md_editor_read_asset` and inlined as data URLs
   (LRU cache of 64 entries, cleared when a tab closes). Unreadable or oversized
   images render a placeholder instead of a broken icon. Remote sources

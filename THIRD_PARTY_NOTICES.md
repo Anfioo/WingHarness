@@ -351,9 +351,9 @@ exceptions are:
 
 | Package | License | Pulled in by | Note |
 |---------|---------|--------------|------|
-| `elkjs` | EPL-2.0 | `mermaid` | Ships inside the JavaScript bundle. EPL-2.0 is not on the porting gate's allowed list, so its use is an open item: either confirm the EPL-2.0 secondary-license option for the shipped build or stop bundling the ELK layout. |
+| `elkjs` | EPL-2.0 | `mermaid` | **Not redistributed.** `vite.config.ts` aliases the package to `src/lib/elk-stub.ts` because EPL-2.0 is not on the porting gate's allowed list. A diagram that explicitly asks for an ELK layout reports that the layout is unavailable; every other mermaid layout uses dagre. |
 | `lightningcss`, `lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`, `vite` | Build-time only; not redistributed in the application. |
-| `buffers` | none stated | `exceljs` → `unzipper` → `binary` | The package declares no `license` field and ships no license file. Whether its code reaches the Excel viewer bundle needs confirmation; if it does, replace or license it. |
+| `buffers` | none stated | `exceljs` → `unzipper` → `binary` | **Not redistributed.** Vite resolves ExcelJS's `browser` entry (`dist/exceljs.min.js`), which uses JSZip and contains no `unzipper`, `binary` or `buffers` code. |
 
 MPL-2.0 is a file-level copyleft and is compatible with GPL-3.0-only; the
 MPL-2.0 components above are build tooling and are not redistributed. The

@@ -52,7 +52,8 @@ Files under the four ported directories and `space-preview.css` are listed in
   thumbnails — they need `three`, `occt-import-js`, `assimpjs`,
   `@imagemagick/magick-wasm` or similar, which this project does not ship.
 - Graphviz (`.dot`, `.gv`): `@viz-js/viz` is EPL-2.0, which is not on the
-  licence gate's allowed list. The `diagram` engine keeps mermaid only.
+  licence gate's allowed list. The `diagram` engine keeps mermaid only, and
+  mermaid's own ELK layout is excluded for the same reason (elkjs is EPL-2.0).
 - The directory preview, the directory sidebar, the file search pane, the tab
   strip and reading-position memory — the standalone window deliberately has
   only multi-selection and the arrow keys.
