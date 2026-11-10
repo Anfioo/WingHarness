@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TitleBar } from "@/components/title-bar";
 import { WindowFrame } from "@/components/window-frame";
+import { PreviewPane } from "@/features/md-editor/preview/pane";
+import { renderMarkdown } from "@/features/md-editor/preview/render";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useUpdater } from "@/hooks/use-updater";
 import { updateErrorMessage } from "@/lib/updater";
@@ -48,6 +50,11 @@ export default function UpdatePage() {
     skipUpdate,
   } = useUpdater();
   const appWindow = useMemo(() => getCurrentWebviewWindow(), []);
+  const releaseNotes = update?.body ?? "";
+  const releaseNotesHtml = useMemo(
+    () => (releaseNotes ? renderMarkdown(releaseNotes, { docPath: null }) : ""),
+    [releaseNotes]
+  );
   const [focused, setFocused] = useState(true);
   const [checkError, setCheckError] = useState<string | null>(null);
   const downloadingRef = useRef(downloading);
@@ -235,10 +242,10 @@ export default function UpdatePage() {
             <p className="break-all whitespace-pre-wrap">{checkError}</p>
           </div>
         ) : update?.body ? (
-          <div className="bg-muted flex min-h-0 flex-1 flex-col gap-1 rounded-md p-3">
+          <div className="bg-muted flex min-h-0 flex-1 flex-col gap-2 rounded-md p-3">
             <p className="text-sm font-semibold">{t("updater.releaseNotes")}</p>
-            <div className="text-muted-foreground min-h-0 flex-1 overflow-y-auto text-sm whitespace-pre-wrap">
-              {update.body}
+            <div className="min-h-0 flex-1 overflow-y-auto text-sm">
+              <PreviewPane html={releaseNotesHtml} docPath={null} />
             </div>
           </div>
         ) : (
