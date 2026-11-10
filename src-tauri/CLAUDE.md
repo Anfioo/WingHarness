@@ -33,7 +33,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/config.rs` | `get_config`, `save_config`, `set_data_dir` | 3 |
 | `commands/db.rs` | `db_apply_edits`, `db_cancel`, `db_completion`, `db_connect`, `db_connected`, `db_databases`, `db_ddl`, `db_disconnect`, `db_execute`, `db_explain`, `db_finish_transaction`, `db_history`, `db_object_ddl`, `db_queries`, `db_query_delete`, `db_query_read`, `db_query_write`, `db_remove_history`, `db_save_settings`, `db_save_sources`, `db_save_window_tabs`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_settings`, `db_sources`, `db_statements`, `db_table_details`, `db_table_page`, `db_tables`, `db_test`, `db_window_tabs` | 33 |
 | `commands/devtools.rs` | `open_devtools` | 1 |
-| `file-preview/` (crate) | `preview_metadata`, `preview_bytes` | 2 |
+| `commands/file_preview.rs` (over the crate) | `preview_metadata`, `preview_bytes` | 2 |
 | `fonts/mod.rs` | `fonts_list` | 1 |
 | `commands/local_shell.rs` | `local_shell_kill`, `local_shell_list_fonts`, `local_shell_resize`, `local_shell_start`, `local_shell_write` | 5 |
 | `commands/notes.rs` | `notes_delete`, `notes_list`, `notes_mkdir`, `notes_rename`, `notes_write` | 5 |
@@ -84,9 +84,15 @@ the caller's origin additionally has to match.
 
 - `src/config/mod.rs` is deliberately plain `std` + `serde_json`, with no Tauri
   handle, so it stays usable from tests and tools
-- `config.json` holds the per-app settings: the Codex switch preferences and the
-  AI config sync's enabled agents. It holds no project — projects are their own
+- `config.json` holds the per-app settings: the Codex switch preferences, the
+  AI config sync's enabled agents, the outbound proxy, and the file preview's
+  threshold and highlight switch. It holds no project — projects are their own
   store, below
+- The proxy is written into `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
+  `NO_PROXY` bypass list) at startup and again on save, so every reqwest client
+  built afterwards and every spawned tool picks it up without knowing about the
+  setting. `config::apply_proxy_env` owns this; an empty URL leaves a proxy that
+  the launching shell exported alone
 - `src/projects/mod.rs` is the project store: `<data dir>/projects.json`, with
   the recent list and the active project. It is plain `std` + `serde_json` for
   the same reason as `config`, and the backend never guesses a root from it —
@@ -103,9 +109,9 @@ the caller's origin additionally has to match.
 ## Crates
 
 `file-preview/` is a workspace member: the preview page's byte reader, kept
-separate so it can be tested and reasoned about without Tauri. It exposes exactly
-two commands, takes the project root as a parameter, and is the only backend work
-the preview page does. See
+separate so it can be tested and reasoned about without Tauri. Its functions take
+the project root and the size cap as parameters; `commands/file_preview.rs` is
+the thin Tauri layer that reads the cap from the config on every call. See
 [../docs/features/FILE_PREVIEW.md](../docs/features/FILE_PREVIEW.md).
 
 `db-core/` is a workspace member: the database engine behind the databases page
