@@ -11,12 +11,10 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 /// Virtual-key code for Space (`VK_SPACE`).
 const SPACE: u32 = 0x20;
-/// Modifier bits, packed above bit 16: Alt and Meta.
-const ALT: u32 = 2 << 16;
+/// The Meta bit, packed above bit 16; bit 0 is Ctrl and bit 1 is Alt.
 const META: u32 = 4 << 16;
 
 const SPACE_KEY: u32 = SPACE;
-const ALT_SPACE: u32 = SPACE | ALT;
 const WIN_SPACE: u32 = SPACE | META;
 
 static CURRENT: AtomicU32 = AtomicU32::new(SPACE_KEY);
@@ -34,7 +32,6 @@ pub fn set(name: &str) {
 
 fn packed_for(name: &str) -> u32 {
     match name {
-        "altSpace" => ALT_SPACE,
         "winSpace" => WIN_SPACE,
         _ => SPACE_KEY,
     }
@@ -61,27 +58,21 @@ mod tests {
     #[test]
     fn every_preset_is_a_space_press_with_its_modifiers() {
         assert_eq!(packed_for("space"), 0x20);
-        assert_eq!(packed_for("altSpace"), 0x20 | (2 << 16));
         assert_eq!(packed_for("winSpace"), 0x20 | (4 << 16));
+        assert_eq!(packed_for("altSpace"), 0x20, "the retired preset falls back");
         assert_eq!(packed_for("unknown"), 0x20);
     }
 
     #[test]
     fn the_packed_modifiers_must_match_exactly() {
-        let alt_space = packed_for("altSpace");
-        assert!(matches(alt_space, false, true, false));
-        assert!(!matches(alt_space, false, false, false));
-        assert!(!matches(alt_space, true, true, false));
-
         let win_space = packed_for("winSpace");
         assert!(matches(win_space, false, false, true));
+        assert!(!matches(win_space, false, false, false));
         assert!(!matches(win_space, true, false, true));
     }
 
     #[test]
     fn set_installs_the_named_preset() {
-        set("altSpace");
-        assert_eq!(current(), packed_for("altSpace"));
         set("winSpace");
         assert_eq!(current(), packed_for("winSpace"));
         set("not-a-preset");

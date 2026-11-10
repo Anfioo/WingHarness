@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { CompactSelect } from '@/components/compact-select';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
 import { readFullBytes } from '@/lib/space-preview/bridge';
 import { readWordPackage } from '@/lib/space-preview/engine/word-package';
@@ -377,24 +378,26 @@ export default function WordPreview({
               })}
             </span>
           )}
-          <select
-            aria-label={t('spacePreview.viewer.zoom', { defaultValue: 'Zoom' })}
+          <CompactSelect
+            ariaLabel={t('spacePreview.viewer.zoom', { defaultValue: 'Zoom' })}
             value={zoom}
-            onChange={(e) => setZoom(e.target.value)}
-          >
-            {!['fit', '0.75', '0.9', '1', '1.25', '1.5', '2'].includes(zoom) && (
-              <option value={zoom}>{Math.round(Number(zoom) * 100)}%</option>
-            )}
-            <option value="fit">
-              {t('spacePreview.viewer.fitWidth', { defaultValue: 'Fit to width' })}
-            </option>
-            <option value="0.75">75%</option>
-            <option value="0.9">90%</option>
-            <option value="1">100%</option>
-            <option value="1.25">125%</option>
-            <option value="1.5">150%</option>
-            <option value="2">200%</option>
-          </select>
+            onChange={setZoom}
+            options={[
+              ...(!['fit', '0.75', '0.9', '1', '1.25', '1.5', '2'].includes(zoom)
+                ? [{ value: zoom, label: `${Math.round(Number(zoom) * 100)}%` }]
+                : []),
+              {
+                value: 'fit',
+                label: t('spacePreview.viewer.fitWidth', { defaultValue: 'Fit to width' }),
+              },
+              { value: '0.75', label: '75%' },
+              { value: '0.9', label: '90%' },
+              { value: '1', label: '100%' },
+              { value: '1.25', label: '125%' },
+              { value: '1.5', label: '150%' },
+              { value: '2', label: '200%' },
+            ]}
+          />
           <button onClick={onText}>
             {t('spacePreview.viewer.textView', { defaultValue: 'Text view' })}
           </button>

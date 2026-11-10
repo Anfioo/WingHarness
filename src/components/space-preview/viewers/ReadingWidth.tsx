@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { CompactSelect } from '@/components/compact-select';
 import { useViewerPreferences } from './preferences';
 import { PreviewMenu } from './PreviewToolbar';
 
@@ -76,18 +77,20 @@ export default function ReadingWidth({
         <PreviewMenu>
           <label className="preview-menu-option">
             <span>{t('spacePreview.viewer.readingWidth', { defaultValue: 'Reading width' })}</span>
-            <select
-              aria-label={t('spacePreview.viewer.readingWidth', { defaultValue: 'Reading width' })}
-              value={width}
-              onChange={(e) => setWidth(Number(e.target.value))}
-            >
-              {!widths.includes(width) && <option value={width}>{width} px</option>}
-              {choices.map((choice) => (
-                <option key={choice.value} value={choice.value}>
-                  {choice.label}
-                </option>
-              ))}
-            </select>
+            <CompactSelect
+              ariaLabel={t('spacePreview.viewer.readingWidth', { defaultValue: 'Reading width' })}
+              value={String(width)}
+              onChange={(value) => setWidth(Number(value))}
+              options={[
+                ...(widths.includes(width)
+                  ? []
+                  : [{ value: String(width), label: `${width} px` }]),
+                ...choices.map((choice) => ({
+                  value: String(choice.value),
+                  label: choice.label,
+                })),
+              ]}
+            />
           </label>
           <button onClick={() => setWidth(860)}>
             {t('spacePreview.viewer.resetReadingWidth', {

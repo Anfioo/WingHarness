@@ -12,11 +12,11 @@ const SHOW_MAIN_KEY = "global-shortcut-show-main";
 
 /** Ctrl+W is the one-click offer for the show-main shortcut. */
 const SHOW_MAIN_PRESETS: readonly ShortcutPresetId[] = ["ctrlW"];
-/** The space agent only understands these three triggers. */
-const PREVIEW_PRESETS: readonly ShortcutPresetId[] = ["space", "altSpace", "winSpace"];
+/** The space agent only understands these triggers. */
+const PREVIEW_PRESETS: readonly ShortcutPresetId[] = ["space", "winSpace"];
 
 function isPreviewKey(id: ShortcutPresetId | null): id is PreviewKey {
-  return id === "space" || id === "altSpace" || id === "winSpace";
+  return id === "space" || id === "winSpace";
 }
 
 /**

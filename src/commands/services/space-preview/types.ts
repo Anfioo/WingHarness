@@ -22,7 +22,7 @@ export type PreviewFont = "auto" | "sans" | "serif" | "mono";
 export type PreviewHtmlView = "source" | "web";
 
 /** The trigger that opens the preview window over a file-manager selection. */
-export type PreviewKey = "space" | "altSpace" | "winSpace";
+export type PreviewKey = "space" | "winSpace";
 
 /** What the backend reports about a file before it is read. */
 export interface PreviewFileInfo {

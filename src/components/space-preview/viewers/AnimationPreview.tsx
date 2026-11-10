@@ -5,6 +5,7 @@ import type { PreviewFile } from '@/lib/space-preview/bridge';
 import { readFullBytes } from '@/lib/space-preview/bridge';
 import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { CompactSelect } from '@/components/compact-select';
 import PreviewToolbar from './PreviewToolbar';
 import { errorText } from './errors';
 
@@ -79,17 +80,12 @@ export default function AnimationPreview({ file }: { file: PreviewFile }) {
             : t('spacePreview.viewer.play', { defaultValue: 'Play' })}
         </button>
         {names.length > 1 && (
-          <select
-            aria-label={t('spacePreview.viewer.animation', { defaultValue: 'Animation' })}
-            value={page}
-            onChange={(event) => setPage(Number(event.target.value))}
-          >
-            {names.map((name, i) => (
-              <option key={name} value={i}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <CompactSelect
+            ariaLabel={t('spacePreview.viewer.animation', { defaultValue: 'Animation' })}
+            value={String(page)}
+            onChange={(value) => setPage(Number(value))}
+            options={names.map((name, i) => ({ value: String(i), label: name }))}
+          />
         )}
       </PreviewToolbar>
       <div

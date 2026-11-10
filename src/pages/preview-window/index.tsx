@@ -18,8 +18,10 @@ import { PreviewWindowFrame } from "@/components/space-preview/window/window-fra
 import { PreviewTabStrip } from "@/components/space-preview/window/tab-strip";
 import { SelectionBar } from "@/components/space-preview/window/selection-bar";
 
-// Keys typed into a field, a selector or a rich-text editor belong to it.
-const EDITABLE_TARGET = "input, textarea, select, [contenteditable='true']";
+// Keys typed into a field, a selector or a rich-text editor belong to it. The
+// viewer's selects are Radix comboboxes rather than native <select> elements.
+const EDITABLE_TARGET =
+  "input, textarea, select, [role='combobox'], [role='listbox'], [role='option'], [contenteditable='true']";
 
 export default function PreviewWindow() {
   const { t } = useAppTranslation();

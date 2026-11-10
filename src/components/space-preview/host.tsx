@@ -15,6 +15,7 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { languageOf } from "@/lib/git-core/highlight";
 import { cn } from "@/lib/utils";
 import { CodeEditor } from "@/components/code-editor";
+import { CompactSelect } from "@/components/compact-select";
 import type { PreviewFile } from "@/lib/space-preview/bridge";
 import { readFullBytes } from "@/lib/space-preview/bridge";
 import { applyPreviewLimits } from "@/lib/space-preview/limits";
@@ -462,8 +463,8 @@ export function PreviewHost({
                         <X className="size-4" />
                         {t("spacePreview.host.cancelEdit", { defaultValue: "Cancel" })}
                       </button>
-                      <select
-                        aria-label={t("spacePreview.viewer.textEncoding", {
+                      <CompactSelect
+                        ariaLabel={t("spacePreview.viewer.textEncoding", {
                           defaultValue: "Text encoding",
                         })}
                         title={t("spacePreview.viewer.fileEncoding", {
@@ -471,15 +472,12 @@ export function PreviewHost({
                         })}
                         value={encoding}
                         disabled={saving}
-                        onChange={(event) => changeEncoding(event.target.value as TextEncoding)}
-                        className="border-border bg-background text-foreground h-8 rounded-md border px-2 text-xs disabled:opacity-50"
-                      >
-                        {ENCODINGS.map((item) => (
-                          <option key={item.value} value={item.value}>
-                            {t(item.key, { defaultValue: item.fallback })}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(value) => changeEncoding(value as TextEncoding)}
+                        options={ENCODINGS.map((item) => ({
+                          value: item.value,
+                          label: t(item.key, { defaultValue: item.fallback }),
+                        }))}
+                      />
                     </>
                   ) : (
                     <>

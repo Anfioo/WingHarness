@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { Keyboard, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   MAX_SHORTCUT_MODIFIERS,
@@ -289,24 +298,33 @@ export function ShortcutField({
                 })}
               </div>
               <div className="flex items-center gap-1.5">
-                <select
+                <Select
                   value={draft.kind === "custom" ? draft.key : DEFAULT_KEY}
-                  onChange={(event) => setKey(event.target.value)}
-                  className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-sm"
+                  onValueChange={setKey}
                 >
-                  {draft.kind === "custom" && !SHORTCUT_KEYS.has(draft.key) && (
-                    <option value={draft.key}>{keyLabel(draft.key)}</option>
-                  )}
-                  {SHORTCUT_KEY_GROUPS.map((group) => (
-                    <optgroup key={group.id} label={t(`shortcutField.groups.${group.id}`)}>
-                      {group.keys.map((key) => (
-                        <option key={key} value={key}>
-                          {keyLabel(key)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    size="sm"
+                    aria-label={t("shortcutField.customTitle")}
+                    className="bg-background text-foreground h-8 flex-1"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {draft.kind === "custom" && !SHORTCUT_KEYS.has(draft.key) && (
+                      <SelectItem value={draft.key}>{keyLabel(draft.key)}</SelectItem>
+                    )}
+                    {SHORTCUT_KEY_GROUPS.map((group) => (
+                      <SelectGroup key={group.id}>
+                        <SelectLabel>{t(`shortcutField.groups.${group.id}`)}</SelectLabel>
+                        {group.keys.map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {keyLabel(key)}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <button
                   type="button"
                   onClick={() => setRecording((current) => !current)}

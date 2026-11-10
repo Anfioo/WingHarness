@@ -39,7 +39,7 @@ export const archiveSizeOptions = [16, 32, 64, 128, 256, 512, 1024] as const;
 
 export const previewFonts: PreviewFont[] = ["auto", "sans", "serif", "mono"];
 export const previewHtmlViews: PreviewHtmlView[] = ["source", "web"];
-export const previewKeys: PreviewKey[] = ["space", "altSpace", "winSpace"];
+export const previewKeys: PreviewKey[] = ["space", "winSpace"];
 
 const encodings: TextEncoding[] = [
   "auto",

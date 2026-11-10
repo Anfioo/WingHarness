@@ -5,6 +5,7 @@ import type { TextEncoding } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { escapeHtml } from "@/lib/git-core/highlight";
 import { cn } from "@/lib/utils";
+import { CompactSelect } from "@/components/compact-select";
 
 /**
  * Highlighting a file this long would cost more than it is worth, and the
@@ -168,18 +169,15 @@ export function CodeEditor({
     <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden", className)}>
       {onEncodingChange ? (
         <div className="border-border flex h-9 shrink-0 items-center justify-end gap-2 border-b px-2">
-          <select
-            aria-label={t("spacePreview.viewer.textEncoding", { defaultValue: "Text encoding" })}
+          <CompactSelect
+            ariaLabel={t("spacePreview.viewer.textEncoding", { defaultValue: "Text encoding" })}
             value={encoding ?? "auto"}
-            onChange={(event) => onEncodingChange(event.target.value as TextEncoding)}
-            className="border-border bg-background text-foreground h-7 rounded-md border px-2 text-xs"
-          >
-            {TEXT_ENCODINGS.map((item) => (
-              <option key={item.value} value={item.value}>
-                {t(item.key, { defaultValue: item.fallback })}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => onEncodingChange(value as TextEncoding)}
+            options={TEXT_ENCODINGS.map((item) => ({
+              value: item.value,
+              label: t(item.key, { defaultValue: item.fallback }),
+            }))}
+          />
         </div>
       ) : null}
       <div className="relative min-h-0 flex-1 overflow-hidden">

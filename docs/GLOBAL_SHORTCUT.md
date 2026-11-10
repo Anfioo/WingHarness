@@ -69,8 +69,8 @@ A stored shortcut is one string in either of two forms:
 
 - a combination — `Ctrl+Shift+A`, `Super+A` (the Windows key) — which is what
   the plugin can register;
-- a preset — `preset:space`, `preset:doubleCtrl`, `preset:altSpace`,
-  `preset:winSpace` — for triggers the OS registration API cannot express.
+- a preset — `preset:space`, `preset:doubleCtrl`, `preset:winSpace` — for triggers
+  the OS registration API cannot express.
   A preset may also stand for an ordinary combination: `ctrlW` is stored as
   `Ctrl+W`, making it an offer in the picker rather than a stored form of its
   own.
@@ -143,7 +143,7 @@ function Settings() {
     <ShortcutField
       value={shortcut}
       onChange={setShortcut}
-      presets={["space", "doubleCtrl", "altSpace", "winSpace"]}
+      presets={["space", "doubleCtrl", "winSpace"]}
     />
   );
 }

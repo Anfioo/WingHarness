@@ -30,7 +30,7 @@ describe("normalizePreferences", () => {
         maxPreviewMiB: 1024,
         maxArchiveEntryMiB: 128,
         tabs: true,
-        previewKey: "altSpace",
+        previewKey: "winSpace",
       })
     ).toEqual({
       ...previewDefaults,
@@ -44,7 +44,7 @@ describe("normalizePreferences", () => {
       maxPreviewMiB: 1024,
       maxArchiveEntryMiB: 128,
       tabs: true,
-      previewKey: "altSpace",
+      previewKey: "winSpace",
     });
   });
 
@@ -68,7 +68,7 @@ describe("normalizePreferences", () => {
   it.each([
     ["font", "comic"],
     ["html", "print"],
-    ["previewKey", "ctrlSpace"],
+    ["previewKey", "altSpace"],
     ["defaultEncoding", "latin1"],
   ] as const)("resets the unknown %s %s", (field, value) => {
     expect(normalizePreferences({ [field]: value } as never)).toEqual(previewDefaults);

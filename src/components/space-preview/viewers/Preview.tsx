@@ -19,6 +19,7 @@ import pdfWorker from './pdf.worker.ts?worker&url';
 import { probePresentation } from '@/commands';
 import type { TextEncoding } from '@/commands';
 import { TEXT_ENCODINGS } from '@/components/code-editor';
+import { CompactSelect } from '@/components/compact-select';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
 import {
@@ -581,18 +582,21 @@ function PresentationPreview({ file }: { file: PreviewFile }) {
       <PreviewMenu>
         <label className="preview-menu-option">
           <span>{t('spacePreview.viewer.slidesView', { defaultValue: 'Slide view' })}</span>
-          <select
-            aria-label={t('spacePreview.viewer.slidesView', { defaultValue: 'Slide view' })}
+          <CompactSelect
+            ariaLabel={t('spacePreview.viewer.slidesView', { defaultValue: 'Slide view' })}
             value={mode}
-            onChange={(event) => setMode(event.target.value === 'text' ? 'text' : 'pages')}
-          >
-            <option value="pages">
-              {t('spacePreview.viewer.originalPages', { defaultValue: 'Original pages' })}
-            </option>
-            <option value="text">
-              {t('spacePreview.viewer.textOverview', { defaultValue: 'Text overview' })}
-            </option>
-          </select>
+            onChange={(value) => setMode(value === 'text' ? 'text' : 'pages')}
+            options={[
+              {
+                value: 'pages',
+                label: t('spacePreview.viewer.originalPages', { defaultValue: 'Original pages' }),
+              },
+              {
+                value: 'text',
+                label: t('spacePreview.viewer.textOverview', { defaultValue: 'Text overview' }),
+              },
+            ]}
+          />
         </label>
         {note && (
           <p className="toolbar-summary" role="status">
@@ -1572,12 +1576,12 @@ function ParsedPreview({
     <PreviewMenu>
       <label className="preview-menu-option">
         <span>{t('spacePreview.viewer.fileEncoding', { defaultValue: 'File encoding' })}</span>
-        <select
-          aria-label={t('spacePreview.viewer.textEncoding', { defaultValue: 'Text encoding' })}
+        <CompactSelect
+          ariaLabel={t('spacePreview.viewer.textEncoding', { defaultValue: 'Text encoding' })}
+          title={t('spacePreview.viewer.fileEncoding', { defaultValue: 'File encoding' })}
           value={encoding}
-          onChange={(e) => setEncoding(e.target.value as TextEncoding)}
-        >
-          {(
+          onChange={(value) => setEncoding(value as TextEncoding)}
+          options={(
             [
               'auto',
               'utf-8',
@@ -1588,16 +1592,16 @@ function ParsedPreview({
               'windows-1252',
               'shift_jis',
             ] as const
-          ).map((value) => (
-            <option key={value} value={value}>
-              {value === 'auto'
+          ).map((value) => ({
+            value,
+            label:
+              value === 'auto'
                 ? t('spacePreview.encoding.auto', { defaultValue: 'Detect automatically' })
                 : value === 'gb18030'
                   ? 'GB18030 / GBK'
-                  : value.toUpperCase()}
-            </option>
-          ))}
-        </select>
+                  : value.toUpperCase(),
+          }))}
+        />
       </label>
     </PreviewMenu>
   );
@@ -1752,17 +1756,16 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
           )}
           <label className="preview-menu-option">
             <span>{t('spacePreview.viewer.fileEncoding', { defaultValue: 'File encoding' })}</span>
-            <select
-              aria-label={t('spacePreview.viewer.textEncoding', { defaultValue: 'Text encoding' })}
+            <CompactSelect
+              ariaLabel={t('spacePreview.viewer.textEncoding', { defaultValue: 'Text encoding' })}
+              title={t('spacePreview.viewer.fileEncoding', { defaultValue: 'File encoding' })}
               value={encoding}
-              onChange={(e) => setEncodingOverride(e.target.value as TextEncoding)}
-            >
-              {TEXT_ENCODINGS.map((item) => (
-                <option key={item.value} value={item.value}>
-                  {t(item.key, { defaultValue: item.fallback })}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setEncodingOverride(value as TextEncoding)}
+              options={TEXT_ENCODINGS.map((item) => ({
+                value: item.value,
+                label: t(item.key, { defaultValue: item.fallback }),
+              }))}
+            />
           </label>
         </div>
       </PreviewToolbar>
@@ -1793,19 +1796,18 @@ function BookPreview({ chapters }: { chapters: NonNullable<WorkerResult['chapter
     <div className="book-preview">
       <TextAppearanceControls />
       <PreviewToolbar className="content-toolbar">
-        <select
-          aria-label={t('spacePreview.viewer.selectChapter', {
+        <CompactSelect
+          ariaLabel={t('spacePreview.viewer.selectChapter', {
             defaultValue: 'Choose an e-book chapter',
           })}
-          value={index}
-          onChange={(e) => setIndex(Number(e.target.value))}
-        >
-          {chapters.map((item, i) => (
-            <option key={i} value={i}>
-              {i + 1}. {item.title}
-            </option>
-          ))}
-        </select>
+          value={String(index)}
+          onChange={(value) => setIndex(Number(value))}
+          className="max-w-80"
+          options={chapters.map((item, i) => ({
+            value: String(i),
+            label: `${i + 1}. ${item.title}`,
+          }))}
+        />
         <span>
           {t('spacePreview.viewer.chapterOf', {
             defaultValue: '{{index}} / {{count}} chapters · text overview',

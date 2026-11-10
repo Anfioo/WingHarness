@@ -244,7 +244,7 @@ closing hides it, it is never destroyed.
 ### The space agent
 
 - A low-level keyboard hook (`SetWindowsHookExW(WH_KEYBOARD_LL)`) watches the
-  configured preview key — Space by default, or Alt + Space / Win + Space from
+  configured preview key — Space by default, or Win + Space from
   **设置 → 快捷键 → 文件预览** — only while the foreground window is Explorer,
   the desktop or Everything **and** a file list has focus. In an address bar, a
   search field or a rename box the key is passed through untouched. Holding
@@ -288,7 +288,7 @@ five tabs — **预览 / 资源与性能 / 多文件预览 / 快捷键 / 使用�
 fixed space switch that stays visible on every tab. It edits every value and
 saves automatically; the reading width and font size are also adjustable in the
 viewer's own reading-width control, which writes the same file. The preview key
-lives in **设置 → 快捷键 → 文件预览** (Space, Alt + Space or Win + Space) and
+lives in **设置 → 快捷键 → 文件预览** (Space or Win + Space) and
 retunes the running agent without a restart. A file written before a field
 existed reads that field's default instead of being discarded.
 

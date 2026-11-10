@@ -19,9 +19,10 @@ export function SelectionBar({ index, total, disabled, onPrevious, onNext }: Sel
   const nextLabel = t("spacePreview.window.next", { defaultValue: "Next" });
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1">
+    <div data-tauri-drag-region className="flex min-w-0 flex-1 items-center gap-1">
       {total > 1 && (
         <span
+          data-tauri-drag-region
           className="text-muted-foreground shrink-0 px-1 text-xs tabular-nums"
           title={t("spacePreview.window.multiSelect", { count: total })}
         >
@@ -48,7 +49,10 @@ export function SelectionBar({ index, total, disabled, onPrevious, onNext }: Sel
       >
         <ChevronDown className="size-4" />
       </button>
-      <span className="text-muted-foreground hidden min-w-0 truncate px-1 text-xs sm:inline">
+      <span
+        data-tauri-drag-region
+        className="text-muted-foreground hidden min-w-0 truncate px-1 text-xs sm:inline"
+      >
         {t("spacePreview.window.hint", {
           defaultValue: "Arrow keys switch files. Space or Esc closes.",
         })}

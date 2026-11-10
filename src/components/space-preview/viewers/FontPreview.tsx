@@ -5,6 +5,7 @@ import type { PreviewFile } from '@/lib/space-preview/bridge';
 import { readFullBytes } from '@/lib/space-preview/bridge';
 import { fontCollection } from '@/lib/space-preview/engine/font-collection';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { CompactSelect } from '@/components/compact-select';
 import { errorText } from './errors';
 
 export default function FontPreview({ file }: { file: PreviewFile }) {
@@ -118,22 +119,20 @@ export default function FontPreview({ file }: { file: PreviewFile }) {
             <span>
               {t('spacePreview.viewer.fontCollection', { defaultValue: 'Font collection' })}
             </span>
-            <select
-              aria-label={t('spacePreview.viewer.fontCollection', {
+            <CompactSelect
+              ariaLabel={t('spacePreview.viewer.fontCollection', {
                 defaultValue: 'Font collection',
               })}
-              value={page}
-              onChange={(event) => setPage(Number(event.target.value))}
-            >
-              {Array.from({ length: count }, (_, i) => (
-                <option key={i} value={i}>
-                  {t('spacePreview.viewer.fontNumber', {
-                    defaultValue: 'Font {{number}}',
-                    number: i + 1,
-                  })}
-                </option>
-              ))}
-            </select>
+              value={String(page)}
+              onChange={(value) => setPage(Number(value))}
+              options={Array.from({ length: count }, (_, i) => ({
+                value: String(i),
+                label: t('spacePreview.viewer.fontNumber', {
+                  defaultValue: 'Font {{number}}',
+                  number: i + 1,
+                }),
+              }))}
+            />
           </label>
         )}
       </PreviewToolbar>

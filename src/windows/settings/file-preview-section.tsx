@@ -150,7 +150,7 @@ function Choice({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-44">
+      <SelectTrigger className="bg-background text-foreground w-44">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>{children}</SelectContent>

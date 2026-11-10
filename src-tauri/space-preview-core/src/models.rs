@@ -83,7 +83,7 @@ pub struct PreviewPreferences {
     /// Whether the standalone window keeps several files in tabs.
     #[serde(default = "default_tabs")]
     pub tabs: bool,
-    /// The trigger for the space agent: `space`, `altSpace` or `winSpace`.
+    /// The trigger for the space agent: `space` or `winSpace`.
     #[serde(default = "default_preview_key")]
     pub preview_key: String,
 }

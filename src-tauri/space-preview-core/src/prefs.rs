@@ -103,7 +103,7 @@ const ENCODINGS: &[&str] = &[
 ];
 const FONTS: &[&str] = &["auto", "sans", "serif", "mono"];
 const HTML_VIEWS: &[&str] = &["source", "web"];
-const PREVIEW_KEYS: &[&str] = &["space", "altSpace", "winSpace"];
+const PREVIEW_KEYS: &[&str] = &["space", "winSpace"];
 
 fn in_range(value: u32, minimum: u32, maximum: u32, fallback: u32) -> u32 {
     if (minimum..=maximum).contains(&value) {
@@ -250,7 +250,7 @@ mod tests {
             max_preview_mib: 128,
             max_archive_entry_mib: 64,
             tabs: true,
-            preview_key: "altSpace".to_owned(),
+            preview_key: "winSpace".to_owned(),
             ..PreviewPreferences::default()
         };
 
@@ -318,7 +318,7 @@ mod tests {
                 "maxPreviewMiB": 8,
                 "maxArchiveEntryMiB": 4096,
                 "tabs": true,
-                "previewKey": "enter"
+                "previewKey": "altSpace"
             }"#,
         )
         .unwrap();
