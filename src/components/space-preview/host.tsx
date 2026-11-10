@@ -261,8 +261,15 @@ export function PreviewHost({
   useEffect(() => {
     dirtyHandler.current?.(dirty);
   }, [dirty]);
+  // Editing loads the whole file into the editor, so it stops at the size the
+  // text viewer already treats as large.
   const canEdit =
-    !!current && !current.directory && !!current.path && EDITABLE.includes(kind) && !loading;
+    !!current &&
+    !current.directory &&
+    !!current.path &&
+    EDITABLE.includes(kind) &&
+    !loading &&
+    current.size <= preferences.textPreviewThresholdKb * 1024;
   const gestureActive = editing || READABLE.includes(kind);
 
   const leaveEdit = useCallback(() => {

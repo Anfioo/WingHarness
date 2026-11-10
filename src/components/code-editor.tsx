@@ -1,4 +1,12 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import hljs from "highlight.js/lib/core";
 import { Search } from "lucide-react";
 import type { TextEncoding } from "@/commands";
@@ -13,6 +21,12 @@ import { CompactSelect } from "@/components/compact-select";
  * falls back to plain text and stays usable.
  */
 const MAX_HIGHLIGHT_CHARS = 200_000;
+/**
+ * How much text the view fills itself with before it waits for a scroll. Any
+ * viewport is full long before this; the cap only matters for text that never
+ * grows tall, such as one very long line.
+ */
+const AUTO_FILL_CHARS = 64 * 1024;
 const INDENT = "  ";
 
 /** The encodings a text file can be read and written back with. */
@@ -40,16 +54,23 @@ export const TEXT_ENCODINGS: { value: TextEncoding; key: string; fallback: strin
  * The component holds no file state: the host owns the text, the save and the
  * unsaved-changes guard. The encoding selector and the find bar are opt-in, so
  * a caller that passes neither gets the plain editor it always had.
+ *
+ * In read-only mode it doubles as the preview for text files past the foldable
+ * threshold: two nodes instead of one per line, and the find bar still works.
+ * `onReachEnd` lets that preview append the next page as the reader scrolls.
  */
 export function CodeEditor({
   value,
   language,
   highlight = true,
   encoding,
+  readOnly = false,
+  wrap = false,
   onChange,
   onSave,
   onEncodingChange,
   showFind = false,
+  onReachEnd,
   ariaLabel = "Editor",
   className,
 }: {
@@ -58,12 +79,22 @@ export function CodeEditor({
   highlight?: boolean;
   /** The encoding the file was read with; `auto` is a display choice only. */
   encoding?: TextEncoding;
-  onChange: (value: string) => void;
+  /** Shows the text without allowing edits; selection and the find bar still work. */
+  readOnly?: boolean;
+  /** Wraps long lines instead of scrolling sideways. */
+  wrap?: boolean;
+  onChange?: (value: string) => void;
   onSave?: () => void;
   /** Supplying this draws the encoding selector and reports its changes. */
   onEncodingChange?: (encoding: TextEncoding) => void;
   /** Enables the in-page find bar on Ctrl/Cmd+F. */
   showFind?: boolean;
+  /**
+   * Called when the text is scrolled near its end, and again whenever new text
+   * still does not fill the view — the page reader's way of loading the next
+   * chunk without a button.
+   */
+  onReachEnd?: () => void;
   ariaLabel?: string;
   className?: string;
 }) {
@@ -77,15 +108,20 @@ export function CodeEditor({
   // Highlighting runs off the deferred value so a large file cannot lag every
   // keystroke; the caret still moves at typing speed.
   const deferred = useDeferredValue(value);
+  // Past the cap the painted layer would only echo the same text in one color,
+  // so it is dropped and the textarea shows its own glyphs. That keeps a long
+  // file — and paging through one — off the escape-and-repaint path entirely.
+  const huge = deferred.length > MAX_HIGHLIGHT_CHARS;
   const html = useMemo(() => {
+    if (huge) return "";
     const grammar = highlight && language !== null ? language : null;
-    if (grammar === null || deferred.length > MAX_HIGHLIGHT_CHARS) return escapeHtml(deferred);
+    if (grammar === null) return escapeHtml(deferred);
     try {
       return hljs.highlight(deferred, { language: grammar, ignoreIllegals: true }).value;
     } catch {
       return escapeHtml(deferred);
     }
-  }, [deferred, highlight, language]);
+  }, [deferred, highlight, language, huge]);
 
   useEffect(() => {
     if (findOpen) findInput.current?.focus();
@@ -98,6 +134,21 @@ export function CodeEditor({
     layer.scrollTop = area.scrollTop;
     layer.scrollLeft = area.scrollLeft;
   };
+
+  const reachEnd = useCallback(() => {
+    const area = input.current;
+    if (!area || !onReachEnd) return;
+    if (area.scrollHeight - area.scrollTop - area.clientHeight <= 48) onReachEnd();
+  }, [onReachEnd]);
+
+  // Text that does not fill the view cannot be scrolled, so a page that short
+  // would stall; ask for the next one right after every change instead. The
+  // limit stops a file that is one endless line from reading itself whole
+  // without the reader ever scrolling.
+  useEffect(() => {
+    if (value.length > AUTO_FILL_CHARS) return;
+    reachEnd();
+  }, [reachEnd, value]);
 
   const reveal = (offset: number, length: number) => {
     const area = input.current;
@@ -158,11 +209,12 @@ export function CodeEditor({
       return;
     }
     if (event.key !== "Tab") return;
+    if (readOnly) return;
     // Keep the focus in the editor: a tab is indentation, not a focus change.
     event.preventDefault();
     const area = event.currentTarget;
     area.setRangeText(INDENT, area.selectionStart, area.selectionEnd, "end");
-    onChange(area.value);
+    onChange?.(area.value);
   };
 
   return (
@@ -181,23 +233,34 @@ export function CodeEditor({
         </div>
       ) : null}
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <pre
-          ref={painted}
-          aria-hidden
-          className="pointer-events-none absolute inset-0 m-0 overflow-hidden p-4 font-mono text-sm leading-6 whitespace-pre"
-        >
-          <code className="hljs" dangerouslySetInnerHTML={{ __html: `${html}\n` }} />
-        </pre>
+        {huge ? null : (
+          <pre
+            ref={painted}
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 m-0 overflow-hidden p-4 font-mono text-sm leading-6 ${
+              wrap ? "whitespace-pre-wrap" : "whitespace-pre"
+            }`}
+          >
+            <code className="hljs" dangerouslySetInnerHTML={{ __html: `${html}\n` }} />
+          </pre>
+        )}
         <textarea
           ref={input}
-          wrap="off"
+          readOnly={readOnly}
+          wrap={wrap ? "soft" : "off"}
           spellCheck={false}
           aria-label={ariaLabel}
-          className="caret-foreground selection:bg-primary/30 absolute inset-0 resize-none overflow-auto border-0 bg-transparent p-4 font-mono text-sm leading-6 text-transparent outline-none"
+          className={cn(
+            "caret-foreground selection:bg-primary/30 absolute inset-0 resize-none overflow-auto border-0 bg-transparent p-4 font-mono text-sm leading-6 outline-none",
+            huge ? "text-foreground" : "text-transparent"
+          )}
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange?.(event.target.value)}
           onKeyDown={keyDown}
-          onScroll={sync}
+          onScroll={() => {
+            sync();
+            reachEnd();
+          }}
         />
         {findOpen ? (
           <div className="border-border bg-card absolute top-2 right-2 z-10 flex items-center gap-2 rounded-md border px-2 py-1 shadow-sm">

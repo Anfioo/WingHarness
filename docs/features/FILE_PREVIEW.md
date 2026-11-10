@@ -107,7 +107,9 @@ English `message` only as the fallback, via
 | One directory page | 500 entries | `directory::PAGE_SIZE` |
 | WMF / EMF | 16 MiB | the metafile viewer |
 | TIFF | 32 MiB | the TIFF viewer |
-| Highlighting a text / source file | 400,000 characters | `text-preview.ts` (`MAX_HIGHLIGHT_CHARS`) |
+| Highlighting a text / source file | 200,000 characters | `code-editor.tsx` (`MAX_HIGHLIGHT_CHARS`) |
+| One page of a large text file | 1 KiB | `Preview.tsx` (`TEXT_PAGE_BYTES`) |
+| Filling the text view before it waits for a scroll | 64 KiB | `code-editor.tsx` (`AUTO_FILL_CHARS`) |
 
 A whole-file preview is assembled from ranges by
 `engine/full-read.ts`, so a file at the limit is never held twice.
@@ -210,14 +212,22 @@ against the **text file threshold** preference (default 500 KB):
   ([`src/lib/git-core/highlight.ts`](../../src/lib/git-core/highlight.ts)),
   carrying block comments across lines, and the colours are the theme's global
   `.hljs-*` map rather than the ported viewers' fixed palette.
-- **Above it — the fast view.** The whole document in a single `<pre>`,
-  highlighted in one pass, so a long file costs one text node instead of tens of
-  thousands. Past the 400,000-character cap the highlight pass is skipped and the
-  text is plain.
+- **Above it — the editor view, read only.** `CodeEditor` paints the text as one
+  highlighted block over the input layer instead of one element per line, so a
+  long file costs two nodes rather than tens of thousands. Past the
+  200,000-character cap the highlight pass is skipped and the input layer shows
+  the text itself, which keeps a huge file from being escaped and repainted on
+  every appended page. Above 2 MB the file is not read in one piece: the first
+  1 KB is shown and the next page is appended as the reader scrolls to the end,
+  decoded by one streaming `TextDecoder` so a character is never split across
+  the boundary. The view fills itself until the text is taller than the pane, so
+  a short file is readable without touching the wheel.
 
 Both show the detected encoding and the line count in the toolbar and offer the
 same encoding list as the editor. They are read only: the host's pencil swaps in
-`CodeEditor`, which stays the app's editor.
+the editable `CodeEditor`, and starting an edit still reads the whole file — so
+a file above the threshold has no pencil at all. The question mark beside the
+threshold in **Settings → File preview** says so.
 
 ## Editing
 
@@ -226,6 +236,8 @@ Text-like files can be edited in place; every structured format is read-only.
 - The pencil appears for the engines `text`, `markdown`, `csv` and `asciidoc`.
   It reads through the same allowlisted path — not through the project writer —
   so outside a project the file is still editable.
+- **Editing stops at the text-file threshold.** An edit reads the whole file into
+  the editor, so a larger file has no pencil and is preview-only.
 - **Saves are compare-and-set.** `sp_write_text` carries the etag from the
   `sp_inspect_file` that loaded the file and refuses the write when the file
   changed meanwhile; the toast shows the reason and the text stays in the
@@ -351,10 +363,14 @@ The same host is registered as a codelet custom editor
 
 - **Text-like files are editable; structured formats are not.** A document,
   spreadsheet, image or archive viewer has no editor.
-- **Large text switches to one `<pre>`.** Above the text-file threshold the
-  foldable line view gives way to a single block; above 400,000 characters the
-  highlight pass is skipped as well, so a large log renders uncoloured rather
-  than being split into an element per line.
+- **Large text switches to the read-only editor view.** Above the text-file
+  threshold the foldable line view gives way to `CodeEditor` — no line numbers,
+  but the find bar stays — and above 200,000 characters the highlight pass is
+  skipped as well, so a large log renders uncoloured rather than being split into
+  an element per line. Past 2 MB the view reads 1 KB pages as the reader scrolls
+  instead of the whole file.
+- **A file above the threshold cannot be edited.** The pencil is hidden; editing
+  would have to read the whole file into the editor.
 - **The whole-file preview cap is a preference (512 MiB by default).** Larger
   files are listed but not read; the pane says so instead of loading them, and
   the backend's per-range cap makes a direct call unable to sidestep it. The

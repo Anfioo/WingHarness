@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useSpacePreviewPreferences } from "@/hooks/use-space-preview-preferences";
 import {
@@ -122,16 +123,39 @@ function NumberField({
 function Row({
   label,
   hint,
+  help,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Explained behind a question mark after the label. */
+  help?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{label}</div>
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          {label}
+          {help ? (
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={help}
+                    className="border-border text-muted-foreground hover:text-foreground inline-flex size-4 shrink-0 items-center justify-center rounded-full border text-[10px] leading-none"
+                  >
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64">
+                  {help}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </div>
         {hint && <div className="text-muted-foreground mt-0.5 text-xs">{hint}</div>}
       </div>
       <div className="shrink-0">{children}</div>
@@ -407,6 +431,10 @@ export function FilePreviewSection() {
               <Row
                 label={t("spacePreview.settings.textThreshold")}
                 hint={t("spacePreview.settings.textThresholdHint")}
+                help={t("spacePreview.settings.textThresholdEdit", {
+                  defaultValue:
+                    "Larger files can be previewed but not edited; editing loads the whole file into the editor.",
+                })}
               >
                 <NumberField
                   value={preferences.textPreviewThresholdKb}

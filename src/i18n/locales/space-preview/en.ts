@@ -38,7 +38,9 @@ export default {
     defaultEncoding: "Default encoding",
     textThreshold: "Text file threshold",
     textThresholdHint:
-      "Text files up to this size open in the foldable line view; larger files switch to the fast single-block view.",
+      "Text files up to this size open in the foldable line view; larger files open in the editor view, a 1 KB page at a time past 2 MB.",
+    textThresholdEdit:
+      "Larger files can be previewed but not edited; editing loads the whole file into the editor.",
     maxPreview: "Single-file preview limit",
     maxPreviewHint: "Larger files are listed but not read into memory.",
     maxArchiveEntry: "Archive inner-file limit",
@@ -217,6 +219,7 @@ export default {
     largeDocumentNote: "Large document text overview · reads the XML on demand and skips images",
     laterContentFailed: "Loading the rest of the content failed: {{error}}",
     lineCount: "{{count}} lines",
+    loadedOf: "{{loaded}} of {{total}} loaded",
     loadingAnimation: "Loading the animation…",
     loadingAudio: "Loading the audio",
     loadingDocumentImages: "Loading the document images and fonts",
@@ -224,6 +227,7 @@ export default {
     loadingFullPage: "Loading the full page… {{percent}}%",
     loadingImage: "Loading the image",
     loadingLaterContent: "Loading later content",
+    loadingPage: "Loading the next part of the file…",
     loadingVideo: "Loading the video",
     loadingWholeFile: "Loading the whole file… {{percent}}%",
     localImageFailed:
@@ -264,6 +268,7 @@ export default {
     outlineCff: "OpenType · CFF outlines",
     outlineNavigateFailed: "Could not jump to this outline entry.",
     outlineTrueType: "OpenType · TrueType outlines",
+    pageFailed: "The next part of the file could not be read.",
     pageLabel: "Page {{page}}",
     pageOf: "{{page}} / {{total}} pages",
     pagePreview: "Page preview",
@@ -333,6 +338,7 @@ export default {
     rotate: "Rotate",
     rtfFrameTitle: "RTF rich text preview",
     rtfLabel: "RTF · rich text preview",
+    scrollForMore: "Scroll down to load more",
     search: "Search",
     searchArchive: "Search the archive",
     searchDocumentText: "Search the text in the document",

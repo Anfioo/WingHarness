@@ -18,9 +18,11 @@ import type { PDFDocumentLoadingTask, PDFDocumentProxy } from 'pdfjs-dist';
 import pdfWorker from './pdf.worker.ts?worker&url';
 import { probePresentation } from '@/commands';
 import type { TextEncoding } from '@/commands';
-import { TEXT_ENCODINGS } from '@/components/code-editor';
+import { CodeEditor, TEXT_ENCODINGS } from '@/components/code-editor';
 import { CompactSelect } from '@/components/compact-select';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { languageOf } from '@/lib/git-core/highlight';
+import { toast } from 'sonner';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
 import {
   fileUrl,
@@ -47,7 +49,6 @@ import { readInStages } from '@/lib/space-preview/engine/progressive-read';
 import { readStructuredInStages } from '@/lib/space-preview/engine/progressive-office';
 import { readOfficeXmlPackage } from '@/lib/space-preview/engine/office-range';
 import { renderMetafile } from '@/lib/space-preview/engine/metafile';
-import { previewText } from '@/lib/space-preview/text-preview';
 import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import type { WorkerRequest, WorkerResult } from '@/lib/space-preview/worker/worker-types';
 import { presentationEngine } from '@/lib/preview/viewers/presentationEngine';
@@ -1662,12 +1663,30 @@ function prettyJson(text: string): string {
   }
 }
 
+// Past this size the text is not read into memory in one piece; the editor view
+// asks for one page at a time instead.
+const LARGE_TEXT_BYTES = 2 * 1024 * 1024;
+// Small enough that a page never costs a noticeable pause; the reader appends
+// pages as it scrolls rather than after a click.
+const TEXT_PAGE_BYTES = 1024;
+
+/** The label TextDecoder needs for the encoding `decodeText` resolved. */
+function decoderLabel(label: string) {
+  return label
+    .replace(' (guessed)', '')
+    .replace('UTF-16 LE', 'utf-16le')
+    .replace('UTF-16 BE', 'utf-16be')
+    .toLowerCase();
+}
+
 /**
- * The read-only text view. Below the configured size it keeps the foldable
- * line view — line numbers, folding and the app's own highlighter. Above the
- * threshold it switches to a single `<pre>`, so a long file costs one text
- * node instead of one per line. The file is still edited by the host's
- * `CodeEditor`; this viewer only ever reads.
+ * The read-only text view. Below the configured threshold it keeps the foldable
+ * line view — line numbers, folding and the app's own highlighter. Above it the
+ * same text is drawn by a read-only `CodeEditor`, which costs two nodes instead
+ * of one per line and keeps the find bar. Past 2 MB the file is read one small
+ * page at a time, appended as the reader scrolls. Editing is the host's job;
+ * this viewer only ever reads, and the host refuses to edit what it cannot read
+ * whole.
  */
 function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => void }) {
   const { t } = useAppTranslation();
@@ -1679,6 +1698,11 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const [retry, setRetry] = useState(0);
+  const [loaded, setLoaded] = useState(0);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const loadedBytes = useRef(0);
+  const decoder = useRef<TextDecoder | null>(null);
+  const pageRead = useRef<AbortController | null>(null);
   usePreviewLoading(
     !text && !binary && !error,
     progress > 0 && progress < 100
@@ -1691,15 +1715,31 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
   );
   useEffect(() => {
     const controller = new AbortController();
+    pageRead.current?.abort();
+    pageRead.current = null;
+    decoder.current = null;
+    loadedBytes.current = 0;
     setText(null);
     setBinary(false);
     setError('');
     setProgress(0);
+    setLoaded(0);
     const load = async () => {
       const prefix = await readBytes(file, 16384);
       controller.signal.throwIfAborted();
       if (hasBinarySignature(prefix) || !['text', 'html', 'rtf'].includes(sniffKind(prefix))) {
         setBinary(true);
+        return;
+      }
+      if (file.size > LARGE_TEXT_BYTES) {
+        const label = decodeText(prefix, encoding, true).encoding;
+        const stream = new TextDecoder(decoderLabel(label));
+        const first = await readRange(file, 0, Math.min(TEXT_PAGE_BYTES, file.size));
+        controller.signal.throwIfAborted();
+        decoder.current = stream;
+        loadedBytes.current = first.length;
+        setText({ text: stream.decode(first, { stream: true }), encoding: label });
+        setLoaded(first.length);
         return;
       }
       const bytes = await readFullBytes(file, controller.signal, setProgress);
@@ -1714,13 +1754,48 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
     void load().catch((e) => {
       if (!controller.signal.aborted) setError(errorText(e));
     });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      pageRead.current?.abort();
+    };
   }, [file, encoding, retry]);
+  const loadPage = useCallback(async () => {
+    const stream = decoder.current;
+    const offset = loadedBytes.current;
+    if (!stream || pageRead.current || offset >= file.size) return;
+    const controller = new AbortController();
+    pageRead.current = controller;
+    setLoadingPage(true);
+    try {
+      const next = await readRange(file, offset, Math.min(TEXT_PAGE_BYTES, file.size - offset));
+      controller.signal.throwIfAborted();
+      // Flush the decoder on the last page so a trailing partial character is
+      // not held back forever.
+      const chunk =
+        stream.decode(next, { stream: true }) +
+        (offset + next.length >= file.size ? stream.decode() : '');
+      setText((current) => {
+        if (!current) return current;
+        return { ...current, text: current.text + chunk };
+      });
+      loadedBytes.current = offset + next.length;
+      setLoaded(loadedBytes.current);
+    } catch (reason) {
+      if (!controller.signal.aborted)
+        toast.error(
+          t('spacePreview.viewer.pageFailed', {
+            defaultValue: 'The next part of the file could not be read.',
+          }),
+          { description: errorText(reason) },
+        );
+    } finally {
+      // A page from the previous file may have been aborted after the new one
+      // took the slot; only clear the guard this call set.
+      if (pageRead.current === controller) pageRead.current = null;
+      setLoadingPage(false);
+    }
+  }, [file, t]);
   const fast = file.size > preferences.textPreviewThresholdKb * 1024;
-  const rendered = useMemo(
-    () => (text && fast ? previewText(text.text, file.name) : null),
-    [text, fast, file.name],
-  );
   const lines = useMemo(() => {
     if (!text) return 0;
     let count = 1;
@@ -1763,17 +1838,38 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
         </div>
       </PreviewToolbar>
       {fast ? (
-        <pre
-          className={`bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6 ${
-            preferences.wrap ? 'whitespace-pre-wrap' : 'whitespace-pre'
-          }`}
-        >
-          {rendered?.html ? (
-            <code className="hljs" dangerouslySetInnerHTML={{ __html: rendered.html }} />
-          ) : (
-            text.text
+        <div className="flex min-h-0 flex-1 flex-col">
+          <CodeEditor
+            value={text.text}
+            language={languageOf(file.name)}
+            readOnly
+            wrap={preferences.wrap}
+            showFind
+            onReachEnd={loadPage}
+            ariaLabel={file.name}
+            className="min-h-0 flex-1"
+          />
+          {file.size > LARGE_TEXT_BYTES && loaded < file.size && (
+            <div className="border-border text-muted-foreground flex h-9 shrink-0 items-center justify-between gap-2 border-t px-3 text-xs">
+              <span>
+                {t('spacePreview.viewer.loadedOf', {
+                  defaultValue: '{{loaded}} of {{total}} loaded',
+                  loaded: formatSize(loaded),
+                  total: formatSize(file.size),
+                })}
+              </span>
+              <span>
+                {loadingPage
+                  ? t('spacePreview.viewer.loadingPage', {
+                      defaultValue: 'Loading the next part of the file…',
+                    })
+                  : t('spacePreview.viewer.scrollForMore', {
+                      defaultValue: 'Scroll down to load more',
+                    })}
+              </span>
+            </div>
           )}
-        </pre>
+        </div>
       ) : (
         <FoldableCode name={file.name} text={text.text} />
       )}
