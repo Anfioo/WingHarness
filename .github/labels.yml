@@ -87,7 +87,7 @@
   color: 0078d7
   description: "Windows-specific. / 仅与 Windows 相关。"
 - name: "platform: macos"
-  color: 000000
+  color: "000000"
   description: "macOS-specific. / 仅与 macOS 相关。"
 - name: "platform: linux"
   color: fcc624
