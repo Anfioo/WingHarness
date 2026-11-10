@@ -103,16 +103,34 @@ const UPSTREAMS: { name: string; license: string; url: string; module: string }[
     module: "src-tauri/src/mcphub",
   },
   {
+    name: "openidea",
+    license: "Apache-2.0",
+    url: "https://github.com/l0ng-ai/openidea",
+    module: "src-tauri/db-core",
+  },
+  {
     name: "OrcaSVN",
     license: "MIT",
     url: "https://github.com/wustites/OrcaSVN",
     module: "src-tauri/svn-core",
   },
   {
+    name: "Porter",
+    license: "MIT",
+    url: "https://github.com/t21dev/porter-app",
+    module: "src-tauri/ports-core",
+  },
+  {
     name: "shaic",
     license: "MIT",
     url: "https://github.com/dariocurr/shaic",
     module: "src-tauri/shaic-core",
+  },
+  {
+    name: "SpacePreview",
+    license: "MIT",
+    url: "https://github.com/likehao19/SpacePreview",
+    module: "src-tauri/space-preview-core",
   },
   {
     name: "TizuMark",
