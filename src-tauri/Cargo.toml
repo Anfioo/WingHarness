@@ -23,6 +23,7 @@ members = [
     "md-editor-core",
     "db-core",
     "space-preview-core",
+    "ports-core",
 ]
 resolver = "2"
 
@@ -85,6 +86,9 @@ db-core = { path = "db-core" }
 # The file preview page's upgraded engine and the Windows space agent: file
 # inspection, ranged reads, text write-back, presentations and icons.
 space-preview-core = { path = "space-preview-core" }
+# The ports page's engine: TCP listener enumeration, pinned ports and process
+# termination (Windows only).
+ports-core = { path = "ports-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks

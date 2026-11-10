@@ -63,6 +63,7 @@ for the project name (2026-11-05).
 | [McpHub](https://github.com/Soflutionltd/McpHub) | MIT | `src-tauri/src/mcphub`, `mcp-hub` page | Every source file keeps an attribution header |
 | [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`, `servers` page | Rewritten, no identical files; `server-core/UPSTREAM.md` |
 | [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`, `frp` page | Rewritten, no identical files; `frp-core/UPSTREAM.md` |
+| [Porter](https://github.com/t21dev/porter-app) | MIT | `ports-core`, `ports` page | Rewritten, no identical files; `ports-core/UPSTREAM.md` |
 | [jetbrains-cc-gui](https://github.com/zhukunpenglinyutong/jetbrains-cc-gui) | MIT | `claude-chat` page, `claude_history.rs` | Behaviour port; 1 identical generic helper (`cn.ts`) |
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | "Vendored from `@ekaone/use-claude` (MIT)" in headers |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`, `cc-switch` page | Icon assets copied from `src/icons/extracted`; reads its SQLite DB |
@@ -78,10 +79,10 @@ for the project name (2026-11-05).
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
-  `frp-core`, `server-core`, `shaic-core`, `db-core` and `space-preview-core`.
-  The preview's two halves each have one — the Rust crate and the frontend
-  viewers. The license text of each upstream is in `licenses/`; GPL upstreams
-  point at the project's own `LICENSE`.
+  `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core` and
+  `space-preview-core`. The preview's two halves each have one — the Rust crate
+  and the frontend viewers. The license text of each upstream is in `licenses/`;
+  GPL upstreams point at the project's own `LICENSE`.
 
 ### Reference only — no code copied
 
@@ -124,6 +125,7 @@ Use this for every feature carried over.
 | 2026-11-06 | Databases P2: `ide-db`'s introspection (catalog queries from `sql.rs`, DTOs from `lib.rs`) added as `db-core/src/{sql,objects}.rs`, with `db_databases`, `db_schemas`, `db_tables`, `db_table_details` and `db_schema_objects`. |
 | 2026-11-07 | Databases P3: multi-statement execution, table paging and row editing, DDL generation, completion, the tabbed window and the CodeMirror console carried over from `ide-db` and openidea's frontend; `src/pages/database/UPSTREAM.md` added, `db-core/UPSTREAM.md` updated. |
 | 2026-11-07 | Databases P4 (workspace): query files, persisted window tabs and row limits as a first-party `db-core` workspace, plus execution plans from `ide-db`'s `plan.rs`; the tree groups, grid interactions and tab strip follow openidea's behaviour. `db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` updated. |
+| 2026-11-09 | Ports: `src-tauri/ports-core` and the ports page ported from Porter (MIT); `ports-core/UPSTREAM.md` and the guide pair `docs/features/PORTS.md` / `.zh-CN.md` added. |
 | 2026-11-10 | SpacePreview recorded as **Ported**: its Rust side became `space-preview-core` and its engines/viewers became `src/lib/space-preview` and `src/components/space-preview`, behind the upgraded File Preview page, the standalone preview window and the editors' preview tabs. The CAD/3D/RAW/design-thumbnail and Graphviz (EPL-2.0) branches were not carried over. |
 | 2026-11-10 | Licence audit follow-up: mermaid pulled `elkjs` (EPL-2.0) into the bundle; `vite.config.ts` now aliases it to `src/lib/elk-stub.ts` so the code is not redistributed. `buffers` (no licence) was confirmed not to reach the Excel viewer bundle because Vite resolves ExcelJS's browser build. |
 

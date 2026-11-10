@@ -68,6 +68,9 @@ pub fn run() {
                 // presentation PDFs under `<data dir>/preview`, so the whole
                 // feature moves with the data directory like the others.
                 let _ = space_preview_core::paths::CONFIG_DIR.set(config::dir().join("preview"));
+                // The ports page keeps `settings.json` under `<data dir>/ports`,
+                // so the whole feature moves with the data directory.
+                let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
