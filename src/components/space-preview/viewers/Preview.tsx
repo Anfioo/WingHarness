@@ -1649,6 +1649,15 @@ function ParsedPreview({
   return null;
 }
 
+/** JSON is shown indented, as the other viewers show it; invalid JSON stays as written. */
+function prettyJson(text: string): string {
+  try {
+    return JSON.stringify(JSON.parse(text), null, 2);
+  } catch {
+    return text;
+  }
+}
+
 /**
  * The read-only text view: the whole document in a single `<pre>`.
  *
@@ -1692,7 +1701,12 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
       }
       const bytes = await readFullBytes(file, controller.signal, setProgress);
       controller.signal.throwIfAborted();
-      setText(decodeText(bytes, encoding));
+      const decoded = decodeText(bytes, encoding);
+      setText(
+        extension(file.name) === 'json'
+          ? { ...decoded, text: prettyJson(decoded.text) }
+          : decoded,
+      );
     };
     void load().catch((e) => {
       if (!controller.signal.aborted) setError(errorText(e));
