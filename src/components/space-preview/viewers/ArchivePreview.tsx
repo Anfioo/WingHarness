@@ -12,22 +12,21 @@ import { parseInWorker } from '@/lib/space-preview/worker/worker-client';
 import type { ArchiveEntry } from '@/lib/space-preview/worker/worker-types';
 import { openArchive } from '@/lib/space-preview/engine/archive-session';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { useViewerPreferences } from './preferences';
 import FileIcon from './FileIcon';
 import { errorText } from './errors';
 
-// An entry must fit in memory as both a compressed and an expanded blob.
-const ENTRY_LIMIT = 32 * 1024 * 1024;
-
 export default function ArchivePreview({ file }: { file: PreviewFile }) {
   const { t } = useAppTranslation();
-  const entryLimit = ENTRY_LIMIT;
+  const { preferences } = useViewerPreferences();
+  const entryLimit = preferences.maxArchiveEntryMiB * 1024 * 1024;
   const entryReason = useCallback(
     (entry: ArchiveEntry): string => {
       if (entry.directory) return '';
-      if (entry.size > ENTRY_LIMIT || entry.compressed > ENTRY_LIMIT)
+      if (entry.size > entryLimit || entry.compressed > entryLimit)
         return t('spacePreview.viewer.entryTooLarge', {
           defaultValue: 'The compressed or expanded size exceeds {{size}} MiB',
-          size: ENTRY_LIMIT / (1024 * 1024),
+          size: preferences.maxArchiveEntryMiB,
         });
       if (entry.encrypted)
         return t('spacePreview.viewer.entryEncrypted', { defaultValue: 'Encrypted' });
@@ -35,7 +34,7 @@ export default function ArchivePreview({ file }: { file: PreviewFile }) {
         ? t('spacePreview.viewer.entryUnsupported', { defaultValue: 'Unsupported algorithm' })
         : '';
     },
-    [t],
+    [t, entryLimit, preferences.maxArchiveEntryMiB],
   );
   const [entries, setEntries] = useState<ArchiveEntry[] | null>(null);
   const [error, setError] = useState('');

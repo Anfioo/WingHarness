@@ -65,8 +65,60 @@ fn save_to(path: &Path, preferences: PreviewPreferences) -> SpacePreviewResult<P
 
 /// The schema version is ours, not the caller's.
 fn normalize(mut preferences: PreviewPreferences) -> PreviewPreferences {
+    let defaults = PreviewPreferences::default();
     preferences.version = 1;
+    preferences.reading_width = in_range(preferences.reading_width, 360, 2400, defaults.reading_width);
+    preferences.font_size = in_range(preferences.font_size, 10, 40, defaults.font_size);
+    preferences.text_preview_threshold_kb = in_range(
+        preferences.text_preview_threshold_kb,
+        1,
+        65536,
+        defaults.text_preview_threshold_kb,
+    );
+    preferences.max_preview_mib =
+        in_range(preferences.max_preview_mib, 16, 2048, defaults.max_preview_mib);
+    preferences.max_archive_entry_mib = in_range(
+        preferences.max_archive_entry_mib,
+        16,
+        1024,
+        defaults.max_archive_entry_mib,
+    );
+    preferences.default_encoding =
+        one_of(preferences.default_encoding, ENCODINGS, &defaults.default_encoding);
+    preferences.font = one_of(preferences.font, FONTS, &defaults.font);
+    preferences.html = one_of(preferences.html, HTML_VIEWS, &defaults.html);
+    preferences.preview_key = one_of(preferences.preview_key, PREVIEW_KEYS, &defaults.preview_key);
     preferences
+}
+
+const ENCODINGS: &[&str] = &[
+    "auto",
+    "utf-8",
+    "utf-16le",
+    "utf-16be",
+    "gb18030",
+    "big5",
+    "windows-1252",
+    "shift_jis",
+];
+const FONTS: &[&str] = &["auto", "sans", "serif", "mono"];
+const HTML_VIEWS: &[&str] = &["source", "web"];
+const PREVIEW_KEYS: &[&str] = &["space", "altSpace", "winSpace"];
+
+fn in_range(value: u32, minimum: u32, maximum: u32, fallback: u32) -> u32 {
+    if (minimum..=maximum).contains(&value) {
+        value
+    } else {
+        fallback
+    }
+}
+
+fn one_of(value: String, allowed: &[&str], fallback: &str) -> String {
+    if allowed.contains(&value.as_str()) {
+        value
+    } else {
+        fallback.to_owned()
+    }
 }
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> SpacePreviewResult<()> {
@@ -172,6 +224,13 @@ mod tests {
         assert_eq!(preferences.font_size, 15);
         assert_eq!(preferences.default_encoding, "auto");
         assert_eq!(preferences.text_preview_threshold_kb, 500);
+        assert_eq!(preferences.font, "auto");
+        assert!(preferences.wrap);
+        assert_eq!(preferences.html, "source");
+        assert_eq!(preferences.max_preview_mib, 512);
+        assert_eq!(preferences.max_archive_entry_mib, 256);
+        assert!(!preferences.tabs);
+        assert_eq!(preferences.preview_key, "space");
         assert!(!path.exists());
     }
 
@@ -180,12 +239,19 @@ mod tests {
         let directory = temp_dir("round-trip");
         let path = directory.join("nested").join("preview.json");
         let saved = PreviewPreferences {
-            version: 1,
             space_enabled: false,
             reading_width: 1080,
             font_size: 18,
             default_encoding: "gb18030".to_owned(),
             text_preview_threshold_kb: 2048,
+            font: "serif".to_owned(),
+            wrap: false,
+            html: "web".to_owned(),
+            max_preview_mib: 128,
+            max_archive_entry_mib: 64,
+            tabs: true,
+            preview_key: "altSpace".to_owned(),
+            ..PreviewPreferences::default()
         };
 
         assert_eq!(save_to(&path, saved.clone()).unwrap(), saved);
@@ -198,11 +264,7 @@ mod tests {
         let path = directory.join("preview.json");
         let saved = PreviewPreferences {
             version: 42,
-            space_enabled: true,
-            reading_width: 900,
-            font_size: 15,
-            default_encoding: "auto".to_owned(),
-            text_preview_threshold_kb: 500,
+            ..PreviewPreferences::default()
         };
 
         assert_eq!(save_to(&path, saved).unwrap().version, 1);
@@ -211,6 +273,69 @@ mod tests {
         let loaded = load_from(&path).unwrap();
         assert_eq!(loaded.version, 1);
         assert_eq!(loaded.text_preview_threshold_kb, 500);
+    }
+
+    #[test]
+    fn fields_missing_from_an_older_file_take_their_defaults() {
+        let directory = temp_dir("older-file");
+        let path = directory.join("preview.json");
+        fs::write(
+            &path,
+            br#"{"version":1,"spaceEnabled":false,"readingWidth":720,"fontSize":17,"defaultEncoding":"gb18030","textPreviewThresholdKb":1024}"#,
+        )
+        .unwrap();
+
+        let loaded = load_from(&path).unwrap();
+
+        assert!(!loaded.space_enabled);
+        assert_eq!(loaded.reading_width, 720);
+        assert_eq!(loaded.font, "auto");
+        assert!(loaded.wrap);
+        assert_eq!(loaded.html, "source");
+        assert_eq!(loaded.max_preview_mib, 512);
+        assert_eq!(loaded.max_archive_entry_mib, 256);
+        assert!(!loaded.tabs);
+        assert_eq!(loaded.preview_key, "space");
+        assert!(backup_files(&directory).is_empty());
+    }
+
+    #[test]
+    fn out_of_range_values_fall_back_to_the_defaults() {
+        let directory = temp_dir("normalize");
+        let path = directory.join("preview.json");
+        fs::write(
+            &path,
+            br#"{
+                "version": 1,
+                "spaceEnabled": true,
+                "readingWidth": 9999,
+                "fontSize": 2,
+                "defaultEncoding": "utf-7",
+                "textPreviewThresholdKb": 0,
+                "font": "comic",
+                "wrap": false,
+                "html": "print",
+                "maxPreviewMiB": 8,
+                "maxArchiveEntryMiB": 4096,
+                "tabs": true,
+                "previewKey": "enter"
+            }"#,
+        )
+        .unwrap();
+
+        let loaded = load_from(&path).unwrap();
+
+        assert_eq!(loaded.reading_width, 900);
+        assert_eq!(loaded.font_size, 15);
+        assert_eq!(loaded.default_encoding, "auto");
+        assert_eq!(loaded.text_preview_threshold_kb, 500);
+        assert_eq!(loaded.font, "auto");
+        assert!(!loaded.wrap, "a valid boolean is kept");
+        assert_eq!(loaded.html, "source");
+        assert_eq!(loaded.max_preview_mib, 512);
+        assert_eq!(loaded.max_archive_entry_mib, 256);
+        assert!(loaded.tabs);
+        assert_eq!(loaded.preview_key, "space");
     }
 
     #[test]

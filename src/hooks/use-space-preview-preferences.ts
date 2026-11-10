@@ -7,16 +7,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getPreviewPreferences, savePreviewPreferences, type PreviewPreferences } from "@/commands";
+import { previewDefaults } from "@/lib/space-preview/preferences";
 
 /** Mirrors the backend's defaults, so a failed load still previews sensibly. */
-const DEFAULT_PREFERENCES: PreviewPreferences = {
-  version: 1,
-  spaceEnabled: true,
-  readingWidth: 900,
-  fontSize: 15,
-  defaultEncoding: "auto",
-  textPreviewThresholdKb: 500,
-};
+const DEFAULT_PREFERENCES: PreviewPreferences = previewDefaults;
 
 export function useSpacePreviewPreferences(): {
   preferences: PreviewPreferences;

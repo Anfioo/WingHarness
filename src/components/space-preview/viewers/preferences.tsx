@@ -1,15 +1,20 @@
 // The subset of the persisted preferences the viewers actually read.
 // Upstream kept a larger object with per-session toggles; those are component
-// state here, so only the three durable values come from the host.
+// state here, so only the durable values come from the host.
 
 import { createContext, useContext, type ReactNode } from "react";
-import type { TextEncoding } from "@/commands";
+import type { PreviewFont, PreviewHtmlView, TextEncoding } from "@/commands";
 
 export interface ViewerPreferences {
   readingWidth: number;
   fontSize: number;
   defaultEncoding: TextEncoding;
   textPreviewThresholdKb: number;
+  font: PreviewFont;
+  wrap: boolean;
+  html: PreviewHtmlView;
+  maxPreviewMiB: number;
+  maxArchiveEntryMiB: number;
 }
 
 interface PreferencesValue {

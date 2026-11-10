@@ -15,6 +15,15 @@ export type TextEncoding =
   | "windows-1252"
   | "shift_jis";
 
+/** The reading font a preview uses. Code and text stay monospaced. */
+export type PreviewFont = "auto" | "sans" | "serif" | "mono";
+
+/** How an HTML file opens by default. */
+export type PreviewHtmlView = "source" | "web";
+
+/** The trigger that opens the preview window over a file-manager selection. */
+export type PreviewKey = "space" | "altSpace" | "winSpace";
+
 /** What the backend reports about a file before it is read. */
 export interface PreviewFileInfo {
   id: string;
@@ -57,4 +66,15 @@ export interface PreviewPreferences {
   defaultEncoding: TextEncoding;
   /** Files larger than this many kilobytes skip the foldable line view. */
   textPreviewThresholdKb: number;
+  font: PreviewFont;
+  /** Whether text files wrap long lines. */
+  wrap: boolean;
+  html: PreviewHtmlView;
+  /** The largest file a whole-file preview reads, in mebibytes. */
+  maxPreviewMiB: number;
+  /** The largest file an archive viewer extracts from an archive, in mebibytes. */
+  maxArchiveEntryMiB: number;
+  /** Whether the standalone window keeps several files in tabs. */
+  tabs: boolean;
+  previewKey: PreviewKey;
 }

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { codeFolds } from '@/lib/space-preview/engine/code-folds';
 import { highlightLineState, languageOf } from '@/lib/git-core/highlight';
 import { useAppTranslation } from '@/hooks/use-app-translation';
+import { useViewerPreferences } from './preferences';
 
 /**
  * The line view for text files below the fast-view threshold: one element per
@@ -10,6 +11,7 @@ import { useAppTranslation } from '@/hooks/use-app-translation';
  */
 export default function FoldableCode({ text, name }: { text: string; name: string }) {
   const { t } = useAppTranslation();
+  const { preferences } = useViewerPreferences();
   const language = useMemo(() => languageOf(name), [name]);
   const source = useMemo(() => text.split('\n'), [text]);
   const lines = useMemo(() => {
@@ -24,7 +26,11 @@ export default function FoldableCode({ text, name }: { text: string; name: strin
   const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set());
   let hiddenUntil = -1;
   return (
-    <pre className="foldable-code bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6">
+    <pre
+      className={`foldable-code bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6 ${
+        preferences.wrap ? 'wrap' : ''
+      }`}
+    >
       {lines.map((line, i) => {
         if (i < hiddenUntil) return null;
         const end = ranges.get(i);

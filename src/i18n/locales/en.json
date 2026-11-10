@@ -236,7 +236,12 @@
       "showMain": "Show Main Window",
       "showMainDesc": "Use shortcut to quickly show the main window",
       "setSuccess": "Shortcut set to {{shortcut}}!",
-      "cleared": "Shortcut cleared!"
+      "cleared": "Shortcut cleared!",
+      "previewGroup": "File preview",
+      "previewKey": "Preview shortcut",
+      "previewKeyDesc": "Opens the preview window on the file selected in Explorer, the desktop or Everything.",
+      "previewKeyMissing": "Not loaded",
+      "previewSaveFailed": "The preview shortcut could not be saved."
     }
   },
   "shortcutField": {

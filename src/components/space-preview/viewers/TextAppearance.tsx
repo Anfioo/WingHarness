@@ -41,8 +41,8 @@ export function TextAppearanceProvider({
   children: ReactNode;
 }) {
   const { preferences, update } = useViewerPreferences();
-  // The font family is a per-view choice; only the size is persisted.
-  const [font, setFont] = useState<Font>('auto');
+  const font = preferences.font;
+  const setFont = useCallback((next: Font) => update({ font: next }), [update]);
   const size = preferences.fontSize;
   const setSize = useCallback(
     (value: number | ((size: number) => number)) =>
@@ -58,7 +58,8 @@ export function TextAppearanceProvider({
             display: 'contents',
             '--preview-font-size': `${size}px`,
             '--preview-font-family': families[font],
-            '--preview-code-family': font === 'auto' ? 'var(--font-code)' : families[font],
+            // Code and plain text stay monospaced whichever reading font is chosen.
+            '--preview-code-family': 'var(--font-code)',
           } as CSSProperties
         }
       >

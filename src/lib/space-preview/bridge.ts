@@ -15,6 +15,7 @@ import {
 } from "@/commands";
 import { formatSize } from "./engine/files";
 import { readWholeFile } from "./engine/full-read";
+import { wholeFileLimit } from "./limits";
 
 /** A file the preview can read. `blob` is set for files dropped from the webview. */
 export interface PreviewFile {
@@ -28,16 +29,13 @@ export interface PreviewFile {
   blob?: Blob;
 }
 
-/** Whole-file previews are capped so a large video is never buffered in memory. */
-export const WHOLE_FILE_LIMIT = 64 * 1024 * 1024;
-
 /** Thrown when a file is too large to read into memory for a whole-file preview. */
 export class PreviewTooLargeError extends Error {
   readonly code = "preview-too-large";
   readonly size: number;
   readonly limit: number;
 
-  constructor(size: number, limit = WHOLE_FILE_LIMIT) {
+  constructor(size: number, limit = wholeFileLimit()) {
     super(
       `This file is ${formatSize(size)}; whole-file previews are limited to ${formatSize(limit)}.`
     );
@@ -118,7 +116,7 @@ export function readFullBytes(
   signal: AbortSignal,
   progress?: (percent: number) => void
 ) {
-  if (!file.blob && file.size > WHOLE_FILE_LIMIT)
+  if (!file.blob && file.size > wholeFileLimit())
     return Promise.reject(new PreviewTooLargeError(file.size));
   return readWholeFile(
     file.size,

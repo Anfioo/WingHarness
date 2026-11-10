@@ -996,6 +996,9 @@ export type {
   AgentStatus,
   InitialPaths,
   PreviewFileInfo,
+  PreviewFont,
+  PreviewHtmlView,
+  PreviewKey,
   PreviewPreferences,
   TextEncoding,
   // The project file service already exports its own `WriteResult`.

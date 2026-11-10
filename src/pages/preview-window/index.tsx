@@ -5,14 +5,17 @@
 // The window is declared hidden by `tauri.conf.json` and shown by the space
 // agent; the viewer itself lives in `PreviewHost`.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { inspectFile } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { useSpacePreviewPreferences } from "@/hooks/use-space-preview-preferences";
+import { closeTab as dropTab, visibleTabs } from "@/lib/space-preview/preview-tabs";
 import { usePreviewWindowSession } from "@/lib/space-preview/window-session";
 import { PreviewHost } from "@/components/space-preview/host";
 import { PreviewWindowFrame } from "@/components/space-preview/window/window-frame";
+import { PreviewTabStrip } from "@/components/space-preview/window/tab-strip";
 import { SelectionBar } from "@/components/space-preview/window/selection-bar";
 
 // Keys typed into a field, a selector or a rich-text editor belong to it.
@@ -32,24 +35,73 @@ export default function PreviewWindow() {
     previous,
     close,
   } = usePreviewWindowSession();
+  const { preferences } = useSpacePreviewPreferences();
+  const tabsEnabled = preferences.tabs;
+  const [closed, setClosed] = useState<Set<string>>(() => new Set());
   const dirty = useRef(false);
 
   const handleDirtyChange = useCallback((value: boolean) => {
     dirty.current = value;
   }, []);
 
+  const confirmDiscard = useCallback(
+    () =>
+      !dirty.current ||
+      window.confirm(
+        t("spacePreview.editor.discardConfirm", { defaultValue: "Discard the unsaved changes?" })
+      ),
+    [t]
+  );
+
+  // A new hand-off brings a fresh set of tabs.
+  useEffect(() => {
+    setClosed(new Set());
+  }, [showId]);
+
+  const tabs = useMemo(
+    () => (tabsEnabled ? visibleTabs(entries, closed) : []),
+    [tabsEnabled, entries, closed]
+  );
+  const activeEntry = tabsEnabled
+    ? (tabs.find((tab) => tab.path === current?.path) ?? tabs[0] ?? null)
+    : current;
+
+  // The session owns the active index; a tab that closed itself hands the
+  // viewer to its neighbour, so point the session there too.
+  useEffect(() => {
+    if (tabsEnabled && activeEntry && activeEntry.path !== current?.path) {
+      setCurrentPath(activeEntry.path);
+    }
+  }, [tabsEnabled, activeEntry, current?.path, setCurrentPath]);
+
+  const selectTab = useCallback(
+    (path: string) => {
+      if (path === current?.path || !confirmDiscard()) return;
+      setCurrentPath(path);
+    },
+    [confirmDiscard, current?.path, setCurrentPath]
+  );
+
+  const closeTabAt = useCallback(
+    (path: string) => {
+      if (path === current?.path && !confirmDiscard()) return;
+      const result = dropTab(tabs, current?.path ?? null, path);
+      setClosed((previous) => new Set(previous).add(path));
+      if (!result.activePath) {
+        void close();
+        return;
+      }
+      if (result.activePath !== current?.path) setCurrentPath(result.activePath);
+    },
+    [close, confirmDiscard, current?.path, setCurrentPath, tabs]
+  );
+
   // Space and Escape put the window away; unsaved edits must be asked about
   // first, exactly like the host's own close button does.
   const requestClose = useCallback(async () => {
-    if (
-      dirty.current &&
-      !window.confirm(
-        t("spacePreview.editor.discardConfirm", { defaultValue: "Discard the unsaved changes?" })
-      )
-    )
-      return;
+    if (!confirmDiscard()) return;
     await close();
-  }, [close, t]);
+  }, [close, confirmDiscard]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -90,20 +142,12 @@ export default function PreviewWindow() {
         const info = await inspectFile(path).catch(() => null);
         // Dropped folders and paths that cannot be read are skipped.
         if (!info || info.directory) continue;
-        if (
-          dirty.current &&
-          !window.confirm(
-            t("spacePreview.editor.discardConfirm", {
-              defaultValue: "Discard the unsaved changes?",
-            })
-          )
-        )
-          return;
+        if (!confirmDiscard()) return;
         setCurrentPath(info.path);
         return;
       }
     },
-    [setCurrentPath, t]
+    [confirmDiscard, setCurrentPath]
   );
 
   // Drops arrive on the webview, not on a DOM element.
@@ -143,14 +187,26 @@ export default function PreviewWindow() {
       {/* The window is hidden until the agent hands files over, so the viewer
           only exists from the first hand-off on. */}
       {showId > 0 && (
-        <PreviewHost
-          key={showId}
-          mode="window"
-          target={current}
-          text={text}
-          folderOnly={folderOnly}
-          onDirtyChange={handleDirtyChange}
-        />
+        <div className="flex h-full min-h-0 flex-col">
+          {tabsEnabled && tabs.length > 1 && (
+            <PreviewTabStrip
+              tabs={tabs}
+              activePath={activeEntry?.path ?? null}
+              onSelect={selectTab}
+              onClose={closeTabAt}
+            />
+          )}
+          <div className="min-h-0 flex-1">
+            <PreviewHost
+              key={showId}
+              mode="window"
+              target={activeEntry}
+              text={text}
+              folderOnly={folderOnly}
+              onDirtyChange={handleDirtyChange}
+            />
+          </div>
+        </div>
       )}
     </PreviewWindowFrame>
   );

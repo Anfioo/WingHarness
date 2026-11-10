@@ -39,6 +39,8 @@ type ShortcutFieldProps = {
   onChange: (value: string) => void;
   /** Presets shown above the custom picker. Omitted means combinations only. */
   presets?: readonly ShortcutPresetId[];
+  /** Offer only the presets: some settings cannot store a free combination. */
+  presetsOnly?: boolean;
   placeholder?: string;
   className?: string;
 };
@@ -55,6 +57,7 @@ export function ShortcutField({
   value,
   onChange,
   presets = [],
+  presetsOnly = false,
   placeholder,
   className,
 }: ShortcutFieldProps) {
@@ -257,101 +260,110 @@ export function ShortcutField({
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <p className="text-muted-foreground text-xs font-medium">
-              {t("shortcutField.customTitle")}
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {SHORTCUT_MODIFIERS.map((modifier) => {
-                const active = draft.kind === "custom" && draft.modifiers.includes(modifier);
-                const disabled =
-                  draft.kind === "custom" &&
-                  !active &&
-                  draft.modifiers.length >= MAX_SHORTCUT_MODIFIERS;
-                return (
-                  <button
-                    key={modifier}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => toggleModifier(modifier)}
-                    className={cn(
-                      "border-border hover:bg-accent rounded-md border px-2 py-1 text-xs transition-colors disabled:opacity-40",
-                      active && "border-primary bg-accent font-medium"
-                    )}
-                  >
-                    {MODIFIER_LABELS[modifier]}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <select
-                value={draft.kind === "custom" ? draft.key : DEFAULT_KEY}
-                onChange={(event) => setKey(event.target.value)}
-                className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-sm"
-              >
-                {draft.kind === "custom" && !SHORTCUT_KEYS.has(draft.key) && (
-                  <option value={draft.key}>{keyLabel(draft.key)}</option>
+          {!presetsOnly && (
+            <div className="space-y-1.5">
+              <p className="text-muted-foreground text-xs font-medium">
+                {t("shortcutField.customTitle")}
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {SHORTCUT_MODIFIERS.map((modifier) => {
+                  const active = draft.kind === "custom" && draft.modifiers.includes(modifier);
+                  const disabled =
+                    draft.kind === "custom" &&
+                    !active &&
+                    draft.modifiers.length >= MAX_SHORTCUT_MODIFIERS;
+                  return (
+                    <button
+                      key={modifier}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => toggleModifier(modifier)}
+                      className={cn(
+                        "border-border hover:bg-accent rounded-md border px-2 py-1 text-xs transition-colors disabled:opacity-40",
+                        active && "border-primary bg-accent font-medium"
+                      )}
+                    >
+                      {MODIFIER_LABELS[modifier]}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={draft.kind === "custom" ? draft.key : DEFAULT_KEY}
+                  onChange={(event) => setKey(event.target.value)}
+                  className="border-input bg-background h-8 flex-1 rounded-md border px-2 text-sm"
+                >
+                  {draft.kind === "custom" && !SHORTCUT_KEYS.has(draft.key) && (
+                    <option value={draft.key}>{keyLabel(draft.key)}</option>
+                  )}
+                  {SHORTCUT_KEY_GROUPS.map((group) => (
+                    <optgroup key={group.id} label={t(`shortcutField.groups.${group.id}`)}>
+                      {group.keys.map((key) => (
+                        <option key={key} value={key}>
+                          {keyLabel(key)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setRecording((current) => !current)}
+                  className={cn(
+                    "border-border hover:bg-accent flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
+                    recording && "border-primary bg-accent"
+                  )}
+                >
+                  <Keyboard className="size-3.5" />
+                  {recording ? t("shortcutField.recording") : t("shortcutField.record")}
+                </button>
+              </div>
+              {recording && (
+                <p className="text-muted-foreground text-xs">{t("shortcutField.recordHint")}</p>
+              )}
+              <div className="bg-muted/50 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs">
+                <span className="text-muted-foreground">{t("shortcutField.preview")}</span>
+                {draftSpec ? (
+                  draft.kind === "preset" ? (
+                    <span className="font-medium">{presetLabel(draft.id)}</span>
+                  ) : (
+                    <>
+                      {draft.modifiers.map((modifier) => (
+                        <kbd key={modifier} className="bg-background rounded px-1 text-[11px]">
+                          {MODIFIER_LABELS[modifier]}
+                        </kbd>
+                      ))}
+                      <kbd className="bg-background rounded px-1 text-[11px]">
+                        {keyLabel(draft.key)}
+                      </kbd>
+                    </>
+                  )
+                ) : (
+                  <span>{t("shortcutField.incomplete")}</span>
                 )}
-                {SHORTCUT_KEY_GROUPS.map((group) => (
-                  <optgroup key={group.id} label={t(`shortcutField.groups.${group.id}`)}>
-                    {group.keys.map((key) => (
-                      <option key={key} value={key}>
-                        {keyLabel(key)}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
+              </div>
+            </div>
+          )}
+
+          <div
+            className={cn(
+              "flex items-center gap-2 pt-0.5",
+              presetsOnly ? "justify-end" : "justify-between"
+            )}
+          >
+            {!presetsOnly && (
               <button
                 type="button"
-                onClick={() => setRecording((current) => !current)}
-                className={cn(
-                  "border-border hover:bg-accent flex h-8 items-center gap-1 rounded-md border px-2 text-xs transition-colors",
-                  recording && "border-primary bg-accent"
-                )}
+                onClick={() => {
+                  onChange("");
+                  setOpen(false);
+                }}
+                className="text-muted-foreground hover:text-foreground text-xs"
               >
-                <Keyboard className="size-3.5" />
-                {recording ? t("shortcutField.recording") : t("shortcutField.record")}
+                {t("shortcutField.clear")}
               </button>
-            </div>
-            {recording && (
-              <p className="text-muted-foreground text-xs">{t("shortcutField.recordHint")}</p>
             )}
-            <div className="bg-muted/50 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs">
-              <span className="text-muted-foreground">{t("shortcutField.preview")}</span>
-              {draftSpec ? (
-                draft.kind === "preset" ? (
-                  <span className="font-medium">{presetLabel(draft.id)}</span>
-                ) : (
-                  <>
-                    {draft.modifiers.map((modifier) => (
-                      <kbd key={modifier} className="bg-background rounded px-1 text-[11px]">
-                        {MODIFIER_LABELS[modifier]}
-                      </kbd>
-                    ))}
-                    <kbd className="bg-background rounded px-1 text-[11px]">
-                      {keyLabel(draft.key)}
-                    </kbd>
-                  </>
-                )
-              ) : (
-                <span>{t("shortcutField.incomplete")}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between gap-2 pt-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                onChange("");
-                setOpen(false);
-              }}
-              className="text-muted-foreground hover:text-foreground text-xs"
-            >
-              {t("shortcutField.clear")}
-            </button>
             <button
               type="button"
               disabled={!canApply}
@@ -363,7 +375,7 @@ export function ShortcutField({
           </div>
         </PopoverContent>
       </Popover>
-      {value && (
+      {value && !presetsOnly && (
         <button
           type="button"
           onClick={() => onChange("")}

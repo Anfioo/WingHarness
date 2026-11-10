@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 import { CodeEditor } from "@/components/code-editor";
 import type { PreviewFile } from "@/lib/space-preview/bridge";
 import { readFullBytes } from "@/lib/space-preview/bridge";
+import { applyPreviewLimits } from "@/lib/space-preview/limits";
+import { previewDefaults } from "@/lib/space-preview/preferences";
 import { decodeText, formatSize } from "@/lib/space-preview/engine/files";
 import { detectKind } from "@/lib/space-preview/registry";
 import { errorText, previewErrorCodeKey } from "./viewers/errors";
@@ -67,14 +69,7 @@ const READABLE = [
   "legacy-doc",
 ];
 
-const DEFAULT_PREFERENCES: PreviewPreferences = {
-  version: 1,
-  spaceEnabled: true,
-  readingWidth: 900,
-  fontSize: 15,
-  defaultEncoding: "auto",
-  textPreviewThresholdKb: 500,
-};
+const DEFAULT_PREFERENCES: PreviewPreferences = previewDefaults;
 
 const ENCODINGS: { value: TextEncoding; key: string; fallback: string }[] = [
   { value: "auto", key: "spacePreview.encoding.auto", fallback: "Detect automatically" },
@@ -149,6 +144,7 @@ export function PreviewHost({
         // A broadcast that beat this read is newer; keep it.
         if (!active || lastSaved.current) return;
         lastSaved.current = value;
+        applyPreviewLimits(value);
         setPreferences(value);
       })
       .catch(() => {});
@@ -164,6 +160,7 @@ export function PreviewHost({
     let active = true;
     void listen<PreviewPreferences>("sp:preferences-changed", (event) => {
       lastSaved.current = event.payload;
+      applyPreviewLimits(event.payload);
       setPreferences(event.payload);
     }).then((unlisten) => {
       if (active) stop = unlisten;
@@ -181,7 +178,7 @@ export function PreviewHost({
       lastSaved.current = preferences;
       // Re-read before writing: the tray and the settings window save the same
       // object, and a stale copy here would revert the space switch.
-      const { readingWidth, fontSize, defaultEncoding: encoding } = preferences;
+      const { readingWidth, fontSize, defaultEncoding: encoding, font } = preferences;
       void getPreviewPreferences()
         .then((latest) =>
           savePreviewPreferences({
@@ -189,6 +186,7 @@ export function PreviewHost({
             readingWidth,
             fontSize,
             defaultEncoding: encoding,
+            font,
           })
         )
         .catch(() => {});
@@ -247,8 +245,11 @@ export function PreviewHost({
   useEffect(() => () => reading.current?.abort(), []);
 
   const update = useCallback(
-    (next: Partial<Pick<PreviewPreferences, "readingWidth" | "fontSize" | "defaultEncoding">>) =>
-      setPreferences((current) => ({ ...current, ...next })),
+    (
+      next: Partial<
+        Pick<PreviewPreferences, "readingWidth" | "fontSize" | "defaultEncoding" | "font">
+      >
+    ) => setPreferences((current) => ({ ...current, ...next })),
     []
   );
 
@@ -391,6 +392,11 @@ export function PreviewHost({
         fontSize: preferences.fontSize,
         defaultEncoding: preferences.defaultEncoding,
         textPreviewThresholdKb: preferences.textPreviewThresholdKb,
+        font: preferences.font,
+        wrap: preferences.wrap,
+        html: preferences.html,
+        maxPreviewMiB: preferences.maxPreviewMiB,
+        maxArchiveEntryMiB: preferences.maxArchiveEntryMiB,
       }}
       update={update}
     >

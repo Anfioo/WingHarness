@@ -22,13 +22,13 @@ import { TEXT_ENCODINGS } from '@/components/code-editor';
 import { useAppTranslation } from '@/hooks/use-app-translation';
 import type { PreviewFile } from '@/lib/space-preview/bridge';
 import {
-  WHOLE_FILE_LIMIT,
   fileUrl,
   readBytes,
   readFullBytes,
   readRange,
   renderPresentation,
 } from '@/lib/space-preview/bridge';
+import { wholeFileLimit } from '@/lib/space-preview/limits';
 import {
   detectKind,
   unsupportedFormatHint,
@@ -126,6 +126,7 @@ export default function Preview({
   onOpen: (file: PreviewFile) => void;
 }) {
   const { t } = useAppTranslation();
+  const { preferences } = useViewerPreferences();
   const registered = detectKind(file.name);
   const textContainer = [
     'docx',
@@ -143,7 +144,7 @@ export default function Preview({
   const shortcut = extension(file.name) === 'lnk';
   const [detected, setDetected] = useState<PreviewKind | null>(null);
   const [wordText, setWordText] = useState(false);
-  const tooLarge = !file.blob && file.size > WHOLE_FILE_LIMIT;
+  const tooLarge = !file.blob && file.size > wholeFileLimit();
   useEffect(() => {
     setDetected(null);
     if (
@@ -199,12 +200,17 @@ export default function Preview({
           defaultValue:
             'The file is {{size}}; whole-file previews are limited to {{limit}}.',
           size: formatSize(file.size),
-          limit: formatSize(WHOLE_FILE_LIMIT),
+          limit: formatSize(wholeFileLimit()),
         })}
       />
     );
   if (!kind) return <Loading />;
-  if (kind === 'html') return <HtmlPreview file={file} />;
+  if (kind === 'html')
+    return preferences.html === 'source' ? (
+      <TextPreview file={file} />
+    ) : (
+      <HtmlPreview file={file} />
+    );
   if (kind === 'tiff') return <TiffPreview file={file} />;
   if (kind === 'metafile') return <MetafilePreview file={file} />;
   if (kind === 'psd') return <PsdPreview key={file.id} file={file} />;
@@ -1761,7 +1767,11 @@ function TextPreview({ file, onLayout }: { file: PreviewFile; onLayout?: () => v
         </div>
       </PreviewToolbar>
       {fast ? (
-        <pre className="bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6 whitespace-pre">
+        <pre
+          className={`bg-background text-foreground m-0 min-h-0 flex-1 overflow-auto p-4 font-mono text-sm leading-6 ${
+            preferences.wrap ? 'whitespace-pre-wrap' : 'whitespace-pre'
+          }`}
+        >
           {rendered?.html ? (
             <code className="hljs" dangerouslySetInnerHTML={{ __html: rendered.html }} />
           ) : (

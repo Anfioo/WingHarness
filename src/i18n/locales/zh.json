@@ -235,7 +235,12 @@
       "showMain": "显示主窗口",
       "showMainDesc": "使用快捷键快速显示主窗口",
       "setSuccess": "已将快捷键设为 {{shortcut}}！",
-      "cleared": "已取消快捷键！"
+      "cleared": "已取消快捷键！",
+      "previewGroup": "文件预览",
+      "previewKey": "预览快捷键",
+      "previewKeyDesc": "在资源管理器、桌面或 Everything 中选中文件后，按下该快捷键打开预览窗口。",
+      "previewKeyMissing": "未读取",
+      "previewSaveFailed": "无法保存预览快捷键。"
     }
   },
   "shortcutField": {

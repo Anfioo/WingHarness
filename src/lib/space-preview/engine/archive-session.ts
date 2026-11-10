@@ -7,6 +7,7 @@ import type { ArchiveEntry } from '../worker/worker-types';
 import { parseInWorker } from '../worker/worker-client';
 import { openPackage, packageFormats } from './package-session';
 import { isTar } from './compressed-stream';
+import { archiveEntryLimit } from '../limits';
 
 interface NativeEntry {
   path: string;
@@ -27,7 +28,7 @@ export async function openArchive(
   file: PreviewFile,
   signal: AbortSignal,
   password = '',
-  entryLimit = 256 * 1024 * 1024,
+  entryLimit = archiveEntryLimit(),
 ) {
   if (packageFormats.includes(extension(file.name))) return openPackage(file, signal);
   if (['gz', 'zst', 'zstd', 'bz2', 'xz'].includes(extension(file.name))) {
@@ -67,7 +68,7 @@ export async function openArchive(
     return {
       entries: [entry],
       close: () => {},
-      extract: async (_entry: ArchiveEntry, limit = 256 * 1024 * 1024) => {
+      extract: async (_entry: ArchiveEntry, limit = archiveEntryLimit()) => {
         if (data.length > limit || file.size > limit) throw new Error('The inner file exceeds the configured limit.');
         return new Blob([data as Uint8Array<ArrayBuffer>]);
       },
@@ -130,7 +131,7 @@ export async function openArchive(
     return {
       entries,
       close,
-      async extract(entry: ArchiveEntry, limit = 256 * 1024 * 1024) {
+      async extract(entry: ArchiveEntry, limit = archiveEntryLimit()) {
         if (entry.size > limit) throw new Error('The inner file exceeds the configured limit.');
         const extractionTimer = setTimeout(
           () => close(new Error('Decompressing the inner file exceeded 120 seconds; stopped.')),

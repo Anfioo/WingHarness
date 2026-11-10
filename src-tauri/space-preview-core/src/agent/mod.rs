@@ -53,6 +53,8 @@ struct PendingEmit {
 pub fn start(app: tauri::AppHandle) {
     if let Ok(preferences) = crate::prefs::load() {
         ENABLED.store(preferences.space_enabled, Ordering::SeqCst);
+        #[cfg(windows)]
+        shortcut::set(&preferences.preview_key);
     }
     #[cfg(windows)]
     windows_agent::start(app);
@@ -67,9 +69,16 @@ pub fn stop() {
 }
 
 /// Turn the space handler on or off without a restart.
+///
+/// The trigger is re-read here too: the preferences commands save the file
+/// before calling this, so a shortcut change lands on the running hook.
 pub fn set_enabled(enabled: bool) {
     if ENABLED.swap(enabled, Ordering::SeqCst) != enabled {
         log::debug!("space_preview_agent_toggled enabled={enabled}");
+    }
+    #[cfg(windows)]
+    if let Ok(preferences) = crate::prefs::load() {
+        shortcut::set(&preferences.preview_key);
     }
     #[cfg(windows)]
     windows_agent::set_enabled(enabled);

@@ -97,7 +97,8 @@ English `message` only as the fallback, via
 | Limit | Value | Enforced by |
 |-------|-------|-------------|
 | One `read_range` call | 32 MiB | `io::MAX_READ` and the frontend bridge |
-| A whole-file preview | 64 MiB | `bridge.ts` (`WHOLE_FILE_LIMIT`) |
+| A whole-file preview | 512 MiB by default, 16–2048 MiB preference | `limits.ts`, published from the preferences |
+| One file inside an archive | 256 MiB by default, 16–1024 MiB preference | `archive-session.ts` and the archive viewer |
 | An HTML resource | 32 MiB | `html::MAX_RESOURCE` |
 | WMF / EMF | 16 MiB | the metafile viewer |
 | TIFF | 32 MiB | the TIFF viewer |
@@ -226,6 +227,12 @@ closing hides it, it is never destroyed.
   `sp_navigate_file_selection` first, so the window follows the real Explorer /
   desktop / Everything selection; when that fails it steps through the list it
   was handed, wrapping at the ends.
+- **File tabs** appear when the *Use file tabs* preference is on and the
+  hand-off has more than one file. Each tab can be closed; closing the active
+  one hands the viewer to its right neighbour, or to the left when it was last,
+  and closing the last one hides the window. Switching tabs, closing a tab or
+  dropping a file over unsaved edits asks first. With tabs off the window shows
+  one file at a time and the arrow keys remain the way through the selection.
 - **Space and Escape close** — unless the focus is in a field, a selector or a
   contenteditable element, in which case the keystroke belongs to it. An
   unsaved edit asks before the window hides.
@@ -236,10 +243,12 @@ closing hides it, it is never destroyed.
 
 ### The space agent
 
-- A low-level keyboard hook (`SetWindowsHookExW(WH_KEYBOARD_LL)`) watches Space
-  only while the foreground window is Explorer, the desktop or Everything **and**
-  a file list has focus. In an address bar, a search field or a rename box the
-  key is passed through untouched.
+- A low-level keyboard hook (`SetWindowsHookExW(WH_KEYBOARD_LL)`) watches the
+  configured preview key — Space by default, or Alt + Space / Win + Space from
+  **设置 → 快捷键 → 文件预览** — only while the foreground window is Explorer,
+  the desktop or Everything **and** a file list has focus. In an address bar, a
+  search field or a rename box the key is passed through untouched. Holding
+  Shift opens a text-like file as plain text.
 - The selection itself comes from Shell COM on a dedicated STA thread;
   Everything's results are read from its own list.
 - The handler is **on by default**. The settings switch and the tray's
@@ -262,16 +271,26 @@ The defaults are:
   "readingWidth": 900,
   "fontSize": 15,
   "defaultEncoding": "auto",
-  "textPreviewThresholdKb": 500
+  "textPreviewThresholdKb": 500,
+  "font": "auto",
+  "wrap": true,
+  "html": "source",
+  "maxPreviewMiB": 512,
+  "maxArchiveEntryMiB": 256,
+  "tabs": false,
+  "previewKey": "space"
 }
 ```
 
-`src/lib/space-preview/preferences.ts` clamps anything a damaged file or an
-older build left behind. **设置 → 文件预览设置** edits all five values and saves
-automatically; the reading width and font size are also adjustable in the
-viewer's own reading-width control, which writes the same file. A file written
-before the threshold existed reads with the 500 KB default instead of being
-discarded.
+`src/lib/space-preview/preferences.ts` resets anything a damaged file or an
+older build left behind to its default. **设置 → 文件预览设置** is one page of
+five tabs — **预览 / 资源与性能 / 多文件预览 / 快捷键 / 使用指南** — under a
+fixed space switch that stays visible on every tab. It edits every value and
+saves automatically; the reading width and font size are also adjustable in the
+viewer's own reading-width control, which writes the same file. The preview key
+lives in **设置 → 快捷键 → 文件预览** (Space, Alt + Space or Win + Space) and
+retunes the running agent without a restart. A file written before a field
+existed reads that field's default instead of being discarded.
 
 ## Editor preview tabs
 
@@ -307,9 +326,11 @@ The same host is registered as a codelet custom editor
   foldable line view gives way to a single block; above 400,000 characters the
   highlight pass is skipped as well, so a large log renders uncoloured rather
   than being split into an element per line.
-- **64 MiB for a whole-file preview.** Larger files are listed but not read; the
-  pane says so instead of loading them, and the backend's per-range cap makes a
-  direct call unable to sidestep it.
+- **The whole-file preview cap is a preference (512 MiB by default).** Larger
+  files are listed but not read; the pane says so instead of loading them, and
+  the backend's per-range cap makes a direct call unable to sidestep it. The
+  archive inner-file cap (256 MiB by default) works the same way for one file
+  extracted from an archive.
 - **PDF pages render on demand.** Search, the outline and the text layer come
   from pdf.js; a damaged or password-protected PDF says which.
 - **PowerPoint needs PowerPoint for the best result.** With Office installed the
