@@ -82,7 +82,7 @@ pub fn defaults() -> PortsSettings {
 /// Read the settings, falling back to the defaults when the file is missing or
 /// unusable. A missing file is never written back.
 pub fn load() -> PortsResult<PortsSettings> {
-    load_at(&paths::settings_path()?)
+    load_at(paths::dir()?)
 }
 
 /// Validate and persist the whole settings document, returning the normalized
@@ -348,6 +348,20 @@ mod tests {
             load_at(&directory).expect("load").group_by,
             PortGrouping::Port
         );
+    }
+
+    #[test]
+    fn the_wire_format_matches_the_frontend() {
+        // Exactly what `ports_settings_set` receives from the webview.
+        let parsed: PortsSettings = serde_json::from_str(
+            r#"{"pinnedPorts":[3000],"pinnedOnly":false,"groupBy":"app"}"#,
+        )
+        .expect("parse the frontend payload");
+        assert_eq!(parsed.group_by, PortGrouping::App);
+
+        // And what it sends back.
+        let value = serde_json::to_value(defaults()).expect("serialize");
+        assert_eq!(value["groupBy"], serde_json::json!("port"));
     }
 
     #[test]
