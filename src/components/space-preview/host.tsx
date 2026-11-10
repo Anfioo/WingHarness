@@ -43,8 +43,6 @@ export interface PreviewHostProps {
   target: PreviewTarget | null;
   /** Open in the text view, as Shift+Space asks for. */
   text?: boolean;
-  /** The hand-off held only folders, so the empty state says why nothing opened. */
-  folderOnly?: boolean;
   /**
    * Whether unsaved edits would be lost if the target changed. The host cannot
    * veto a prop change, so the caller asks before switching; the preview window
@@ -96,7 +94,6 @@ export function PreviewHost({
   mode,
   target,
   text: textMode = false,
-  folderOnly = false,
   onDirtyChange,
   onClose,
   onEdited,
@@ -431,11 +428,13 @@ export function PreviewHost({
                   </p>
                   {current && (
                     <p className="text-muted-foreground text-xs">
-                      {t("spacePreview.host.fileMeta", {
-                        defaultValue: "{{size}} · {{type}}",
-                        size: formatSize(current.size),
-                        type: kind.toUpperCase(),
-                      })}
+                      {current.directory
+                        ? t("spacePreview.viewer.typeFolder", { defaultValue: "Folder" })
+                        : t("spacePreview.host.fileMeta", {
+                            defaultValue: "{{size}} · {{type}}",
+                            size: formatSize(current.size),
+                            type: kind.toUpperCase(),
+                          })}
                     </p>
                   )}
                 </div>
@@ -567,23 +566,14 @@ export function PreviewHost({
                   <div className="text-muted-foreground grid flex-1 place-items-center p-8 text-center">
                     <div>
                       <p className="text-foreground font-medium">
-                        {folderOnly
-                          ? t("spacePreview.host.folderTitle", {
-                              defaultValue: "Folders are not previewed",
-                            })
-                          : t("spacePreview.host.emptyTitle", {
-                              defaultValue: "Nothing to preview",
-                            })}
+                        {t("spacePreview.host.emptyTitle", {
+                          defaultValue: "Nothing to preview",
+                        })}
                       </p>
                       <p className="mt-1 text-xs">
-                        {folderOnly
-                          ? t("spacePreview.viewer.folderNotPreviewed", {
-                              defaultValue:
-                                "Folders are explored in the project file tree, not in the preview.",
-                            })
-                          : t("spacePreview.host.emptyBody", {
-                              defaultValue: "Select a file to preview it here.",
-                            })}
+                        {t("spacePreview.host.emptyBody", {
+                          defaultValue: "Select a file or folder to preview it here.",
+                        })}
                       </p>
                     </div>
                   </div>

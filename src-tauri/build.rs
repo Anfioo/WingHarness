@@ -461,6 +461,7 @@ const COMMANDS: &[&str] = &[
     "sp_hide_preview",
     "sp_initial_paths",
     "sp_inspect_file",
+    "sp_list_directory",
     "sp_navigate_file_selection",
     "sp_open_preview",
     "sp_preferences_get",

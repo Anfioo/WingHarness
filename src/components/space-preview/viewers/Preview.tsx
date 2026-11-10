@@ -81,6 +81,7 @@ import PsdPreview from './PsdPreview';
 import XmindPreview from './XmindPreview';
 import WebArchivePreview from './WebArchivePreview';
 import UnsupportedPreview from './UnsupportedPreview';
+import DirectoryPreview from './DirectoryPreview';
 
 const MiB = 1024 * 1024;
 
@@ -182,15 +183,7 @@ export default function Preview({
     !kind && !file.directory && !tooLarge,
     t('spacePreview.viewer.identifyingFileType', { defaultValue: 'Identifying the file type' }),
   );
-  if (file.directory)
-    return (
-      <UnsupportedPreview
-        file={file}
-        message={t('spacePreview.viewer.folderNotPreviewed', {
-          defaultValue: 'Folders are explored in the project file tree, not in the preview.',
-        })}
-      />
-    );
+  if (file.directory) return <DirectoryPreview key={file.id} file={file} mode={mode} onOpen={onOpen} />;
   if (tooLarge && registered === 'binary') return <BinaryPreview file={file} />;
   if (tooLarge)
     return (

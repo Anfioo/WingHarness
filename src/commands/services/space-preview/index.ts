@@ -9,6 +9,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { invokeCommand } from "../../base";
 import type {
   AgentStatus,
+  DirectoryPage,
   InitialPaths,
   PreviewFileInfo,
   PreviewPreferences,
@@ -19,6 +20,14 @@ import type {
 /** Admit a path to the backend allowlist and describe the file it names. */
 export async function inspectFile(path: string): Promise<PreviewFileInfo> {
   return invokeCommand<{ path: string }, PreviewFileInfo>("sp_inspect_file", { path });
+}
+
+/** One bounded page of an inspected directory; its entries are admitted too. */
+export async function listDirectory(path: string, offset = 0): Promise<DirectoryPage> {
+  return invokeCommand<{ path: string; offset: number }, DirectoryPage>("sp_list_directory", {
+    path,
+    offset,
+  });
 }
 
 /** The first `limit` bytes of an inspected file. */

@@ -9,6 +9,7 @@
 
 pub mod agent;
 pub mod commands;
+pub mod directory;
 pub mod error;
 pub mod html;
 pub mod icons;

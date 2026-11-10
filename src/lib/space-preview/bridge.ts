@@ -9,10 +9,12 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   fileIcon,
   inspectFile,
+  listDirectory as listDirectoryPage,
   readPrefix,
   readRange as readFileRange,
   renderPresentation as renderPresentationFile,
 } from "@/commands";
+import type { PreviewFileInfo } from "@/commands";
 import { formatSize } from "./engine/files";
 import { readWholeFile } from "./engine/full-read";
 import { wholeFileLimit } from "./limits";
@@ -27,6 +29,12 @@ export interface PreviewFile {
   path?: string;
   directory?: boolean;
   blob?: Blob;
+}
+
+/** One bounded page of a folder's contents. */
+export interface DirectoryPage {
+  entries: PreviewFile[];
+  nextOffset: number | null;
 }
 
 /** Thrown when a file is too large to read into memory for a whole-file preview. */
@@ -81,20 +89,23 @@ export async function pickNativeFiles(): Promise<PreviewFile[]> {
 
 /** Admit a path to the backend allowlist and describe it to the preview. */
 export async function inspectPath(path: string): Promise<PreviewFile> {
-  const info = await inspectFile(path);
+  return toPreviewFile(await inspectFile(path));
+}
+
+/** One page of a folder; every entry is admitted for later reads as well. */
+export async function listDirectory(folder: PreviewFile, offset = 0): Promise<DirectoryPage> {
+  const page = await listDirectoryPage(requirePath(folder), offset);
   return {
-    id: info.id,
-    name: info.name,
-    size: info.size,
-    modified: info.modified,
-    mime: info.mime,
-    path: info.path,
-    directory: info.directory,
+    entries: page.entries.map(toPreviewFile),
+    nextOffset: page.nextOffset,
   };
 }
 
 export async function renderPresentation(file: PreviewFile): Promise<PreviewFile> {
-  const info = await renderPresentationFile(requirePath(file));
+  return toPreviewFile(await renderPresentationFile(requirePath(file)));
+}
+
+function toPreviewFile(info: PreviewFileInfo): PreviewFile {
   return {
     id: info.id,
     name: info.name,

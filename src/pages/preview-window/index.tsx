@@ -1,6 +1,6 @@
-// The standalone preview window: one file at a time, following the file
-// manager's selection, with the arrow keys stepping through a multi-selection
-// and Space / Escape closing it.
+// The standalone preview window: one file or folder at a time, following the
+// file manager's selection, with the arrow keys stepping through a
+// multi-selection and Space / Escape closing it.
 //
 // The window is declared hidden by `tauri.conf.json` and shown by the space
 // agent; the viewer itself lives in `PreviewHost`.
@@ -25,18 +25,8 @@ const EDITABLE_TARGET =
 
 export default function PreviewWindow() {
   const { t } = useAppTranslation();
-  const {
-    entries,
-    current,
-    index,
-    text,
-    folderOnly,
-    showId,
-    setCurrentPath,
-    next,
-    previous,
-    close,
-  } = usePreviewWindowSession();
+  const { entries, current, index, text, showId, setCurrentPath, next, previous, close } =
+    usePreviewWindowSession();
   const { preferences } = useSpacePreviewPreferences();
   const tabsEnabled = preferences.tabs;
   const [closed, setClosed] = useState<Set<string>>(() => new Set());
@@ -142,8 +132,8 @@ export default function PreviewWindow() {
     async (paths: string[]) => {
       for (const path of paths) {
         const info = await inspectFile(path).catch(() => null);
-        // Dropped folders and paths that cannot be read are skipped.
-        if (!info || info.directory) continue;
+        // A path that cannot be read is skipped.
+        if (!info) continue;
         if (!confirmDiscard()) return;
         setCurrentPath(info.path);
         return;
@@ -204,7 +194,6 @@ export default function PreviewWindow() {
               mode="window"
               target={activeEntry}
               text={text}
-              folderOnly={folderOnly}
               onDirtyChange={handleDirtyChange}
             />
           </div>

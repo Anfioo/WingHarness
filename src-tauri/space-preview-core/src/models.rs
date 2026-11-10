@@ -24,6 +24,15 @@ pub struct PreviewFileInfo {
     pub etag: String,
 }
 
+/// One bounded page of a directory listing.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DirectoryPage {
+    pub entries: Vec<PreviewFileInfo>,
+    /// The offset of the next page, or `None` when this page is the last.
+    pub next_offset: Option<usize>,
+}
+
 /// The result of writing a text file back.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

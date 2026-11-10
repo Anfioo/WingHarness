@@ -36,6 +36,13 @@ export interface PreviewFileInfo {
   etag: string;
 }
 
+/** One bounded page of a directory listing. */
+export interface DirectoryPage {
+  entries: PreviewFileInfo[];
+  /** The offset of the next page, or `null` when this page is the last. */
+  nextOffset: number | null;
+}
+
 /** The result of a text write. */
 export interface WriteResult {
   size: number;

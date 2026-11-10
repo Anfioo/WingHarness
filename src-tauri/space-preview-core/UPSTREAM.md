@@ -38,7 +38,8 @@ QuickLook) is not carried over.
 | `src/agent/everything.rs` | `src/everything.rs` | Everything result list |
 | `src/agent/shortcut.rs` | `src/shortcut.rs` | Only the parsing the hook needs |
 | `src/agent/mod.rs` | `src/lib.rs` (app-level show/hide) | `start`, `stop`, `set_enabled`, `show_preview_files`, `hide_preview`, `navigate`, `cancel_navigation`, `initial_paths` |
-| `src/models.rs` | `src/lib.rs` | `PreviewFileInfo`, `WriteResult`, `AgentStatus`, `InitialPaths`, `PreviewPreferences` |
+| `src/directory.rs` | `src/lib.rs` (`DirectoryPage`, the directory listing) | One 500-entry page per call, directories first; every entry is canonicalised, refused when it resolves outside the listed directory, and admitted for later reads |
+| `src/models.rs` | `src/lib.rs` | `PreviewFileInfo`, `DirectoryPage`, `WriteResult`, `AgentStatus`, `InitialPaths`, `PreviewPreferences` |
 | `src/state.rs` | `src/lib.rs` (allowed-path state) | In-memory allowlist; `inspect` first, read second |
 
 ## What changes
@@ -55,7 +56,8 @@ QuickLook) is not carried over.
 ## Tests
 
 `cargo test -p space-preview-core` covers the pure parts: path admission and
-canonicalisation, read limits, text round-trips in every supported encoding,
+canonicalisation, read limits, directory paging and ordering (including the
+symlink/junction escape guard), text round-trips in every supported encoding,
 etag mismatch, the HTML resource boundaries and the preferences store
 (defaults, round-trip, corrupt recovery, no `.tmp` left behind). The real hook,
 Shell COM and PowerPoint conversion cannot run unattended and are marked

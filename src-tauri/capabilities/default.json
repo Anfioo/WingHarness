@@ -467,6 +467,7 @@
     "allow-sp-hide-preview",
     "allow-sp-initial-paths",
     "allow-sp-inspect-file",
+    "allow-sp-list-directory",
     "allow-sp-navigate-file-selection",
     "allow-sp-open-preview",
     "allow-sp-preferences-get",

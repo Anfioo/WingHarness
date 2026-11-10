@@ -26,7 +26,8 @@ the port boundary clean.
 |------------|----------------|-------|
 | `src/lib/space-preview/engine/` | `src/lib/{archive,office,docx,ofd,mail,html,tiff,psd,xmind,extra-formats,…}.ts`, `src/lib/files.ts` | The parsing code, in its upstream style. `files.ts` became the type/size helpers; the extension table moved to `registry.ts`. |
 | `src/lib/space-preview/worker/` | `src/worker/{preview.worker,worker-client,worker-types}.ts` | comlink RPC and the off-main-thread parsers |
-| `src/components/space-preview/viewers/` | `src/components/{Preview,WordPreview,OfficePreview,ArchivePreview,DocumentReader,FontPreview,HtmlPreview,MailPreview,PdfPage,OfdPage,DiagramPreview,AnimationPreview,DatabasePreview,WebArchivePreview,…}.tsx` | Kept in upstream style; the labels they render now come from i18n instead of Chinese literals |
+| `src/components/space-preview/viewers/` | `src/components/{Preview,WordPreview,OfficePreview,ArchivePreview,DirectoryPreview,DocumentReader,FontPreview,HtmlPreview,MailPreview,PdfPage,OfdPage,DiagramPreview,AnimationPreview,DatabasePreview,WebArchivePreview,…}.tsx` | Kept in upstream style; the labels they render now come from i18n instead of Chinese literals |
+| `src/components/space-preview/viewers/DirectoryPreview.tsx` | `src/components/{DirectoryPreview,DirectorySidebar}.tsx` | The folder tree keeps the lazy page size, the directory-before-file order and the keyboard navigation. The sidebar is folded into the same file and gets the local drag resizer instead of upstream's persisted `directory.sidebarWidth`; opening a file uses the default app through `openPath`, and a folder whose listing fails gets an inline retry row. |
 | `src/components/space-preview/space-preview.css` | `src/styles.css` | The upstream stylesheet, scoped under `.sp-preview` |
 
 Every ported file starts with the attribution comment
@@ -54,9 +55,8 @@ Files under the four ported directories and `space-preview.css` are listed in
 - Graphviz (`.dot`, `.gv`): `@viz-js/viz` is EPL-2.0, which is not on the
   licence gate's allowed list. The `diagram` engine keeps mermaid only, and
   mermaid's own ELK layout is excluded for the same reason (elkjs is EPL-2.0).
-- The directory preview, the directory sidebar, the file search pane, the tab
-  strip and reading-position memory — the standalone window deliberately has
-  only multi-selection and the arrow keys.
+- The file search pane, the tab strip and reading-position memory — the
+  standalone window deliberately has only multi-selection and the arrow keys.
 - The upstream updater, autostart, macOS (`macos_*`), the QuickLook named pipe
   and its inspector/log pages.
 

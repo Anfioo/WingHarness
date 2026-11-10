@@ -39,7 +39,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/notes.rs` | `notes_delete`, `notes_list`, `notes_mkdir`, `notes_rename`, `notes_write` | 5 |
 | `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` — each takes the project `root` as its first argument | 7 |
 | `commands/projects.rs` | `project_active`, `project_forget`, `project_recent_list`, `project_remember`, `project_set_active` | 5 |
-| `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 17 |
+| `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
 | `commands/updater.rs` | `cancel_update_download`, `download_and_install_update`, `is_update_download_active` | 3 |

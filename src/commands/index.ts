@@ -1008,6 +1008,7 @@ export {
   hidePreview,
   initialPaths,
   inspectFile,
+  listDirectory,
   navigateFileSelection,
   openPreview,
   probePresentation,
@@ -1021,6 +1022,7 @@ export {
 } from "./services/space-preview";
 export type {
   AgentStatus,
+  DirectoryPage,
   InitialPaths,
   PreviewFileInfo,
   PreviewFont,

@@ -31,8 +31,6 @@ interface SessionState {
   entries: PreviewEntry[];
   index: number;
   text: boolean;
-  /** The hand-off held only folders, which the preview does not open. */
-  folderOnly: boolean;
   /** Bumped on every hand-off; the host remounts on it to re-read a path. */
   showId: number;
 }
@@ -44,7 +42,6 @@ const EMPTY_STATE: SessionState = {
   entries: [],
   index: -1,
   text: false,
-  folderOnly: false,
   showId: 0,
 };
 
@@ -55,31 +52,22 @@ function baseName(path: string): string {
 
 // inspectFile canonicalizes its answer, so the entries and the paths the Shell
 // reports back for navigation can be compared directly.
-async function toEntries(
-  paths: string[]
-): Promise<{ entries: PreviewEntry[]; folderOnly: boolean }> {
+async function toEntries(paths: string[]): Promise<PreviewEntry[]> {
   const inspected = await Promise.allSettled(paths.map((path) => inspectFile(path)));
   const entries: PreviewEntry[] = [];
-  let folders = 0;
   for (const result of inspected) {
-    // Directories are not previewable; a path that vanished is simply dropped.
+    // A path that vanished is simply dropped.
     if (result.status !== "fulfilled") continue;
-    if (result.value.directory) {
-      folders++;
-      continue;
-    }
     entries.push({ path: result.value.path, name: result.value.name, size: result.value.size });
   }
-  return { entries, folderOnly: entries.length === 0 && folders > 0 };
+  return entries;
 }
 
 // A path the file manager moved to may not be part of the original selection;
 // then the window follows that new single selection instead of a stale list.
 function select(state: SessionState, entry: PreviewEntry): SessionState {
   const found = state.entries.findIndex((candidate) => candidate.path === entry.path);
-  return found >= 0
-    ? { ...state, index: found, folderOnly: false }
-    : { ...state, entries: [entry], index: 0, folderOnly: false };
+  return found >= 0 ? { ...state, index: found } : { ...state, entries: [entry], index: 0 };
 }
 
 function step(state: SessionState, direction: 1 | -1): SessionState {
@@ -93,7 +81,6 @@ export function usePreviewWindowSession(): {
   current: PreviewEntry | null;
   index: number;
   text: boolean;
-  folderOnly: boolean;
   showId: number;
   setCurrentPath: (path: string) => void;
   next: () => Promise<void>;
@@ -118,13 +105,12 @@ export function usePreviewWindowSession(): {
     if (key === lastKey.current) return;
     lastKey.current = key;
     const id = ++request.current;
-    void toEntries(payload.paths).then(({ entries, folderOnly }) => {
+    void toEntries(payload.paths).then((entries) => {
       if (id !== request.current) return;
       setState((current) => ({
         entries,
         index: entries.length > 0 ? 0 : -1,
         text: payload.text,
-        folderOnly,
         showId: current.showId + 1,
       }));
     });
@@ -156,7 +142,6 @@ export function usePreviewWindowSession(): {
           entries: [],
           index: -1,
           text: false,
-          folderOnly: false,
         }));
       })
     );
@@ -193,9 +178,7 @@ export function usePreviewWindowSession(): {
         const path = await navigateFileSelection(entry.path, direction);
         if (path) {
           const info = await inspectFile(path);
-          if (!info.directory) {
-            target = { path: info.path, name: info.name, size: info.size };
-          }
+          target = { path: info.path, name: info.name, size: info.size };
         }
       } catch {
         // No Shell COM behind the file manager: the local list takes over.
@@ -229,7 +212,6 @@ export function usePreviewWindowSession(): {
     current: state.entries[state.index] ?? null,
     index: state.index,
     text: state.text,
-    folderOnly: state.folderOnly,
     showId: state.showId,
     setCurrentPath,
     next,

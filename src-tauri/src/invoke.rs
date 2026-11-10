@@ -110,6 +110,7 @@ macro_rules! all_commands {
             space_preview_core::commands::html::sp_read_html_resource,
             space_preview_core::commands::icons::sp_file_icon,
             space_preview_core::commands::io::sp_inspect_file,
+            space_preview_core::commands::io::sp_list_directory,
             space_preview_core::commands::io::sp_read_prefix,
             space_preview_core::commands::io::sp_read_range,
             space_preview_core::commands::prefs::sp_preferences_get,
