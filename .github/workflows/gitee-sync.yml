@@ -184,7 +184,7 @@ jobs:
             exit 1
           fi
 
-          if id="$(printf '%s' "${body}" | jq -er '.id' 2>/dev/null)"; then
+          if id="$(printf '%s' "${body}" | jq -er '.id // empty' 2>/dev/null)"; then
             echo "Gitee already has a release for ${TAG}."
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "id=${id}" >> "$GITHUB_OUTPUT"
@@ -269,7 +269,7 @@ jobs:
             exit 1
           fi
 
-          existing="$(printf '%s' "${body}" | jq -r '.[].name' 2>/dev/null || true)"
+          existing="$(printf '%s' "${body}" | jq -r '.[]? | .name' 2>/dev/null || true)"
 
           files=()
           has_latest=false
@@ -440,7 +440,9 @@ jobs:
         run: |
           response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
             "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/latest?access_token=${GITEE_TOKEN}")"
-          release_id="$(printf '%s' "${response}" | jq -er '.id' 2>/dev/null || true)"
+          # `jq -e` still prints `null` for a missing release, so filter it out
+          # explicitly; otherwise "null" is taken for a valid release id.
+          release_id="$(printf '%s' "${response}" | jq -r '.id // empty' 2>/dev/null || true)"
 
           if [ -z "${release_id}" ]; then
             echo "Creating the fixed 'latest' release..."
@@ -456,13 +458,16 @@ jobs:
               echo "Creating the fixed 'latest' release failed: ${response}" >&2
               exit 1
             fi
-            release_id="$(printf '%s' "${response}" | jq -er '.id')"
+            if ! release_id="$(printf '%s' "${response}" | jq -er '.id')"; then
+              echo "Unexpected response when creating the fixed 'latest' release: ${response}" >&2
+              exit 1
+            fi
           fi
           echo "Fixed manifest release: ${release_id}"
 
           attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
             "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
-          old_id="$(printf '%s' "${attachments}" | jq -r '.[] | select(.name == "latest.json") | .id' | head -n 1)"
+          old_id="$(printf '%s' "${attachments}" | jq -r '.[]? | select(.name == "latest.json") | .id' | head -n 1)"
 
           if [ -n "${old_id}" ]; then
             echo "Removing the previous latest.json (attachment ${old_id})..."
