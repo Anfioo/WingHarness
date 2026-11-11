@@ -105,13 +105,16 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
-          status="$(curl -sS -o /dev/null -w '%{http_code}' \
+          # Gitee answers 200 with a literal `null` body when the tag has no
+          # release, so the status code alone cannot tell the two apart.
+          response="$(curl -sS \
             "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
-          echo "Gitee release lookup returned HTTP ${status}."
 
-          if [ "${status}" = "200" ]; then
+          if printf '%s' "${response}" | jq -e '.id' > /dev/null 2>&1; then
+            echo "Gitee already has a release for ${TAG}."
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
+            echo "Gitee has no release for ${TAG}."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
