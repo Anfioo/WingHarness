@@ -65,6 +65,8 @@ WingHarness 源自作者自己的私有工作流应用
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`、数据库页面（`src/pages/database`）：SQL 编辑器、结果表格、对象树、工作区页签、执行计划 | 按本项目约定改写，无相同文件；`db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md` |
 | [SpacePreview](https://github.com/likehao19/SpacePreview) | MIT | `space-preview-core`、`src/lib/space-preview`、`src/components/space-preview`、`preview-window` | 版本 0.10.22（`db531eb`）；引擎与查看器近乎逐字移植，宿主与独立窗口属重写；`space-preview-core/UPSTREAM.md` 与 `src/components/space-preview/UPSTREAM.md` |
 
+| [moin](https://github.com/exxvius/moin) | MIT | `moin-core`、`moin` 页面、`extension/` | 0.4.0，提交 `79e7587`；按本仓架构改写；`moin-core/UPSTREAM.md` |
+
 **这一组的说明**
 
 - **MangoDisk** 与 **TizuMark** 是 GPL-3.0-only。正因为承载了它们，WingHarness
@@ -73,8 +75,8 @@ WingHarness 源自作者自己的私有工作流应用
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
-  `ports-core`、`shaic-core`、`db-core` 与 `space-preview-core`。预览的两半各有
-  一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
+  `ports-core`、`shaic-core`、`db-core`、`space-preview-core` 与 `moin-core`。
+  预览的两半各有一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
   指向本项目的 `LICENSE`。
 
 ### 仅参考 —— 未复制代码
@@ -119,3 +121,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-09 | 端口管理：`src-tauri/ports-core` 与端口页面移植自 Porter（MIT）；新增 `ports-core/UPSTREAM.md` 与成对的功能文档 `docs/features/PORTS.md` / `.zh-CN.md`。 |
 | 2026-11-10 | 记录 SpacePreview 为**已移植**：其 Rust 侧成为 `space-preview-core`，引擎与查看器成为 `src/lib/space-preview` 与 `src/components/space-preview`，服务于升级后的文件预览页、独立预览窗口与编辑器预览页签。CAD/3D/RAW/设计稿及 Graphviz（EPL-2.0）分支未移植。 |
 | 2026-11-10 | 许可证审查后续：mermaid 把 `elkjs`（EPL-2.0）带进了打包产物；`vite.config.ts` 现在将其别名到 `src/lib/elk-stub.ts`，不再随包分发该代码。`buffers`（无许可证）经确认不会进入 Excel 查看器的打包产物，因为 Vite 解析的是 ExcelJS 的浏览器构建。 |
+| 2026-11-11 | moin 0.4.0（`79e7587`，MIT）移植为 `src-tauri/moin-core`、下载页面与 `extension/`；新增 `moin-core/UPSTREAM.md` 和 `licenses/moin-LICENSE.txt`，更新声明。通用守护进程改为内嵌命令／事件，保留扩展 RPC 与 aria2 后端。 |

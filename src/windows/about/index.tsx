@@ -104,6 +104,12 @@ const UPSTREAMS: { name: string; license: string; url: string; module: string }[
     module: "src-tauri/src/mcphub",
   },
   {
+    name: "moin",
+    license: "MIT",
+    url: "https://github.com/exxvius/moin",
+    module: "src-tauri/moin-core, src/pages/moin, extension",
+  },
+  {
     name: "openidea",
     license: "Apache-2.0",
     url: "https://github.com/l0ng-ai/openidea",

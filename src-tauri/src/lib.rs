@@ -21,11 +21,32 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                // The download engine keeps `downloads.db`, `settings.json`,
+                // `categories.json` and the aria2 session files under
+                // `<data dir>/moin`, so the whole feature moves with the data
+                // directory. The directory has to be published before the state
+                // is managed: `MoinState::engine()` resolves its files from it.
+                let _ = moin_core::paths::CONFIG_DIR.set(config::dir().join("moin"));
+                app.manage(moin_core::MoinState::new(app.handle().clone()));
+                // One global progress batcher for the whole app: the engine
+                // reports every chunk and this task folds them into a single
+                // `moin:task-progress` batch per flush interval.
+                let (flush, notify) = moin_core::state::progress_handles();
+                moin_core::state::spawn_progress_flusher(app.handle().clone(), flush, notify);
                 // The proxy has to reach the environment before the first HTTP
                 // client is built anywhere in the app, and before any child
                 // process is spawned, so it is applied right after the config
                 // directory is known.
                 config::apply_proxy_env(&config::load().proxy);
+                // The browser-extension listener binds 127.0.0.1 on the port from
+                // `settings.json`, and building it constructs the download
+                // engine — which builds its HTTP client, and that client captures
+                // the proxy from the environment at build time. Starting it must
+                // therefore come *after* `apply_proxy_env`. It is a clone of the
+                // same state, so it shares the one engine (and the one SQLite
+                // pool) with the page; a port that is already taken only logs a
+                // warning and never keeps the app from starting.
+                moin_core::rpc::spawn(app.state::<moin_core::MoinState>().inner().clone());
                 // The git engine keeps everything it persists — recent repos,
                 // hosting accounts, and the window's own stores — under
                 // `<data dir>/.git-repo`, next to `ccs/` and `.mcphub/`, so the

@@ -4061,6 +4061,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "moin-core"
+version = "0.0.1"
+dependencies = [
+ "async-trait",
+ "futures-util",
+ "log",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tauri",
+ "tauri-plugin-notification",
+ "tempfile",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "muda"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9173,6 +9191,7 @@ dependencies = [
  "git-core",
  "indexmap 2.13.0",
  "md-editor-core",
+ "moin-core",
  "once_cell",
  "portable-pty",
  "ports-core",

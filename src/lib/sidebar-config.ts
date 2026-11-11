@@ -32,6 +32,7 @@ export const DEFAULT_GROUP_NAMES: Record<AppRouteGroup, string> = {
   mdEditor: "Markdown",
   // Same deal again: the ports page is listed in 「其他」.
   ports: "端口",
+  moin: "下载",
 };
 
 /** Name of the group that collects entries no group refers to. */

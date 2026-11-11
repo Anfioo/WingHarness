@@ -33,7 +33,8 @@ export type AppRouteGroup =
   | "servers"
   | "frp"
   | "mdEditor"
-  | "ports";
+  | "ports"
+  | "moin";
 
 /**
  * 侧栏 / 页头用的图标。大多是 lucide 图标，但 CC Switch 用它自己的品牌 logo
@@ -65,7 +66,8 @@ export type AppRouteId =
   | "filePreview"
   | "project"
   | "mdEditor"
-  | "ports";
+  | "ports"
+  | "moin";
 
 export type AppRoute = {
   id: AppRouteId;
