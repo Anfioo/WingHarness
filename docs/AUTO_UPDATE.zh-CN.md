@@ -8,7 +8,10 @@
 
 ```text
 https://github.com/<owner>/<repo>/releases/latest/download/latest.json
+https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json
 ```
+
+两个端点按顺序尝试。第二个是 Gitee 镜像，供无法访问 GitHub 的用户使用；`gitee-sync` 工作流会在每次发布后重新生成它的 `latest.json`。
 
 ## 前置条件
 

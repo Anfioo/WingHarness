@@ -8,7 +8,10 @@ This project uses GitHub Releases as the updater backend. During the release wor
 
 ```text
 https://github.com/<owner>/<repo>/releases/latest/download/latest.json
+https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json
 ```
+
+The endpoints are tried in order. The second one is a Gitee mirror for users who cannot reach GitHub; the `gitee-sync` workflow republishes its `latest.json` after every release.
 
 ## Prerequisites
 
