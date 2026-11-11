@@ -2,6 +2,7 @@
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
 import { Search, X } from "lucide-react";
+import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
 import type { MoinCategory, MoinTask } from "@/commands";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,12 +18,13 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { isActiveStatus } from "./task-row";
 
 /**
- * Status filter buckets.
+ * Status tabs. Exactly one status is selected at a time; the All tab includes
+ * paused and archived tasks so newly captured downloads cannot be hidden by
+ * the default filter.
  *
- * `canceled` has no chip of its own in the frozen key set, so it is grouped
+ * `canceled` has no tab of its own in the frozen key set, so it is grouped
  * under `failed`: both are terminal states that need the user to act. Archived
- * is orthogonal — an archived task keeps its status but is only listed when the
- * `archived` bucket is selected.
+ * tasks are shown in their own tab regardless of their underlying status.
  */
 export type StatusBucket = "active" | "completed" | "paused" | "failed" | "stalled" | "archived";
 
@@ -35,10 +37,10 @@ export const STATUS_BUCKETS: StatusBucket[] = [
   "archived",
 ];
 
-/** Default view: everything the user still cares about, archived excluded. */
-export const DEFAULT_STATUS_BUCKETS: StatusBucket[] = ["active", "completed", "failed"];
+export type StatusFilter = "all" | StatusBucket;
 
-const BUCKET_MATCHERS: Record<StatusBucket, (task: MoinTask) => boolean> = {
+const BUCKET_MATCHERS: Record<StatusFilter, (task: MoinTask) => boolean> = {
+  all: () => true,
   active: (task) => !task.archived && isActiveStatus(task.status),
   completed: (task) => !task.archived && task.status === "completed",
   paused: (task) => !task.archived && task.status === "paused",
@@ -47,26 +49,19 @@ const BUCKET_MATCHERS: Record<StatusBucket, (task: MoinTask) => boolean> = {
   archived: (task) => task.archived,
 };
 
-export function matchesStatusBucket(task: MoinTask, bucket: StatusBucket): boolean {
+export function matchesStatusBucket(task: MoinTask, bucket: StatusFilter): boolean {
   return BUCKET_MATCHERS[bucket](task);
 }
 
 export interface TaskFilterState {
-  buckets: Set<StatusBucket>;
+  status: StatusFilter;
   categoryIds: Set<string>;
   search: string;
 }
 
-/** Row visibility: any selected bucket, any selected category, and the search. */
+/** Row visibility: the selected status, any selected category, and the search. */
 export function taskMatchesFilters(task: MoinTask, filters: TaskFilterState): boolean {
-  let statusHit = false;
-  for (const bucket of filters.buckets) {
-    if (BUCKET_MATCHERS[bucket](task)) {
-      statusHit = true;
-      break;
-    }
-  }
-  if (!statusHit) return false;
+  if (!BUCKET_MATCHERS[filters.status](task)) return false;
 
   // An empty category selection means "every category", not "none".
   if (filters.categoryIds.size > 0) {
@@ -81,8 +76,8 @@ export function taskMatchesFilters(task: MoinTask, filters: TaskFilterState): bo
 export interface TaskFiltersProps {
   tasks: MoinTask[];
   categories: MoinCategory[];
-  buckets: Set<StatusBucket>;
-  onBucketsChange: (next: Set<StatusBucket>) => void;
+  status: StatusFilter;
+  onStatusChange: (next: StatusFilter) => void;
   categoryIds: Set<string>;
   onCategoryIdsChange: (next: Set<string>) => void;
   search: string;
@@ -92,21 +87,14 @@ export interface TaskFiltersProps {
 export function TaskFilters({
   tasks,
   categories,
-  buckets,
-  onBucketsChange,
+  status,
+  onStatusChange,
   categoryIds,
   onCategoryIdsChange,
   search,
   onSearchChange,
 }: TaskFiltersProps) {
   const { t } = useAppTranslation();
-
-  const toggleBucket = (bucket: StatusBucket) => {
-    const next = new Set(buckets);
-    if (next.has(bucket)) next.delete(bucket);
-    else next.add(bucket);
-    onBucketsChange(next);
-  };
 
   const toggleCategory = (id: string) => {
     const next = new Set(categoryIds);
@@ -115,43 +103,32 @@ export function TaskFilters({
     onCategoryIdsChange(next);
   };
 
-  const allSelected = buckets.size === STATUS_BUCKETS.length;
-
   return (
-    <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-      <div
-        className="flex min-w-0 flex-wrap items-center gap-1"
-        role="group"
+    <div className="flex min-w-0 flex-col gap-2">
+      <RadioGroupPrimitive.Root
+        value={status}
+        onValueChange={(value) => onStatusChange(value as StatusFilter)}
         aria-label={t("moin.common.filter")}
+        orientation="horizontal"
+        className="bg-muted text-muted-foreground flex h-9 w-fit max-w-full items-center gap-0 overflow-x-auto rounded-lg p-[3px]"
       >
-        <Button
-          type="button"
-          size="sm"
-          variant={allSelected ? "secondary" : "ghost"}
-          onClick={() =>
-            onBucketsChange(allSelected ? new Set(DEFAULT_STATUS_BUCKETS) : new Set(STATUS_BUCKETS))
-          }
-        >
-          {t("moin.filter.all")}
-        </Button>
-        {STATUS_BUCKETS.map((bucket) => {
-          const count = tasks.filter((task) => BUCKET_MATCHERS[bucket](task)).length;
-          const active = buckets.has(bucket);
+        {(["all", ...STATUS_BUCKETS] as StatusFilter[]).map((filter) => {
+          const count =
+            filter === "all"
+              ? tasks.length
+              : tasks.filter((task) => BUCKET_MATCHERS[filter](task)).length;
           return (
-            <Button
-              key={bucket}
-              type="button"
-              size="sm"
-              variant={active ? "secondary" : "ghost"}
-              aria-pressed={active}
-              onClick={() => toggleBucket(bucket)}
+            <RadioGroupPrimitive.Item
+              key={filter}
+              value={filter}
+              className="focus-visible:ring-ring data-[state=checked]:bg-background data-[state=checked]:text-foreground inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 data-[state=checked]:shadow-sm"
             >
-              {t(`moin.filter.${bucket}`)}
+              {t(`moin.filter.${filter}`)}
               <span className="text-muted-foreground text-xs tabular-nums">{count}</span>
-            </Button>
+            </RadioGroupPrimitive.Item>
           );
         })}
-      </div>
+      </RadioGroupPrimitive.Root>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <DropdownMenu>
@@ -228,17 +205,14 @@ export function TaskFilters({
   );
 }
 
-/** Shared empty-selection sentinel so callers can compare cheaply. */
+/** Whether any status, category or search filter differs from the All view. */
 export function isFilterActive(filters: TaskFilterState): boolean {
   return (
-    filters.buckets.size !== DEFAULT_STATUS_BUCKETS.length ||
-    DEFAULT_STATUS_BUCKETS.some((bucket) => !filters.buckets.has(bucket)) ||
-    filters.categoryIds.size > 0 ||
-    filters.search.trim().length > 0
+    filters.status !== "all" || filters.categoryIds.size > 0 || filters.search.trim().length > 0
   );
 }
 
 /** Small helper used by the empty state's "clear filters" affordance. */
 export function clearFilterState(): TaskFilterState {
-  return { buckets: new Set(DEFAULT_STATUS_BUCKETS), categoryIds: new Set(), search: "" };
+  return { status: "all", categoryIds: new Set(), search: "" };
 }

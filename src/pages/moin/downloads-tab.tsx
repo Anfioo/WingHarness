@@ -48,7 +48,7 @@ import {
   clearFilterState,
   isFilterActive,
   taskMatchesFilters,
-  type StatusBucket,
+  type StatusFilter,
   type TaskFilterState,
 } from "@/components/moin/task-filters";
 import { TaskList } from "@/components/moin/task-list";
@@ -126,6 +126,7 @@ export default function DownloadsTab({
   const stats = useMemo(() => {
     let active = 0;
     let completed = 0;
+    let paused = 0;
     let archived = 0;
     let speed = 0;
     for (const task of tasks) {
@@ -138,9 +139,11 @@ export default function DownloadsTab({
         speed += progress[task.id]?.speed ?? 0;
       } else if (task.status === "completed") {
         completed += 1;
+      } else if (task.status === "paused") {
+        paused += 1;
       }
     }
-    return { active, completed, archived, speed };
+    return { active, completed, paused, archived, speed };
   }, [tasks, progress]);
 
   const fail = useCallback(
@@ -290,6 +293,10 @@ export default function DownloadsTab({
           <span className="text-foreground tabular-nums">{stats.completed}</span>
         </span>
         <span>
+          {t("moin.filter.paused")}{" "}
+          <span className="text-foreground tabular-nums">{stats.paused}</span>
+        </span>
+        <span>
           {t("moin.filter.archived")}{" "}
           <span className="text-foreground tabular-nums">{stats.archived}</span>
         </span>
@@ -332,8 +339,8 @@ export default function DownloadsTab({
       <TaskFilters
         tasks={tasks}
         categories={categories}
-        buckets={filters.buckets}
-        onBucketsChange={(next: Set<StatusBucket>) => setFilters({ ...filters, buckets: next })}
+        status={filters.status}
+        onStatusChange={(next: StatusFilter) => setFilters({ ...filters, status: next })}
         categoryIds={filters.categoryIds}
         onCategoryIdsChange={(next) => setFilters({ ...filters, categoryIds: next })}
         search={filters.search}
