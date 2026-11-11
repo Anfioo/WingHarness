@@ -34,7 +34,6 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useMoinCategories } from "@/hooks/use-moin-categories";
-import { formatSpeed } from "@/lib/moin/format";
 import { AddDownloadDialog } from "@/components/moin/add-download-dialog";
 import {
   DownloadsToolbar,
@@ -52,7 +51,7 @@ import {
   type TaskFilterState,
 } from "@/components/moin/task-filters";
 import { TaskList } from "@/components/moin/task-list";
-import { canPause, canResume, isActiveStatus } from "@/components/moin/task-row";
+import { canPause, canResume } from "@/components/moin/task-row";
 import type { TaskActionHandlers } from "@/components/moin/task-context-menu";
 
 /**
@@ -122,29 +121,6 @@ export default function DownloadsTab({
       ),
     [tasks, filters, sort, progress]
   );
-
-  const stats = useMemo(() => {
-    let active = 0;
-    let completed = 0;
-    let paused = 0;
-    let archived = 0;
-    let speed = 0;
-    for (const task of tasks) {
-      if (task.archived) {
-        archived += 1;
-        continue;
-      }
-      if (isActiveStatus(task.status)) {
-        active += 1;
-        speed += progress[task.id]?.speed ?? 0;
-      } else if (task.status === "completed") {
-        completed += 1;
-      } else if (task.status === "paused") {
-        paused += 1;
-      }
-    }
-    return { active, completed, paused, archived, speed };
-  }, [tasks, progress]);
 
   const fail = useCallback(
     (failure: unknown) => {
@@ -283,32 +259,6 @@ export default function DownloadsTab({
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-        <span>
-          {t("moin.filter.active")}{" "}
-          <span className="text-foreground tabular-nums">{stats.active}</span>
-        </span>
-        <span>
-          {t("moin.filter.completed")}{" "}
-          <span className="text-foreground tabular-nums">{stats.completed}</span>
-        </span>
-        <span>
-          {t("moin.filter.paused")}{" "}
-          <span className="text-foreground tabular-nums">{stats.paused}</span>
-        </span>
-        <span>
-          {t("moin.filter.archived")}{" "}
-          <span className="text-foreground tabular-nums">{stats.archived}</span>
-        </span>
-        <span>
-          {t("moin.task.speed")}{" "}
-          <span className="text-foreground tabular-nums">{formatSpeed(stats.speed)}</span>
-        </span>
-        <span className="ml-auto tabular-nums">
-          {t("moin.task.count", { count: visible.length })}
-        </span>
-      </div>
-
       <DownloadsToolbar
         loading={loading}
         onRefresh={() => void reload()}
