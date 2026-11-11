@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-regenerate-rpc-token"
+description = "Enables the moin_regenerate_rpc_token command without any pre-configured scope."
+commands.allow = ["moin_regenerate_rpc_token"]
+
+[[permission]]
+identifier = "deny-moin-regenerate-rpc-token"
+description = "Denies the moin_regenerate_rpc_token command without any pre-configured scope."
+commands.deny = ["moin_regenerate_rpc_token"]

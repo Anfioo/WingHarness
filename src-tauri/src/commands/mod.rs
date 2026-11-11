@@ -10,7 +10,6 @@ pub mod file_preview;
 pub mod fs_guard;
 pub mod greet;
 pub mod local_shell;
-pub mod moin;
 pub mod notes;
 pub mod plugin_browser;
 pub mod plugins;

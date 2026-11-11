@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-remove-downloads"
+description = "Enables the moin_remove_downloads command without any pre-configured scope."
+commands.allow = ["moin_remove_downloads"]
+
+[[permission]]
+identifier = "deny-moin-remove-downloads"
+description = "Denies the moin_remove_downloads command without any pre-configured scope."
+commands.deny = ["moin_remove_downloads"]

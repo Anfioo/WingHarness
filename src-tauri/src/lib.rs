@@ -21,12 +21,18 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
-                let downloads_dir = app.path().download_dir().unwrap_or_else(|_| std::env::temp_dir());
-                app.manage(commands::moin::MoinState::new(
-                    app.handle().clone(),
-                    config::dir().join("moin"),
-                    downloads_dir,
-                ));
+                // The download engine keeps `downloads.db`, `settings.json`,
+                // `categories.json` and the aria2 session files under
+                // `<data dir>/moin`, so the whole feature moves with the data
+                // directory. The directory has to be published before the state
+                // is managed: `MoinState::engine()` resolves its files from it.
+                let _ = moin_core::paths::CONFIG_DIR.set(config::dir().join("moin"));
+                app.manage(moin_core::MoinState::new(app.handle().clone()));
+                // One global progress batcher for the whole app: the engine
+                // reports every chunk and this task folds them into a single
+                // `moin:task-progress` batch per flush interval.
+                let (flush, notify) = moin_core::state::progress_handles();
+                moin_core::state::spawn_progress_flusher(app.handle().clone(), flush, notify);
                 // The proxy has to reach the environment before the first HTTP
                 // client is built anywhere in the app, and before any child
                 // process is spawned, so it is applied right after the config
@@ -129,6 +135,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(plugins::system_tray::init());
 
@@ -145,8 +152,8 @@ pub fn run() {
         // not stopped here it keeps running, and keeps the port it holds, long
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
-            if let Some(moin) = app.try_state::<commands::moin::MoinState>() {
-                tauri::async_runtime::block_on(moin.shutdown());
+            if let Some(moin) = app.try_state::<moin_core::MoinState>() {
+                moin_core::shutdown(&moin);
             }
             plugins::registry::stop_all_running();
             // The Clash core is our child process: left alone it keeps the

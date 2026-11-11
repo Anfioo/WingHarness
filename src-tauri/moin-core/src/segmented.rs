@@ -12,7 +12,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
-use crate::engine::{Control, ControlSignal, Outcome};
+use crate::backend::{Control, Outcome, Signal};
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -163,19 +163,19 @@ pub(crate) async fn download(
     }
     let received = received.load(Ordering::Acquire);
     match control.signal() {
-        ControlSignal::Pause => {
+        Signal::Pause => {
             let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
             if let Err(error) = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await {
                 return failed(format!("Could not save the resume plan: {error}"), received);
             }
             return TransferResult { outcome: Outcome::Paused, received };
         }
-        ControlSignal::Cancel => {
+        Signal::Cancel => {
             let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
             let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await;
             return TransferResult { outcome: Outcome::Canceled, received };
         }
-        ControlSignal::Run => {}
+        Signal::Run => {}
     }
     if let Some(error) = hard_failure {
         let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
@@ -254,11 +254,11 @@ async fn run_segment(
             return SegmentResult::Stopped;
         }
         match control.signal() {
-            ControlSignal::Pause | ControlSignal::Cancel => {
+            Signal::Pause | Signal::Cancel => {
                 let _ = file.flush().await;
                 return SegmentResult::Stopped;
             }
-            ControlSignal::Run => {}
+            Signal::Run => {}
         }
         match tokio::time::timeout(POLL_INTERVAL, stream.next()).await {
             Ok(Some(Ok(bytes))) => {
@@ -353,7 +353,7 @@ fn failed(message: String, received: u64) -> TransferResult {
 #[cfg(test)]
 mod tests {
     use super::{download, split, valid_plan, ResumePlan, Segment};
-    use crate::engine::{Control, Outcome};
+    use crate::backend::{Control, Outcome};
     use reqwest::header::HeaderMap;
     use std::sync::Arc;
     use std::time::Duration;

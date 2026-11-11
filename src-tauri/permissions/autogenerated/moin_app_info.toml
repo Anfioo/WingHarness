@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-app-info"
+description = "Enables the moin_app_info command without any pre-configured scope."
+commands.allow = ["moin_app_info"]
+
+[[permission]]
+identifier = "deny-moin-app-info"
+description = "Denies the moin_app_info command without any pre-configured scope."
+commands.deny = ["moin_app_info"]

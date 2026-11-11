@@ -96,6 +96,9 @@ tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-global-shortcut = "2"
+# Download-complete notifications for the moin engine. Registered in `lib.rs`
+# and allowed in `capabilities/default.json` (`notification:default`).
+tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 # preserve_order keeps insertion order (via indexmap) when rewriting JSON configs.
 serde_json = { version = "1", features = ["preserve_order"] }

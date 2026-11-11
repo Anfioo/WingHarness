@@ -1,59 +1,26 @@
-// Category rules adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
-// See UPSTREAM.md for the porting record.
+// Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
+// See `UPSTREAM.md` for the porting record.
 
-use std::collections::BTreeMap;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+//! Category rules: matching, validation and the `categories.json` document.
+//!
+//! The BitTorrent-only automation (exclude/layout/rename/watch folders) is not
+//! ported, but unknown keys on a category are kept in `Category::legacy` and
+//! written back untouched so a later port needs no data migration.
+
+use std::collections::{BTreeMap, HashSet};
+use std::fs;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::{MoinError, MoinResult};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum AddMethodKind {
-    ManualLink,
-    BrowserCapture,
-}
+use crate::models::{AddMethodKind, Category, Trigger};
+use crate::paths;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "kebab-case")]
-pub enum Trigger {
-    Extension { exts: Vec<String> },
-    Size { min: Option<u64>, max: Option<u64> },
-    UrlPattern { patterns: Vec<String> },
-    NamePattern { patterns: Vec<String> },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Category {
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub color: String,
-    #[serde(default)]
-    pub icon: Option<String>,
-    #[serde(default)]
-    pub hidden_from_all: bool,
-    #[serde(default)]
-    pub save_dir: Option<String>,
-    #[serde(default)]
-    pub incomplete_dir: Option<String>,
-    #[serde(default)]
-    pub sources: Vec<AddMethodKind>,
-    #[serde(default)]
-    pub triggers: Vec<Trigger>,
-    #[serde(default)]
-    pub order: i32,
-    #[serde(flatten, default)]
-    pub legacy: BTreeMap<String, serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CategoryDocument {
-    pub version: u32,
-    pub categories: Vec<Category>,
+struct CategoryDocument {
+    version: u32,
+    categories: Vec<Category>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -72,13 +39,7 @@ impl CategoryStore {
                 Self { categories: document.categories }
             }
             Err(error) => {
-                let backup = path.with_file_name(format!(
-                    "categories.json.bak-{}",
-                    crate::models::now_ms().div_euclid(1000)
-                ));
-                if let Err(rename_error) = fs::rename(path, backup) {
-                    log::warn!("Could not back up invalid moin categories: {rename_error}");
-                }
+                paths::backup_corrupt(path);
                 log::warn!("Invalid moin categories were replaced with defaults: {error}");
                 Self { categories: defaults() }
             }
@@ -91,13 +52,30 @@ impl CategoryStore {
         categories
     }
 
-    pub fn suggest(&self, url: &str, filename: Option<&str>, source: AddMethodKind, size: Option<u64>) -> Option<String> {
+    /// The first category (by `order`) whose triggers match wins. A category
+    /// without `sources` accepts every add method.
+    pub fn suggest(
+        &self,
+        url: &str,
+        filename: Option<&str>,
+        source: AddMethodKind,
+        size: Option<u64>,
+    ) -> Option<String> {
         self.categories
             .iter()
             .filter(|category| category.sources.is_empty() || category.sources.contains(&source))
-            .filter(|category| category.triggers.iter().any(|trigger| matches_trigger(trigger, url, filename, size)))
+            .filter(|category| {
+                category
+                    .triggers
+                    .iter()
+                    .any(|trigger| matches_trigger(trigger, url, filename, size))
+            })
             .min_by_key(|category| category.order)
             .map(|category| category.id.clone())
+    }
+
+    pub fn get(&self, id: &str) -> Option<Category> {
+        self.categories.iter().find(|category| category.id == id).cloned()
     }
 
     pub fn upsert(&mut self, path: &Path, mut category: Category) -> MoinResult<Vec<Category>> {
@@ -118,7 +96,11 @@ impl CategoryStore {
                 }
             }
         }
-        if self.categories.iter().any(|existing| existing.id != category.id && existing.name.eq_ignore_ascii_case(&category.name)) {
+        if self
+            .categories
+            .iter()
+            .any(|existing| existing.id != category.id && existing.name.eq_ignore_ascii_case(&category.name))
+        {
             return Err(MoinError::conflict("A category with that name already exists."));
         }
         if let Some(current) = self.categories.iter_mut().find(|existing| existing.id == category.id) {
@@ -158,8 +140,11 @@ impl CategoryStore {
         if ids.len() != self.categories.len() {
             return Err(MoinError::invalid_input("category.order", "The order must include every category exactly once."));
         }
-        let mut seen = std::collections::HashSet::new();
-        if ids.iter().any(|id| !seen.insert(id.as_str()) || !self.categories.iter().any(|category| &category.id == id)) {
+        let mut seen = HashSet::new();
+        if ids
+            .iter()
+            .any(|id| !seen.insert(id.as_str()) || !self.categories.iter().any(|category| &category.id == id))
+        {
             return Err(MoinError::invalid_input("category.order", "The order contains an unknown or duplicate category."));
         }
         for (order, id) in ids.iter().enumerate() {
@@ -183,20 +168,9 @@ impl CategoryStore {
 
     fn save(&self, path: &Path) -> MoinResult<()> {
         let document = CategoryDocument { version: 1, categories: self.list() };
-        let bytes = serde_json::to_vec_pretty(&document).map_err(|error| MoinError::internal(error.to_string()))?;
-        let parent = path.parent().ok_or_else(|| MoinError::io("The category path has no parent directory."))?;
-        fs::create_dir_all(parent).map_err(|error| MoinError::io(error.to_string()))?;
-        let temporary = path.with_extension("json.tmp");
-        let mut file = OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&temporary)
-            .map_err(|error| MoinError::io(error.to_string()))?;
-        file.write_all(&bytes).map_err(|error| MoinError::io(error.to_string()))?;
-        file.sync_all().map_err(|error| MoinError::io(error.to_string()))?;
-        drop(file);
-        fs::rename(temporary, path).map_err(|error| MoinError::io(error.to_string()))
+        let bytes = serde_json::to_vec_pretty(&document)
+            .map_err(|error| MoinError::internal(error.to_string()))?;
+        paths::write_atomic(path, &bytes)
     }
 }
 
@@ -230,16 +204,28 @@ fn matches_trigger(trigger: &Trigger, url: &str, filename: Option<&str>, size: O
             .or_else(|| url.rsplit('/').next())
             .and_then(|name| name.split('?').next())
             .and_then(|name| name.rsplit('.').next())
-            .is_some_and(|extension| exts.iter().any(|candidate| candidate.trim_start_matches('.').eq_ignore_ascii_case(extension))),
-        Trigger::Size { min, max } => size.is_some_and(|value| min.is_none_or(|min| value >= min) && max.is_none_or(|max| value <= max)),
+            .is_some_and(|extension| {
+                exts.iter()
+                    .any(|candidate| candidate.trim_start_matches('.').eq_ignore_ascii_case(extension))
+            }),
+        Trigger::Size { min, max } => size.is_some_and(|value| {
+            min.is_none_or(|min| value >= min) && max.is_none_or(|max| value <= max)
+        }),
         Trigger::UrlPattern { patterns } => patterns.iter().any(|pattern| glob_match(pattern, url)),
-        Trigger::NamePattern { patterns } => filename.is_some_and(|name| patterns.iter().any(|pattern| glob_match(pattern, name))),
+        Trigger::NamePattern { patterns } => {
+            filename.is_some_and(|name| patterns.iter().any(|pattern| glob_match(pattern, name)))
+        }
     }
 }
 
+/// Hand-written glob with `*` and `?`. A pattern without wildcards degrades to a
+/// case-insensitive substring test, which is what a user typing `report` means.
 fn glob_match(pattern: &str, value: &str) -> bool {
     let pattern = pattern.to_lowercase();
     let value = value.to_lowercase();
+    if !pattern.contains(['*', '?']) {
+        return value.contains(&pattern);
+    }
     let (mut p, mut v, mut star, mut retry) = (0usize, 0usize, None, 0usize);
     let pattern = pattern.as_bytes();
     let value = value.as_bytes();
@@ -259,19 +245,23 @@ fn glob_match(pattern: &str, value: &str) -> bool {
             return false;
         }
     }
-    while p < pattern.len() && pattern[p] == b'*' { p += 1; }
+    while p < pattern.len() && pattern[p] == b'*' {
+        p += 1;
+    }
     p == pattern.len()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{glob_match, AddMethodKind, CategoryStore};
+    use super::{glob_match, CategoryStore};
+    use crate::models::AddMethodKind;
 
     #[test]
     fn glob_matches_question_and_star() {
         assert!(glob_match("*.zip", "backup.ZIP"));
         assert!(glob_match("file?.bin", "file1.bin"));
         assert!(!glob_match("file?.bin", "file12.bin"));
+        assert!(glob_match("example.com", "https://example.com/a.bin"));
     }
 
     #[test]
@@ -282,8 +272,35 @@ mod tests {
         let mut category = super::defaults().remove(0);
         category.legacy.insert("automation".into(), serde_json::json!({"future": true}));
         store.upsert(&path, category).unwrap();
-        assert_eq!(store.suggest("https://example.test/guide.pdf", None, AddMethodKind::ManualLink, None).as_deref(), Some("documents"));
+        assert_eq!(
+            store
+                .suggest("https://example.test/guide.pdf", None, AddMethodKind::ManualLink, None)
+                .as_deref(),
+            Some("documents")
+        );
         let reloaded = CategoryStore::load(&path);
         assert!(reloaded.list()[0].legacy.contains_key("automation"));
+    }
+
+    #[test]
+    fn duplicate_names_and_relative_directories_are_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("categories.json");
+        let mut store = CategoryStore::default();
+        let mut first = super::defaults().remove(0);
+        first.id = "one".into();
+        first.name = "One".into();
+        store.upsert(&path, first).unwrap();
+
+        let mut duplicate = super::defaults().remove(0);
+        duplicate.id = "two".into();
+        duplicate.name = "one".into();
+        assert_eq!(store.upsert(&path, duplicate).unwrap_err().code, crate::MoinErrorCode::Conflict);
+
+        let mut relative = super::defaults().remove(0);
+        relative.id = "three".into();
+        relative.name = "Three".into();
+        relative.save_dir = Some("relative/path".into());
+        assert_eq!(store.upsert(&path, relative).unwrap_err().code, crate::MoinErrorCode::InvalidInput);
     }
 }

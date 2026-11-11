@@ -1,33 +1,46 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
-// See UPSTREAM.md for the porting record.
+// See `UPSTREAM.md` for the porting record.
+
+//! Queue, state machine and persistence orchestration.
+//!
+//! The engine never depends on Tauri: everything it reports goes out through
+//! [`Emitter`], and the host (`state.rs`) turns those calls into `app.emit`.
+//!
+//! Lock discipline: `Inner` guards every in-memory map with a
+//! `std::sync::Mutex`, and no guard is ever held across an `.await`. Anything
+//! needed after an await is cloned out of the guard first. SQLite writes are
+//! serialised by the pool (`max_connections = 1`) and always happen outside the
+//! locks.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use futures_util::StreamExt;
 use reqwest::header::{HeaderName, HeaderValue, CONTENT_RANGE, RANGE};
-use reqwest::Client;
+use reqwest::{Client, Url};
 use tokio::io::AsyncWriteExt;
-use tokio::sync::{Notify, RwLock};
-use url::Url;
+use tokio::sync::Notify;
 use uuid::Uuid;
 
-use crate::categories::{AddMethodKind, Category, CategoryStore};
+use crate::backend::{Control, Outcome, Signal};
+use crate::category::CategoryStore;
 use crate::error::{MoinError, MoinResult};
-use crate::models::{filename_from_url, now_ms, sanitize_filename, MoinSettings, Task, TaskKind, TaskProgress, TaskStatus};
+use crate::models::{
+    filename_from_url, now_ms, sanitize_filename, AddMethodKind, BackendInfo, Category, Settings,
+    Task, TaskKind, TaskProgress, TaskStatus, ToolSource, ToolStatus,
+};
 use crate::{settings, store::Store};
 
-pub trait EventSink: Send + Sync + 'static {
-    fn task_added(&self, task: &Task);
-    fn task_updated(&self, task: &Task);
-    fn task_removed(&self, id: &str);
-    fn task_progress(&self, items: &[TaskProgress]);
-    fn task_completed(&self, task: &Task);
-    fn settings_changed(&self, settings: &MoinSettings);
-    fn categories_changed(&self, categories: &[Category]);
+/// Host callback surface. The engine reports; the host decides what to do.
+pub trait Emitter: Send + Sync + 'static {
+    fn added(&self, task: &Task);
+    fn progress(&self, progress: TaskProgress);
+    fn updated(&self, task: &Task);
+    fn removed(&self, id: &str);
+    fn completed(&self, _task: &Task) {}
 }
 
 #[derive(Clone)]
@@ -37,60 +50,27 @@ pub struct Engine {
 
 struct Inner {
     data_dir: PathBuf,
-    default_download_dir: PathBuf,
+    downloads_dir: PathBuf,
     category_path: PathBuf,
     store: Store,
-    categories: RwLock<CategoryStore>,
-    settings: RwLock<MoinSettings>,
-    tasks: RwLock<HashMap<String, Task>>,
+    categories: Mutex<CategoryStore>,
+    settings: Mutex<Settings>,
+    tasks: Mutex<HashMap<String, Task>>,
     active: Mutex<HashSet<String>>,
     controls: Mutex<HashMap<String, Control>>,
-    progress: Mutex<HashMap<String, TaskProgress>>,
-    progress_notify: Notify,
-    queue_notify: Notify,
     stopping: AtomicBool,
-    sink: Arc<dyn EventSink>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ControlSignal {
-    Run,
-    Pause,
-    Cancel,
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct Control(Arc<Mutex<ControlSignal>>);
-
-impl Default for ControlSignal {
-    fn default() -> Self {
-        Self::Run
-    }
-}
-
-impl Control {
-    pub(crate) fn signal(&self) -> ControlSignal {
-        self.0.lock().map(|signal| *signal).unwrap_or(ControlSignal::Cancel)
-    }
-
-    fn set(&self, value: ControlSignal) {
-        if let Ok(mut signal) = self.0.lock() {
-            *signal = value;
-        }
-    }
-}
-
-#[derive(Debug)]
-pub(crate) enum Outcome {
-    Completed,
-    Paused,
-    Canceled,
-    Stalled,
-    Failed(String),
+    queue_notify: Notify,
+    emitter: Arc<dyn Emitter>,
 }
 
 /// How often a byte rate is recomputed from the running total.
 const SPEED_WINDOW: Duration = Duration::from_millis(500);
+
+fn guard<T>(mutex: &Mutex<T>) -> MoinResult<MutexGuard<'_, T>> {
+    mutex
+        .lock()
+        .map_err(|_| MoinError::internal("A download state lock is poisoned."))
+}
 
 /// Byte-rate estimator shared by both transfer paths.
 ///
@@ -138,11 +118,10 @@ impl SpeedSampler {
 }
 
 impl Engine {
-    pub async fn open(
+    pub async fn new(
         data_dir: PathBuf,
-        default_download_dir: PathBuf,
-        proxy_url: String,
-        sink: Arc<dyn EventSink>,
+        emitter: Arc<dyn Emitter>,
+        downloads_dir: PathBuf,
     ) -> MoinResult<Self> {
         tokio::fs::create_dir_all(&data_dir)
             .await
@@ -152,16 +131,15 @@ impl Engine {
             .map_err(|error| MoinError::io(format!("Could not open the downloads database: {error}")))?;
         let category_path = data_dir.join("categories.json");
         let categories = CategoryStore::load(&category_path);
-        let mut settings = settings::load(&data_dir);
-        if settings.validate().is_err() {
+        let mut loaded_settings = settings::load(&data_dir);
+        if loaded_settings.validate().is_err() {
             log::warn!("Invalid moin settings were replaced with defaults.");
-            settings = MoinSettings::default();
+            loaded_settings = Settings::default();
         }
-        settings.proxy_url = if proxy_url.trim().is_empty() { None } else { Some(proxy_url) };
-        if settings.rpc_token.is_empty() {
-            settings.rpc_token = Uuid::new_v4().to_string();
-            settings::save(&data_dir, &settings)
-                .map_err(|error| MoinError::io(format!("Could not save default moin settings: {error}")))?;
+        if loaded_settings.rpc_token.is_empty() {
+            loaded_settings.rpc_token = Uuid::new_v4().to_string();
+            settings::save(&data_dir, &loaded_settings)
+                .map_err(|error| MoinError::io(format!("Could not save default moin settings: {}", error.message)))?;
         }
         let mut tasks = HashMap::new();
         for mut task in store
@@ -169,7 +147,12 @@ impl Engine {
             .await
             .map_err(|error| MoinError::io(format!("Could not load downloads: {error}")))?
         {
-            if matches!(task.status, TaskStatus::Connecting | TaskStatus::Downloading | TaskStatus::Moving) {
+            // A previous run died mid-transfer: fall back to paused instead of
+            // silently resuming, so the user stays in control.
+            if matches!(
+                task.status,
+                TaskStatus::Connecting | TaskStatus::Downloading | TaskStatus::Moving
+            ) {
                 task.status = TaskStatus::Paused;
                 task.updated_at = now_ms();
                 store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
@@ -179,25 +162,19 @@ impl Engine {
         let engine = Self {
             inner: Arc::new(Inner {
                 data_dir,
-                default_download_dir,
+                downloads_dir,
                 category_path,
                 store,
-                categories: RwLock::new(categories),
-                settings: RwLock::new(settings),
-                tasks: RwLock::new(tasks),
+                categories: Mutex::new(categories),
+                settings: Mutex::new(loaded_settings),
+                tasks: Mutex::new(tasks),
                 active: Mutex::new(HashSet::new()),
                 controls: Mutex::new(HashMap::new()),
-                progress: Mutex::new(HashMap::new()),
-                progress_notify: Notify::new(),
-                queue_notify: Notify::new(),
                 stopping: AtomicBool::new(false),
-                sink,
+                queue_notify: Notify::new(),
+                emitter,
             }),
         };
-        let flusher = engine.clone();
-        tokio::spawn(async move {
-            flusher.flush_progress().await;
-        });
         let scheduler = engine.clone();
         tokio::spawn(async move {
             scheduler.run_scheduler().await;
@@ -205,20 +182,30 @@ impl Engine {
         Ok(engine)
     }
 
-    pub async fn list(&self) -> Vec<Task> {
-        let mut tasks: Vec<_> = self.inner.tasks.read().await.values().cloned().collect();
+    pub fn list(&self) -> Vec<Task> {
+        let Ok(tasks) = guard(&self.inner.tasks) else {
+            return Vec::new();
+        };
+        let mut tasks: Vec<_> = tasks.values().cloned().collect();
         tasks.sort_by(|left, right| {
             right.created_at.cmp(&left.created_at).then_with(|| right.id.cmp(&left.id))
         });
         tasks
     }
 
+    pub fn has_active_transfers(&self) -> bool {
+        guard(&self.inner.active)
+            .map(|active| !active.is_empty())
+            .unwrap_or(false)
+    }
+
     pub async fn add_http(
         &self,
         url: String,
-        filename: Option<String>,
+        dir: PathBuf,
         category: Option<String>,
         headers: BTreeMap<String, String>,
+        filename: Option<String>,
     ) -> MoinResult<Task> {
         let parsed = Url::parse(url.trim())
             .map_err(|error| MoinError::invalid_input("url", error.to_string()))?;
@@ -241,30 +228,29 @@ impl Engine {
         if header_bytes > 64 * 1024 {
             return Err(MoinError::invalid_input("headers", "Request headers exceed 64 KiB."));
         }
-        let settings = self.inner.settings.read().await.clone();
+        let settings = self.settings();
         let (suggested_category, available_categories) = {
-            let categories = self.inner.categories.read().await;
+            let categories = guard(&self.inner.categories)?;
             (
-                categories.suggest(
-                    parsed.as_str(),
-                    filename.as_deref(),
-                    AddMethodKind::ManualLink,
-                    None,
-                ),
+                categories.suggest(parsed.as_str(), filename.as_deref(), AddMethodKind::ManualLink, None),
                 categories.list(),
             )
         };
         let category_id = category.or(suggested_category);
-        if category_id.as_ref().is_some_and(|id| !available_categories.iter().any(|item| &item.id == id)) {
+        if category_id
+            .as_ref()
+            .is_some_and(|id| !available_categories.iter().any(|item| &item.id == id))
+        {
             return Err(MoinError::not_found("category", category_id.as_deref().unwrap_or_default()));
         }
-        let default_folder = settings
-            .download_dir
-            .as_deref()
-            .filter(|path| !path.trim().is_empty())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| self.inner.default_download_dir.clone());
-        let category = category_id.as_ref().and_then(|id| available_categories.iter().find(|item| &item.id == id));
+        let default_folder = if dir.as_os_str().is_empty() {
+            self.inner.downloads_dir.clone()
+        } else {
+            dir
+        };
+        let category = category_id
+            .as_ref()
+            .and_then(|id| available_categories.iter().find(|item| &item.id == id));
         let final_folder = category
             .and_then(|item| item.save_dir.as_deref())
             .filter(|value| !value.trim().is_empty())
@@ -284,14 +270,21 @@ impl Engine {
         let requested = filename
             .as_deref()
             .and_then(sanitize_filename)
-            .unwrap_or_else(|| sanitize_filename(&filename_from_url(parsed.as_str())).unwrap_or_else(|| "download".into()));
+            .unwrap_or_else(|| {
+                sanitize_filename(&filename_from_url(parsed.as_str()))
+                    .unwrap_or_else(|| "download".to_string())
+            });
         let target = self.unique_destination(&folder, &requested).await?;
         let timestamp = now_ms();
         let task = Task {
             id: Uuid::new_v4().to_string(),
             kind: TaskKind::Http,
             url: parsed.to_string(),
-            filename: target.file_name().and_then(|name| name.to_str()).unwrap_or("download").to_string(),
+            filename: target
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("download")
+                .to_string(),
             dest: target.to_string_lossy().into_owned(),
             status: if settings.add_paused { TaskStatus::Paused } else { TaskStatus::Queued },
             total: None,
@@ -302,14 +295,14 @@ impl Engine {
             completed_at: None,
             archived: false,
             active_ms: 0,
-            backend: Some("embedded".into()),
+            backend: Some("embedded".to_string()),
             category: category_id,
             final_dir,
             headers,
         };
         self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
-        self.inner.tasks.write().await.insert(task.id.clone(), task.clone());
-        self.inner.sink.task_added(&task);
+        guard(&self.inner.tasks)?.insert(task.id.clone(), task.clone());
+        self.inner.emitter.added(&task);
         if task.status == TaskStatus::Queued {
             self.inner.queue_notify.notify_one();
         }
@@ -319,7 +312,8 @@ impl Engine {
     async fn unique_destination(&self, folder: &Path, filename: &str) -> MoinResult<PathBuf> {
         let mut candidate = folder.join(filename);
         let (stem, extension) = split_extension(filename);
-        let occupied_destinations: HashSet<String> = self.inner.tasks.read().await.values()
+        let occupied_destinations: HashSet<String> = guard(&self.inner.tasks)?
+            .values()
             .map(|task| task.dest.to_lowercase())
             .collect();
         let mut suffix = 1usize;
@@ -344,24 +338,34 @@ impl Engine {
     }
 
     pub async fn pause(&self, id: &str) -> MoinResult<()> {
-        let task = self.task(id).await?;
+        let task = self.task(id)?;
         match task.status {
             TaskStatus::Queued => {
                 self.set_status(id, TaskStatus::Paused, None).await?;
             }
             TaskStatus::Connecting | TaskStatus::Downloading => {
-                let control = self.control(id)?;
-                control.set(ControlSignal::Pause);
+                self.control(id)?.set(Signal::Pause);
             }
-            _ => return Err(MoinError::conflict(format!("A {} download cannot be paused.", task.status.as_str()))),
+            _ => {
+                return Err(MoinError::conflict(format!(
+                    "A {} download cannot be paused.",
+                    task.status.as_str()
+                )))
+            }
         }
         Ok(())
     }
 
     pub async fn resume(&self, id: &str) -> MoinResult<()> {
-        let task = self.task(id).await?;
-        if !matches!(task.status, TaskStatus::Paused | TaskStatus::Failed | TaskStatus::Stalled) {
-            return Err(MoinError::conflict(format!("A {} download cannot be resumed.", task.status.as_str())));
+        let task = self.task(id)?;
+        if !matches!(
+            task.status,
+            TaskStatus::Paused | TaskStatus::Failed | TaskStatus::Stalled
+        ) {
+            return Err(MoinError::conflict(format!(
+                "A {} download cannot be resumed.",
+                task.status.as_str()
+            )));
         }
         self.set_status(id, TaskStatus::Queued, None).await?;
         self.inner.queue_notify.notify_one();
@@ -369,19 +373,41 @@ impl Engine {
     }
 
     pub async fn cancel(&self, id: &str) -> MoinResult<()> {
-        let task = self.task(id).await?;
+        let task = self.task(id)?;
         match task.status {
             TaskStatus::Queued | TaskStatus::Paused | TaskStatus::Failed | TaskStatus::Stalled => {
                 self.set_status(id, TaskStatus::Canceled, None).await?;
             }
-            TaskStatus::Connecting | TaskStatus::Downloading => self.control(id)?.set(ControlSignal::Cancel),
-            _ => return Err(MoinError::conflict(format!("A {} download cannot be canceled.", task.status.as_str()))),
+            TaskStatus::Connecting | TaskStatus::Downloading => self.control(id)?.set(Signal::Cancel),
+            _ => {
+                return Err(MoinError::conflict(format!(
+                    "A {} download cannot be canceled.",
+                    task.status.as_str()
+                )))
+            }
         }
         Ok(())
     }
 
+    pub async fn retry(&self, id: &str) -> MoinResult<()> {
+        let task = self.task(id)?;
+        if !matches!(
+            task.status,
+            TaskStatus::Failed | TaskStatus::Stalled | TaskStatus::Canceled
+        ) {
+            return Err(MoinError::conflict(format!(
+                "A {} download cannot be retried.",
+                task.status.as_str()
+            )));
+        }
+        self.set_status(id, TaskStatus::Queued, None).await?;
+        self.inner.queue_notify.notify_one();
+        Ok(())
+    }
+
+    /// Archive the record and keep the downloaded file.
     pub async fn remove(&self, id: &str) -> MoinResult<()> {
-        let task = self.task(id).await?;
+        let task = self.task(id)?;
         if task.archived {
             return Ok(());
         }
@@ -389,61 +415,174 @@ impl Engine {
         Ok(())
     }
 
+    /// Archive the record and delete the downloaded file (and its partials).
     pub async fn delete(&self, id: &str) -> MoinResult<()> {
         if self.is_active(id) {
-            self.control(id)?.set(ControlSignal::Cancel);
+            if let Ok(control) = self.control(id) {
+                control.set(Signal::Cancel);
+            }
             self.wait_inactive(id).await?;
         }
-        let task = self.task(id).await?;
-        for path in [PathBuf::from(&task.dest), PathBuf::from(task.part_path()), PathBuf::from(task.meta_path())] {
+        let task = self.task(id)?;
+        for path in [
+            PathBuf::from(&task.dest),
+            PathBuf::from(task.part_path()),
+            PathBuf::from(task.meta_path()),
+        ] {
             match tokio::fs::remove_file(path).await {
                 Ok(()) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(MoinError::io(format!("Could not remove the download file: {error}"))),
+                Err(error) => {
+                    return Err(MoinError::io(format!("Could not remove the download file: {error}")))
+                }
             }
         }
-        self.inner.store.delete(id).await.map_err(|error| MoinError::io(error))?;
-        self.inner.tasks.write().await.remove(id);
-        self.inner.sink.task_removed(id);
+        self.mutate(id, |task| task.archived = true).await?;
         Ok(())
     }
 
+    pub async fn archive_many(&self, ids: Vec<String>, delete_file: bool) -> MoinResult<()> {
+        for id in ids {
+            if delete_file {
+                self.delete(&id).await?;
+            } else {
+                self.remove(&id).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Drop the record and leave every file on disk alone.
     pub async fn forget(&self, id: &str) -> MoinResult<()> {
         if self.is_active(id) {
             return Err(MoinError::conflict("Pause or cancel the download before removing its record."));
         }
-        self.task(id).await?;
+        self.task(id)?;
         self.inner.store.delete(id).await.map_err(|error| MoinError::io(error))?;
-        self.inner.tasks.write().await.remove(id);
-        self.inner.sink.task_removed(id);
+        guard(&self.inner.tasks)?.remove(id);
+        self.inner.emitter.removed(id);
         Ok(())
     }
 
-    pub async fn categories(&self) -> Vec<Category> {
-        self.inner.categories.read().await.list()
+    pub fn settings(&self) -> Settings {
+        guard(&self.inner.settings)
+            .map(|settings| settings.clone())
+            .unwrap_or_default()
     }
 
-    pub async fn suggest_category(&self, url: &str, filename: Option<&str>) -> Option<String> {
-        self.inner.categories.read().await.suggest(url, filename, AddMethodKind::ManualLink, None)
+    pub fn set_settings(&self, mut next: Settings) -> MoinResult<()> {
+        next.validate()
+            .map_err(|error| MoinError::invalid_input("settings", error))?;
+        settings::save(&self.inner.data_dir, &next)?;
+        let concurrency_changed = {
+            let mut current = guard(&self.inner.settings)?;
+            let changed = current.max_concurrent != next.max_concurrent;
+            *current = next;
+            changed
+        };
+        if concurrency_changed {
+            self.inner.queue_notify.notify_one();
+        }
+        Ok(())
     }
 
-    pub async fn upsert_category(&self, category: Category) -> MoinResult<Vec<Category>> {
+    /// The backend list the settings page renders. `aria2` stays unavailable
+    /// until the aria2c backend is ported; it is listed so the row can explain
+    /// itself instead of disappearing.
+    pub fn backends(&self) -> Vec<BackendInfo> {
+        vec![
+            BackendInfo {
+                id: "embedded".to_string(),
+                label: "Built-in".to_string(),
+                http: true,
+                available: true,
+            },
+            BackendInfo {
+                id: "aria2".to_string(),
+                label: "aria2c".to_string(),
+                http: true,
+                available: false,
+            },
+        ]
+    }
+
+    pub fn regenerate_rpc_token(&self) -> String {
+        let mut next = self.settings();
+        next.rpc_token = Uuid::new_v4().to_string();
+        if let Err(error) = self.set_settings(next.clone()) {
+            log::warn!("Could not persist a new moin RPC token: {error}");
+        }
+        next.rpc_token
+    }
+
+    pub async fn tool_status(&self) -> ToolStatus {
+        let settings = self.settings();
+        let path = settings.aria2_path.filter(|value| !value.trim().is_empty());
+        ToolStatus {
+            id: "aria2".to_string(),
+            present: false,
+            path: path.clone(),
+            version: None,
+            source: path.map(|_| ToolSource::Override),
+        }
+    }
+
+    pub async fn set_tool_path(&self, path: Option<String>) -> ToolStatus {
+        let mut next = self.settings();
+        next.aria2_path = path.filter(|value| !value.trim().is_empty());
+        if let Err(error) = self.set_settings(next) {
+            log::warn!("Could not persist the aria2 path: {error}");
+        }
+        self.tool_status().await
+    }
+
+    pub fn categories(&self) -> Vec<Category> {
+        guard(&self.inner.categories)
+            .map(|categories| categories.list())
+            .unwrap_or_default()
+    }
+
+    pub fn suggest_category(&self, url: &str, filename: Option<&str>) -> Option<String> {
+        guard(&self.inner.categories)
+            .ok()
+            .and_then(|categories| {
+                categories.suggest(url, filename, AddMethodKind::ManualLink, None)
+            })
+    }
+
+    pub fn categorize_capture(&self, url: &str, filename: Option<&str>) -> Option<String> {
+        guard(&self.inner.categories)
+            .ok()
+            .and_then(|categories| {
+                categories.suggest(url, filename, AddMethodKind::BrowserCapture, None)
+            })
+    }
+
+    pub async fn create_category(&self, category: Category) -> MoinResult<Vec<Category>> {
         let categories = {
-            let mut store = self.inner.categories.write().await;
+            let mut store = guard(&self.inner.categories)?;
             store.upsert(&self.inner.category_path, category)?
         };
-        self.inner.sink.categories_changed(&categories);
+        Ok(categories)
+    }
+
+    pub async fn update_category(&self, category: Category) -> MoinResult<Vec<Category>> {
+        let categories = {
+            let mut store = guard(&self.inner.categories)?;
+            store.upsert(&self.inner.category_path, category)?
+        };
         Ok(categories)
     }
 
     pub async fn delete_category(&self, id: &str) -> MoinResult<Vec<Category>> {
         let categories = {
-            let mut store = self.inner.categories.write().await;
+            let mut store = guard(&self.inner.categories)?;
             store.delete(&self.inner.category_path, id)?
         };
         let affected = {
-            let mut tasks = self.inner.tasks.write().await;
-            tasks.values_mut()
+            let mut tasks = guard(&self.inner.tasks)?;
+            tasks
+                .values_mut()
                 .filter(|task| task.category.as_deref() == Some(id))
                 .map(|task| {
                     task.category = None;
@@ -455,92 +594,92 @@ impl Engine {
         };
         for task in affected {
             self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
-            self.inner.sink.task_updated(&task);
+            self.inner.emitter.updated(&task);
         }
-        self.inner.sink.categories_changed(&categories);
         Ok(categories)
     }
 
-    pub async fn reorder_categories(&self, ids: &[String]) -> MoinResult<Vec<Category>> {
+    pub async fn reorder_categories(&self, ids: Vec<String>) -> MoinResult<Vec<Category>> {
         let categories = {
-            let mut store = self.inner.categories.write().await;
-            store.reorder(&self.inner.category_path, ids)?
+            let mut store = guard(&self.inner.categories)?;
+            store.reorder(&self.inner.category_path, &ids)?
         };
-        self.inner.sink.categories_changed(&categories);
         Ok(categories)
     }
 
-    pub async fn settings(&self) -> MoinSettings {
-        self.inner.settings.read().await.clone()
+    pub async fn move_to_category(
+        &self,
+        ids: Vec<String>,
+        category: Option<String>,
+        _default_dir: PathBuf,
+    ) -> MoinResult<()> {
+        if let Some(id) = category.as_deref() {
+            if guard(&self.inner.categories)?.get(id).is_none() {
+                return Err(MoinError::not_found("category", id));
+            }
+        }
+        for id in ids {
+            // Files are left where they are: moving a finished download is a
+            // separate action the download list offers, not a side effect of
+            // re-tagging a record.
+            self.mutate(&id, |task| task.category = category.clone()).await?;
+        }
+        Ok(())
     }
 
-    pub async fn patch_settings(&self, patch: serde_json::Value) -> MoinResult<MoinSettings> {
-        let mut value = serde_json::to_value(self.inner.settings.read().await.clone())
-            .map_err(|error| MoinError::internal(error.to_string()))?;
-        let patch = patch.as_object().ok_or_else(|| MoinError::invalid_input("patch", "Expected an object."))?;
-        let object = value.as_object_mut().ok_or_else(|| MoinError::internal("Settings could not be encoded."))?;
-        for (key, value) in patch {
-            if !object.contains_key(key) {
-                return Err(MoinError::invalid_input("patch", format!("Unknown setting '{key}'.")));
-            }
-            object.insert(key.clone(), value.clone());
-        }
-        let mut next: MoinSettings = serde_json::from_value(value)
-            .map_err(|error| MoinError::invalid_input("patch", error.to_string()))?;
-        next.validate().map_err(|error| MoinError::invalid_input("patch", error))?;
-        if next.http_backend == "aria2" {
-            return Err(MoinError::backend_unavailable("The aria2 backend is not integrated yet."));
-        }
-        settings::save(&self.inner.data_dir, &next)
-            .map_err(|error| MoinError::io(format!("Could not save moin settings: {error}")))?;
-        let concurrency_changed = {
-            let mut current = self.inner.settings.write().await;
-            let changed = current.max_concurrent != next.max_concurrent;
-            *current = next.clone();
-            changed
-        };
-        if concurrency_changed {
-            self.inner.queue_notify.notify_one();
-        }
-        self.inner.sink.settings_changed(&next);
-        Ok(next)
+    pub fn category_folder(&self, category: Option<String>, default_dir: PathBuf) -> String {
+        let categories = self.categories();
+        category
+            .and_then(|id| categories.into_iter().find(|item| item.id == id))
+            .and_then(|item| item.save_dir)
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+            .unwrap_or(default_dir)
+            .to_string_lossy()
+            .into_owned()
     }
 
     pub async fn shutdown(&self) {
         self.inner.stopping.store(true, Ordering::Release);
-        let controls: Vec<_> = self.inner.controls.lock().map(|items| items.values().cloned().collect()).unwrap_or_default();
+        let controls: Vec<_> = guard(&self.inner.controls)
+            .map(|items| items.values().cloned().collect())
+            .unwrap_or_default();
         for control in controls {
-            control.set(ControlSignal::Pause);
+            control.set(Signal::Pause);
         }
         let deadline = Instant::now() + Duration::from_secs(5);
-        while !self.inner.active.lock().map(|active| active.is_empty()).unwrap_or(true) && Instant::now() < deadline {
+        while self.has_active_transfers() && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
-        self.inner.progress_notify.notify_one();
-        self.flush_progress_once();
     }
 
-    async fn task(&self, id: &str) -> MoinResult<Task> {
-        self.inner.tasks.read().await.get(id).cloned().ok_or_else(|| MoinError::not_found("download", id))
+    fn task(&self, id: &str) -> MoinResult<Task> {
+        guard(&self.inner.tasks)?
+            .get(id)
+            .cloned()
+            .ok_or_else(|| MoinError::not_found("download", id))
     }
 
     fn control(&self, id: &str) -> MoinResult<Control> {
-        self.inner.controls.lock()
-            .map_err(|_| MoinError::internal("The download control lock is unavailable."))?
+        guard(&self.inner.controls)?
             .get(id)
             .cloned()
             .ok_or_else(|| MoinError::conflict("The download is no longer running."))
     }
 
     fn is_active(&self, id: &str) -> bool {
-        self.inner.active.lock().map(|active| active.contains(id)).unwrap_or(false)
+        guard(&self.inner.active)
+            .map(|active| active.contains(id))
+            .unwrap_or(false)
     }
 
     async fn wait_inactive(&self, id: &str) -> MoinResult<()> {
         let deadline = Instant::now() + Duration::from_secs(10);
         while self.is_active(id) {
             if Instant::now() >= deadline {
-                return Err(MoinError::conflict("The download did not stop in time; its files were left untouched."));
+                return Err(MoinError::conflict(
+                    "The download did not stop in time; its files were left untouched.",
+                ));
             }
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
@@ -552,25 +691,33 @@ impl Engine {
         F: FnOnce(&mut Task),
     {
         let task = {
-            let mut tasks = self.inner.tasks.write().await;
-            let task = tasks.get_mut(id).ok_or_else(|| MoinError::not_found("download", id))?;
+            let mut tasks = guard(&self.inner.tasks)?;
+            let task = tasks
+                .get_mut(id)
+                .ok_or_else(|| MoinError::not_found("download", id))?;
             update(task);
             task.updated_at = now_ms();
             task.clone()
         };
         self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
-        self.inner.sink.task_updated(&task);
+        self.inner.emitter.updated(&task);
         Ok(task)
     }
 
-    async fn set_status(&self, id: &str, status: TaskStatus, error: Option<String>) -> MoinResult<Task> {
+    async fn set_status(
+        &self,
+        id: &str,
+        status: TaskStatus,
+        error: Option<String>,
+    ) -> MoinResult<Task> {
         self.mutate(id, |task| {
             task.status = status;
             task.error = error;
             if status == TaskStatus::Completed && task.completed_at.is_none() {
                 task.completed_at = Some(now_ms());
             }
-        }).await
+        })
+        .await
     }
 
     async fn run_scheduler(&self) {
@@ -587,23 +734,27 @@ impl Engine {
         if self.inner.stopping.load(Ordering::Acquire) {
             return;
         }
-        let settings = self.inner.settings.read().await.clone();
-        let mut queued: Vec<Task> = self.inner.tasks.read().await.values()
-            .filter(|task| task.status == TaskStatus::Queued)
-            .cloned()
-            .collect();
+        let settings = self.settings();
+        let mut queued: Vec<Task> = match guard(&self.inner.tasks) {
+            Ok(tasks) => tasks
+                .values()
+                .filter(|task| task.status == TaskStatus::Queued)
+                .cloned()
+                .collect(),
+            Err(_) => return,
+        };
         queued.sort_by(|left, right| left.created_at.cmp(&right.created_at));
         let selected = {
-            let mut active = match self.inner.active.lock() {
-                Ok(active) => active,
-                Err(_) => return,
+            let Ok(mut active) = guard(&self.inner.active) else {
+                return;
             };
             let capacity = if settings.max_concurrent == 0 {
                 queued.len()
             } else {
                 settings.max_concurrent.saturating_sub(active.len())
             };
-            let selected: Vec<_> = queued.into_iter()
+            let selected: Vec<_> = queued
+                .into_iter()
                 .filter(|task| !active.contains(&task.id))
                 .take(capacity)
                 .collect();
@@ -613,8 +764,8 @@ impl Engine {
             selected
         };
         for task in selected {
-            let control = Control::default();
-            if let Ok(mut controls) = self.inner.controls.lock() {
+            let control = Control::new();
+            if let Ok(mut controls) = guard(&self.inner.controls) {
                 controls.insert(task.id.clone(), control.clone());
             }
             if self.set_status(&task.id, TaskStatus::Connecting, None).await.is_err() {
@@ -630,7 +781,7 @@ impl Engine {
     }
 
     async fn run_task(&self, id: String, control: Control) {
-        let task = match self.task(&id).await {
+        let task = match self.task(&id) {
             Ok(task) => task,
             Err(_) => {
                 self.finish_active(&id);
@@ -639,7 +790,7 @@ impl Engine {
         };
         let mut outcome = self.download_http(&task, &control).await;
         if matches!(outcome, Outcome::Completed) {
-            if let Ok(current) = self.task(&id).await {
+            if let Ok(current) = self.task(&id) {
                 if current.final_dir.is_some() {
                     let _ = self.set_status(&id, TaskStatus::Moving, None).await;
                     if let Err(error) = self.relocate_completed(&current).await {
@@ -648,20 +799,19 @@ impl Engine {
                 }
             }
         }
-        let completed_file_size = if matches!(outcome, Outcome::Completed) {
-            self.task(&id).await.ok().and_then(|current| Some(PathBuf::from(current.dest)))
-        } else {
-            None
-        };
-        if let Some(path) = completed_file_size {
-            if let Ok(metadata) = tokio::fs::metadata(path).await {
-                let size = metadata.len();
-                let _ = self.mutate(&id, |current| {
-                    current.received = size;
-                    current.total = Some(size);
-                }).await;
+        if matches!(outcome, Outcome::Completed) {
+            if let Ok(current) = self.task(&id) {
+                if let Ok(metadata) = tokio::fs::metadata(&current.dest).await {
+                    let size = metadata.len();
+                    let _ = self
+                        .mutate(&id, |task| {
+                            task.received = size;
+                            task.total = Some(size);
+                        })
+                        .await;
+                }
             }
-        } else if let Ok(current) = self.task(&id).await {
+        } else if let Ok(current) = self.task(&id) {
             if let Ok(metadata) = tokio::fs::metadata(current.part_path()).await {
                 let size = metadata.len();
                 let _ = self.mutate(&id, |task| task.received = size).await;
@@ -671,12 +821,15 @@ impl Engine {
             Outcome::Completed => (TaskStatus::Completed, None),
             Outcome::Paused => (TaskStatus::Paused, None),
             Outcome::Canceled => (TaskStatus::Canceled, None),
-            Outcome::Stalled => (TaskStatus::Stalled, Some("No data was received before the stall timeout.".to_string())),
+            Outcome::Stalled => (
+                TaskStatus::Stalled,
+                Some("No data was received before the stall timeout.".to_string()),
+            ),
             Outcome::Failed(message) => (TaskStatus::Failed, Some(message)),
         };
         if let Ok(updated) = self.set_status(&id, status, error).await {
             if status == TaskStatus::Completed {
-                self.inner.sink.task_completed(&updated);
+                self.inner.emitter.completed(&updated);
             }
         }
         self.finish_active(&id);
@@ -686,29 +839,19 @@ impl Engine {
     }
 
     fn finish_active(&self, id: &str) {
-        if let Ok(mut active) = self.inner.active.lock() {
+        if let Ok(mut active) = guard(&self.inner.active) {
             active.remove(id);
         }
-        if let Ok(mut controls) = self.inner.controls.lock() {
+        if let Ok(mut controls) = guard(&self.inner.controls) {
             controls.remove(id);
-        }
-        if let Ok(mut progress) = self.inner.progress.lock() {
-            progress.remove(id);
         }
     }
 
     async fn download_http(&self, task: &Task, control: &Control) -> Outcome {
-        let settings = self.inner.settings.read().await.clone();
+        let settings = self.settings();
         let mut builder = Client::builder();
         if settings.connect_timeout_secs > 0 {
             builder = builder.connect_timeout(Duration::from_secs(settings.connect_timeout_secs));
-        }
-        builder = builder.no_proxy();
-        if let Some(proxy_url) = settings.proxy_url.as_deref().filter(|value| !value.trim().is_empty()) {
-            match reqwest::Proxy::all(proxy_url) {
-                Ok(proxy) => builder = builder.proxy(proxy),
-                Err(error) => return Outcome::Failed(format!("The configured proxy URL is invalid: {error}")),
-            }
         }
         let client = match builder.build() {
             Ok(client) => client,
@@ -717,10 +860,16 @@ impl Engine {
         let part = task.part_path();
         let meta_path = task.meta_path();
         let destination = PathBuf::from(&task.dest);
-        let mut offset = tokio::fs::metadata(&part).await.map(|metadata| metadata.len()).unwrap_or(0);
+        let mut offset = tokio::fs::metadata(&part)
+            .await
+            .map(|metadata| metadata.len())
+            .unwrap_or(0);
         let mut request_headers = reqwest::header::HeaderMap::new();
         for (name, value) in &task.headers {
-            let (Ok(name), Ok(value)) = (HeaderName::from_bytes(name.as_bytes()), HeaderValue::from_str(value)) else {
+            let (Ok(name), Ok(value)) = (
+                HeaderName::from_bytes(name.as_bytes()),
+                HeaderValue::from_str(value),
+            ) else {
                 continue;
             };
             request_headers.insert(name, value);
@@ -729,14 +878,17 @@ impl Engine {
         let mut range_total = None;
         let mut ranges_supported = false;
         if settings.connections > 1 || has_resume_plan {
-            if let Ok(response) = client.get(&task.url)
+            if let Ok(response) = client
+                .get(&task.url)
                 .headers(request_headers.clone())
                 .header(RANGE, "bytes=0-0")
                 .send()
                 .await
             {
                 if response.status().as_u16() == 206 {
-                    if let Some((0, Some(total))) = response.headers().get(CONTENT_RANGE)
+                    if let Some((0, Some(total))) = response
+                        .headers()
+                        .get(CONTENT_RANGE)
                         .and_then(|value| value.to_str().ok())
                         .and_then(parse_content_range)
                     {
@@ -752,12 +904,16 @@ impl Engine {
         if has_resume_plan && !use_segments {
             if let Err(error) = tokio::fs::remove_file(&part).await {
                 if error.kind() != std::io::ErrorKind::NotFound {
-                    return Outcome::Failed(format!("Could not discard an incompatible segmented partial: {error}"));
+                    return Outcome::Failed(format!(
+                        "Could not discard an incompatible segmented partial: {error}"
+                    ));
                 }
             }
             if let Err(error) = tokio::fs::remove_file(&meta_path).await {
                 if error.kind() != std::io::ErrorKind::NotFound {
-                    return Outcome::Failed(format!("Could not discard an incompatible segmented resume plan: {error}"));
+                    return Outcome::Failed(format!(
+                        "Could not discard an incompatible segmented resume plan: {error}"
+                    ));
                 }
             }
             offset = 0;
@@ -765,8 +921,8 @@ impl Engine {
         if use_segments {
             let total = range_total.unwrap_or_default();
             let _ = self.set_status(&task.id, TaskStatus::Downloading, None).await;
-            let weak = Arc::downgrade(&self.inner);
             let task_id = task.id.clone();
+            let emitter = self.inner.emitter.clone();
             // Segmented workers all push into the same running total, so one
             // sampler over `received` yields the combined throughput.
             let sampler = Arc::new(Mutex::new(SpeedSampler::new()));
@@ -775,18 +931,13 @@ impl Engine {
                     .lock()
                     .map(|mut sampler| sampler.sample(received))
                     .unwrap_or(0);
-                if let Some(inner) = weak.upgrade() {
-                    if let Ok(mut items) = inner.progress.lock() {
-                        items.insert(task_id.clone(), TaskProgress {
-                            id: task_id.clone(),
-                            received,
-                            total,
-                            speed,
-                            status: TaskStatus::Downloading,
-                        });
-                    }
-                    inner.progress_notify.notify_one();
-                }
+                emitter.progress(TaskProgress {
+                    id: task_id.clone(),
+                    received,
+                    total,
+                    speed,
+                    status: TaskStatus::Downloading,
+                });
             });
             let transfer = crate::segmented::download(
                 &client,
@@ -801,15 +952,19 @@ impl Engine {
                 Duration::from_secs(settings.stall_timeout_secs),
                 control,
                 progress,
-            ).await;
+            )
+            .await;
             let outcome = transfer.outcome;
             let received = transfer.received;
-            if let Err(error) = self.mutate(&task.id, |current| {
-                current.received = received;
-                current.total = Some(total);
-                current.backend = Some("embedded".into());
-            }).await {
-                return Outcome::Failed(error.to_string());
+            if let Err(error) = self
+                .mutate(&task.id, |current| {
+                    current.received = received;
+                    current.total = Some(total);
+                    current.backend = Some("embedded".to_string());
+                })
+                .await
+            {
+                return Outcome::Failed(error.message);
             }
             return outcome;
         }
@@ -823,20 +978,26 @@ impl Engine {
         };
         let status = response.status();
         if status.as_u16() == 416 && offset > 0 {
-            let total = response.headers().get(CONTENT_RANGE)
+            let total = response
+                .headers()
+                .get(CONTENT_RANGE)
                 .and_then(|value| value.to_str().ok())
                 .and_then(parse_unsatisfied_total);
             if total == Some(offset) {
                 return self.finalize(&part, &destination).await;
             }
-            return Outcome::Failed("The server rejected the resume offset; retry the download to restart it.".to_string());
+            return Outcome::Failed(
+                "The server rejected the resume offset; retry the download to restart it.".to_string(),
+            );
         }
         if !status.is_success() {
             return Outcome::Failed(format!("The server returned HTTP {status}."));
         }
         let resuming = status.as_u16() == 206 && offset > 0;
         let total = if resuming {
-            let Some((range_start, total)) = response.headers().get(CONTENT_RANGE)
+            let Some((range_start, total)) = response
+                .headers()
+                .get(CONTENT_RANGE)
                 .and_then(|value| value.to_str().ok())
                 .and_then(parse_content_range)
             else {
@@ -865,21 +1026,20 @@ impl Engine {
         let mut stream = response.bytes_stream();
         let mut last_byte = Instant::now();
         let mut last_persist = Instant::now();
-        let mut last_progress = Instant::now() - Duration::from_secs(1);
         let mut sampler = SpeedSampler::new();
-        self.record_progress(task, received, total, 0, TaskStatus::Downloading).await;
+        self.record_progress(task, received, total, 0, TaskStatus::Downloading);
         let _ = self.set_status(&task.id, TaskStatus::Downloading, None).await;
         loop {
             match control.signal() {
-                ControlSignal::Pause => {
+                Signal::Pause => {
                     let _ = file.flush().await;
                     return Outcome::Paused;
                 }
-                ControlSignal::Cancel => {
+                Signal::Cancel => {
                     let _ = file.flush().await;
                     return Outcome::Canceled;
                 }
-                ControlSignal::Run => {}
+                Signal::Run => {}
             }
             let chunk = match tokio::time::timeout(Duration::from_secs(1), stream.next()).await {
                 Ok(Some(chunk)) => chunk,
@@ -907,19 +1067,15 @@ impl Engine {
             received = received.saturating_add(bytes.len() as u64);
             last_byte = Instant::now();
             let speed = sampler.sample(received);
-            self.record_progress(task, received, total, speed, TaskStatus::Downloading).await;
-            if last_progress.elapsed() >= Duration::from_millis(200) {
-                self.inner.progress_notify.notify_one();
-                last_progress = Instant::now();
-            }
+            self.record_progress(task, received, total, speed, TaskStatus::Downloading);
             if last_persist.elapsed() >= Duration::from_secs(1) {
-                if let Ok(updated) = self.mutate(&task.id, |current| {
-                    current.received = received;
-                    current.total = total;
-                    current.backend = Some("embedded".into());
-                }).await {
-                    let _ = updated;
-                }
+                let _ = self
+                    .mutate(&task.id, |current| {
+                        current.received = received;
+                        current.total = total;
+                        current.backend = Some("embedded".to_string());
+                    })
+                    .await;
                 last_persist = Instant::now();
             }
         }
@@ -928,12 +1084,15 @@ impl Engine {
         }
         drop(file);
         if total.is_some_and(|expected| expected != received) {
-            return Outcome::Failed(format!("The connection ended after {received} of {} bytes.", total.unwrap_or_default()));
+            return Outcome::Failed(format!(
+                "The connection ended after {received} of {} bytes.",
+                total.unwrap_or_default()
+            ));
         }
-        if control.signal() == ControlSignal::Pause {
+        if control.signal() == Signal::Pause {
             return Outcome::Paused;
         }
-        if control.signal() == ControlSignal::Cancel {
+        if control.signal() == Signal::Cancel {
             return Outcome::Canceled;
         }
         self.finalize(&part, &destination).await
@@ -944,27 +1103,42 @@ impl Engine {
             return Ok(());
         };
         let folder = PathBuf::from(final_dir);
-        tokio::fs::create_dir_all(&folder).await.map_err(|error| format!("Could not create the category destination directory: {error}"))?;
-        let target = self.unique_destination(&folder, &task.filename).await.map_err(|error| error.to_string())?;
+        tokio::fs::create_dir_all(&folder)
+            .await
+            .map_err(|error| format!("Could not create the category destination directory: {error}"))?;
+        let target = self
+            .unique_destination(&folder, &task.filename)
+            .await
+            .map_err(|error| error.message)?;
         let source = PathBuf::from(&task.dest);
         match tokio::fs::rename(&source, &target).await {
             Ok(()) => {}
             Err(rename_error) => {
                 tokio::fs::copy(&source, &target).await.map_err(|copy_error| {
-                    format!("Could not move the completed file ({rename_error}); cross-volume copy failed: {copy_error}")
+                    format!(
+                        "Could not move the completed file ({rename_error}); cross-volume copy failed: {copy_error}"
+                    )
                 })?;
                 if let Err(remove_error) = tokio::fs::remove_file(&source).await {
                     let _ = tokio::fs::remove_file(&target).await;
-                    return Err(format!("The completed file was copied but its staging copy could not be removed: {remove_error}"));
+                    return Err(format!(
+                        "The completed file was copied but its staging copy could not be removed: {remove_error}"
+                    ));
                 }
             }
         }
-        let target_name = target.file_name().and_then(|name| name.to_str()).unwrap_or(&task.filename).to_string();
+        let target_name = target
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or(&task.filename)
+            .to_string();
         self.mutate(&task.id, |current| {
             current.dest = target.to_string_lossy().into_owned();
             current.filename = target_name;
             current.final_dir = None;
-        }).await.map_err(|error| error.to_string())?;
+        })
+        .await
+        .map_err(|error| error.message)?;
         Ok(())
     }
 
@@ -983,47 +1157,30 @@ impl Engine {
         }
     }
 
-    async fn record_progress(&self, task: &Task, received: u64, total: Option<u64>, speed: u64, status: TaskStatus) {
-        let mut tasks = self.inner.tasks.write().await;
-        if let Some(current) = tasks.get_mut(&task.id) {
-            current.received = received;
-            current.total = total;
-            current.status = status;
-        }
-        drop(tasks);
-        if let Ok(mut progress) = self.inner.progress.lock() {
-            progress.insert(task.id.clone(), TaskProgress {
-                id: task.id.clone(), received, total, speed, status,
-            });
-        }
-    }
-
-    async fn flush_progress(&self) {
-        let mut interval = tokio::time::interval(Duration::from_millis(250));
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {},
-                _ = self.inner.progress_notify.notified() => {},
-            }
-            self.flush_progress_once();
-            if self.inner.stopping.load(Ordering::Acquire)
-                && self.inner.active.lock().map(|active| active.is_empty()).unwrap_or(true)
-            {
-                self.flush_progress_once();
-                break;
+    /// Update the in-memory task and hand the reading to the host. The host
+    /// batches these, so this stays cheap enough for a per-chunk call.
+    fn record_progress(
+        &self,
+        task: &Task,
+        received: u64,
+        total: Option<u64>,
+        speed: u64,
+        status: TaskStatus,
+    ) {
+        if let Ok(mut tasks) = guard(&self.inner.tasks) {
+            if let Some(current) = tasks.get_mut(&task.id) {
+                current.received = received;
+                current.total = total;
+                current.status = status;
             }
         }
-    }
-
-    fn flush_progress_once(&self) {
-        let items = self.inner.progress.lock().map(|mut progress| {
-            let mut items: Vec<_> = progress.drain().map(|(_, item)| item).collect();
-            items.sort_by(|left, right| left.id.cmp(&right.id));
-            items
-        }).unwrap_or_default();
-        if !items.is_empty() {
-            self.inner.sink.task_progress(&items);
-        }
+        self.inner.emitter.progress(TaskProgress {
+            id: task.id.clone(),
+            received,
+            total,
+            speed,
+            status,
+        });
     }
 }
 
@@ -1058,41 +1215,33 @@ fn friendly_http_error(error: &reqwest::Error) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Category, Engine, EventSink};
-    use crate::models::{MoinSettings, Task, TaskProgress, TaskStatus};
+    use super::{Engine, Emitter};
+    use crate::models::{Settings, Task, TaskProgress, TaskStatus};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
 
     struct NoopSink;
 
-    impl EventSink for NoopSink {
-        fn task_added(&self, _: &Task) {}
-        fn task_updated(&self, _: &Task) {}
-        fn task_removed(&self, _: &str) {}
-        fn task_progress(&self, _: &[TaskProgress]) {}
-        fn task_completed(&self, _: &Task) {}
-        fn settings_changed(&self, _: &MoinSettings) {}
-        fn categories_changed(&self, _: &[Category]) {}
+    impl Emitter for NoopSink {
+        fn added(&self, _: &Task) {}
+        fn progress(&self, _: TaskProgress) {}
+        fn updated(&self, _: &Task) {}
+        fn removed(&self, _: &str) {}
     }
 
     /// Keeps the highest speed any progress batch carried.
     struct SpeedSink {
-        max_speed: std::sync::atomic::AtomicU64,
+        max_speed: AtomicU64,
     }
 
-    impl EventSink for SpeedSink {
-        fn task_added(&self, _: &Task) {}
-        fn task_updated(&self, _: &Task) {}
-        fn task_removed(&self, _: &str) {}
-        fn task_progress(&self, items: &[TaskProgress]) {
-            for item in items {
-                self.max_speed
-                    .fetch_max(item.speed, std::sync::atomic::Ordering::Relaxed);
-            }
+    impl Emitter for SpeedSink {
+        fn added(&self, _: &Task) {}
+        fn progress(&self, progress: TaskProgress) {
+            self.max_speed.fetch_max(progress.speed, Ordering::Relaxed);
         }
-        fn task_completed(&self, _: &Task) {}
-        fn settings_changed(&self, _: &MoinSettings) {}
-        fn categories_changed(&self, _: &[Category]) {}
+        fn updated(&self, _: &Task) {}
+        fn removed(&self, _: &str) {}
     }
 
     #[tokio::test]
@@ -1105,6 +1254,27 @@ mod tests {
 
         tokio::time::sleep(Duration::from_millis(600)).await;
         assert_eq!(sampler.sample(1024 + 512 * 1024), 0, "a window without bytes reports zero");
+    }
+
+    #[tokio::test]
+    async fn terminal_actions_are_rejected_on_running_downloads() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = Engine::new(
+            data_dir.path().to_path_buf(),
+            Arc::new(NoopSink),
+            download_dir.path().to_path_buf(),
+        )
+        .await
+        .unwrap();
+        assert!(!engine.has_active_transfers());
+        assert_eq!(
+            engine.pause("missing").await.unwrap_err().code,
+            crate::MoinErrorCode::NotFound
+        );
+        assert!(engine.backends().iter().any(|backend| backend.id == "embedded"));
+        assert_eq!(engine.settings().max_concurrent, Settings::default().max_concurrent);
+        engine.shutdown().await;
     }
 
     /// The multi-connection path used to hardcode `speed: 0`, which left the
@@ -1155,39 +1325,47 @@ mod tests {
 
         let data_dir = tempfile::tempdir().unwrap();
         let download_dir = tempfile::tempdir().unwrap();
-        let mut settings = MoinSettings::default();
+        let mut settings = Settings::default();
         settings.connections = 4;
         settings.min_split_size = 1;
         std::fs::write(
             data_dir.path().join("settings.json"),
             serde_json::to_vec(&settings).unwrap(),
-        ).unwrap();
-        let sink = Arc::new(SpeedSink { max_speed: std::sync::atomic::AtomicU64::new(0) });
-        let engine = Engine::open(
+        )
+        .unwrap();
+        let sink = Arc::new(SpeedSink { max_speed: AtomicU64::new(0) });
+        let engine = Engine::new(
             data_dir.path().to_path_buf(),
-            download_dir.path().to_path_buf(),
-            String::new(),
             sink.clone(),
-        ).await.unwrap();
-        let task = engine.add_http(
-            format!("http://{address}/payload.bin"),
-            None,
-            None,
-            Default::default(),
-        ).await.unwrap();
+            download_dir.path().to_path_buf(),
+        )
+        .await
+        .unwrap();
+        let task = engine
+            .add_http(
+                format!("http://{address}/payload.bin"),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
         tokio::time::timeout(Duration::from_secs(20), async {
             loop {
-                let current = engine.list().await.into_iter().find(|item| item.id == task.id).unwrap();
+                let current = engine.list().into_iter().find(|item| item.id == task.id).unwrap();
                 if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed) {
                     break current;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
         server.abort();
         assert_eq!(tokio::fs::read(&task.dest).await.unwrap(), body);
         assert!(
-            sink.max_speed.load(std::sync::atomic::Ordering::Relaxed) > 0,
+            sink.max_speed.load(Ordering::Relaxed) > 0,
             "a segmented download must report a non-zero speed"
         );
         engine.shutdown().await;
@@ -1198,9 +1376,13 @@ mod tests {
         let mut chunk = [0u8; 1024];
         loop {
             let count = tokio::io::AsyncReadExt::read(socket, &mut chunk).await.unwrap();
-            if count == 0 { break; }
+            if count == 0 {
+                break;
+            }
             request.extend_from_slice(&chunk[..count]);
-            if request.windows(4).any(|window| window == b"\r\n\r\n") { break; }
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
         }
         String::from_utf8_lossy(&request).to_string()
     }
@@ -1214,48 +1396,46 @@ mod tests {
         let server = tokio::spawn(async move {
             for _ in 0..2 {
                 let (mut socket, _) = listener.accept().await.unwrap();
-                let request = read_request(&mut socket).await;
-                if request.to_ascii_lowercase().contains("range: bytes=0-0") {
-                    let header = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        payload.len()
-                    );
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, &payload).await.unwrap();
-                } else {
-                    let header = format!(
-                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        payload.len()
-                    );
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, &payload).await.unwrap();
-                }
+                let _request = read_request(&mut socket).await;
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    payload.len()
+                );
+                tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
+                tokio::io::AsyncWriteExt::write_all(&mut socket, &payload).await.unwrap();
             }
         });
 
         let data_dir = tempfile::tempdir().unwrap();
         let download_dir = tempfile::tempdir().unwrap();
-        let engine = Engine::open(
+        let engine = Engine::new(
             data_dir.path().to_path_buf(),
-            download_dir.path().to_path_buf(),
-            String::new(),
             Arc::new(NoopSink),
-        ).await.unwrap();
-        let task = engine.add_http(
-            format!("http://{address}/payload.bin"),
-            None,
-            None,
-            Default::default(),
-        ).await.unwrap();
+            download_dir.path().to_path_buf(),
+        )
+        .await
+        .unwrap();
+        let task = engine
+            .add_http(
+                format!("http://{address}/payload.bin"),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                let current = engine.list().await.into_iter().find(|item| item.id == task.id).unwrap();
+                let current = engine.list().into_iter().find(|item| item.id == task.id).unwrap();
                 if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed) {
                     break current;
                 }
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
-        }).await.unwrap();
+        })
+        .await
+        .unwrap();
         server.await.unwrap();
         assert_eq!(tokio::fs::read(&task.dest).await.unwrap(), body);
         engine.shutdown().await;
