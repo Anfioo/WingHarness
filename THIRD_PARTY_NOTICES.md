@@ -82,6 +82,29 @@ Windows-only; macOS and Linux code paths were not carried over.
 `src-tauri/src/mcphub` is adapted from McpHub; every source file keeps its
 attribution header.
 
+### moin
+
+- Project: [moin](https://github.com/exxvius/moin)
+- Version: 0.4.0
+- License: MIT
+- License text: [licenses/moin-LICENSE.txt](./licenses/moin-LICENSE.txt)
+
+moin (https://github.com/exxvius/moin)
+Copyright (c) 2026 moin contributors
+Licensed under the MIT License.
+The download engine, segmented `Range` transfer, task store, aria2 backend,
+category rules, download/category/settings UI and browser capture extension are
+adapted from moin.
+
+`src-tauri/moin-core` is the engine behind the download page. It is reworked for
+this app: upstream runs its engine in a separate `moin-daemon` process reached
+over loopback HTTP, while this port embeds the engine inside the Tauri process
+and drives it through commands and events. The extension-only `/ping` and `/add`
+loopback RPC remains in `rpc.rs`; `extension/` carries the adapted MV3 source.
+BitTorrent, media scraping, self-update, old-data migration and in-app aria2c
+installation were not carried over. See `src-tauri/moin-core/UPSTREAM.md` for
+the porting record.
+
 ### openidea
 
 - Project: [openidea](https://github.com/l0ng-ai/openidea)

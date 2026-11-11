@@ -20,8 +20,9 @@
     "licensesDescription": "WingHarness 以 GPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
     "licenseSources": "来源项目",
     "licenseNotices": "完整声明",
+    "licenseMoin": "moin MIT 许可证",
     "licenseOpen": "打开 {{name}}",
-    "licenseBundled": "随附库及其许可证列在完整声明中。许可证文本随应用分发在 licenses 目录。"
+    "licenseBundled": "moin 的完整 MIT 许可证已内嵌在单独标签中。其他许可证文本保存在源码仓库的 licenses 目录。"
   },
   "theme": {
     "toggle": "切换主题"
@@ -281,6 +282,49 @@
     "presets": {
       "space": "空格",
       "doubleCtrl": "双击 Ctrl",
+      "winSpace": "Win + 空格",
+      "ctrlW": "Ctrl + W"
+    }
+  },
+  "shortcutField": {
+    "placeholder": "点击设置",
+    "presetsTitle": "预设",
+    "customTitle": "自定义",
+    "record": "按下按键",
+    "recording": "等待按键…",
+    "recordHint": "按下一个修饰键和一个按键，或在下方选择。",
+    "preview": "结果",
+    "apply": "应用",
+    "clear": "清除",
+    "incomplete": "请选择修饰键和按键",
+    "keys": {
+      "space": "空格",
+      "enter": "回车",
+      "tab": "Tab",
+      "escape": "Esc",
+      "backspace": "退格",
+      "delete": "删除",
+      "insert": "插入",
+      "up": "上",
+      "down": "下",
+      "left": "左",
+      "right": "右",
+      "home": "Home",
+      "end": "End",
+      "pageUp": "PageUp",
+      "pageDown": "PageDown"
+    },
+    "groups": {
+      "letters": "字母",
+      "digits": "数字",
+      "function": "功能键",
+      "navigation": "编辑键",
+      "symbols": "符号"
+    },
+    "presets": {
+      "space": "空格",
+      "doubleCtrl": "双击 Ctrl",
+      "altSpace": "Alt + 空格",
       "winSpace": "Win + 空格",
       "ctrlW": "Ctrl + W"
     }

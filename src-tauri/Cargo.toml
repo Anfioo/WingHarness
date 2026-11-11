@@ -24,6 +24,7 @@ members = [
     "db-core",
     "space-preview-core",
     "ports-core",
+    "moin-core",
 ]
 resolver = "2"
 
@@ -89,6 +90,8 @@ space-preview-core = { path = "space-preview-core" }
 # The ports page's engine: TCP listener enumeration, pinned ports and process
 # termination (Windows only).
 ports-core = { path = "ports-core" }
+# The moin download engine: HTTP tasks, resumable transfers and persistence.
+moin-core = { path = "moin-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
@@ -101,6 +104,9 @@ tauri-plugin-dialog = "2"
 # back, which is the only way an arbitrary user-supplied URL can be downloaded.
 tauri-plugin-http = "2"
 tauri-plugin-global-shortcut = "2"
+# Download-complete notifications for the moin engine. Registered in `lib.rs`
+# and allowed in `capabilities/default.json` (`notification:default`).
+tauri-plugin-notification = "2"
 serde = { version = "1", features = ["derive"] }
 # preserve_order keeps insertion order (via indexmap) when rewriting JSON configs.
 serde_json = { version = "1", features = ["preserve_order"] }

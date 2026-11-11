@@ -19,6 +19,8 @@ import portsEn from "./locales/ports/en";
 import portsZh from "./locales/ports/zh";
 import runtimeEn from "./locales/runtime/en";
 import runtimeZh from "./locales/runtime/zh";
+import moinEn from "./locales/moin/en";
+import moinZh from "./locales/moin/zh";
 import spacePreviewEn from "./locales/space-preview/en";
 import spacePreviewZh from "./locales/space-preview/zh";
 
@@ -38,6 +40,7 @@ i18n
           mdEditor: mdEditorEn,
           ports: portsEn,
           runtime: runtimeEn,
+          moin: moinEn,
           spacePreview: spacePreviewEn,
         },
       },
@@ -52,6 +55,7 @@ i18n
           mdEditor: mdEditorZh,
           ports: portsZh,
           runtime: runtimeZh,
+          moin: moinZh,
           spacePreview: spacePreviewZh,
         },
       },

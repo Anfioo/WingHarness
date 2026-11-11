@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-list-downloads"
+description = "Enables the moin_list_downloads command without any pre-configured scope."
+commands.allow = ["moin_list_downloads"]
+
+[[permission]]
+identifier = "deny-moin-list-downloads"
+description = "Denies the moin_list_downloads command without any pre-configured scope."
+commands.deny = ["moin_list_downloads"]
