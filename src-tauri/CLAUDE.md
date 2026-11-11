@@ -147,6 +147,14 @@ the crate keeps no Tauri state of its own. It is adapted from
 [Porter](https://github.com/t21dev/porter-app) (MIT); `ports-core/UPSTREAM.md`
 records what differs. See [../docs/features/PORTS.md](../docs/features/PORTS.md).
 
+`moin-core/` is a workspace member: the HTTP/HTTPS download engine behind the
+moin page — SQLite tasks, queue and resume state, category rules, built-in and
+aria2 backends, settings, batched events and the extension-only loopback RPC.
+`src/lib.rs` sets `moin_core::paths::CONFIG_DIR`, manages one `MoinState`, starts
+the RPC listener after proxy setup and stops it on exit. The crate is adapted
+from [moin](https://github.com/exxvius/moin) (MIT); `moin-core/UPSTREAM.md`
+records what differs. See [../docs/features/MOIN.md](../docs/features/MOIN.md).
+
 `plugins/` is the app's own tray — the native icon and, on Windows, its themed
 right-click menu. Not to be confused with Tauri plugins (the `tauri-plugin-*`
 crates), which are Rust dependencies.
@@ -184,7 +192,7 @@ cover the download side, which both builds need.
 
 ```
 src-tauri/
-├── Cargo.toml              # Dependencies; [workspace] members = ["file-preview", "space-preview-core", "db-core", …]
+├── Cargo.toml              # Dependencies; [workspace] members = ["file-preview", "space-preview-core", "db-core", "moin-core", …]
 ├── build.rs                # ACL guard: COMMANDS vs capabilities/default.json
 ├── tauri.conf.json         # Windows, bundle, updater endpoint placeholders
 ├── tauri.dev.conf.json     # Dev-build identifier override
@@ -195,6 +203,7 @@ src-tauri/
 ├── file-preview/           # Workspace crate: the earlier preview byte reader
 ├── space-preview-core/     # Workspace crate: preview I/O, encodings, presentations, icons, space agent
 ├── db-core/                # Workspace crate: the database engine (settings, pools, history, workspace, plans)
+├── moin-core/              # Workspace crate: HTTP downloads, queue, categories, aria2 and extension RPC
 ├── icons/
 └── src/
     ├── main.rs             # Entry point

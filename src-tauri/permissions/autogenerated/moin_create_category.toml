@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-create-category"
+description = "Enables the moin_create_category command without any pre-configured scope."
+commands.allow = ["moin_create_category"]
+
+[[permission]]
+identifier = "deny-moin-create-category"
+description = "Denies the moin_create_category command without any pre-configured scope."
+commands.deny = ["moin_create_category"]

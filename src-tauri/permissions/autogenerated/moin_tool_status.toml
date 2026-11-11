@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-tool-status"
+description = "Enables the moin_tool_status command without any pre-configured scope."
+commands.allow = ["moin_tool_status"]
+
+[[permission]]
+identifier = "deny-moin-tool-status"
+description = "Denies the moin_tool_status command without any pre-configured scope."
+commands.deny = ["moin_tool_status"]

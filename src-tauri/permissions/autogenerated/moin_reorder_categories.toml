@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-reorder-categories"
+description = "Enables the moin_reorder_categories command without any pre-configured scope."
+commands.allow = ["moin_reorder_categories"]
+
+[[permission]]
+identifier = "deny-moin-reorder-categories"
+description = "Denies the moin_reorder_categories command without any pre-configured scope."
+commands.deny = ["moin_reorder_categories"]

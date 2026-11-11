@@ -70,6 +70,8 @@ for the project name (2026-11-05).
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`, database pages (`src/pages/database`): SQL editor, result grid, object tree, workspace tabs, query plans | Reworked for this app's conventions, no identical files; `db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` |
 | [SpacePreview](https://github.com/likehao19/SpacePreview) | MIT | `space-preview-core`, `src/lib/space-preview`, `src/components/space-preview`, `preview-window` | Version 0.10.22 (`db531eb`); engines and viewers carried over nearly verbatim, the host and the window are a rewrite; `space-preview-core/UPSTREAM.md` and `src/components/space-preview/UPSTREAM.md` |
 
+| [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
+
 **Notes on this group**
 
 - **MangoDisk** and **TizuMark** are GPL-3.0-only. They are why WingHarness is
@@ -79,9 +81,9 @@ for the project name (2026-11-05).
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
-  `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core` and
-  `space-preview-core`. The preview's two halves each have one — the Rust crate
-  and the frontend viewers. The license text of each upstream is in `licenses/`;
+  `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core`,
+  `space-preview-core` and `moin-core`. The preview's two halves each have one —
+  the Rust crate and the frontend viewers. The license text of each upstream is in `licenses/`;
   GPL upstreams point at the project's own `LICENSE`.
 
 ### Reference only — no code copied
@@ -128,4 +130,5 @@ Use this for every feature carried over.
 | 2026-11-09 | Ports: `src-tauri/ports-core` and the ports page ported from Porter (MIT); `ports-core/UPSTREAM.md` and the guide pair `docs/features/PORTS.md` / `.zh-CN.md` added. |
 | 2026-11-10 | SpacePreview recorded as **Ported**: its Rust side became `space-preview-core` and its engines/viewers became `src/lib/space-preview` and `src/components/space-preview`, behind the upgraded File Preview page, the standalone preview window and the editors' preview tabs. The CAD/3D/RAW/design-thumbnail and Graphviz (EPL-2.0) branches were not carried over. |
 | 2026-11-10 | Licence audit follow-up: mermaid pulled `elkjs` (EPL-2.0) into the bundle; `vite.config.ts` now aliases it to `src/lib/elk-stub.ts` so the code is not redistributed. `buffers` (no licence) was confirmed not to reach the Excel viewer bundle because Vite resolves ExcelJS's browser build. |
+| 2026-11-11 | moin 0.4.0 (`79e7587`, MIT) ported as `src-tauri/moin-core`, the download page and `extension/`; `moin-core/UPSTREAM.md` and `licenses/moin-LICENSE.txt` added, notices updated. The general daemon was replaced by embedded commands/events; the extension RPC and aria2 backend were retained. |
 

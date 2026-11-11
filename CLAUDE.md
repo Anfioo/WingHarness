@@ -15,6 +15,7 @@ example of each platform feature are done; what the app is *for* is yours to add
 |--------|------|------------|----------------|-------|
 | Frontend | `src/` | TypeScript/React | Routing, windows, i18n, editor, viewers | [src/CLAUDE.md](./src/CLAUDE.md) |
 | Backend | `src-tauri/` | Rust | Commands, config, tray, theme fonts | [src-tauri/CLAUDE.md](./src-tauri/CLAUDE.md) |
+| Download <!-- moin --> | `src-tauri/moin-core/`, `src/pages/moin/`, `extension/` | Rust/React/JavaScript | HTTP downloads, queue, categories, aria2 and browser capture | [MOIN.md](./docs/features/MOIN.md) |
 | Documentation | `docs/` | Markdown | Cross-cutting guides at the root; one guide per feature under `docs/features/` | — |
 
 Both module guides are loaded automatically when working inside those
