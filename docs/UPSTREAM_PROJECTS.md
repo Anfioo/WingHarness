@@ -67,6 +67,7 @@ for the project name (2026-11-05).
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | "Vendored from `@ekaone/use-claude` (MIT)" in headers |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`, `cc-switch` page | Icon assets copied from `src/icons/extracted`; reads its SQLite DB |
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`, database pages (`src/pages/database`): SQL editor, result grid, object tree, workspace tabs, query plans | Reworked for this app's conventions, no identical files; `db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` |
+| [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
 
 **Notes on this group**
 
@@ -77,9 +78,9 @@ for the project name (2026-11-05).
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
-  `frp-core`, `server-core`, `ports-core`, `shaic-core` and `db-core`. The
-  license text of each upstream is in `licenses/`; GPL upstreams point at the
-  project's own `LICENSE`.
+  `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core` and
+  `moin-core`. The license text of each upstream is in `licenses/`; GPL
+  upstreams point at the project's own `LICENSE`.
 
 ### Reference only — no code copied
 
@@ -123,4 +124,5 @@ Use this for every feature carried over.
 | 2026-11-07 | Databases P3: multi-statement execution, table paging and row editing, DDL generation, completion, the tabbed window and the CodeMirror console carried over from `ide-db` and openidea's frontend; `src/pages/database/UPSTREAM.md` added, `db-core/UPSTREAM.md` updated. |
 | 2026-11-07 | Databases P4 (workspace): query files, persisted window tabs and row limits as a first-party `db-core` workspace, plus execution plans from `ide-db`'s `plan.rs`; the tree groups, grid interactions and tab strip follow openidea's behaviour. `db-core/UPSTREAM.md` and `src/pages/database/UPSTREAM.md` updated. |
 | 2026-11-09 | Ports: `src-tauri/ports-core` and the ports page ported from Porter (MIT); `ports-core/UPSTREAM.md` and the guide pair `docs/features/PORTS.md` / `.zh-CN.md` added. |
+| 2026-11-11 | moin 0.4.0 (`79e7587`, MIT) ported as `src-tauri/moin-core`, the download page and `extension/`; `moin-core/UPSTREAM.md` and `licenses/moin-LICENSE.txt` added, notices updated. The general daemon was replaced by embedded commands/events; the extension RPC and aria2 backend were retained. |
 

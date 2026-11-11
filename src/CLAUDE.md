@@ -20,7 +20,8 @@ CSS v4 + shadcn/ui.
   `git-repo`, `svn-workspace`, `api-client`, `systools`, `servers`, `database`,
   `frp`, `md-editor`, `local-terminal`, `notes`, `file-preview`, `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
-  `mcp-hub`, `clash`, `plugins`, `private-registry`
+  `mcp-hub`, `clash`, `plugins`, `private-registry`, `moin` (HTTP/HTTPS
+  downloads, categories and settings at `/moin`)
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
@@ -73,6 +74,7 @@ functions and types — it is the only thing components import:
 | `file-preview` | metadata and raw bytes for the preview page, read from the `root` the caller passes |
 | `fonts` | enumerating installed font families |
 | `local-shell` | the terminal's pseudo-console, and its font list |
+| `moin` | 29 commands for HTTP downloads, queue actions, categories, settings, aria2 detection and extension RPC |
 | `notes` | the Markdown store |
 | `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
 | `projects` | the recent-project list, the active project, and remember / forget / set-active |

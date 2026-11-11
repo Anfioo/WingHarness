@@ -63,6 +63,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [use-claude](https://github.com/ekaone/use-claude) | MIT | `src/lib/use-claude` | 文件头注明 Vendored from `@ekaone/use-claude` (MIT) |
 | [cc-switch](https://github.com/farion1231/cc-switch) | MIT | `ccs`、`cc-switch` 页面 | 图标取自其 `src/icons/extracted`；读取其 SQLite 数据库 |
 | [openidea](https://github.com/l0ng-ai/openidea) | Apache-2.0 | `db-core`、数据库页面（`src/pages/database`）：SQL 编辑器、结果表格、对象树、工作区页签、执行计划 | 按本项目约定改写，无相同文件；`db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md` |
+| [moin](https://github.com/exxvius/moin) | MIT | `moin-core`、`moin` 页面、`extension/` | 0.4.0，提交 `79e7587`；按本仓架构改写；`moin-core/UPSTREAM.md` |
 
 **这一组的说明**
 
@@ -72,8 +73,8 @@ WingHarness 源自作者自己的私有工作流应用
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
-  `ports-core`、`shaic-core` 与 `db-core`。各上游的许可证文本放在 `licenses/`；
-  GPL 上游指向本项目的 `LICENSE`。
+  `ports-core`、`shaic-core`、`db-core` 与 `moin-core`。各上游的许可证文本放在
+  `licenses/`；GPL 上游指向本项目的 `LICENSE`。
 
 ### 仅参考 —— 未复制代码
 
@@ -115,3 +116,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-07 | 数据库 P3：多语句执行、表分页与行编辑、DDL 生成、补全、带页签的窗口与 CodeMirror 控制台，取自 `ide-db` 及 openidea 的前端；新增 `src/pages/database/UPSTREAM.md`，更新 `db-core/UPSTREAM.md`。 |
 | 2026-11-07 | 数据库 P4（工作区）：查询文件、页签持久化与行数上限作为本仓原创的 `db-core` 工作区，执行计划取自 `ide-db` 的 `plan.rs`；树分组、表格交互与页签栏行为对齐 openidea。已更新 `db-core/UPSTREAM.md` 与 `src/pages/database/UPSTREAM.md`。 |
 | 2026-11-09 | 端口管理：`src-tauri/ports-core` 与端口页面移植自 Porter（MIT）；新增 `ports-core/UPSTREAM.md` 与成对的功能文档 `docs/features/PORTS.md` / `.zh-CN.md`。 |
+| 2026-11-11 | moin 0.4.0（`79e7587`，MIT）移植为 `src-tauri/moin-core`、下载页面与 `extension/`；新增 `moin-core/UPSTREAM.md` 和 `licenses/moin-LICENSE.txt`，更新声明。通用守护进程改为内嵌命令／事件，保留扩展 RPC 与 aria2 后端。 |
