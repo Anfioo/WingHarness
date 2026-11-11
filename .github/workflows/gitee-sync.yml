@@ -154,6 +154,7 @@ jobs:
           github_url="https://github.com/${GITHUB_REPOSITORY}"
           gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
           body="${body//"${github_url}"/"${gitee_url}"}"
+          body="${body//"View changes on GitHub"/"View changes on Gitee"}"
 
           {
             echo "body<<WH_GITEE_BODY_EOF"
@@ -381,8 +382,10 @@ jobs:
           # manifest, which carry the same GitHub links as the release body.
           github_url="https://github.com/${GITHUB_REPOSITORY}"
           gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
-          jq --arg old "${github_url}" --arg new "${gitee_url}" \
-            'walk(if type == "string" then split($old) | join($new) else . end)' \
+          jq --arg old_url "${github_url}" --arg new_url "${gitee_url}" \
+            --arg old_text "View changes on GitHub" --arg new_text "View changes on Gitee" \
+            'walk(if type == "string" then split($old_url) | join($new_url) else . end)
+             | walk(if type == "string" then split($old_text) | join($new_text) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
