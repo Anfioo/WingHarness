@@ -11,9 +11,10 @@ included in the desktop installer.
 The extension hands off downloads only after the browser resolves the request:
 
 1. **Automatic capture.** When enabled, the browser starts the download and
-   follows its redirects. The extension waits for `DownloadItem.finalUrl` to
-   settle, pauses the browser copy and sends that final URL to WingHarness. This
-   prevents a landing or login page from being mistaken for the file.
+   follows its redirects. The extension waits for `DownloadItem.finalUrl` and
+   the first response bytes before pausing the browser copy and sending that URL
+   to WingHarness. This prevents an intermediate CDN hop, landing or login page
+   from being mistaken for the file.
 2. **Context-menu capture.** Choosing **Download with WingHarness** starts the
    browser request under extension tracking, then hands the resolved download to
    WingHarness. The browser copy resumes if capture fails.

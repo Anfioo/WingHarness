@@ -49,17 +49,20 @@ function createResolver(downloadItem) {
     resolve: context.resolveDownloadUrl,
     publishFinalUrl(url) {
       downloadItem.finalUrl = url;
-      downloadItem.bytesReceived = 16;
       for (const listener of listeners) {
         listener({ id: downloadItem.id, finalUrl: { current: url } });
       }
     },
+    publishBytes(bytes) {
+      downloadItem.bytesReceived = bytes;
+    },
   };
 }
 
-test("redirected browser downloads use DownloadItem.finalUrl", async () => {
+test("waits through intermediate CDN URLs until the browser receives the file", async () => {
   const initial = "https://example.test/download/package.zip";
-  const final = "https://cdn.example.test/releases/package.zip?token=abc";
+  const intermediate = "https://download-cdn.example.test/prepare/package.zip?signature=pending";
+  const final = "https://objects.example.test/releases/package.zip?signature=ready";
   const download = {
     id: 7,
     url: initial,
@@ -68,7 +71,9 @@ test("redirected browser downloads use DownloadItem.finalUrl", async () => {
     state: "in_progress",
   };
   const resolver = createResolver(download);
-  setTimeout(() => resolver.publishFinalUrl(final), 15);
+  setTimeout(() => resolver.publishFinalUrl(intermediate), 10);
+  setTimeout(() => resolver.publishFinalUrl(final), 25);
+  setTimeout(() => resolver.publishBytes(16), 40);
 
   assert.equal(await resolver.resolve({ id: 7, url: initial, finalUrl: initial }), final);
 });

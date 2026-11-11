@@ -21,7 +21,7 @@ const RETRY_TIMEOUT_MS = 20000;
 const SUPPRESS_AFTER_DECLINE_MS = 60000;
 // Let the browser finish redirect resolution before we hand the URL to the app.
 const FINAL_URL_SETTLE_MS = 350;
-const FINAL_URL_TIMEOUT_MS = 8000;
+const FINAL_URL_TIMEOUT_MS = 15000;
 
 // URLs we deliberately handed back to the browser (the manual-decline fallback),
 // so `onCreated` / the response interceptor don't capture them again and loop.
@@ -246,7 +246,9 @@ async function resolveDownloadUrl(item) {
 
       if (latest.state === "complete") return finalUrl;
       const urlIsSettled = Date.now() - lastUrlChangeAt >= FINAL_URL_SETTLE_MS;
-      if (urlIsSettled && (finalUrl !== item.url || latest.bytesReceived > 0)) return finalUrl;
+      // A changed finalUrl can still be a CDN hop that has not started serving
+      // the file yet. Do not submit it until the browser receives file bytes.
+      if (latest.bytesReceived > 0 && urlIsSettled) return finalUrl;
       await sleep(100);
     }
 

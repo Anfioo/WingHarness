@@ -9,9 +9,9 @@ WingHarness。源码位于 `extension/`，使用纯 JavaScript，无运行时依
 
 扩展只在浏览器解析完下载请求后才把任务交给 WingHarness：
 
-1. **自动捕获。** 浏览器先发起下载并跟随重定向。扩展等待
-   `DownloadItem.finalUrl` 稳定后暂停浏览器中的副本，再把最终 URL 交给
-   WingHarness，避免把落地页或登录页误认为文件。
+1. **自动捕获。** 浏览器先发起下载并跟随重定向。扩展会等待
+   `DownloadItem.finalUrl` 确定且收到首批文件数据后，再暂停浏览器中的副本并把
+   最终 URL 交给 WingHarness，避免把中间 CDN 跳转、落地页或登录页误认为文件。
 2. **右键菜单捕获。** 选择 **Download with WingHarness** 后，扩展先让浏览器
    发起请求并解析重定向，再把解析后的下载交给 WingHarness。如果捕获失败，
    浏览器会继续原下载。

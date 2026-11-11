@@ -5,8 +5,8 @@ It uses the browser's resolved download request, so redirect and login flows can
 finish before WingHarness receives the file URL:
 
 - **Browser download capture** — the browser follows redirects and creates its
-  download entry. The extension waits for the final URL, pauses the browser copy
-  and submits that resolved URL to WingHarness. This avoids mistaking a landing
+  download entry. The extension waits for the final URL and the first file bytes,
+  then pauses the browser copy and submits that resolved URL to WingHarness. This avoids mistaking a landing
   page or an authentication endpoint for the actual file.
 - **Response interception, Firefox only** — Firefox can cancel a
   `Content-Disposition: attachment` response before the browser's save dialog and
