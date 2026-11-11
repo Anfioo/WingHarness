@@ -33,17 +33,20 @@ pub fn run() {
                 // `moin:task-progress` batch per flush interval.
                 let (flush, notify) = moin_core::state::progress_handles();
                 moin_core::state::spawn_progress_flusher(app.handle().clone(), flush, notify);
-                // The browser-extension listener binds 127.0.0.1 on the port from
-                // `settings.json`. It is a separate clone of the same state, so it
-                // shares the one engine (and the one SQLite pool) with the page.
-                // A port that is already taken only logs a warning; it never keeps
-                // the app from starting.
-                moin_core::rpc::spawn(app.state::<moin_core::MoinState>().inner().clone());
                 // The proxy has to reach the environment before the first HTTP
                 // client is built anywhere in the app, and before any child
                 // process is spawned, so it is applied right after the config
                 // directory is known.
                 config::apply_proxy_env(&config::load().proxy);
+                // The browser-extension listener binds 127.0.0.1 on the port from
+                // `settings.json`, and building it constructs the download
+                // engine — which builds its HTTP client, and that client captures
+                // the proxy from the environment at build time. Starting it must
+                // therefore come *after* `apply_proxy_env`. It is a clone of the
+                // same state, so it shares the one engine (and the one SQLite
+                // pool) with the page; a port that is already taken only logs a
+                // warning and never keeps the app from starting.
+                moin_core::rpc::spawn(app.state::<moin_core::MoinState>().inner().clone());
                 // The git engine keeps everything it persists — recent repos,
                 // hosting accounts, and the window's own stores — under
                 // `<data dir>/.git-repo`, next to `ccs/` and `.mcphub/`, so the
