@@ -1,125 +1,112 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
+  moinAppInfo,
+  moinDefaultDownloadDir,
   moinListBackends,
-  moinRegenerateRpcToken,
-  moinRpcStatus,
-  moinSetToolPath,
-  moinToolStatus,
+  type MoinAppInfo,
   type MoinBackendInfo,
-  type MoinRpcStatus,
-  type MoinToolStatus,
+  type MoinSettings,
 } from "@/commands";
+import { Aria2Row } from "@/components/moin/aria2-row";
+import { RpcPanel } from "@/components/moin/rpc-panel";
+import {
+  Field,
+  Section,
+  SelectField,
+  SwitchField,
+  type SelectOption,
+} from "@/components/moin/settings-sections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useMoinSettings } from "@/hooks/use-moin-settings";
 import { formatBytes } from "@/lib/moin/format";
 
-/** A number input that only commits on blur, so a half-typed value never patches. */
-function NumberField({
-  label,
-  hint,
-  value,
-  min,
-  max,
-  disabled,
-  onCommit,
-}: {
-  label: string;
-  hint?: string;
-  value: number;
-  min: number;
-  max: number;
-  disabled: boolean;
-  onCommit: (value: number) => void;
-}) {
-  const [draft, setDraft] = useState(String(value));
+const MIB = 1024 * 1024;
 
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
+// 0 = unlimited; the rest are sensible concurrency caps.
+const CONCURRENCY_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 16];
+// Parallel connections per download. 1 = a single stream (no splitting).
+const CONNECTION_OPTIONS = [1, 2, 4, 6, 8, 12, 16];
+// Smallest piece worth its own connection. 1 MiB is aria2's floor.
+const MIN_SPLIT_OPTIONS = [1, 2, 4, 8, 16, 32].map((mib) => mib * MIB);
+// Seconds of no data before a download is marked Stalled; 0 = wait forever.
+const STALL_OPTIONS = [30, 60, 120, 300, 0];
+// Seconds to wait to reach a server; 0 = the system default.
+const CONNECT_OPTIONS = [5, 10, 15, 30, 60, 0];
+// How often batched progress reaches the list, in ms.
+const FLUSH_OPTIONS = [100, 200, 250, 500, 1000];
 
-  const commit = () => {
-    const parsed = Number(draft);
-    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-      setDraft(String(value));
-      return;
-    }
-    if (parsed !== value) onCommit(parsed);
-  };
+/** Engine ids with copy of their own; anything else falls back to its own label. */
+const BACKEND_KEYS: Record<string, string> = {
+  embedded: "moin.backend.embedded",
+  aria2: "moin.backend.aria2",
+};
 
-  return (
-    <label className="grid gap-1.5 text-sm sm:grid-cols-[minmax(12rem,0.7fr)_minmax(10rem,1fr)] sm:items-center">
-      <span>{label}</span>
-      <Input
-        type="number"
-        min={min}
-        max={max}
-        step={1}
-        value={draft}
-        disabled={disabled}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-      />
-      {hint && <span className="text-muted-foreground text-xs sm:col-start-2">{hint}</span>}
-    </label>
-  );
+const seconds = (value: number) => `${value} s`;
+const millis = (value: number) => `${value} ms`;
+
+/**
+ * Options for a numeric setting. A stored value that is not in the fixed list
+ * (hand-edited config, or an older build) is kept selectable instead of being
+ * silently rendered as an empty dropdown.
+ */
+function numberOptions(
+  values: number[],
+  format: (value: number) => string,
+  current: number
+): SelectOption[] {
+  const all = values.includes(current) ? values : [...values, current].sort((a, b) => a - b);
+  return all.map((value) => ({ value: String(value), label: format(value) }));
 }
 
-function Toggle({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-        className="accent-primary size-4"
-      />
-      {label}
-    </label>
-  );
-}
-
+/**
+ * The settings tab: download, network, engine, browser integration and about.
+ *
+ * Every control writes through `patch` the moment it changes — there is no save
+ * button. The hook keeps the last document the engine accepted, so a rejected
+ * value rolls the control back by itself; all that is left here is the toast.
+ */
 export default function SettingsTab() {
   const { t } = useAppTranslation();
-  const { settings, loading, saving, error, patch } = useMoinSettings();
+  const { settings, loading, saving, error, patch, reload } = useMoinSettings();
   const [backends, setBackends] = useState<MoinBackendInfo[]>([]);
-  const [tool, setTool] = useState<MoinToolStatus | null>(null);
-  const [rpc, setRpc] = useState<MoinRpcStatus | null>(null);
-  const [tokenVisible, setTokenVisible] = useState(false);
-  const [downloadDir, setDownloadDir] = useState("");
+  const [defaultDir, setDefaultDir] = useState("");
+  const [info, setInfo] = useState<MoinAppInfo | null>(null);
+  const [dirDraft, setDirDraft] = useState("");
 
-  useEffect(() => {
-    void moinListBackends()
-      .then(setBackends)
-      .catch(() => undefined);
-    void moinToolStatus()
-      .then(setTool)
-      .catch(() => undefined);
-    void moinRpcStatus()
-      .then(setRpc)
-      .catch(() => undefined);
+  const loadBackends = useCallback(async () => {
+    try {
+      setBackends(await moinListBackends());
+    } catch {
+      setBackends([]);
+    }
   }, []);
 
   useEffect(() => {
-    setDownloadDir(settings?.download_dir ?? "");
+    void loadBackends();
+    void moinDefaultDownloadDir()
+      .then(setDefaultDir)
+      .catch(() => setDefaultDir(""));
+    void moinAppInfo()
+      .then(setInfo)
+      .catch(() => setInfo(null));
+  }, [loadBackends]);
+
+  // A path chosen in the aria2 row can make a backend available, so re-read the
+  // list whenever the probe result changes.
+  const handleToolChange = useCallback(() => {
+    void loadBackends();
+  }, [loadBackends]);
+
+  useEffect(() => {
+    setDirDraft(settings?.download_dir ?? "");
   }, [settings?.download_dir]);
 
   if (loading && !settings) {
@@ -139,17 +126,45 @@ export default function SettingsTab() {
     );
   }
 
-  const apply = async (next: Parameters<typeof patch>[0], success = false) => {
-    await patch(next);
-    if (success) toast.success(t("moin.settings.saveSuccess"));
+  const apply = (next: Partial<MoinSettings>) => {
+    void patch(next);
   };
 
-  const commitDownloadDir = () => {
-    const next = downloadDir.trim() || null;
-    if (next !== (settings.download_dir ?? null)) {
-      void apply({ download_dir: next }, true);
+  const commitDir = () => {
+    const next = dirDraft.trim() || null;
+    if (next !== (settings.download_dir ?? null)) apply({ download_dir: next });
+  };
+
+  const pickDir = async () => {
+    try {
+      const picked = await open({ directory: true, multiple: false });
+      if (typeof picked !== "string") return;
+      setDirDraft(picked);
+      apply({ download_dir: picked });
+    } catch {
+      toast.error(t("moin.settings.saveFailed"));
     }
   };
+
+  // Only HTTP-capable engines belong here; an unavailable one stays listed but
+  // cannot be picked, and the stored choice is always present so it resolves.
+  const engineOptions: SelectOption[] = backends
+    .filter((backend) => backend.http)
+    .map((backend) => ({
+      value: backend.id,
+      label: BACKEND_KEYS[backend.id] ? t(BACKEND_KEYS[backend.id]) : backend.label,
+      badge: backend.available ? undefined : t("moin.backend.unavailable"),
+      disabled: !backend.available,
+    }));
+
+  if (!engineOptions.some((option) => option.value === settings.http_backend)) {
+    engineOptions.push({
+      value: settings.http_backend,
+      label: BACKEND_KEYS[settings.http_backend]
+        ? t(BACKEND_KEYS[settings.http_backend])
+        : settings.http_backend,
+    });
+  }
 
   return (
     <div className="flex max-w-3xl flex-col gap-4">
@@ -159,191 +174,171 @@ export default function SettingsTab() {
         </p>
       )}
 
-      <section className="bg-card rounded-lg border p-4 sm:p-5">
-        <h2 className="mb-4 font-semibold">{t("moin.settings.download")}</h2>
-        <div className="grid gap-4">
-          <label className="grid gap-1.5 text-sm sm:grid-cols-[minmax(12rem,0.7fr)_minmax(10rem,1fr)] sm:items-center">
-            <span>{t("moin.settings.field.downloadDir")}</span>
+      <Section title={t("moin.settings.download")}>
+        <Field
+          label={t("moin.settings.field.downloadDir")}
+          htmlFor="moin-settings-download-dir"
+          hint={t("moin.settings.hint.downloadDirFallback")}
+          note={defaultDir}
+        >
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             <Input
-              value={downloadDir}
+              id="moin-settings-download-dir"
+              value={dirDraft}
               disabled={saving}
-              onChange={(event) => setDownloadDir(event.target.value)}
-              onBlur={commitDownloadDir}
-              placeholder={t("moin.settings.hint.downloadDirFallback")}
+              placeholder={defaultDir}
+              spellCheck={false}
+              className="min-w-0 font-mono text-xs sm:w-56"
+              onChange={(event) => setDirDraft(event.target.value)}
+              onBlur={commitDir}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+              }}
             />
-          </label>
-          <NumberField
-            label={t("moin.settings.field.maxConcurrent")}
-            hint={t("moin.settings.hint.unlimited")}
-            value={settings.max_concurrent}
-            min={0}
-            max={64}
-            disabled={saving}
-            onCommit={(value) => void apply({ max_concurrent: value })}
-          />
-          <NumberField
-            label={t("moin.settings.field.connections")}
-            value={settings.connections}
-            min={1}
-            max={64}
-            disabled={saving}
-            onCommit={(value) => void apply({ connections: value })}
-          />
-          <NumberField
-            label={t("moin.settings.field.stallTimeout")}
-            hint={t("moin.settings.hint.osDefault")}
-            value={settings.stall_timeout_secs}
-            min={0}
-            max={3_600}
-            disabled={saving}
-            onCommit={(value) => void apply({ stall_timeout_secs: value })}
-          />
-          <NumberField
-            label={t("moin.settings.field.connectTimeout")}
-            hint={t("moin.settings.hint.osDefault")}
-            value={settings.connect_timeout_secs}
-            min={0}
-            max={600}
-            disabled={saving}
-            onCommit={(value) => void apply({ connect_timeout_secs: value })}
-          />
-          <NumberField
-            label={t("moin.settings.field.progressFlush")}
-            value={settings.progress_flush_ms}
-            min={100}
-            max={5_000}
-            disabled={saving}
-            onCommit={(value) => void apply({ progress_flush_ms: value })}
-          />
-          <p className="text-muted-foreground text-xs">
-            {t("moin.settings.field.minSplitSize")}: {formatBytes(settings.min_split_size)}
-          </p>
-          <Toggle
-            label={t("moin.settings.field.addPaused")}
-            checked={settings.add_paused}
-            disabled={saving}
-            onChange={(value) => void apply({ add_paused: value })}
-          />
-          <Toggle
-            label={t("moin.settings.field.hidePartFiles")}
-            checked={settings.hide_part_files}
-            disabled={saving}
-            onChange={(value) => void apply({ hide_part_files: value })}
-          />
-          <Toggle
-            label={t("moin.settings.field.notifyOnComplete")}
-            checked={settings.notify_on_complete}
-            disabled={saving}
-            onChange={(value) => void apply({ notify_on_complete: value })}
-          />
-        </div>
-      </section>
-
-      <section className="bg-card rounded-lg border p-4 sm:p-5">
-        <h2 className="mb-4 font-semibold">{t("moin.settings.engine")}</h2>
-        <ul className="mb-4 flex flex-col gap-1 text-sm">
-          {backends.map((backend) => (
-            <li key={backend.id} className="flex items-center justify-between gap-3">
-              <span>
-                {backend.id === "embedded" ? t("moin.backend.embedded") : t("moin.backend.aria2")}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {backend.available ? t("moin.tool.present") : t("moin.backend.unavailable")}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span>{t("moin.backend.aria2")}</span>
-          <span className="text-muted-foreground text-xs">
-            {tool?.present ? t("moin.tool.present") : t("moin.tool.missing")}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => void moinToolStatus().then(setTool)}
-          >
-            {t("moin.tool.reprobe")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              void open({ multiple: false, directory: false })
-                .then((selected) => {
-                  if (typeof selected !== "string") return undefined;
-                  return moinSetToolPath(selected);
-                })
-                .then((status) => {
-                  if (!status) return;
-                  setTool(status);
-                  toast.success(t("moin.settings.saveSuccess"));
-                })
-                .catch(() => toast.error(t("moin.settings.saveFailed")));
-            }}
-          >
-            {t("moin.tool.choose")}
-          </Button>
-        </div>
-        <p className="text-muted-foreground mt-2 text-xs">{t("moin.tool.fallbackHint")}</p>
-      </section>
-
-      <section className="bg-card rounded-lg border p-4 sm:p-5">
-        <h2 className="mb-4 font-semibold">{t("moin.settings.browser")}</h2>
-        <div className="grid gap-4">
-          <Toggle
-            label={t("moin.settings.field.rpcEnabled")}
-            checked={settings.rpc_enabled}
-            disabled={saving}
-            onChange={(value) => void apply({ rpc_enabled: value })}
-          />
-          <NumberField
-            label={t("moin.settings.field.rpcPort")}
-            hint={t("moin.settings.hint.restartRequired")}
-            value={settings.rpc_port}
-            min={1}
-            max={65_535}
-            disabled={saving}
-            onCommit={(value) => void apply({ rpc_port: value })}
-          />
-          <div className="grid gap-1.5 text-sm">
-            <span>{t("moin.settings.field.rpcToken")}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <code className="bg-muted min-w-0 flex-1 truncate rounded-md px-2 py-1 text-xs">
-                {tokenVisible
-                  ? settings.rpc_token
-                  : "•".repeat(Math.min(32, settings.rpc_token.length))}
-              </code>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={() => void pickDir()}
+            >
+              {t("moin.common.browse")}
+            </Button>
+            {settings.download_dir && (
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
-                onClick={() => setTokenVisible((current) => !current)}
+                disabled={saving}
+                onClick={() => apply({ download_dir: null })}
               >
-                {tokenVisible ? t("moin.rpc.hideToken") : t("moin.rpc.showToken")}
+                {t("moin.common.clear")}
               </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  void moinRegenerateRpcToken().then(() => {
-                    toast.success(t("moin.settings.saveSuccess"));
-                  })
-                }
-              >
-                {t("moin.rpc.regenerate")}
-              </Button>
-            </div>
-            <p className="text-muted-foreground text-xs">
-              {rpc?.bound ? t("moin.rpc.running") : t("moin.rpc.stopped")}
-              {rpc?.address ? ` · ${rpc.address}` : ""}
-            </p>
+            )}
           </div>
+        </Field>
+
+        <SelectField
+          label={t("moin.settings.field.maxConcurrent")}
+          hint={t("moin.settings.hint.maxConcurrent")}
+          note={t("moin.settings.hint.unlimited")}
+          value={String(settings.max_concurrent)}
+          options={numberOptions(
+            CONCURRENCY_OPTIONS,
+            (value) => (value === 0 ? t("moin.settings.option.unlimited") : String(value)),
+            settings.max_concurrent
+          )}
+          disabled={saving}
+          onChange={(value) => apply({ max_concurrent: Number(value) })}
+        />
+
+        <SwitchField
+          label={t("moin.settings.field.addPaused")}
+          hint={t("moin.settings.hint.addPaused")}
+          checked={settings.add_paused}
+          disabled={saving}
+          onChange={(checked) => apply({ add_paused: checked })}
+        />
+
+        <SwitchField
+          label={t("moin.settings.field.notifyOnComplete")}
+          hint={t("moin.settings.hint.notifyOnComplete")}
+          checked={settings.notify_on_complete}
+          disabled={saving}
+          onChange={(checked) => apply({ notify_on_complete: checked })}
+        />
+
+        <SelectField
+          label={t("moin.settings.field.progressFlush")}
+          hint={t("moin.settings.hint.progressFlush")}
+          value={String(settings.progress_flush_ms)}
+          options={numberOptions(FLUSH_OPTIONS, millis, settings.progress_flush_ms)}
+          disabled={saving}
+          onChange={(value) => apply({ progress_flush_ms: Number(value) })}
+        />
+      </Section>
+
+      <Section title={t("moin.settings.network")}>
+        <SelectField
+          label={t("moin.settings.field.connections")}
+          hint={t("moin.settings.hint.connections")}
+          value={String(settings.connections)}
+          options={numberOptions(
+            CONNECTION_OPTIONS,
+            (value) => (value === 1 ? t("moin.settings.option.singleStream") : String(value)),
+            settings.connections
+          )}
+          disabled={saving}
+          onChange={(value) => apply({ connections: Number(value) })}
+        />
+
+        <SelectField
+          label={t("moin.settings.field.minSplitSize")}
+          hint={t("moin.settings.hint.minSplitSize")}
+          value={String(settings.min_split_size)}
+          options={numberOptions(MIN_SPLIT_OPTIONS, formatBytes, settings.min_split_size)}
+          disabled={saving}
+          onChange={(value) => apply({ min_split_size: Number(value) })}
+        />
+
+        <SelectField
+          label={t("moin.settings.field.connectTimeout")}
+          hint={t("moin.settings.hint.connectTimeout")}
+          note={t("moin.settings.hint.osDefault")}
+          value={String(settings.connect_timeout_secs)}
+          options={numberOptions(
+            CONNECT_OPTIONS,
+            (value) => (value === 0 ? t("moin.settings.option.unlimited") : seconds(value)),
+            settings.connect_timeout_secs
+          )}
+          disabled={saving}
+          onChange={(value) => apply({ connect_timeout_secs: Number(value) })}
+        />
+
+        <SelectField
+          label={t("moin.settings.field.stallTimeout")}
+          hint={t("moin.settings.hint.stallTimeout")}
+          value={String(settings.stall_timeout_secs)}
+          options={numberOptions(
+            STALL_OPTIONS,
+            (value) => (value === 0 ? t("moin.settings.option.never") : seconds(value)),
+            settings.stall_timeout_secs
+          )}
+          disabled={saving}
+          onChange={(value) => apply({ stall_timeout_secs: Number(value) })}
+        />
+
+        <SwitchField
+          label={t("moin.settings.field.hidePartFiles")}
+          hint={t("moin.settings.hint.hidePartFiles")}
+          checked={settings.hide_part_files}
+          disabled={saving}
+          onChange={(checked) => apply({ hide_part_files: checked })}
+        />
+      </Section>
+
+      <Section title={t("moin.settings.engine")}>
+        <SelectField
+          label={t("moin.settings.field.engine")}
+          hint={t("moin.settings.hint.engine")}
+          value={settings.http_backend}
+          options={engineOptions}
+          disabled={saving}
+          onChange={(value) => apply({ http_backend: value })}
+        />
+        <Aria2Row disabled={saving} onStatusChange={handleToolChange} />
+      </Section>
+
+      <RpcPanel settings={settings} saving={saving} onPatch={patch} onReload={reload} />
+
+      <Section title={t("moin.settings.about")}>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="font-medium">{info?.name ?? "—"}</span>
+          <span className="text-muted-foreground font-mono text-xs">
+            {t("moin.tool.version")} {info?.version ?? "—"}
+          </span>
         </div>
-      </section>
+      </Section>
     </div>
   );
 }
