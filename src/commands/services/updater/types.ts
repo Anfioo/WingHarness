@@ -13,6 +13,8 @@ export interface UpdateProgress {
     contentLength?: number;
     chunkLength?: number;
     downloaded?: number;
+    /** Bytes per second, derived on the frontend from consecutive events. */
+    speed?: number;
   };
 }
 

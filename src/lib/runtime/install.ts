@@ -33,8 +33,17 @@ export type ArchiveSource = { name: string; bytes: Uint8Array };
 
 export type ExtractedFile = { path: string; buffer: ArrayBuffer };
 
+export type DownloadStats = {
+  /** 0–1 when the server reports a total, otherwise undefined. */
+  value?: number;
+  received: number;
+  total: number | null;
+  /** Bytes per second, smoothed over the polling samples. */
+  speed: number;
+};
+
 export type RuntimeProgress =
-  | { phase: "download"; value?: number }
+  | ({ phase: "download" } & DownloadStats)
   | { phase: "extract" }
   | { phase: "write"; value: number; done: number; total: number };
 
@@ -50,7 +59,7 @@ type WorkerResponse = { ok: true; files: ExtractedFile[] } | { ok: false; error:
  */
 export async function downloadArchive(
   url: string,
-  onProgress?: (value: number | undefined) => void
+  onProgress?: (stats: DownloadStats) => void
 ): Promise<ArchiveSource> {
   const task = await moinAddDownload({ url, category: null, filename: archiveName(url) });
   // "Add downloads paused" applies to every new task, including this one; an
@@ -85,9 +94,11 @@ function archiveName(url: string): string {
 
 async function waitForDownload(
   id: string,
-  onProgress?: (value: number | undefined) => void
+  onProgress?: (stats: DownloadStats) => void
 ): Promise<MoinTask> {
   const started = Date.now();
+  let lastSample: { at: number; received: number } | null = null;
+  let speed = 0;
   while (true) {
     const current = (await moinListDownloads()).find((task) => task.id === id);
     if (!current) throw new Error("The download task was removed.");
@@ -95,7 +106,22 @@ async function waitForDownload(
     if ((current.total ?? current.received) > MAX_ARCHIVE_BYTES) {
       throw new Error(`The archive is larger than ${MAX_ARCHIVE_BYTES / 1024 / 1024} MiB.`);
     }
-    onProgress?.(current.total ? Math.min(current.received / current.total, 1) : undefined);
+
+    const now = Date.now();
+    if (lastSample && now > lastSample.at) {
+      const instant = ((current.received - lastSample.received) * 1000) / (now - lastSample.at);
+      if (instant >= 0) speed = speed > 0 ? speed * 0.6 + instant * 0.4 : instant;
+      lastSample = { at: now, received: current.received };
+    } else if (!lastSample) {
+      lastSample = { at: now, received: current.received };
+    }
+
+    onProgress?.({
+      value: current.total ? Math.min(current.received / current.total, 1) : undefined,
+      received: current.received,
+      total: current.total,
+      speed,
+    });
 
     if (current.status === "completed") return current;
     if (

@@ -99,8 +99,13 @@ release, updater clients cannot discover updates either.
 3. The window offers two choices: install now, or skip this version
 4. A skipped version no longer prompts on startup; a newer release prompts again. A manual check from the About window always forces the prompt, even for a skipped version
 5. If no update is available, the manual flow reports that the app is up to date. If the check fails, the UI reports an error with the underlying cause attached to the toast (network, 404, signing, ...), which keeps "update failed" diagnosable
-6. During download, progress is calculated from cumulative downloaded bytes; closing the window while downloading only hides it, the download and install continue
+6. During download, the window shows the percentage, the transferred / total size and the current speed; closing the window while downloading only hides it, the download and install continue
 7. After installation, the app relaunches automatically
+
+A development build can check updates and read the release notes, but the update
+window offers neither **skip this version** nor **install now**: there is no
+signed installer to run. The check reads the published manifests directly
+because the updater plugin is not registered in dev builds.
 
 ## Dev Builds (keeping the developer menu)
 

@@ -102,6 +102,11 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   const [cancelling, setCancelling] = useState(false);
   const [progress, setProgress] = useState<UpdateProgress | null>(readStoredProgress);
   const pendingCheck = useRef<Promise<UpdateCheckResult> | null>(null);
+  // Download progress arrives as chunk lengths; the cumulative total and the
+  // speed are derived here so the window can show more than a percentage.
+  const downloadedRef = useRef(0);
+  const speedSampleRef = useRef<{ at: number; bytes: number } | null>(null);
+  const speedRef = useRef(0);
   // Capturing skippedVersion in the check callback would rebuild it on every
   // skip; reading through the ref keeps one stable callback instead.
   const skippedVersionRef = useRef(skippedVersion);
@@ -206,17 +211,33 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
   );
 
   const handleProgress = useCallback((event: UpdateProgress) => {
+    const now = performance.now();
+    if (event.event === "Started") {
+      downloadedRef.current = 0;
+      speedRef.current = 0;
+      speedSampleRef.current = { at: now, bytes: 0 };
+    } else if (event.event === "Progress") {
+      downloadedRef.current += event.data?.chunkLength ?? 0;
+      const last = speedSampleRef.current;
+      if (last && now - last.at >= 250) {
+        const instant = ((downloadedRef.current - last.bytes) * 1000) / (now - last.at);
+        speedRef.current = speedRef.current > 0 ? speedRef.current * 0.6 + instant * 0.4 : instant;
+        speedSampleRef.current = { at: now, bytes: downloadedRef.current };
+      }
+    }
+
     setProgress((current) => {
       let next: UpdateProgress;
       if (event.event === "Started") {
-        next = { ...event, data: { ...event.data, downloaded: 0 } };
+        next = { ...event, data: { ...event.data, downloaded: 0, speed: 0 } };
       } else if (event.event === "Progress") {
         next = {
           ...event,
           data: {
             ...event.data,
             contentLength: current?.data?.contentLength,
-            downloaded: (current?.data?.downloaded ?? 0) + (event.data?.chunkLength ?? 0),
+            downloaded: downloadedRef.current,
+            speed: speedRef.current,
           },
         };
       } else {
@@ -225,6 +246,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
           data: {
             contentLength: current?.data?.contentLength,
             downloaded: current?.data?.downloaded,
+            speed: current?.data?.speed,
           },
         };
       }
@@ -241,6 +263,9 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
 
     storeDownloading(true);
     storeProgress(null);
+    downloadedRef.current = 0;
+    speedRef.current = 0;
+    speedSampleRef.current = null;
     try {
       const result = await downloadAndInstallUpdate(handleProgress);
       if (result === "installed") {
@@ -349,11 +374,6 @@ export function useManualUpdateCheck() {
 
     if (result.status === "up-to-date") {
       setShowNoUpdate(true);
-      return;
-    }
-
-    if (result.status === "disabled") {
-      toast.info(t("updater.disabledInDev"));
       return;
     }
 

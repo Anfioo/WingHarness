@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { formatBytes, formatSpeed } from "@/lib/moin/format";
 import {
   downloadArchive,
   extractArchive,
@@ -93,7 +94,11 @@ export function RuntimeInstaller({
   ) => {
     if (busy) return;
     try {
-      setBusy({ phase: initial });
+      setBusy(
+        initial === "download"
+          ? { phase: "download", received: 0, total: null, speed: 0 }
+          : { phase: "extract" }
+      );
       const source = await load();
       setBusy({ phase: "extract" });
       const files = await extractArchive(source);
@@ -121,8 +126,8 @@ export function RuntimeInstaller({
   const installOfficial = () =>
     void runInstall(
       () =>
-        downloadArchive(OFFICIAL_RUNTIME_URLS[kind], (value) =>
-          setBusy({ phase: "download", value })
+        downloadArchive(OFFICIAL_RUNTIME_URLS[kind], (stats) =>
+          setBusy({ phase: "download", ...stats })
         ),
       "download"
     );
@@ -136,7 +141,7 @@ export function RuntimeInstaller({
     setUrlOpen(false);
     setUrlError(null);
     void runInstall(
-      () => downloadArchive(trimmed, (value) => setBusy({ phase: "download", value })),
+      () => downloadArchive(trimmed, (stats) => setBusy({ phase: "download", ...stats })),
       "download"
     );
   };
@@ -239,6 +244,17 @@ export function RuntimeInstaller({
                 : undefined
             )}
           />
+          {busy.phase === "download" && (
+            <div className="text-muted-foreground flex items-center justify-between text-xs tabular-nums">
+              <span>
+                {t("runtime.progress.bytes", {
+                  received: formatBytes(busy.received),
+                  total: formatBytes(busy.total),
+                })}
+              </span>
+              {busy.speed > 0 && <span>{formatSpeed(busy.speed)}</span>}
+            </div>
+          )}
         </div>
       )}
 

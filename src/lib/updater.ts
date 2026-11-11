@@ -5,14 +5,9 @@ export type UpdateInfo = UpdateCheckInfo;
 export type UpdateCheckResult =
   | { status: "available"; update: UpdateInfo }
   | { status: "up-to-date" }
-  | { status: "disabled" }
   | { status: "error"; error: unknown };
 
 export async function checkForUpdates(): Promise<UpdateCheckResult> {
-  if (import.meta.env.DEV) {
-    return { status: "disabled" };
-  }
-
   try {
     const update = await checkForUpdate();
     if (update) {

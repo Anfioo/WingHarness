@@ -10,6 +10,7 @@ import { PreviewPane } from "@/features/md-editor/preview/pane";
 import { renderMarkdown } from "@/features/md-editor/preview/render";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useUpdater } from "@/hooks/use-updater";
+import { formatBytes, formatSpeed } from "@/lib/moin/format";
 import { updateErrorMessage } from "@/lib/updater";
 import { toast } from "sonner";
 
@@ -178,6 +179,12 @@ export default function UpdatePage() {
       );
     }
 
+    // A dev build can check and read the notes, but it has no signed installer
+    // to run, so neither action is offered.
+    if (import.meta.env.DEV) {
+      return null;
+    }
+
     return (
       <div className="grid grid-cols-2 gap-2">
         <Button variant="outline" onClick={handleSkip}>
@@ -223,18 +230,34 @@ export default function UpdatePage() {
           </div>
         </div>
 
-        {update?.date && (
-          <p className="text-muted-foreground text-xs">
-            {t("updater.publishedAt")}
-            {formatPublishedAt(update.date)}
-          </p>
+        {update && (update.date || update.endpoint) && (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {update.date && (
+              <span>
+                {t("updater.publishedAt")}
+                {formatPublishedAt(update.date)}
+              </span>
+            )}
+            {update.endpoint && <span>{t("updater.source", { source: update.endpoint })}</span>}
+          </div>
         )}
 
         {downloading ? (
           <div className="flex flex-col gap-2">
             <Progress value={getProgressPercentage(progress)} />
-            <p className="text-muted-foreground text-center text-xs">
-              {t("updater.downloading")} {getProgressPercentage(progress)}%
+            <p className="text-muted-foreground flex flex-wrap items-center justify-center gap-x-2 text-center text-xs tabular-nums">
+              <span>
+                {t("updater.downloading")} {getProgressPercentage(progress)}%
+              </span>
+              <span>
+                {t("updater.downloadedOf", {
+                  downloaded: formatBytes(progress?.data?.downloaded),
+                  total: formatBytes(progress?.data?.contentLength),
+                })}
+              </span>
+              {(progress?.data?.speed ?? 0) > 0 && (
+                <span>{formatSpeed(progress?.data?.speed ?? 0)}</span>
+              )}
             </p>
           </div>
         ) : checkError && !update ? (

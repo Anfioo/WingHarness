@@ -1,9 +1,11 @@
 use std::sync::Mutex;
+use std::time::Duration;
 
 use futures_util::{
     future::{select, Either},
     pin_mut,
 };
+use semver::Version;
 use serde::Serialize;
 use tauri::{ipc::Channel, AppHandle, Emitter, Manager, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
@@ -126,7 +128,7 @@ pub async fn check_for_update(
     state: State<'_, UpdateDownloadState>,
 ) -> Result<Option<UpdateCheckView>, String> {
     if cfg!(debug_assertions) {
-        return Err("Updates are disabled in development builds.".to_string());
+        return check_for_update_dev(&app).await;
     }
 
     let endpoints = configured_endpoints(&app)?;
@@ -179,6 +181,94 @@ pub async fn check_for_update(
     Err(last_error.unwrap_or_else(|| "No update endpoint is configured.".to_string()))
 }
 
+/// The published mirrors, used only by a development build: its bundled config
+/// still holds the CI placeholders, and the updater plugin is not registered.
+/// Only the version and notes are needed — a dev build offers no install.
+const DEV_ENDPOINTS: &[&str] = &[
+    "https://github.com/Anfioo/WingHarness/releases/latest/download/latest.json",
+    "https://wingharness.dpdns.org/WingHarness/latest/latest.json",
+    "https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json",
+];
+
+async fn check_for_update_dev(app: &AppHandle) -> Result<Option<UpdateCheckView>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let current = app.package_info().version.clone();
+    let mut last_error: Option<String> = None;
+
+    for href in DEV_ENDPOINTS {
+        let label = href
+            .parse::<Url>()
+            .map(|url| endpoint_label(&url))
+            .unwrap_or_else(|_| (*href).to_string());
+        let _ = app.emit(CHECKING_EVENT, Some(label.clone()));
+
+        let response = match client
+            .get(*href)
+            .header("Accept", "application/json")
+            .send()
+            .await
+        {
+            Ok(response) => response,
+            Err(error) => {
+                last_error = Some(format!("{label}: {error}"));
+                continue;
+            }
+        };
+
+        if response.status() == reqwest::StatusCode::NO_CONTENT {
+            let _ = app.emit(CHECKING_EVENT, None::<String>);
+            return Ok(None);
+        }
+        if !response.status().is_success() {
+            last_error = Some(format!("{label}: HTTP {}", response.status()));
+            continue;
+        }
+
+        let value: serde_json::Value = match response.json().await {
+            Ok(value) => value,
+            Err(error) => {
+                last_error = Some(format!("{label}: {error}"));
+                continue;
+            }
+        };
+        let version = value
+            .get("version")
+            .and_then(|value| value.as_str())
+            .unwrap_or_default();
+        let remote = match Version::parse(version) {
+            Ok(version) => version,
+            Err(error) => {
+                last_error = Some(format!("{label}: {error}"));
+                continue;
+            }
+        };
+
+        let _ = app.emit(CHECKING_EVENT, None::<String>);
+        if remote <= current {
+            return Ok(None);
+        }
+        return Ok(Some(UpdateCheckView {
+            version: remote.to_string(),
+            current_version: current.to_string(),
+            date: value
+                .get("pub_date")
+                .and_then(|value| value.as_str())
+                .map(str::to_string),
+            body: value
+                .get("notes")
+                .and_then(|value| value.as_str())
+                .map(str::to_string),
+            endpoint: label,
+        }));
+    }
+
+    let _ = app.emit(CHECKING_EVENT, None::<String>);
+    Err(last_error.unwrap_or_else(|| "No update endpoint is configured.".to_string()))
+}
+
 fn configured_endpoints(app: &AppHandle) -> Result<Vec<Url>, String> {
     let endpoints = app
         .config()
@@ -222,6 +312,10 @@ pub async fn download_and_install_update(
     state: State<'_, UpdateDownloadState>,
     on_progress: Channel<UpdateProgressEvent>,
 ) -> Result<UpdateInstallResult, String> {
+    if cfg!(debug_assertions) {
+        return Err("Updates cannot be installed from a development build.".to_string());
+    }
+
     let (cancel_sender, cancel_receiver) = watch::channel(false);
     {
         let mut active = state
@@ -262,4 +356,34 @@ pub fn is_update_download_active(state: State<'_, UpdateDownloadState>) -> Resul
         .lock()
         .map_err(|_| "Update download state is unavailable".to_string())?;
     Ok(active.is_some())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn label(url: &str) -> String {
+        endpoint_label(&Url::parse(url).expect("valid URL"))
+    }
+
+    #[test]
+    fn the_three_mirrors_have_short_labels() {
+        assert_eq!(
+            label("https://github.com/Anfioo/WingHarness/releases/latest/download/latest.json"),
+            "GitHub"
+        );
+        assert_eq!(
+            label("https://wingharness.dpdns.org/WingHarness/latest/latest.json"),
+            "Cloudflare"
+        );
+        assert_eq!(
+            label("https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json"),
+            "Gitee"
+        );
+    }
+
+    #[test]
+    fn an_unknown_host_is_its_own_label() {
+        assert_eq!(label("https://mirror.example.test/latest.json"), "mirror.example.test");
+    }
 }
