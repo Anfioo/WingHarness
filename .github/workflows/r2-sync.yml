@@ -1,0 +1,165 @@
+name: "r2-sync"
+# Manual runs carry the tag they mirror; the scheduled run has no input.
+run-name: r2-sync ${{ inputs.tag || 'auto latest' }}
+
+# Mirrors a release into the Cloudflare R2 bucket as
+#   WingHarness/<tag>/<asset>
+# with latest.json rewritten to the public domain. A scheduled run only acts
+# when the latest release is not in the bucket yet; a manual run always
+# re-uploads, so it can backfill or repair a partial mirror.
+on:
+  schedule:
+    # 03:00 Asia/Shanghai, an hour after the Gitee sync (the runner cron is UTC).
+    - cron: "0 19 * * *"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to mirror, e.g. v0.0.4"
+        required: true
+        type: string
+
+env:
+  R2_PREFIX: WingHarness
+  R2_PUBLIC_BASE: https://wingharness.dpdns.org
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
+      skip: ${{ steps.target.outputs.skip }}
+    steps:
+      - name: Resolve the release to mirror
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run; mirroring ${INPUT_TAG} unconditionally."
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          if [ -z "${tag}" ]; then
+            echo "No published release yet; nothing to mirror."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          if aws s3api head-object \
+            --bucket "${R2_BUCKET}" \
+            --key "${R2_PREFIX}/${tag}/latest.json" \
+            --endpoint-url "${endpoint}" > /dev/null 2>&1; then
+            echo "R2 already has ${R2_PREFIX}/${tag}/latest.json; nothing to mirror."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "R2 has no manifest for ${tag}; mirroring."
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+  sync:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download the GitHub release assets
+        id: assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          dir="${RUNNER_TEMP}/r2-assets"
+          mkdir -p "${dir}"
+
+          # gh exits non-zero when the release has no attachments; an empty
+          # release is still worth mirroring.
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir "${dir}" --clobber || true
+
+          echo "Downloaded $(find "${dir}" -maxdepth 1 -type f | wc -l) file(s) from the GitHub release."
+          echo "dir=${dir}" >> "$GITHUB_OUTPUT"
+
+      - name: Point latest.json at R2
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          latest="${DIR}/latest.json"
+          if [ ! -f "${latest}" ]; then
+            echo "This release has no latest.json."
+            exit 0
+          fi
+
+          # Only the download URLs change; the notes keep their GitHub links.
+          github_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          r2_base="${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}"
+          jq --arg old "${github_base}" --arg new "${r2_base}" \
+            'walk(if type == "string" then split($old) | join($new) else . end)' \
+            "${latest}" > "${latest}.tmp"
+          mv "${latest}.tmp" "${latest}"
+
+          if grep -qF "${github_base}" "${latest}"; then
+            echo "latest.json still points at GitHub." >&2
+            exit 1
+          fi
+          echo "latest.json now points at ${r2_base}."
+
+      - name: Upload to R2
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ needs.check.outputs.tag }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+        run: |
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+          upload() {
+            local file="$1" name="$2" key="$3"
+            echo "Uploading ${key} (${name})..."
+            if [ "${name}" = "latest.json" ]; then
+              # The manifest must never be served stale.
+              aws s3 cp "${file}" "s3://${R2_BUCKET}/${key}" \
+                --endpoint-url "${endpoint}" --only-show-errors \
+                --cache-control "no-cache"
+            else
+              aws s3 cp "${file}" "s3://${R2_BUCKET}/${key}" \
+                --endpoint-url "${endpoint}" --only-show-errors
+            fi
+          }
+
+          # Upload the installers first so the manifest never references a file
+          # that is not in the bucket yet.
+          while IFS= read -r file; do
+            name="$(basename "${file}")"
+            upload "${file}" "${name}" "${R2_PREFIX}/${TAG}/${name}"
+          done < <(find "${DIR}" -maxdepth 1 -type f ! -name 'latest.json' | sort)
+
+          if [ -f "${DIR}/latest.json" ]; then
+            upload "${DIR}/latest.json" "latest.json" "${R2_PREFIX}/${TAG}/latest.json"
+          fi
+
+      - name: Summarize
+        shell: bash
+        env:
+          TAG: ${{ needs.check.outputs.tag }}
+        run: |
+          echo "R2 mirror: ${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}/latest.json" >> "$GITHUB_STEP_SUMMARY"
