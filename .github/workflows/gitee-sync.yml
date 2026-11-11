@@ -22,6 +22,8 @@ env:
   GITEE_OWNER: anfioo
   GITEE_REPO: WingHarness
   GITEE_API: https://gitee.com/api/v5
+  R2_PUBLIC_BASE: https://wingharness.dpdns.org
+  R2_PREFIX: WingHarness
 
 jobs:
   check:
@@ -279,6 +281,20 @@ jobs:
 
           existing="$(printf '%s' "${body}" | jq -r '.[]? | .name' 2>/dev/null || true)"
 
+          # Gitee is slow for big files. Past 30 MB the artifacts stay on R2
+          # and only the manifest is published here, pointing at R2.
+          size_limit=$((30 * 1024 * 1024))
+          r2_only=false
+          for file in "${DIR}"/*; do
+            [ -f "${file}" ] || continue
+            [ "$(basename "${file}")" = "latest.json" ] && continue
+            if [ "$(stat -c%s "${file}")" -gt "${size_limit}" ]; then
+              r2_only=true
+              echo "$(basename "${file}") exceeds 30 MB; artifacts stay on R2."
+              break
+            fi
+          done
+
           files=()
           has_latest=false
           latest_missing=false
@@ -295,6 +311,10 @@ jobs:
               continue
             fi
 
+            if [ "${r2_only}" = "true" ]; then
+              continue
+            fi
+
             if printf '%s\n' "${existing}" | grep -qxF "${name}"; then
               echo "Already on Gitee: ${name}"
               continue
@@ -302,11 +322,12 @@ jobs:
             files+=("${file}")
           done
 
-          echo "Files to upload: ${#files[@]}, latest.json missing: ${latest_missing}."
+          echo "Files to upload: ${#files[@]}, latest.json missing: ${latest_missing}, R2 only: ${r2_only}."
           {
             echo "count=${#files[@]}"
             echo "has_latest=${has_latest}"
             echo "latest_missing=${latest_missing}"
+            echo "r2_only=${r2_only}"
             if [ "${#files[@]}" -gt 0 ]; then
               echo "files<<WH_GITEE_FILES_EOF"
               printf '%s\n' "${files[@]}"
@@ -349,16 +370,24 @@ jobs:
             echo "Uploaded ${name}: ${url}"
           done <<< "${FILES}"
 
-      # The updater manifest must point at Gitee, not GitHub. The base URL is
-      # the documented Gitee layout; probing one uploaded file proves it before
-      # a broken latest.json is published.
-      - name: Resolve the Gitee download base
+      # The updater manifest must point at the chosen mirror, not GitHub. When
+      # the artifacts stay on R2 there is nothing to probe; otherwise the
+      # documented Gitee layout is checked against one uploaded file.
+      - name: Resolve the download base
         id: base
         shell: bash
         env:
           DIR: ${{ steps.assets.outputs.dir }}
           TAG: ${{ steps.resolve.outputs.tag }}
+          R2_ONLY: ${{ steps.plan.outputs.r2_only }}
         run: |
+          if [ "${R2_ONLY}" = "true" ]; then
+            base="${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}"
+            echo "Artifacts stay on R2; latest.json points at ${base}."
+            echo "base=${base}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           probe="$(find "${DIR}" -maxdepth 1 -type f ! -name 'latest.json' -printf '%f\n' | head -n 1)"
           if [ -z "${probe}" ]; then
             echo "No release files found; nothing to point latest.json at." >&2
@@ -377,10 +406,12 @@ jobs:
           echo "Gitee download base: ${base}"
           echo "base=${base}" >> "$GITHUB_OUTPUT"
 
-      - name: Point latest.json at Gitee
+      - name: Point latest.json at the mirror
         shell: bash
         env:
           DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          DOWNLOAD_BASE: ${{ steps.base.outputs.base }}
         run: |
           latest="${DIR}/latest.json"
           if [ ! -f "${latest}" ]; then
@@ -388,22 +419,25 @@ jobs:
             exit 0
           fi
 
-          # Covers both the download URLs and the release notes inside the
-          # manifest, which carry the same GitHub links as the release body.
-          github_url="https://github.com/${GITHUB_REPOSITORY}"
-          gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
-          jq --arg old_url "${github_url}" --arg new_url "${gitee_url}" \
+          # The download URLs follow the chosen mirror; the notes inside the
+          # manifest keep pointing at Gitee like the release body.
+          github_repo="https://github.com/${GITHUB_REPOSITORY}"
+          github_download="${github_repo}/releases/download/${TAG}"
+          gitee_repo="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
+          jq --arg old_dl "${github_download}" --arg new_dl "${DOWNLOAD_BASE}" \
+            --arg old_repo "${github_repo}" --arg new_repo "${gitee_repo}" \
             --arg old_text "View changes on GitHub" --arg new_text "View changes on Gitee" \
-            'walk(if type == "string" then split($old_url) | join($new_url) else . end)
+            'walk(if type == "string" then split($old_dl) | join($new_dl) else . end)
+             | walk(if type == "string" then split($old_repo) | join($new_repo) else . end)
              | walk(if type == "string" then split($old_text) | join($new_text) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
-          if grep -qF "${github_url}" "${latest}"; then
-            echo "latest.json still points at GitHub." >&2
+          if grep -qF "${github_download}" "${latest}"; then
+            echo "latest.json still points at GitHub downloads." >&2
             exit 1
           fi
-          echo "latest.json now points at ${gitee_url}."
+          echo "latest.json now downloads from ${DOWNLOAD_BASE}."
 
       # Uploaded last so the manifest never references a file that is not there.
       - name: Upload latest.json to Gitee

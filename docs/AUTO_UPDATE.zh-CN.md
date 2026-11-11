@@ -8,10 +8,11 @@
 
 ```text
 https://github.com/<owner>/<repo>/releases/latest/download/latest.json
+https://wingharness.dpdns.org/WingHarness/latest/latest.json
 https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json
 ```
 
-两个端点按顺序尝试。第二个是 Gitee 镜像，供无法访问 GitHub 的用户使用；`gitee-sync` 工作流会在每次发布后重新生成它的 `latest.json`。
+三个端点按顺序尝试。后两个分别是 R2 和 Gitee 镜像，供无法访问 GitHub 的用户使用；`r2-sync` 与 `gitee-sync` 工作流会让各自的固定 `latest.json` 指向最新版本。
 
 ## 前置条件
 
