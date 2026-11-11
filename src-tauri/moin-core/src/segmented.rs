@@ -1,5 +1,12 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
-// See UPSTREAM.md for the porting record.
+// See `UPSTREAM.md` for the porting record.
+
+//! Multi-connection transfer over HTTP byte ranges.
+//!
+//! The split and how far each segment got live in `<dest>.part.meta` as a
+//! [`ResumePlan`]. [`plan_matches`] is what makes resuming safe: the plan, the
+//! server's total and the on-disk `.part` length must agree, otherwise the
+//! transfer starts over instead of stitching mismatched bytes together.
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -12,9 +19,9 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
-use crate::backend::{Control, Outcome, Signal};
-
-const POLL_INTERVAL: Duration = Duration::from_secs(1);
+use crate::backend::{Control, Outcome, ProgressFn, Signal};
+use crate::fsattr;
+use crate::http::{probe_total, stall_limit, POLL};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Segment {
@@ -35,12 +42,12 @@ struct ResumePlan {
     segments: Vec<Segment>,
 }
 
-pub(crate) struct TransferResult {
-    pub outcome: Outcome,
-    pub received: u64,
-}
-
-pub(crate) async fn plan_matches(meta_path: &str, part_path: &str, total: u64) -> bool {
+/// Whether the plan on disk still describes `part` for a file of `total` bytes.
+///
+/// A missing plan, a plan for a different size, or a `.part` whose length no
+/// longer matches all mean "do not resume": the bytes on disk cannot be trusted
+/// to line up with the segments.
+pub async fn plan_matches(meta_path: &str, part: &str, total: u64) -> bool {
     let Ok(bytes) = tokio::fs::read(meta_path).await else {
         return false;
     };
@@ -50,7 +57,7 @@ pub(crate) async fn plan_matches(meta_path: &str, part_path: &str, total: u64) -
     if plan.total != total || !valid_plan(&plan) {
         return false;
     }
-    tokio::fs::metadata(part_path)
+    tokio::fs::metadata(part)
         .await
         .map(|metadata| metadata.len() == total)
         .unwrap_or(false)
@@ -75,51 +82,72 @@ fn valid_plan(plan: &ResumePlan) -> bool {
     expected_start == plan.total
 }
 
-pub(crate) async fn download(
+/// Transfer `url` into `part` over several connections, then move it to `dest`.
+///
+/// The total comes from the server rather than from the caller: the signature
+/// mirrors [`crate::http::download`], so the probe happens here. It costs one
+/// extra one-byte request on a path that was already probed once.
+#[allow(clippy::too_many_arguments)]
+pub async fn download(
     client: &Client,
     url: &str,
     headers: &HeaderMap,
-    part_path: &str,
-    destination: &Path,
+    part: &str,
+    dest: &str,
     meta_path: &str,
-    total: u64,
     connections: usize,
-    min_split_size: u64,
+    min_split: u64,
+    hide_part: bool,
     stall_timeout: Duration,
     control: &Control,
-    progress: Arc<dyn Fn(u64, Option<u64>) + Send + Sync>,
-) -> TransferResult {
-    let mut plan = if plan_matches(meta_path, part_path, total).await {
-        tokio::fs::read(meta_path)
-            .await
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<ResumePlan>(&bytes).ok())
-            .filter(valid_plan)
+    progress: &ProgressFn,
+) -> Outcome {
+    let destination = Path::new(dest);
+    let Some(total) = probe_total(client, url, headers).await else {
+        return Outcome::Failed(
+            "The server does not report a total size for byte ranges, so the download cannot be split."
+                .to_string(),
+        );
+    };
+    if hide_part {
+        fsattr::set_hidden(part, true);
+    }
+
+    let mut plan = if plan_matches(meta_path, part, total).await {
+        load_plan(meta_path).await.filter(valid_plan)
     } else {
         None
     };
     if plan.is_none() {
-        let segments = split(total, connections.max(1), min_split_size.max(1));
+        let segments = split(total, connections.max(1), min_split.max(1));
         let file = match tokio::fs::OpenOptions::new()
             .create(true)
             .truncate(true)
             .write(true)
-            .open(part_path)
+            .open(part)
             .await
         {
             Ok(file) => file,
-            Err(error) => return failed(error.to_string(), 0),
+            Err(error) => {
+                return Outcome::Failed(format!("Could not create the partial file: {error}"));
+            }
         };
         if let Err(error) = file.set_len(total).await {
-            return failed(error.to_string(), 0);
+            return Outcome::Failed(format!("Could not size the partial file: {error}"));
         }
+        drop(file);
         plan = Some(ResumePlan { total, segments });
-        if let Err(error) = save_plan(meta_path, plan.as_ref().expect("plan was just created")).await {
-            return failed(error, 0);
+        if let Err(error) = save_plan(meta_path, plan.as_ref().expect("the plan was just built")).await
+        {
+            return Outcome::Failed(format!("Could not save the resume plan: {error}"));
         }
     }
-    let plan = plan.expect("a valid resume plan exists");
-    let initial_received = plan.segments.iter().map(|segment| segment.position - segment.start).sum::<u64>();
+    let plan = plan.expect("a resume plan exists");
+    let initial_received = plan
+        .segments
+        .iter()
+        .map(|segment| segment.position - segment.start)
+        .sum::<u64>();
     let received = Arc::new(AtomicU64::new(initial_received));
     let shared = Arc::new(Mutex::new(plan.segments));
     let aborted = Arc::new(AtomicBool::new(false));
@@ -133,7 +161,7 @@ pub(crate) async fn download(
         let client = client.clone();
         let headers = headers.clone();
         let url = url.to_string();
-        let path = part_path.to_string();
+        let path = part.to_string();
         let shared = shared.clone();
         let received = received.clone();
         let aborted = aborted.clone();
@@ -141,9 +169,10 @@ pub(crate) async fn download(
         let progress = progress.clone();
         workers.push(tokio::spawn(async move {
             run_segment(
-                client, headers, url, path, index, segment, total, stall_timeout,
-                shared, received, aborted, control, progress,
-            ).await
+                client, headers, url, path, index, segment, total, stall_timeout, shared, received,
+                aborted, control, progress,
+            )
+            .await
         }));
     }
 
@@ -159,37 +188,39 @@ pub(crate) async fn download(
             Err(error) => {
                 hard_failure.get_or_insert(format!("A download segment stopped unexpectedly: {error}"));
             }
-        };
+        }
     }
-    let received = received.load(Ordering::Acquire);
+    let snapshot = || shared.lock().map(|segments| segments.clone()).unwrap_or_default();
+
     match control.signal() {
         Signal::Pause => {
-            let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
-            if let Err(error) = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await {
-                return failed(format!("Could not save the resume plan: {error}"), received);
+            if let Err(error) = save_plan(
+                meta_path,
+                &ResumePlan { total, segments: snapshot() },
+            )
+            .await
+            {
+                return Outcome::Failed(format!("Could not save the resume plan: {error}"));
             }
-            return TransferResult { outcome: Outcome::Paused, received };
+            return Outcome::Paused;
         }
         Signal::Cancel => {
-            let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
-            let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await;
-            return TransferResult { outcome: Outcome::Canceled, received };
+            let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot() }).await;
+            return Outcome::Canceled;
         }
         Signal::Run => {}
     }
     if let Some(error) = hard_failure {
-        let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
-        let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await;
-        return failed(error, received);
+        let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot() }).await;
+        return Outcome::Failed(error);
     }
     if stalled {
-        let snapshot = shared.lock().map(|segments| segments.clone()).unwrap_or_default();
-        let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot }).await;
-        return TransferResult { outcome: Outcome::Stalled, received };
+        // The plan survives so a retry can resume from where the data stopped.
+        let _ = save_plan(meta_path, &ResumePlan { total, segments: snapshot() }).await;
+        return Outcome::Stalled;
     }
     let _ = tokio::fs::remove_file(meta_path).await;
-    let outcome = finalize(part_path, destination).await;
-    TransferResult { outcome, received }
+    crate::http::finalize(part, destination, hide_part).await
 }
 
 #[derive(Debug)]
@@ -218,10 +249,10 @@ async fn run_segment(
 ) -> SegmentResult {
     let mut file = match tokio::fs::OpenOptions::new().write(true).open(&path).await {
         Ok(file) => file,
-        Err(error) => return fail(&aborted, error.to_string()),
+        Err(error) => return fail(&aborted, format!("Could not open the partial file: {error}")),
     };
     if let Err(error) = file.seek(std::io::SeekFrom::Start(segment.position)).await {
-        return fail(&aborted, error.to_string());
+        return fail(&aborted, format!("Could not seek in the partial file: {error}"));
     }
     let response = match client
         .get(&url)
@@ -234,20 +265,29 @@ async fn run_segment(
         Err(error) => return fail(&aborted, format!("Could not fetch a download segment: {error}")),
     };
     if response.status().as_u16() != 206 {
-        return fail(&aborted, format!("The server did not honor a byte-range request ({}).", response.status()));
+        return fail(
+            &aborted,
+            format!("The server did not honour a byte-range request ({}).", response.status()),
+        );
     }
-    let Some((range_start, range_end, range_total)) = response.headers().get(CONTENT_RANGE)
+    let Some((range_start, range_end, range_total)) = response
+        .headers()
+        .get(CONTENT_RANGE)
         .and_then(|header| header.to_str().ok())
         .and_then(parse_content_range)
     else {
         return fail(&aborted, "The server returned an invalid Content-Range header.".to_string());
     };
     if range_start != segment.position || range_end != segment.end || range_total != Some(total) {
-        return fail(&aborted, "The server returned a different byte range than requested.".to_string());
+        return fail(
+            &aborted,
+            "The server returned a different byte range than requested.".to_string(),
+        );
     }
 
     let mut stream = response.bytes_stream();
-    let mut last_data = tokio::time::Instant::now();
+    let limit = stall_limit(stall_timeout, POLL);
+    let mut idle_polls = 0u32;
     loop {
         if aborted.load(Ordering::Acquire) {
             let _ = file.flush().await;
@@ -260,16 +300,18 @@ async fn run_segment(
             }
             Signal::Run => {}
         }
-        match tokio::time::timeout(POLL_INTERVAL, stream.next()).await {
+        match tokio::time::timeout(POLL, stream.next()).await {
             Ok(Some(Ok(bytes))) => {
-                last_data = tokio::time::Instant::now();
                 let remaining = segment.end.saturating_add(1).saturating_sub(segment.position) as usize;
                 let count = bytes.len().min(remaining);
                 if let Err(error) = file.write_all(&bytes[..count]).await {
                     return fail(&aborted, format!("Could not write a download segment: {error}"));
                 }
                 segment.position = segment.position.saturating_add(count as u64);
-                let current = received.fetch_add(count as u64, Ordering::AcqRel).saturating_add(count as u64);
+                idle_polls = 0;
+                let current = received
+                    .fetch_add(count as u64, Ordering::AcqRel)
+                    .saturating_add(count as u64);
                 if let Ok(mut segments) = shared.lock() {
                     if let Some(saved) = segments.get_mut(index) {
                         saved.position = segment.position;
@@ -285,14 +327,16 @@ async fn run_segment(
                 return fail(&aborted, format!("A download segment failed: {error}"));
             }
             Ok(None) => {
-                return fail(&aborted, "A download segment ended before all requested bytes arrived.".to_string());
+                return fail(
+                    &aborted,
+                    "A download segment ended before all requested bytes arrived.".to_string(),
+                );
             }
             Err(_) => {
-                if stall_timeout.is_zero() {
-                    continue;
-                }
-                if last_data.elapsed() >= stall_timeout {
+                idle_polls = idle_polls.saturating_add(1);
+                if idle_polls >= limit {
                     aborted.store(true, Ordering::Release);
+                    let _ = file.flush().await;
                     return SegmentResult::Stalled;
                 }
             }
@@ -305,19 +349,32 @@ fn fail(aborted: &AtomicBool, error: String) -> SegmentResult {
     SegmentResult::Failed(error)
 }
 
+async fn load_plan(meta_path: &str) -> Option<ResumePlan> {
+    let bytes = tokio::fs::read(meta_path).await.ok()?;
+    serde_json::from_slice(&bytes).ok()
+}
+
 async fn save_plan(path: &str, plan: &ResumePlan) -> Result<(), String> {
     let bytes = serde_json::to_vec(plan).map_err(|error| error.to_string())?;
     let target = Path::new(path);
     let temporary = target.with_extension("part.meta.tmp");
-    tokio::fs::write(&temporary, bytes).await.map_err(|error| error.to_string())?;
-    tokio::fs::rename(&temporary, target).await.map_err(|error| error.to_string())
+    tokio::fs::write(&temporary, bytes)
+        .await
+        .map_err(|error| error.to_string())?;
+    tokio::fs::rename(&temporary, target)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 fn parse_content_range(value: &str) -> Option<(u64, u64, Option<u64>)> {
     let value = value.strip_prefix("bytes ")?;
     let (range, total) = value.split_once('/')?;
     let (start, end) = range.split_once('-')?;
-    Some((start.parse().ok()?, end.parse().ok()?, if total == "*" { None } else { total.parse().ok() }))
+    Some((
+        start.parse().ok()?,
+        end.parse().ok()?,
+        if total == "*" { None } else { total.parse().ok() },
+    ))
 }
 
 fn split(total: u64, connections: usize, minimum: u64) -> Vec<Segment> {
@@ -328,99 +385,58 @@ fn split(total: u64, connections: usize, minimum: u64) -> Vec<Segment> {
     let count = (connections as u64).clamp(1, count_by_minimum) as usize;
     let base = total / count as u64;
     let mut start = 0u64;
-    (0..count).map(|index| {
-        let end = if index + 1 == count { total - 1 } else { start + base - 1 };
-        let segment = Segment { start, position: start, end };
-        start = end + 1;
-        segment
-    }).collect()
-}
-
-async fn finalize(part: &str, destination: &Path) -> Outcome {
-    if tokio::fs::try_exists(destination).await.unwrap_or(true) {
-        return Outcome::Failed("The destination file already exists; it was not overwritten.".to_string());
-    }
-    match tokio::fs::rename(part, destination).await {
-        Ok(()) => Outcome::Completed,
-        Err(error) => Outcome::Failed(format!("Could not finalize the segmented download: {error}")),
-    }
-}
-
-fn failed(message: String, received: u64) -> TransferResult {
-    TransferResult { outcome: Outcome::Failed(message), received }
+    (0..count)
+        .map(|index| {
+            let end = if index + 1 == count {
+                total - 1
+            } else {
+                start + base - 1
+            };
+            let segment = Segment {
+                start,
+                position: start,
+                end,
+            };
+            start = end + 1;
+            segment
+        })
+        .collect()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{download, split, valid_plan, ResumePlan, Segment};
-    use crate::backend::{Control, Outcome};
+    use super::{download, plan_matches, save_plan, split, valid_plan, ResumePlan, Segment};
+    use crate::backend::{Control, ProgressFn};
     use reqwest::header::HeaderMap;
     use std::sync::Arc;
     use std::time::Duration;
 
     #[tokio::test]
-    async fn downloads_and_finalizes_range_segments() {
-        let body: Vec<u8> = (0..4096).map(|value| (value % 251) as u8).collect();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let source = Arc::new(body.clone());
-        let server = tokio::spawn(async move {
-            for _ in 0..4 {
-                let (mut socket, _) = listener.accept().await.unwrap();
-                let source = source.clone();
-                tokio::spawn(async move {
-                    let mut request = Vec::new();
-                    let mut chunk = [0u8; 1024];
-                    loop {
-                        let count = tokio::io::AsyncReadExt::read(&mut socket, &mut chunk).await.unwrap();
-                        if count == 0 { return; }
-                        request.extend_from_slice(&chunk[..count]);
-                        if request.windows(4).any(|window| window == b"\r\n\r\n") { break; }
-                    }
-                    let text = String::from_utf8_lossy(&request);
-                    let range = text.lines()
-                        .find_map(|line| {
-                            let (name, value) = line.split_once(':')?;
-                            name.eq_ignore_ascii_case("range").then_some(value.trim())
-                        })
-                        .unwrap()
-                        .strip_prefix("bytes=")
-                        .unwrap();
-                    let (start, end) = range.split_once('-').unwrap();
-                    let start: usize = start.parse().unwrap();
-                    let end: usize = end.parse().unwrap();
-                    let payload = &source[start..=end];
-                    let header = format!(
-                        "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {start}-{end}/{}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                        source.len(), payload.len()
-                    );
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, payload).await.unwrap();
-                });
-            }
-        });
-
+    async fn plan_matches_requires_a_plan_a_total_and_a_sized_partial() {
         let dir = tempfile::tempdir().unwrap();
         let part = dir.path().join("file.bin.part");
-        let dest = dir.path().join("file.bin");
         let meta = dir.path().join("file.bin.part.meta");
-        let result = download(
-            &reqwest::Client::new(),
-            &format!("http://{address}/file.bin"),
-            &HeaderMap::new(),
-            part.to_str().unwrap(),
-            &dest,
-            meta.to_str().unwrap(),
-            body.len() as u64,
-            4,
-            1024,
-            Duration::from_secs(5),
-            &Control::default(),
-            Arc::new(|_, _| {}),
-        ).await;
-        server.await.unwrap();
-        assert!(matches!(result.outcome, Outcome::Completed));
-        assert_eq!(tokio::fs::read(dest).await.unwrap(), body);
+        let part_path = part.to_str().unwrap();
+        let meta_path = meta.to_str().unwrap();
+        let plan = ResumePlan {
+            total: 8,
+            segments: vec![
+                Segment { start: 0, position: 0, end: 3 },
+                Segment { start: 4, position: 4, end: 7 },
+            ],
+        };
+
+        assert!(!plan_matches(meta_path, part_path, 8).await, "no plan on disk yet");
+
+        save_plan(meta_path, &plan).await.unwrap();
+        assert!(!plan_matches(meta_path, part_path, 8).await, "the .part is missing");
+
+        tokio::fs::write(&part, vec![0u8; 5]).await.unwrap();
+        assert!(!plan_matches(meta_path, part_path, 8).await, "the .part is the wrong length");
+
+        tokio::fs::write(&part, vec![0u8; 8]).await.unwrap();
+        assert!(!plan_matches(meta_path, part_path, 9).await, "the server reports another total");
+        assert!(plan_matches(meta_path, part_path, 8).await);
     }
 
     #[test]
@@ -434,16 +450,110 @@ mod tests {
     }
 
     #[test]
+    fn split_never_exceeds_the_minimum_segment_size() {
+        assert_eq!(split(4096, 8, 1024).len(), 4);
+        assert_eq!(split(1024, 8, 4096).len(), 1);
+    }
+
+    #[test]
     fn rejects_invalid_resume_plans() {
         let plan = ResumePlan {
             total: 10,
-            segments: vec![Segment { start: 0, position: 0, end: 4 }, Segment { start: 5, position: 5, end: 9 }],
+            segments: vec![
+                Segment { start: 0, position: 0, end: 4 },
+                Segment { start: 5, position: 5, end: 9 },
+            ],
         };
         assert!(valid_plan(&plan));
         let invalid = ResumePlan {
             total: 10,
-            segments: vec![Segment { start: 0, position: 0, end: 4 }, Segment { start: 6, position: 6, end: 9 }],
+            segments: vec![
+                Segment { start: 0, position: 0, end: 4 },
+                Segment { start: 6, position: 6, end: 9 },
+            ],
         };
         assert!(!valid_plan(&invalid));
+    }
+
+    #[tokio::test]
+    async fn downloads_and_finalizes_range_segments() {
+        let body: Vec<u8> = (0..4096).map(|value| (value % 251) as u8).collect();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let source = Arc::new(body.clone());
+        let server = tokio::spawn(async move {
+            loop {
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
+                let source = source.clone();
+                tokio::spawn(async move {
+                    let mut request = Vec::new();
+                    let mut chunk = [0u8; 1024];
+                    loop {
+                        let count =
+                            tokio::io::AsyncReadExt::read(&mut socket, &mut chunk).await.unwrap();
+                        if count == 0 {
+                            return;
+                        }
+                        request.extend_from_slice(&chunk[..count]);
+                        if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                            break;
+                        }
+                    }
+                    let text = String::from_utf8_lossy(&request);
+                    let Some((start, end)) = text
+                        .lines()
+                        .find_map(|line| {
+                            let (name, value) = line.split_once(':')?;
+                            name.eq_ignore_ascii_case("range").then_some(value.trim())
+                        })
+                        .and_then(|value| value.strip_prefix("bytes="))
+                        .and_then(|value| value.split_once('-'))
+                    else {
+                        return;
+                    };
+                    let start: usize = start.parse().unwrap();
+                    let end: usize = match end {
+                        "" => source.len() - 1,
+                        value => value.parse().unwrap(),
+                    };
+                    let payload = &source[start..=end];
+                    let header = format!(
+                        "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {start}-{end}/{}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        source.len(),
+                        payload.len()
+                    );
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes())
+                        .await
+                        .unwrap();
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, payload).await.unwrap();
+                });
+            }
+        });
+
+        let dir = tempfile::tempdir().unwrap();
+        let part = dir.path().join("file.bin.part");
+        let dest = dir.path().join("file.bin");
+        let meta = dir.path().join("file.bin.part.meta");
+        let progress: ProgressFn = Arc::new(|_, _| {});
+        let outcome = download(
+            &reqwest::Client::new(),
+            &format!("http://{address}/file.bin"),
+            &HeaderMap::new(),
+            part.to_str().unwrap(),
+            dest.to_str().unwrap(),
+            meta.to_str().unwrap(),
+            4,
+            1024,
+            false,
+            Duration::from_secs(5),
+            &Control::default(),
+            &progress,
+        )
+        .await;
+        server.abort();
+        assert!(matches!(outcome, crate::backend::Outcome::Completed));
+        assert_eq!(tokio::fs::read(dest).await.unwrap(), body);
     }
 }

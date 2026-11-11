@@ -14,7 +14,7 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Notify;
 use uuid::Uuid;
 
-use crate::backend::{Control, Outcome, Signal};
+use crate::backend::{Control, Outcome, ProgressFn, Signal};
 use crate::category::CategoryStore;
 use crate::error::{MoinError, MoinResult};
 use crate::models::{
@@ -924,9 +924,14 @@ impl Engine {
             let task_id = task.id.clone();
             let emitter = self.inner.emitter.clone();
             // Segmented workers all push into the same running total, so one
-            // sampler over `received` yields the combined throughput.
+            // sampler over `received` yields the combined throughput. The
+            // counter also carries the final reading back out, because the
+            // transfer itself only reports through the callback.
             let sampler = Arc::new(Mutex::new(SpeedSampler::new()));
-            let progress = Arc::new(move |received: u64, total: Option<u64>| {
+            let latest = Arc::new(AtomicU64::new(0));
+            let tracker = latest.clone();
+            let progress: ProgressFn = Arc::new(move |received: u64, total: Option<u64>| {
+                tracker.store(received, Ordering::Release);
                 let speed = sampler
                     .lock()
                     .map(|mut sampler| sampler.sample(received))
@@ -939,23 +944,22 @@ impl Engine {
                     status: TaskStatus::Downloading,
                 });
             });
-            let transfer = crate::segmented::download(
+            let outcome = crate::segmented::download(
                 &client,
                 &task.url,
                 &request_headers,
                 &part,
-                &destination,
+                &task.dest,
                 &meta_path,
-                total,
                 settings.connections,
                 settings.min_split_size,
+                settings.hide_part_files,
                 Duration::from_secs(settings.stall_timeout_secs),
                 control,
-                progress,
+                &progress,
             )
             .await;
-            let outcome = transfer.outcome;
-            let received = transfer.received;
+            let received = latest.load(Ordering::Acquire);
             if let Err(error) = self
                 .mutate(&task.id, |current| {
                     current.received = received;

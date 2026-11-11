@@ -4,15 +4,19 @@
 //! HTTP download engine for WingHarness.
 //!
 //! Layer order: `models`/`error`/`paths` are leaf modules, `store`/`settings`/
-//! `category` persist them, `backend`/`segmented` move bytes, `engine` runs the
-//! queue, `state` binds it to Tauri and `commands` exposes it over IPC.
+//! `category` persist them, `backend`/`http`/`segmented`/`embedded`/`fsattr`
+//! move bytes, `engine` runs the queue, `state` binds it to Tauri and `commands`
+//! exposes it over IPC.
 
 mod backend;
 mod category;
 pub mod commands;
+mod embedded;
 mod engine;
 pub mod error;
 pub mod events;
+mod fsattr;
+mod http;
 pub mod models;
 pub mod paths;
 mod segmented;
@@ -21,6 +25,7 @@ pub mod state;
 mod store;
 
 pub use backend::{Control, DownloadBackend, NetConfig, Outcome, Signal, TransferOpts};
+pub use embedded::EmbeddedBackend;
 pub use engine::{Emitter, Engine};
 pub use error::{MoinError, MoinErrorCode, MoinResult};
 pub use models::{
