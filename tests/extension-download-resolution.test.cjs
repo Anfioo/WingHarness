@@ -12,6 +12,11 @@ const resolverEnd = background.indexOf("// ---- The shared capture pipeline", re
 assert.notEqual(resolverStart, -1, "the final-URL resolver exists");
 assert.notEqual(resolverEnd, -1, "the final-URL resolver has a clear end");
 const resolverSource = background.slice(resolverStart, resolverEnd).trim();
+const sourceUrlStart = background.indexOf("function captureRequestUrl(item) {");
+const sourceUrlEnd = background.indexOf("B.downloads.onCreated.addListener", sourceUrlStart);
+assert.notEqual(sourceUrlStart, -1, "the original-request URL selector exists");
+assert.notEqual(sourceUrlEnd, -1, "the original-request URL selector has a clear end");
+const sourceUrlFunction = background.slice(sourceUrlStart, sourceUrlEnd).trim();
 
 function createResolver(downloadItem) {
   const listeners = new Set();
@@ -76,6 +81,22 @@ test("waits through intermediate CDN URLs until the browser receives the file", 
   setTimeout(() => resolver.publishBytes(16), 40);
 
   assert.equal(await resolver.resolve({ id: 7, url: initial, finalUrl: initial }), final);
+});
+
+test("replays the source download URL instead of a browser-issued CDN signature", () => {
+  const context = {
+    isHandoffable(value) {
+      return typeof value === "string" && /^https?:\/\//i.test(value);
+    },
+  };
+  vm.runInNewContext(
+    `${sourceUrlFunction}\nglobalThis.captureRequestUrl = captureRequestUrl;`,
+    context
+  );
+
+  const source = "https://www.jetbrains.com.cn/idea/download/idea-2026.3.exe";
+  const browserSignedUrl = "https://download-cdn.example.test/idea-2026.3.exe?signature=browser";
+  assert.equal(context.captureRequestUrl({ url: source, finalUrl: browserSignedUrl }), source);
 });
 
 test("a download with no response or settled URL is left with the browser", async () => {

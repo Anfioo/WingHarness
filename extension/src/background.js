@@ -166,12 +166,18 @@ function onHeadersReceived(details) {
 
 // ---- Auto-intercept the browser's own downloads -------------------------
 
+/** Keep the URL that initiated the browser download; WingHarness follows redirects itself. */
+function captureRequestUrl(item) {
+  return isHandoffable(item.url) ? item.url : null;
+}
+
 B.downloads.onCreated.addListener(async (item) => {
   const cfg = await loadConfig();
   const manual = takeManualCapture(item.url);
   try {
     if (!cfg.enabled || (!cfg.autoCapture && !manual)) return;
-    if (!isHandoffable(item.url)) return;
+    const requestUrl = captureRequestUrl(item);
+    if (!requestUrl) return;
     if (bypass.has(item.url)) {
       bypass.delete(item.url);
       return; // a fallback download we already chose to leave with the browser
@@ -179,10 +185,11 @@ B.downloads.onCreated.addListener(async (item) => {
     if (!manual && Date.now() < suppressAutoUntil) return; // recently declined; stay quiet
     if (!manual && cfg.minBytes > 0 && item.fileSize > 0 && item.fileSize < cfg.minBytes) return;
 
-    // The item URL can be the initial link, not the resource the browser reached
-    // after redirects. Wait for finalUrl to settle before pausing and submitting.
-    const url = await resolveDownloadUrl(item);
-    if (!url || !isHandoffable(url)) {
+    // Wait until the browser has finished resolving redirects and received file
+    // data. Submit the original download request URL so WingHarness obtains its
+    // own fresh CDN redirect instead of replaying a browser-issued signed URL.
+    const finalUrl = await resolveDownloadUrl(item);
+    if (!finalUrl || !isHandoffable(finalUrl)) {
       if (manual) {
         notify(
           "Couldn't resolve the final download URL",
@@ -199,7 +206,7 @@ B.downloads.onCreated.addListener(async (item) => {
     if (!paused) return;
 
     const outcome = await capture({
-      url,
+      url: requestUrl,
       referrer: manual?.referrer || item.referrer,
       tabId: manual?.tabId,
       // The browser's chosen path is a nicer name than the URL's tail.
@@ -218,7 +225,7 @@ B.downloads.onCreated.addListener(async (item) => {
   }
 });
 
-/** Wait for Chrome/Firefox to publish the post-redirect DownloadItem.finalUrl. */
+/** Wait for the browser's final response before the app replays the source URL. */
 async function resolveDownloadUrl(item) {
   let finalUrl = isHandoffable(item.finalUrl) ? item.finalUrl : item.url;
   let lastUrlChangeAt = Date.now();

@@ -1,22 +1,23 @@
 # WingHarness — browser download capture
 
 A companion extension that hands your browser's downloads to [WingHarness](../).
-It uses the browser's resolved download request, so redirect and login flows can
-finish before WingHarness receives the file URL:
+It waits for the browser to resolve a real download, then lets WingHarness replay
+the original request URL and follow its own redirects:
 
 - **Browser download capture** — the browser follows redirects and creates its
   download entry. The extension waits for the final URL and the first file bytes,
-  then pauses the browser copy and submits that resolved URL to WingHarness. This avoids mistaking a landing
-  page or an authentication endpoint for the actual file.
+  then pauses the browser copy and submits the original download-request URL to
+  WingHarness. The app can obtain its own CDN redirect instead of reusing a
+  browser-issued signed URL.
 - **Response interception, Firefox only** — Firefox can cancel a
   `Content-Disposition: attachment` response before the browser's save dialog and
   hand its final response URL to WingHarness.
 
 On Chrome, the browser may show its save dialog before the extension sees the
 resolved download. Disable Chrome's **Ask where to save each file before
-downloading** setting if you do not want that dialog. A direct **Download with
-WingHarness** context-menu action also lets the browser resolve the request
-first, then hands the resolved download over.
+downloading** setting if you do not want that dialog. A **Download with
+WingHarness** context-menu action also starts a browser request first, then passes
+the request's original URL to WingHarness after the browser confirms that it is a download.
 
 All paths include cookies, referer, and user-agent, so logged-in / gated
 downloads work. You can also always right-click a link/image/video →
@@ -124,9 +125,9 @@ each file before downloading" to suppress it.
 Reload the extension from the browser's extensions page so the updated version is
 active. The content script no longer intercepts a link based only on its filename;
 with auto-capture enabled, let the browser follow the link and redirects. The
-extension waits for the browser's final download URL before handing it off. If
-using the context menu, choose the download action on the link and let the browser
-resolve it first.
+extension waits for a real browser download, then sends its original request URL
+so WingHarness can follow redirects independently. If using the context menu,
+choose the download action on the link.
 
 **Right-click does nothing.**
 Check the **Enable WingHarness capture** switch, and that the link is a direct

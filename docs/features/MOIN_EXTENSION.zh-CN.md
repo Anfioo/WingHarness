@@ -10,8 +10,9 @@ WingHarness。源码位于 `extension/`，使用纯 JavaScript，无运行时依
 扩展只在浏览器解析完下载请求后才把任务交给 WingHarness：
 
 1. **自动捕获。** 浏览器先发起下载并跟随重定向。扩展会等待
-   `DownloadItem.finalUrl` 确定且收到首批文件数据后，再暂停浏览器中的副本并把
-   最终 URL 交给 WingHarness，避免把中间 CDN 跳转、落地页或登录页误认为文件。
+   `DownloadItem.finalUrl` 确定且收到首批文件数据后，再暂停浏览器中的副本。随后
+   把浏览器最初发起下载的 URL 交给 WingHarness，由应用自行跟随重定向，避免重放
+   浏览器临时获得的 CDN 签名地址。
 2. **右键菜单捕获。** 选择 **Download with WingHarness** 后，扩展先让浏览器
    发起请求并解析重定向，再把解析后的下载交给 WingHarness。如果捕获失败，
    浏览器会继续原下载。
@@ -107,7 +108,7 @@ Referer 和 User-Agent 只发送到用户本机的 `http://127.0.0.1:<port>`，�
 | 测试返回 401                     | 从应用复制当前令牌并粘贴到扩展；修改令牌不需要重启应用。                                                                                                                   |
 | 端口被占用                       | 在应用中选择其他端口并重启，再在扩展中填写相同端口。绑定失败不会使 WingHarness 崩溃。                                                                                      |
 | Chromium 仍弹出保存对话框        | 开启自动捕获。Chromium 会在解析重定向后才把下载交给扩展，因此可能先显示保存对话框；关闭 **Ask where to save each file before downloading** 可避免弹窗。                    |
-| WingHarness 收到 HTML 而不是文件 | 重新加载扩展以启用更新版本。开启自动捕获并让浏览器先解析重定向；扩展会使用 `finalUrl`，不再仅根据链接文件名提前拦截。                                                      |
+| WingHarness 收到 HTML 而不是文件 | 重新加载扩展以启用更新版本并开启自动捕获；扩展不再按文件名提前拦截，而是在浏览器真正开始下载后把原始下载请求 URL 交给应用。                                                |
 | 右键没有反应                     | 检查扩展捕获开关，并使用 HTTP/HTTPS 链接。右键菜单会先让浏览器解析重定向；浏览器内部、`blob:` 与 `data:` URL 不受支持。                                                    |
 | 下载页没有任务                   | 先检查应用任务列表，再查看扩展后台控制台。Chromium 为 **Inspect views: service worker**，Firefox 在 `about:debugging` 下选择 **Inspect**。扩展日志前缀为 `[wingharness]`。 |
 | Firefox 重启后扩展消失           | 这是临时扩展的预期行为，重新加载 `dist/firefox/manifest.json`。                                                                                                            |

@@ -12,9 +12,9 @@ The extension hands off downloads only after the browser resolves the request:
 
 1. **Automatic capture.** When enabled, the browser starts the download and
    follows its redirects. The extension waits for `DownloadItem.finalUrl` and
-   the first response bytes before pausing the browser copy and sending that URL
-   to WingHarness. This prevents an intermediate CDN hop, landing or login page
-   from being mistaken for the file.
+   the first response bytes before pausing the browser copy. It sends the
+   browser's original download-request URL, allowing WingHarness to follow the
+   redirect chain itself instead of reusing a browser-issued CDN signature.
 2. **Context-menu capture.** Choosing **Download with WingHarness** starts the
    browser request under extension tracking, then hands the resolved download to
    WingHarness. The browser copy resumes if capture fails.
@@ -118,16 +118,16 @@ token is accepted.
 
 ## Troubleshooting
 
-| Symptom                                   | Action                                                                                                                                                                                                                 |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| WingHarness is unreachable                | Start the app, enable browser integration and make the ports match. Restart after changing the app's switch or port.                                                                                                   |
-| The test returns 401                      | Copy the current token from the app and paste it into the extension. No app restart is needed for a token change.                                                                                                      |
-| The port is occupied                      | Choose another port in the app, restart it, then use the same port in the extension. A bind failure does not crash WingHarness.                                                                                        |
-| Chromium still opens a save dialog        | Enable auto-capture. Chromium exposes the download after redirect resolution, so the dialog may appear first; disable **Ask where to save each file before downloading** to suppress it.                               |
-| WingHarness receives HTML instead of file | Reload the extension so the updated version is active. Enable auto-capture and let the browser resolve redirects; the extension now hands off `finalUrl` instead of intercepting a link by its filename alone.         |
-| Right-click does nothing                  | Check the extension's capture switch and use an HTTP/HTTPS link. The menu lets the browser resolve redirects before capture; browser-internal, `blob:` and `data:` URLs are unsupported.                               |
-| Nothing appears in Downloads              | Check the app's task list, then inspect the extension background console. Chromium exposes **Inspect views: service worker**; Firefox exposes **Inspect** under `about:debugging`. Extension logs use `[wingharness]`. |
-| Firefox loses the extension after restart | This is expected for a temporary add-on. Load `dist/firefox/manifest.json` again.                                                                                                                                      |
+| Symptom                                   | Action                                                                                                                                                                                                                     |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WingHarness is unreachable                | Start the app, enable browser integration and make the ports match. Restart after changing the app's switch or port.                                                                                                       |
+| The test returns 401                      | Copy the current token from the app and paste it into the extension. No app restart is needed for a token change.                                                                                                          |
+| The port is occupied                      | Choose another port in the app, restart it, then use the same port in the extension. A bind failure does not crash WingHarness.                                                                                            |
+| Chromium still opens a save dialog        | Enable auto-capture. Chromium exposes the download after redirect resolution, so the dialog may appear first; disable **Ask where to save each file before downloading** to suppress it.                                   |
+| WingHarness receives HTML instead of file | Reload the extension so the updated version is active. Enable auto-capture; the extension no longer intercepts links by filename and now submits the browser's original download-request URL after a real response starts. |
+| Right-click does nothing                  | Check the extension's capture switch and use an HTTP/HTTPS link. The menu lets the browser resolve redirects before capture; browser-internal, `blob:` and `data:` URLs are unsupported.                                   |
+| Nothing appears in Downloads              | Check the app's task list, then inspect the extension background console. Chromium exposes **Inspect views: service worker**; Firefox exposes **Inspect** under `about:debugging`. Extension logs use `[wingharness]`.     |
+| Firefox loses the extension after restart | This is expected for a temporary add-on. Load `dist/firefox/manifest.json` again.                                                                                                                                          |
 
 ## Source layout
 
