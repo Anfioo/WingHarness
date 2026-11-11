@@ -149,6 +149,12 @@ jobs:
             body="Release ${TAG}"
           fi
 
+          # The notes link to commits and compares; point them at Gitee so the
+          # mirrored release does not send readers back to GitHub.
+          github_url="https://github.com/${GITHUB_REPOSITORY}"
+          gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
+          body="${body//"${github_url}"/"${gitee_url}"}"
+
           {
             echo "body<<WH_GITEE_BODY_EOF"
             printf '%s\n' "${body}"
@@ -199,6 +205,28 @@ jobs:
           gitee_release_name: ${{ steps.resolve.outputs.tag }}
           gitee_release_body: ${{ steps.notes.outputs.body }}
           gitee_target_commitish: ${{ steps.resolve.outputs.commit }}
+
+      # Creating a release writes the body once; a manual re-run of an existing
+      # release still needs the rewritten notes applied.
+      - name: Update the Gitee release notes
+        if: steps.release.outputs.exists == 'true'
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          BODY: ${{ steps.notes.outputs.body }}
+        run: |
+          if ! response="$(curl -sS --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 120 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -X PATCH \
+            --data-urlencode "access_token=${GITEE_TOKEN}" \
+            --data-urlencode "body=${BODY}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}")"; then
+            echo "Updating the release notes failed: ${response}" >&2
+            exit 1
+          fi
+          echo "Updated the notes for the existing Gitee release."
 
       - name: Download the GitHub release assets
         id: assets
@@ -342,8 +370,6 @@ jobs:
         shell: bash
         env:
           DIR: ${{ steps.assets.outputs.dir }}
-          TAG: ${{ steps.resolve.outputs.tag }}
-          GITEE_BASE: ${{ steps.base.outputs.base }}
         run: |
           latest="${DIR}/latest.json"
           if [ ! -f "${latest}" ]; then
@@ -351,17 +377,20 @@ jobs:
             exit 0
           fi
 
-          github_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
-          jq --arg old "${github_base}" --arg new "${GITEE_BASE}" \
+          # Covers both the download URLs and the release notes inside the
+          # manifest, which carry the same GitHub links as the release body.
+          github_url="https://github.com/${GITHUB_REPOSITORY}"
+          gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
+          jq --arg old "${github_url}" --arg new "${gitee_url}" \
             'walk(if type == "string" then split($old) | join($new) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
-          if grep -qF "${github_base}" "${latest}"; then
+          if grep -qF "${github_url}" "${latest}"; then
             echo "latest.json still points at GitHub." >&2
             exit 1
           fi
-          echo "latest.json now downloads from ${GITEE_BASE}."
+          echo "latest.json now points at ${gitee_url}."
 
       # Uploaded last so the manifest never references a file that is not there.
       - name: Upload latest.json to Gitee
