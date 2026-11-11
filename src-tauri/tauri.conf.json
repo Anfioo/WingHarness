@@ -14,7 +14,8 @@
 		"updater": {
 			"pubkey": "__TAURI_UPDATER_PUBKEY__",
 			"endpoints": [
-				"__TAURI_UPDATER_ENDPOINT__"
+				"__TAURI_UPDATER_ENDPOINT__",
+				"__TAURI_UPDATER_MIRROR_ENDPOINT__"
 			],
 			"windows": {
 				"installMode": "passive"

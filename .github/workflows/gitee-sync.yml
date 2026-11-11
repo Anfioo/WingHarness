@@ -424,6 +424,65 @@ jobs:
           fi
           echo "Uploaded latest.json: ${url}"
 
+      # The updater's second endpoint is a fixed tag, so it is refreshed only
+      # after the version release holds the files the manifest points at.
+      # Gitee rejects a second attachment with the same name, so the previous
+      # latest.json has to be deleted first.
+      - name: Refresh the fixed latest manifest
+        if: steps.plan.outputs.has_latest == 'true'
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          COMMIT: ${{ steps.resolve.outputs.commit }}
+          FILE: ${{ steps.assets.outputs.dir }}/latest.json
+        run: |
+          response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/latest?access_token=${GITEE_TOKEN}")"
+          release_id="$(printf '%s' "${response}" | jq -er '.id' 2>/dev/null || true)"
+
+          if [ -z "${release_id}" ]; then
+            echo "Creating the fixed 'latest' release..."
+            if ! response="$(curl -sS --fail-with-body --http1.1 \
+              --connect-timeout 30 --max-time 120 \
+              --retry 3 --retry-delay 5 --retry-all-errors \
+              --data-urlencode "access_token=${GITEE_TOKEN}" \
+              --data-urlencode "tag_name=latest" \
+              --data-urlencode "name=latest" \
+              --data-urlencode "body=Fixed updater manifest for the newest release." \
+              --data-urlencode "target_commitish=${COMMIT}" \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases")"; then
+              echo "Creating the fixed 'latest' release failed: ${response}" >&2
+              exit 1
+            fi
+            release_id="$(printf '%s' "${response}" | jq -er '.id')"
+          fi
+          echo "Fixed manifest release: ${release_id}"
+
+          attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+          old_id="$(printf '%s' "${attachments}" | jq -r '.[] | select(.name == "latest.json") | .id' | head -n 1)"
+
+          if [ -n "${old_id}" ]; then
+            echo "Removing the previous latest.json (attachment ${old_id})..."
+            curl -sS --fail-with-body --retry 3 --retry-delay 5 --retry-all-errors \
+              -X DELETE \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}/attach_files/${old_id}?access_token=${GITEE_TOKEN}"
+          fi
+
+          echo "Uploading the refreshed manifest..."
+          if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 300 \
+            --speed-limit 1024 --speed-time 60 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${FILE}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}/attach_files")"; then
+            echo "Uploading the fixed manifest failed: ${response}" >&2
+            exit 1
+          fi
+
+          echo "Fixed manifest: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/latest/latest.json"
+
       - name: Summarize
         shell: bash
         env:
