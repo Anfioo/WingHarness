@@ -1,14 +1,13 @@
 name: "gitee-sync"
 
-# Syncs a published release to Gitee: pushes the release tag, creates the
-# matching Gitee release with the same notes, and uploads the GitHub release
-# assets with latest.json repointed at Gitee.
-# Hooking `release: published` instead of the build pipeline means the sync
-# happens after the draft has been reviewed and published on GitHub, not while
-# it is still a draft. `workflow_dispatch` backfills an older release.
+# Publishes the latest GitHub release to Gitee once a day, and syncs a chosen
+# release on demand. A scheduled run only acts when Gitee has no release for
+# the latest tag; a manual run skips that check, so it can backfill an older
+# version or repair a release whose upload previously failed.
 on:
-  release:
-    types: [published]
+  schedule:
+    # 02:00 Asia/Shanghai (the runner cron is UTC).
+    - cron: "0 18 * * *"
   workflow_dispatch:
     inputs:
       tag:
@@ -23,7 +22,49 @@ env:
   GITEE_API: https://gitee.com/api/v5
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
+      skip: ${{ steps.target.outputs.skip }}
+    steps:
+      - name: Resolve the release to sync
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run; syncing ${INPUT_TAG} unconditionally."
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          if [ -z "${tag}" ]; then
+            echo "No published release yet; nothing to sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${tag}?access_token=${GITEE_TOKEN}")"
+          if printf '%s' "${response}" | jq -e '.id' > /dev/null 2>&1; then
+            echo "Gitee already has a release for ${tag}; nothing to sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Gitee has no release for ${tag}; syncing."
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
   sync:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,13 +75,13 @@ jobs:
           # The tagged commit may be anywhere in the history, and it has to be
           # pushed complete before the tag can land on Gitee.
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ needs.check.outputs.tag }}
 
       - name: Resolve the release tag
         id: resolve
         shell: bash
         env:
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
           if ! commit="$(git rev-parse --verify "refs/tags/${TAG}^{commit}" 2>/dev/null)"; then
             echo "Tag ${TAG} does not exist on GitHub." >&2
@@ -125,7 +166,7 @@ jobs:
           # release, so the status code alone cannot tell the two apart.
           response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
             -w '\n%{http_code}' \
-            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
           status="$(printf '%s' "${response}" | tail -n 1)"
           body="$(printf '%s\n' "${response}" | sed '$d')"
 
@@ -186,7 +227,7 @@ jobs:
         run: |
           attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
             -w '\n%{http_code}' \
-            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
           status="$(printf '%s' "${attachments}" | tail -n 1)"
           body="$(printf '%s\n' "${attachments}" | sed '$d')"
 
