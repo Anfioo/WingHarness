@@ -430,6 +430,26 @@ jobs:
           fi
           echo "Uploaded latest.json: ${url}"
 
+      # Gitee can accept a file and then never answer, which makes curl retry
+      # an upload that already landed. Keep only the first attachment of each
+      # name so a retried upload does not leave duplicates on the release.
+      - name: Remove duplicate attachments
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+        run: |
+          attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+          duplicates="$(printf '%s' "${attachments}" | jq -r 'group_by(.name)[] | select(length > 1) | .[1:][] | .id' 2>/dev/null || true)"
+
+          for id in ${duplicates}; do
+            echo "Removing duplicate attachment ${id}..."
+            curl -sS --fail-with-body --retry 3 --retry-delay 5 --retry-all-errors \
+              -X DELETE \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files/${id}?access_token=${GITEE_TOKEN}"
+          done
+
       # The updater's second endpoint is a fixed tag, so it is refreshed only
       # after the version release holds the files the manifest points at.
       # Gitee rejects a second attachment with the same name, so the previous
