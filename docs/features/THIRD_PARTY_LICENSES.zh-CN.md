@@ -9,15 +9,16 @@ WingHarness 的上游项目，并展示完整的第三方声明，无需离开�
 - **来源项目** —— 每个上游一行：名称、许可证徽标、承载移植代码的模块，以及一个
   在系统浏览器中打开上游仓库的按钮。
 - **完整声明** —— 当前语言对应的完整 `THIRD_PARTY_NOTICES` 文件，放在可滚动区域中。
+- **moin MIT 许可证** —— 完整上游 MIT 条款会随程序内嵌，并在单独的可滚动区域中展示，确保版权与许可声明离线可见。
 - 顶部同时标明本项目自身的许可证：GPL-3.0-only。
 
 ## 内容来源
 
-| 部分 | 来源 |
-|------|------|
-| 上游列表 | [`src/windows/about/index.tsx`](../../src/windows/about/index.tsx) 中的 `UPSTREAMS` |
-| 声明文本 | [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) 与 [`THIRD_PARTY_NOTICES.zh-CN.md`](../../THIRD_PARTY_NOTICES.zh-CN.md)，通过 Vite 的 `?raw` 导入 |
-| 许可证文本 | [`licenses/`](../../licenses/) |
+| 部分       | 来源                                                                                                                                                       |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 上游列表   | [`src/windows/about/index.tsx`](../../src/windows/about/index.tsx) 中的 `UPSTREAMS`                                                                        |
+| 声明文本   | [`THIRD_PARTY_NOTICES.md`](../../THIRD_PARTY_NOTICES.md) 与 [`THIRD_PARTY_NOTICES.zh-CN.md`](../../THIRD_PARTY_NOTICES.zh-CN.md)，通过 Vite 的 `?raw` 导入 |
+| 许可证文本 | moin MIT 正文从 [`licenses/moin-LICENSE.txt`](../../licenses/moin-LICENSE.txt) 导入并离线显示；其他来源许可证文件保存在 [`licenses/`](../../licenses/)     |
 
 声明在构建时被打进前端，因此对话框离线可用，不需要 Tauri 命令，也不需要额外的
 bundle 资源。两种语言都会打包，对话框按当前界面语言选择。

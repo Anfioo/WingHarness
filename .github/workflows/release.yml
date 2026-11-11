@@ -123,9 +123,10 @@ jobs:
         run: |
           REPO="${{ github.repository }}"
           ENDPOINT="https://github.com/${REPO}/releases/latest/download/latest.json"
-          # Fallback for users who cannot reach GitHub; gitee-sync keeps this
-          # fixed tag's latest.json pointing at the newest release.
-          MIRROR_ENDPOINT="https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json"
+          # Fallbacks for users who cannot reach GitHub, tried in this order.
+          # r2-sync and gitee-sync keep their fixed latest.json current.
+          R2_ENDPOINT="https://wingharness.dpdns.org/WingHarness/latest/latest.json"
+          GITEE_ENDPOINT="https://gitee.com/anfioo/WingHarness/releases/download/latest/latest.json"
           PUBKEY="${TAURI_SIGNING_PUBLIC_KEY}"
 
           if [[ -z "${PUBKEY}" ]]; then
@@ -140,7 +141,8 @@ jobs:
 
           # Replace placeholders in tauri.conf.json
           sed -i.bak "s|__TAURI_UPDATER_ENDPOINT__|${ENDPOINT}|g" src-tauri/tauri.conf.json
-          sed -i.bak "s|__TAURI_UPDATER_MIRROR_ENDPOINT__|${MIRROR_ENDPOINT}|g" src-tauri/tauri.conf.json
+          sed -i.bak "s|__TAURI_UPDATER_R2_ENDPOINT__|${R2_ENDPOINT}|g" src-tauri/tauri.conf.json
+          sed -i.bak "s|__TAURI_UPDATER_GITEE_ENDPOINT__|${GITEE_ENDPOINT}|g" src-tauri/tauri.conf.json
           sed -i.bak "s|__TAURI_UPDATER_PUBKEY__|${PUBKEY}|g" src-tauri/tauri.conf.json
 
           if grep -q '__TAURI_UPDATER_' src-tauri/tauri.conf.json; then
@@ -148,7 +150,7 @@ jobs:
             exit 1
           fi
 
-          echo "Updater configured with endpoints: ${ENDPOINT}, then ${MIRROR_ENDPOINT}"
+          echo "Updater configured with endpoints: ${ENDPOINT}, then ${R2_ENDPOINT}, then ${GITEE_ENDPOINT}"
 
       - name: Resolve the draft release
         id: draft_release

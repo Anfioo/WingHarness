@@ -166,6 +166,8 @@ repository yet.
 | [GIT.md](./docs/features/GIT.md) | Local Git client, one window per repository |
 | [MCP_HUB.md](./docs/features/MCP_HUB.md) | One local endpoint in front of the local MCP servers |
 | [MD_EDITOR.md](./docs/features/MD_EDITOR.md) | Multi-tab Markdown editor over files left in place |
+| [MOIN.md](./docs/features/MOIN.md) | HTTP/HTTPS downloads, segmented resume, queues, categories and aria2 |
+| [MOIN_EXTENSION.md](./docs/features/MOIN_EXTENSION.md) | Browser download capture, pairing, permissions and privacy |
 | [NOTES.md](./docs/features/NOTES.md) | Markdown notes kept in the data directory |
 | [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
 | [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |

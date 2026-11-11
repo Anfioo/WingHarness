@@ -74,6 +74,25 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 
 `src-tauri/src/mcphub` 改编自 McpHub；每个源文件都保留了归属声明。
 
+### moin
+
+- 项目：[moin](https://github.com/exxvius/moin)
+- 版本：0.4.0
+- 许可证：MIT
+- 许可证文本：[licenses/moin-LICENSE.txt](./licenses/moin-LICENSE.txt)
+
+moin (https://github.com/exxvius/moin)
+Copyright (c) 2026 moin contributors
+Licensed under the MIT License.
+下载引擎、分段 `Range` 传输、任务存储、aria2 后端、分类规则、下载／分类／设置界面
+以及浏览器捕获扩展均改编自 moin。
+
+`src-tauri/moin-core` 是下载页面背后的引擎，已按本仓架构改写：上游把引擎放在独立的
+`moin-daemon` 进程中，通过 loopback HTTP 访问，而本移植把引擎内嵌进 Tauri 进程，
+用命令与事件驱动。`rpc.rs` 保留了仅供扩展使用的 `/ping` 与 `/add` 回环 RPC，
+`extension/` 承载改编后的 MV3 源码。BitTorrent、媒体站点抓取、自更新、旧数据迁移和
+应用内 aria2c 安装没有移植。移植记录见 `src-tauri/moin-core/UPSTREAM.md`。
+
 ### openidea
 
 - 项目：[openidea](https://github.com/l0ng-ai/openidea)

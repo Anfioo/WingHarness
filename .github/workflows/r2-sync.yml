@@ -4,9 +4,10 @@ run-name: r2-sync ${{ inputs.tag || 'auto latest' }}
 
 # Mirrors a release into the Cloudflare R2 bucket as
 #   WingHarness/<tag>/<asset>
-# with latest.json rewritten to the public domain. A scheduled run only acts
-# when the latest release is not in the bucket yet; a manual run always
-# re-uploads, so it can backfill or repair a partial mirror.
+# with latest.json rewritten to the public domain. The newest release is also
+# copied to the fixed WingHarness/latest/latest.json pointer.
+# Scheduled and manual runs both skip a release that is already in the bucket;
+# a missing fixed pointer still triggers a run for the newest release.
 on:
   schedule:
     # 03:00 Asia/Shanghai, an hour after the Gitee sync (the runner cron is UTC).
@@ -44,30 +45,40 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "Manual run; mirroring ${INPUT_TAG} unconditionally."
-            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
-          if [ -z "${tag}" ]; then
-            echo "No published release yet; nothing to mirror."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            exit 0
+            tag="${INPUT_TAG}"
+          else
+            tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            if [ -z "${tag}" ]; then
+              echo "No published release yet; nothing to mirror."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
           fi
 
           endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-          if aws s3api head-object \
+          if ! aws s3api head-object \
             --bucket "${R2_BUCKET}" \
             --key "${R2_PREFIX}/${tag}/latest.json" \
             --endpoint-url "${endpoint}" > /dev/null 2>&1; then
-            echo "R2 already has ${R2_PREFIX}/${tag}/latest.json; nothing to mirror."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "R2 has no manifest for ${tag}; mirroring."
+            echo "tag=${tag}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          echo "R2 has no manifest for ${tag}; mirroring."
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          # The newest release also owns the fixed pointer, so a release whose
+          # pointer is missing still needs a run.
+          latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          if [ "${latest_tag}" = "${tag}" ] && ! aws s3api head-object \
+            --bucket "${R2_BUCKET}" \
+            --key "${R2_PREFIX}/latest/latest.json" \
+            --endpoint-url "${endpoint}" > /dev/null 2>&1; then
+            echo "R2 is missing the fixed pointer for ${tag}; mirroring."
+            echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "R2 already has ${tag}; nothing to mirror."
+          echo "skip=true" >> "$GITHUB_OUTPUT"
 
   sync:
     needs: check
@@ -106,14 +117,21 @@ jobs:
           fi
 
           # Only the download URLs change; the notes keep their GitHub links.
-          github_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          # GitHub's manifest may use either /releases/download/<tag>/ or
+          # /releases/latest/download/ (GitHub resolves the latter, R2 does
+          # not), so both map to the versioned R2 path.
+          github_repo="https://github.com/${GITHUB_REPOSITORY}"
+          github_download="${github_repo}/releases/download/${TAG}"
+          github_latest="${github_repo}/releases/latest/download"
           r2_base="${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}"
-          jq --arg old "${github_base}" --arg new "${r2_base}" \
-            'walk(if type == "string" then split($old) | join($new) else . end)' \
+          jq --arg old_dl "${github_download}" --arg old_latest "${github_latest}" \
+            --arg new "${r2_base}" \
+            'walk(if type == "string" then split($old_dl) | join($new) else . end)
+             | walk(if type == "string" then split($old_latest) | join($new) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
-          if grep -qF "${github_base}" "${latest}"; then
+          if grep -qF "${github_download}" "${latest}" || grep -qF "${github_latest}" "${latest}"; then
             echo "latest.json still points at GitHub." >&2
             exit 1
           fi
@@ -124,6 +142,7 @@ jobs:
         env:
           DIR: ${{ steps.assets.outputs.dir }}
           TAG: ${{ needs.check.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
@@ -134,6 +153,15 @@ jobs:
 
           upload() {
             local file="$1" name="$2" key="$3"
+            # Manifests are always refreshed; the versioned assets are
+            # immutable, so an existing object is left alone.
+            if [ "${name}" != "latest.json" ] && aws s3api head-object \
+              --bucket "${R2_BUCKET}" --key "${key}" \
+              --endpoint-url "${endpoint}" > /dev/null 2>&1; then
+              echo "Already in R2: ${key}"
+              return 0
+            fi
+
             echo "Uploading ${key} (${name})..."
             if [ "${name}" = "latest.json" ]; then
               # The manifest must never be served stale.
@@ -155,6 +183,15 @@ jobs:
 
           if [ -f "${DIR}/latest.json" ]; then
             upload "${DIR}/latest.json" "latest.json" "${R2_PREFIX}/${TAG}/latest.json"
+
+            # The fixed pointer follows the newest release only, so syncing an
+            # older tag on demand cannot roll it back.
+            latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            if [ -n "${latest_tag}" ] && [ "${latest_tag}" = "${TAG}" ]; then
+              upload "${DIR}/latest.json" "latest.json" "${R2_PREFIX}/latest/latest.json"
+            else
+              echo "Not the latest release (${latest_tag:-unknown}); leaving ${R2_PREFIX}/latest/latest.json alone."
+            fi
           fi
 
       - name: Summarize
@@ -163,3 +200,4 @@ jobs:
           TAG: ${{ needs.check.outputs.tag }}
         run: |
           echo "R2 mirror: ${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}/latest.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "Fixed pointer: ${R2_PUBLIC_BASE}/${R2_PREFIX}/latest/latest.json" >> "$GITHUB_STEP_SUMMARY"

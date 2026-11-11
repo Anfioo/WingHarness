@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-moin-resume-download"
+description = "Enables the moin_resume_download command without any pre-configured scope."
+commands.allow = ["moin_resume_download"]
+
+[[permission]]
+identifier = "deny-moin-resume-download"
+description = "Denies the moin_resume_download command without any pre-configured scope."
+commands.deny = ["moin_resume_download"]
