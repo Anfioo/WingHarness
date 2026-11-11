@@ -1,4 +1,6 @@
 name: "gitee-sync"
+# Manual runs carry the tag they sync; the scheduled run has no input.
+run-name: gitee-sync ${{ inputs.tag || 'auto latest' }}
 
 # Publishes the latest GitHub release to Gitee once a day, and syncs a chosen
 # release on demand. A scheduled run only acts when Gitee has no release for
