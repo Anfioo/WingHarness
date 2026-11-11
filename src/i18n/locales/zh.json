@@ -83,6 +83,8 @@
   "updater": {
     "checkForUpdates": "检查更新",
     "checking": "检查中...",
+    "checkingEndpoint": "检查中（{{endpoint}}）...",
+    "downloadedOf": "{{downloaded}} / {{total}}",
     "updating": "正在更新...",
     "checkFailed": "检查更新失败。",
     "installFailed": "安装更新失败。",
@@ -90,7 +92,6 @@
     "cancelling": "正在取消...",
     "downloadCancelled": "已取消更新下载。",
     "cancelFailed": "取消更新下载失败。",
-    "disabledInDev": "开发者模式下无法检查更新。",
     "upToDate": "您正在使用最新版本！",
     "updateAvailable": "发现新版本",
     "downloading": "正在下载更新",
@@ -99,6 +100,7 @@
     "releaseNotes": "更新说明：",
     "windowTitle": "软件更新",
     "publishedAt": "发布时间：",
+    "source": "来源：{{source}}",
     "skipVersion": "跳过这个版本",
     "retry": "重试",
     "installNow": "立即安装"

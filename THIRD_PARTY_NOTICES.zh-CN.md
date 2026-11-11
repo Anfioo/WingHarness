@@ -238,10 +238,8 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `@tauri-apps/api` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-dialog` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-global-shortcut` | MIT OR Apache-2.0 |
-| `@tauri-apps/plugin-http` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-opener` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-process` | MIT OR Apache-2.0 |
-| `@tauri-apps/plugin-updater` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-window-state` | MIT OR Apache-2.0 |
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |
@@ -339,7 +337,6 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-plugin-dialog` | Apache-2.0 OR MIT |
 | `tauri-plugin-global-shortcut` | Apache-2.0 OR MIT |
-| `tauri-plugin-http` | Apache-2.0 OR MIT |
 | `tauri-plugin-opener` | Apache-2.0 OR MIT |
 | `tauri-plugin-process` | Apache-2.0 OR MIT |
 | `tauri-plugin-single-instance` | Apache-2.0 OR MIT |

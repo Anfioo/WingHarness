@@ -51,17 +51,21 @@ FRP 安装完成后会通过 `frp_runtime_import` 登记解压出的二进制，
 ## 流水线
 
 ```text
-下载（前端）
-  @tauri-apps/plugin-http → plugin:http|fetch
+下载（moin 引擎）
+  moin_add_download → 进度来自 moin:task-progress / 任务列表
+  runtime_read_archive 读取完成后的文件，随后删除该任务
 解压（Web Worker）
   7z-wasm `7zz x archive -oout -y -bd`
 写入（Rust）
   runtime_write_file，每个文件一个 raw body
 ```
 
-- **为什么用 http 插件？** webview 里的 `fetch` 受 CORS 约束，而官方主机不返回
-  `Access-Control-Allow-Origin`。该插件在 Rust 中发请求并把响应体流回前端，是任意用户
-  自填 URL 唯一可行的方式。下载仍然由前端代码发起。
+- **为什么用 moin？** 它本来就是应用的 HTTP 客户端：队列、代理、分段传输、重试与续传计划
+  都由它负责。复用它就可以去掉仅为绕开 webview CORS 而存在的 `tauri-plugin-http`。代价是
+  可见性：下载期间它就是一个普通下载任务——出现在下载页、显示进度、可能触发完成通知、
+  遵循分类规则。安装器轮询该任务，读取完成后的文件，然后调用 `moin_delete_download` 与
+  `moin_forget_download`，因此历史记录和磁盘上都不会留下东西。若开启了**添加时暂停**，
+  任务会被立即恢复。
 - **为什么用 7z-wasm？** 它与预览子系统已经为压缩包列表打包的 `7-Zip 24.09` 是同一份构建，
   `.7z` 不需要新增 Rust 依赖。worker 每次安装新建、应答后终止，因为 wasm 实例拥有自己的
   MEMFS。
@@ -88,7 +92,7 @@ FRP 安装完成后会通过 `frp_runtime_import` 登记解压出的二进制，
 | 路径 | 职责 |
 | --- | --- |
 | `src/lib/runtime/official.ts` | 官方地址与每种运行时的二进制名 |
-| `src/lib/runtime/install.ts` | 带进度的下载、worker 生命周期、顺序写入 |
+| `src/lib/runtime/install.ts` | moin 下载任务、进度、worker 生命周期、顺序写入 |
 | `src/lib/runtime/extract.worker.ts` | 7z-wasm 解压、顶层目录展平、路径检查 |
 | `src/components/runtime/runtime-installer.tsx` | 卡片：状态、三种来源、URL 对话框、进度 |
 | `src/windows/settings/runtime-section.tsx` | 包住两张卡片的设置分区 |
