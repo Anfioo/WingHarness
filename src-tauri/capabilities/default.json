@@ -53,6 +53,10 @@
     "core:webview:allow-webview-position",
     "core:webview:allow-webview-size",
     "opener:default",
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://*:*" }, { "url": "http://*:*" }]
+    },
     "dialog:allow-open",
     "dialog:allow-save",
     "process:allow-restart",
@@ -468,6 +472,9 @@
     "allow-reveal-workspace-file",
     "allow-revert-paths",
     "allow-run-progress-demo",
+    "allow-runtime-read-archive",
+    "allow-runtime-target",
+    "allow-runtime-write-file",
     "allow-save-config",
     "allow-save-text-file",
     "allow-set-data-dir",

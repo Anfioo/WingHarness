@@ -305,6 +305,8 @@ export type {
   ToolView,
 } from "./services/mcphub/types";
 export { runProgressDemo } from "./services/progress";
+export { runtimeReadArchive, runtimeTarget, runtimeWriteFile } from "./services/runtime";
+export type { RuntimeKind, RuntimeTarget } from "./services/runtime/types";
 export {
   shaicAgentDetail,
   shaicApply,

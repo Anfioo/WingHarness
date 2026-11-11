@@ -1979,7 +1979,7 @@
       },
       "noRuntime": {
         "title": "Add an frpc runtime first",
-        "description": "Pick an frpc binary that already exists on this machine; nothing is downloaded.",
+        "description": "Install the official runtime in the runtime tab, or pick an frpc binary that already exists on this machine.",
         "action": "Choose runtime"
       },
       "activeConnections": "Active connections",
@@ -2235,10 +2235,10 @@
     },
     "runtime": {
       "title": "Runtimes",
-      "subtitle": "Only frpc binaries that already exist on this machine; nothing is downloaded.",
+      "subtitle": "Install the official runtime above, or import another frpc binary from this machine.",
       "empty": {
         "title": "No runtime imported",
-        "description": "Choose an frpc.exe to import. The console runs it directly, with no network download."
+        "description": "Install the official runtime above, or choose an frpc.exe to import."
       },
       "action": {
         "import": "Import frpc",
