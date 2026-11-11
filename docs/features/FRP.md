@@ -8,14 +8,15 @@ server, supervises that process, and streams its output back to the page.
 
 The process manager, TOML generator, runtime discovery and log handling are
 adapted from [frpilot](../../THIRD_PARTY_NOTICES.md) (MIT). This port keeps the
-JSON storage model used by the other modules: no SQLite, no keyring, no
-built-in downloader.
+JSON storage model used by the other modules: no SQLite and no keyring. The
+official `frpc` build is installed by the runtime installer described in
+[RUNTIME.md](./RUNTIME.md); the engine itself still never downloads anything.
 
 ## What you need
 
 - A reachable `frps` (FRP server).
-- A local `frpc` executable. The app never downloads one; you either import a
-  path or let the scan find one.
+- A local `frpc` executable. You can import a path, let the scan find one, or
+  install the official build from the runtime tab.
 
 ## Runtimes
 
@@ -27,6 +28,11 @@ platform and architecture, size and (when available) SHA-256.
 | Import | Pick a file, probe it with `frpc --version`, and store the result. Probing happens before anything is persisted. |
 | Discover | Scans `PATH`, common install directories (`Program Files`, `FRP`, package-manager roots, …) and, when requested, a shallow depth-limited walk of the home directory. Candidates already imported are marked. |
 | Delete | Removes the record only — the binary on disk is left untouched. Refused while a server profile references the runtime or while it is running. |
+
+The runtime tab also carries a fixed **official runtime** card. It cannot be
+deleted: it only reports whether `frp/frpc.exe` exists, and offers the three
+install paths described in [RUNTIME.md](./RUNTIME.md). Installing it registers
+the binary automatically, so it appears below with its version.
 
 Profiles pick a runtime in one of two ways:
 

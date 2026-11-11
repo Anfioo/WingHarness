@@ -172,6 +172,7 @@ repository yet.
 | [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
 | [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
+| [RUNTIME.md](./docs/features/RUNTIME.md) | Downloading and installing the mihomo and frpc runtimes |
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
 | [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |

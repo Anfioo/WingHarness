@@ -14,6 +14,7 @@ import { AiConfigSection } from "./ai-config-section.tsx";
 import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
 import { MdEditorSection } from "./md-editor-section.tsx";
 import { PortsSection } from "./ports-section.tsx";
+import { RuntimeSection } from "./runtime-section.tsx";
 import {
   Palette,
   Keyboard,
@@ -26,6 +27,7 @@ import {
   FileText,
   Bot,
   Plug,
+  Cpu,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
@@ -42,7 +44,8 @@ type SettingSection =
   | "mdEditor"
   | "aiConfig"
   | "ccs"
-  | "ports";
+  | "ports"
+  | "runtime";
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
@@ -109,6 +112,11 @@ export default function SettingsPage() {
       label: t("ports.title"),
       icon: Plug,
     },
+    {
+      id: "runtime" as SettingSection,
+      label: t("runtime.title"),
+      icon: Cpu,
+    },
   ];
 
   return (
@@ -164,6 +172,8 @@ export default function SettingsPage() {
           {activeSection === "aiConfig" && <AiConfigSection />}
 
           {activeSection === "ports" && <PortsSection />}
+
+          {activeSection === "runtime" && <RuntimeSection />}
         </div>
       </div>
     </WindowFrame>

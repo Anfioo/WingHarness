@@ -8,6 +8,7 @@ export default {
     connections: "连接详情",
     logs: "日志",
     test: "测试",
+    runtime: "运行时",
   },
   tabs: {
     rules: "规则补丁",

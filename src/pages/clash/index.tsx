@@ -14,6 +14,7 @@ import {
   type ClashSummary,
   type ClashSysProxyStatus,
 } from "@/commands";
+import { RuntimeInstaller } from "@/components/runtime/runtime-installer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -37,7 +38,8 @@ type TopTab =
   | "rules"
   | "connections"
   | "logs"
-  | "test";
+  | "test"
+  | "runtime";
 
 export default function ClashPage() {
   const { t } = useAppTranslation();
@@ -159,6 +161,7 @@ export default function ClashPage() {
               { value: "connections", label: t("clash.topTabs.connections") },
               { value: "logs", label: t("clash.topTabs.logs") },
               { value: "test", label: t("clash.topTabs.test") },
+              { value: "runtime", label: t("clash.topTabs.runtime") },
             ] as { value: TopTab; label: string }[]
           ).map((option) => (
             <button
@@ -179,7 +182,13 @@ export default function ClashPage() {
 
         <div className="ml-auto flex items-center gap-2">
           {core && !core.binary.found && (
-            <Badge variant="destructive">{t("clash.core.missing")}</Badge>
+            <button
+              type="button"
+              onClick={() => setTab("runtime")}
+              title={t("clash.topTabs.runtime")}
+            >
+              <Badge variant="destructive">{t("clash.core.missing")}</Badge>
+            </button>
           )}
           {core?.binary.found && (
             <span
@@ -265,6 +274,19 @@ export default function ClashPage() {
       <div className={cn("flex min-h-0 flex-1", tab !== "test" && "hidden")}>
         <TestTab running={running} />
       </div>
+      {tab === "runtime" && (
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          <div className="mx-auto max-w-2xl">
+            <RuntimeInstaller
+              kind="clash"
+              title={t("runtime.clash.title")}
+              description={t("runtime.clash.description")}
+              version={core?.binary.version ?? null}
+              onInstalled={() => void refresh()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
