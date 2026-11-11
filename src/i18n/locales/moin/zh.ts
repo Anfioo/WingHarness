@@ -179,6 +179,14 @@ const moin = {
   settings: {
     download: "下载",
     network: "网络",
+    proxy: "代理",
+    proxyHint: "只读显示；请在 设置 → 代理 中修改。",
+    proxyMode: {
+      none: "不使用代理",
+      system: "使用系统代理",
+      custom: "自定义",
+    },
+    proxyDirect: "直连（没有代理地址）",
     engine: "引擎",
     browser: "浏览器集成",
     about: "关于",
@@ -202,6 +210,9 @@ const moin = {
       rpcEnabled: "启用浏览器集成",
       rpcPort: "端口",
       rpcToken: "访问令牌",
+      proxyMode: "模式",
+      proxyAddress: "地址",
+      proxyBypass: "直连列表",
     },
     hint: {
       maxConcurrent: "同时进行的下载数量，其余在队列中等待。",
@@ -217,6 +228,7 @@ const moin = {
       rpcEnabled: "允许扩展把下载交给 WingHarness。重启后生效。",
       rpcPort: "扩展连接的端口。重启后生效。",
       rpcToken: "把这段令牌粘贴到扩展里完成配对。",
+      proxyBypass: "不经过代理的地址；以 NO_PROXY 导出。",
       unlimited: "0 表示不限制。",
       osDefault: "0 表示使用系统默认值。",
       restartRequired: "重启后生效。",

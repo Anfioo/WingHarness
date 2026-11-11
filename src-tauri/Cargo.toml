@@ -152,6 +152,11 @@ zip = { version = "4", default-features = false, features = ["deflate-flate2-zli
 # for what diverges from the original.
 shaic-core = { path = "shaic-core" }
 
+[target.'cfg(windows)'.dependencies]
+# The moin settings tab displays the effective system proxy. Reading WinINET's
+# settings is a registry lookup, not another process.
+windows-registry = "0.6"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
 tauri-plugin-process = "2"

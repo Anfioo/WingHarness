@@ -242,50 +242,43 @@ pub fn apply_proxy_env(proxy: &ProxyConfig) {
         env::remove_var(key);
     }
 
+    let mode = proxy.resolved_mode();
+    let url = proxy.url.trim();
+    if mode == ProxyMode::Custom && !url.is_empty() {
+        for key in PROXY_VARS {
+            env::set_var(key, url);
+        }
+    }
+
+    let bypass = bypass_list(proxy);
+    for key in NO_PROXY_VARS {
+        env::set_var(key, &bypass);
+    }
+}
+
+/// The `NO_PROXY` value a mode exports.
+///
+/// `*` disables proxying entirely (including the OS proxy for clients that read
+/// it); system mode keeps loopback direct because the Clash controller lives
+/// there; custom mode adds the user's hosts on top of loopback.
+pub fn bypass_list(proxy: &ProxyConfig) -> String {
+    if proxy.resolved_mode() == ProxyMode::Custom && proxy.url.trim().is_empty() {
+        // A custom mode with no address behaves like "none" instead of silently
+        // falling back to the system proxy.
+        return "*".to_string();
+    }
+
     match proxy.resolved_mode() {
-        ProxyMode::None => {
-            // reqwest and curl treat `*` as "bypass every host", which also
-            // disables the OS proxy that system-proxy-aware clients would
-            // otherwise pick up.
-            for key in NO_PROXY_VARS {
-                env::set_var(key, "*");
-            }
-        }
-        ProxyMode::System => {
-            // The OS bypass list is not always present, and the Clash
-            // controller is on loopback: never let a system proxy swallow it.
-            for key in NO_PROXY_VARS {
-                env::set_var(key, LOOPBACK_BYPASS.join(","));
-            }
-        }
+        ProxyMode::None => "*".to_string(),
+        ProxyMode::System => LOOPBACK_BYPASS.join(","),
         ProxyMode::Custom => {
-            let url = proxy.url.trim();
-            if url.is_empty() {
-                // A custom mode with no address behaves like "none" instead of
-                // silently falling back to the system proxy.
-                for key in NO_PROXY_VARS {
-                    env::set_var(key, "*");
-                }
-                return;
-            }
-
-            for key in PROXY_VARS {
-                env::set_var(key, url);
-            }
-
-            // The user's list, with loopback ensured on top. Written even when
-            // the field is empty: a proxy in global mode must still not swallow
-            // local requests.
             let mut bypass: Vec<&str> = LOOPBACK_BYPASS.to_vec();
             for entry in proxy.no_proxy.split(',').map(str::trim).filter(|e| !e.is_empty()) {
                 if !bypass.iter().any(|kept| kept.eq_ignore_ascii_case(entry)) {
                     bypass.push(entry);
                 }
             }
-            let bypass = bypass.join(",");
-            for key in NO_PROXY_VARS {
-                env::set_var(key, &bypass);
-            }
+            bypass.join(",")
         }
     }
 }

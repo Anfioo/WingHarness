@@ -429,6 +429,7 @@
     "allow-project-set-active",
     "allow-project-tree",
     "allow-project-write",
+    "allow-proxy-status",
     "allow-quit-app",
     "allow-read-file",
     "allow-read-gitignore",

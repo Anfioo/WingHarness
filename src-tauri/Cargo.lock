@@ -9227,6 +9227,7 @@ dependencies = [
  "toml_edit 0.22.27",
  "url",
  "uuid",
+ "windows-registry",
  "zip",
 ]
 

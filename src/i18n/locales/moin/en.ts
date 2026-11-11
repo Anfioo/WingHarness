@@ -191,6 +191,14 @@ const moin = {
   settings: {
     download: "Downloads",
     network: "Network",
+    proxy: "Proxy",
+    proxyHint: "Read-only; change it in Settings → Proxy.",
+    proxyMode: {
+      none: "No proxy",
+      system: "System proxy",
+      custom: "Custom",
+    },
+    proxyDirect: "Direct (no proxy address)",
     engine: "Engine",
     browser: "Browser integration",
     about: "About",
@@ -214,6 +222,9 @@ const moin = {
       rpcEnabled: "Enable browser integration",
       rpcPort: "Port",
       rpcToken: "Access token",
+      proxyMode: "Mode",
+      proxyAddress: "Address",
+      proxyBypass: "Bypass list",
     },
     hint: {
       maxConcurrent: "How many downloads run at once; the rest wait in the queue.",
@@ -229,6 +240,7 @@ const moin = {
       rpcEnabled: "Lets the extension hand downloads to WingHarness. Applies after a restart.",
       rpcPort: "The port the extension connects to. Applies after a restart.",
       rpcToken: "Paste this into the extension to pair it with WingHarness.",
+      proxyBypass: "Hosts that skip the proxy; exported as NO_PROXY.",
       unlimited: "0 means no limit.",
       osDefault: "0 uses the system default.",
       restartRequired: "Applies after a restart.",

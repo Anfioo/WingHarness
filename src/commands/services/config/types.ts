@@ -1,3 +1,12 @@
+/** What the configured proxy currently resolves to, for read-only display. */
+export interface ProxyStatus {
+  mode: ProxyMode;
+  /** The effective address; `null` means direct. */
+  url: string | null;
+  /** The bypass list exported as `NO_PROXY`. */
+  noProxy: string;
+}
+
 export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;

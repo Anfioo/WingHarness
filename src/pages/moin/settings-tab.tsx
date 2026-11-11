@@ -3,13 +3,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
+  CONFIG_CHANGED_EVENT,
   moinDefaultDownloadDir,
   moinListBackends,
+  proxyStatus,
   type MoinBackendInfo,
   type MoinSettings,
+  type ProxyStatus,
 } from "@/commands";
 import { Aria2Row } from "@/components/moin/aria2-row";
 import { RpcPanel } from "@/components/moin/rpc-panel";
@@ -77,6 +81,7 @@ export default function SettingsTab() {
   const [backends, setBackends] = useState<MoinBackendInfo[]>([]);
   const [defaultDir, setDefaultDir] = useState("");
   const [dirDraft, setDirDraft] = useState("");
+  const [proxy, setProxy] = useState<ProxyStatus | null>(null);
 
   const loadBackends = useCallback(async () => {
     try {
@@ -86,12 +91,29 @@ export default function SettingsTab() {
     }
   }, []);
 
+  // The proxy is configured in Settings → Proxy; this tab only reports it.
+  const loadProxy = useCallback(() => {
+    void proxyStatus()
+      .then(setProxy)
+      .catch(() => setProxy(null));
+  }, []);
+
   useEffect(() => {
     void loadBackends();
     void moinDefaultDownloadDir()
       .then(setDefaultDir)
       .catch(() => setDefaultDir(""));
-  }, [loadBackends]);
+    loadProxy();
+  }, [loadBackends, loadProxy]);
+
+  // The Settings window emits this after saving; keep the read-only card in
+  // step without polling.
+  useEffect(() => {
+    const pending = listen(CONFIG_CHANGED_EVENT, () => loadProxy());
+    return () => {
+      void pending.then((off) => off());
+    };
+  }, [loadProxy]);
 
   // A path chosen in the aria2 row can make a backend available, so re-read the
   // list whenever the probe result changes.
@@ -309,6 +331,25 @@ export default function SettingsTab() {
           disabled={saving}
           onChange={(checked) => apply({ hide_part_files: checked })}
         />
+      </Section>
+
+      <Section title={t("moin.settings.proxy")} description={t("moin.settings.proxyHint")}>
+        <Field label={t("moin.settings.field.proxyMode")}>
+          <span className="text-sm">
+            {proxy ? t(`moin.settings.proxyMode.${proxy.mode}`) : "—"}
+          </span>
+        </Field>
+        <Field label={t("moin.settings.field.proxyAddress")}>
+          <span className="font-mono text-xs">
+            {proxy ? (proxy.url ?? t("moin.settings.proxyDirect")) : "—"}
+          </span>
+        </Field>
+        <Field
+          label={t("moin.settings.field.proxyBypass")}
+          hint={t("moin.settings.hint.proxyBypass")}
+        >
+          <span className="font-mono text-xs">{proxy?.noProxy ?? "—"}</span>
+        </Field>
       </Section>
 
       <Section title={t("moin.settings.engine")}>
