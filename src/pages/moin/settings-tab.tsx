@@ -6,10 +6,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import {
-  moinAppInfo,
   moinDefaultDownloadDir,
   moinListBackends,
-  type MoinAppInfo,
   type MoinBackendInfo,
   type MoinSettings,
 } from "@/commands";
@@ -78,7 +76,6 @@ export default function SettingsTab() {
   const { settings, loading, saving, error, patch, reload } = useMoinSettings();
   const [backends, setBackends] = useState<MoinBackendInfo[]>([]);
   const [defaultDir, setDefaultDir] = useState("");
-  const [info, setInfo] = useState<MoinAppInfo | null>(null);
   const [dirDraft, setDirDraft] = useState("");
 
   const loadBackends = useCallback(async () => {
@@ -94,9 +91,6 @@ export default function SettingsTab() {
     void moinDefaultDownloadDir()
       .then(setDefaultDir)
       .catch(() => setDefaultDir(""));
-    void moinAppInfo()
-      .then(setInfo)
-      .catch(() => setInfo(null));
   }, [loadBackends]);
 
   // A path chosen in the aria2 row can make a backend available, so re-read the
@@ -167,7 +161,7 @@ export default function SettingsTab() {
   }
 
   return (
-    <div className="flex max-w-3xl flex-col gap-4">
+    <div className="flex max-w-3xl flex-col gap-4 pb-8">
       {error && (
         <p role="alert" className="text-destructive text-sm">
           {t(error)}
@@ -332,12 +326,7 @@ export default function SettingsTab() {
       <RpcPanel settings={settings} saving={saving} onPatch={patch} onReload={reload} />
 
       <Section title={t("moin.settings.about")}>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span className="font-medium">{info?.name ?? "—"}</span>
-          <span className="text-muted-foreground font-mono text-xs">
-            {t("moin.tool.version")} {info?.version ?? "—"}
-          </span>
-        </div>
+        <p className="text-muted-foreground text-sm">{t("moin.settings.aboutCredit")}</p>
       </Section>
     </div>
   );

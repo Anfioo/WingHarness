@@ -194,6 +194,7 @@ const moin = {
     engine: "Engine",
     browser: "Browser integration",
     about: "About",
+    aboutCredit: "An Fofo and Luo Luo Luo",
     saveSuccess: "Download settings saved.",
     saveFailed: "Could not save download settings.",
     loadFailed: "Could not load download settings.",

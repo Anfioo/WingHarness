@@ -182,6 +182,7 @@ const moin = {
     engine: "引擎",
     browser: "浏览器集成",
     about: "关于",
+    aboutCredit: "安佛佛与落落落",
     saveSuccess: "下载设置已保存。",
     saveFailed: "无法保存下载设置。",
     loadFailed: "无法读取下载设置。",
