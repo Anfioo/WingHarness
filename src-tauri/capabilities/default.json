@@ -53,10 +53,6 @@
     "core:webview:allow-webview-position",
     "core:webview:allow-webview-size",
     "opener:default",
-    {
-      "identifier": "http:default",
-      "allow": [{ "url": "https://*:*" }, { "url": "http://*:*" }]
-    },
     "dialog:allow-open",
     "dialog:allow-save",
     "process:allow-restart",

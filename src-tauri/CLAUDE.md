@@ -176,7 +176,6 @@ data source windows and the `project-*` project windows — is listed in
 | `tauri` | Framework core (tray-icon feature) |
 | `tauri-plugin-opener` | Open external links |
 | `tauri-plugin-dialog` | Folder picker for the data directory |
-| `tauri-plugin-http` | The runtime installer's frontend `fetch`, run in Rust so a cross-origin archive URL is not blocked by CORS |
 | `tauri-plugin-global-shortcut` | OS-level shortcuts |
 | `tauri-plugin-single-instance` | Focus the running window instead of starting a second copy |
 | `tauri-plugin-window-state` | Restore window geometry (`tray-menu` denied) |
