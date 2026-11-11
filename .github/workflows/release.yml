@@ -23,7 +23,7 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # changelogithub walks the tag history, so the full log is required.
           fetch-depth: 0
@@ -48,7 +48,7 @@ jobs:
           git push origin "${{ steps.vars.outputs.tag }}"
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
 
@@ -82,18 +82,18 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Build the commit the release tag points at, including manual runs.
           ref: ${{ needs.create-release.outputs.tag }}
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: pnpm
@@ -177,7 +177,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Build the project
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         id: tauri-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -72,7 +72,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # The tagged commit may be anywhere in the history, and it has to be
           # pushed complete before the tag can land on Gitee.
