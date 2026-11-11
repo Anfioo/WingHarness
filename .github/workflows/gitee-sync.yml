@@ -20,6 +20,7 @@ env:
   # Lowercase matches the canonical Gitee URLs; the login is case-insensitive.
   GITEE_OWNER: anfioo
   GITEE_REPO: WingHarness
+  GITEE_API: https://gitee.com/api/v5
 
 jobs:
   sync:
@@ -235,16 +236,38 @@ jobs:
 
       - name: Upload the release files to Gitee
         if: steps.plan.outputs.count != '0'
-        uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
-        with:
-          gitee_action: upload_asset
-          gitee_owner: ${{ env.GITEE_OWNER }}
-          gitee_repo: ${{ env.GITEE_REPO }}
-          gitee_token: ${{ secrets.GITEE_TOKEN }}
-          gitee_release_id: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
-          gitee_tag_name: ${{ steps.resolve.outputs.tag }}
-          gitee_files: ${{ steps.plan.outputs.files }}
-          gitee_upload_retry_times: 3
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          FILES: ${{ steps.plan.outputs.files }}
+        run: |
+          # The composite action uploads through Python without a timeout, so a
+          # stalled connection hangs silently. curl shows progress and gives up
+          # on a transfer that drops below 1 KiB/s for a minute.
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            name="$(basename "${file}")"
+            echo "Uploading ${name} ($(du -h "${file}" | cut -f1))..."
+
+            if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \
+              --connect-timeout 30 --max-time 900 \
+              --speed-limit 1024 --speed-time 60 \
+              --retry 3 --retry-delay 5 --retry-all-errors \
+              -F "access_token=${GITEE_TOKEN}" \
+              -F "file=@${file}" \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files")"; then
+              echo "Upload failed for ${name}: ${response}" >&2
+              exit 1
+            fi
+
+            url="$(printf '%s' "${response}" | jq -r '.browser_download_url // empty')"
+            if [ -z "${url}" ]; then
+              echo "Gitee returned no download URL for ${name}: ${response}" >&2
+              exit 1
+            fi
+            echo "Uploaded ${name}: ${url}"
+          done <<< "${FILES}"
 
       # The updater manifest must point at Gitee, not GitHub. The base URL is
       # the documented Gitee layout; probing one uploaded file proves it before
@@ -302,17 +325,31 @@ jobs:
       # Uploaded last so the manifest never references a file that is not there.
       - name: Upload latest.json to Gitee
         if: steps.plan.outputs.has_latest == 'true' && steps.plan.outputs.latest_missing == 'true'
-        uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
-        with:
-          gitee_action: upload_asset
-          gitee_owner: ${{ env.GITEE_OWNER }}
-          gitee_repo: ${{ env.GITEE_REPO }}
-          gitee_token: ${{ secrets.GITEE_TOKEN }}
-          gitee_release_id: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
-          gitee_tag_name: ${{ steps.resolve.outputs.tag }}
-          gitee_file_name: latest.json
-          gitee_file_path: ${{ steps.assets.outputs.dir }}/latest.json
-          gitee_upload_retry_times: 3
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          FILE: ${{ steps.assets.outputs.dir }}/latest.json
+        run: |
+          echo "Uploading latest.json..."
+
+          if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 900 \
+            --speed-limit 1024 --speed-time 60 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${FILE}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files")"; then
+            echo "Upload failed for latest.json: ${response}" >&2
+            exit 1
+          fi
+
+          url="$(printf '%s' "${response}" | jq -r '.browser_download_url // empty')"
+          if [ -z "${url}" ]; then
+            echo "Gitee returned no download URL for latest.json: ${response}" >&2
+            exit 1
+          fi
+          echo "Uploaded latest.json: ${url}"
 
       - name: Summarize
         shell: bash
