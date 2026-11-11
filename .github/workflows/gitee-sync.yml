@@ -454,6 +454,7 @@ jobs:
               --data-urlencode "name=latest" \
               --data-urlencode "body=Fixed updater manifest for the newest release." \
               --data-urlencode "target_commitish=${COMMIT}" \
+              --data-urlencode "prerelease=true" \
               "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases")"; then
               echo "Creating the fixed 'latest' release failed: ${response}" >&2
               exit 1
@@ -464,6 +465,20 @@ jobs:
             fi
           fi
           echo "Fixed manifest release: ${release_id}"
+
+          # The fixed release is only a pointer; keeping it a prerelease keeps
+          # it out of the repository's "latest release" slot, where the
+          # versioned release belongs.
+          if ! response="$(curl -sS --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 60 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -X PATCH \
+            --data-urlencode "access_token=${GITEE_TOKEN}" \
+            --data-urlencode "prerelease=true" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}")"; then
+            echo "Marking the fixed 'latest' release as a prerelease failed: ${response}" >&2
+            exit 1
+          fi
 
           attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
             "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${release_id}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
