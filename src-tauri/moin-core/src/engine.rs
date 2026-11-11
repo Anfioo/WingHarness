@@ -6,6 +6,10 @@
 //! The engine never depends on Tauri: everything it reports goes out through
 //! [`Emitter`], and the host (`state.rs`) turns those calls into `app.emit`.
 //!
+//! Bytes are moved by a [`DownloadBackend`]; the queue only decides which one
+//! runs a task, watches the [`Control`] handle and turns the resulting
+//! [`Outcome`] into a task status.
+//!
 //! Lock discipline: `Inner` guards every in-memory map with a
 //! `std::sync::Mutex`, and no guard is ever held across an `.await`. Anything
 //! needed after an await is cloned out of the guard first. SQLite writes are
@@ -14,23 +18,27 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
-use futures_util::StreamExt;
-use reqwest::header::{HeaderName, HeaderValue, CONTENT_RANGE, RANGE};
-use reqwest::{Client, Url};
-use tokio::io::AsyncWriteExt;
+use reqwest::header::{HeaderName, HeaderValue};
+use reqwest::Url;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Notify;
 use uuid::Uuid;
 
-use crate::backend::{Control, Outcome, ProgressFn, Signal};
+use crate::aria2::Aria2Backend;
+use crate::aria2_tool::Aria2Tool;
+use crate::backend::{
+    Control, DownloadBackend, NetConfig, Outcome, ProgressFn, Signal, TransferOpts,
+};
 use crate::category::CategoryStore;
+use crate::embedded::EmbeddedBackend;
 use crate::error::{MoinError, MoinResult};
 use crate::models::{
     filename_from_url, now_ms, sanitize_filename, AddMethodKind, BackendInfo, Category, Settings,
-    Task, TaskKind, TaskProgress, TaskStatus, ToolSource, ToolStatus,
+    Task, TaskKind, TaskProgress, TaskStatus, ToolStatus,
 };
 use crate::{settings, store::Store};
 
@@ -61,15 +69,43 @@ struct Inner {
     stopping: AtomicBool,
     queue_notify: Notify,
     emitter: Arc<dyn Emitter>,
+    embedded: Arc<EmbeddedBackend>,
+    aria2: Arc<Aria2Backend>,
+    tool: Arc<Aria2Tool>,
 }
 
 /// How often a byte rate is recomputed from the running total.
 const SPEED_WINDOW: Duration = Duration::from_millis(500);
 
+/// How often a running transfer writes its byte count to `downloads.db`.
+/// Progress events are cheap; a database round trip per chunk is not.
+const PERSIST_INTERVAL: Duration = Duration::from_secs(1);
+
+/// How long `shutdown` waits for the workers to notice `Cancel`.
+const SHUTDOWN_GRACE: Duration = Duration::from_secs(3);
+
+/// How long a state-changing command waits for a worker to release its files.
+const STOP_WAIT: Duration = Duration::from_secs(10);
+
+/// Buffer size for the cross-volume copy path.
+const COPY_CHUNK: usize = 256 * 1024;
+
+/// Upper bound on the "this partial belongs to nobody" warnings a start-up
+/// scan may print, so a download folder full of leftovers cannot flood the log.
+const ORPHAN_WARN_LIMIT: usize = 20;
+
 fn guard<T>(mutex: &Mutex<T>) -> MoinResult<MutexGuard<'_, T>> {
     mutex
         .lock()
         .map_err(|_| MoinError::internal("A download state lock is poisoned."))
+}
+
+/// The connect timeout a backend should use for `settings`.
+fn net_config(settings: &Settings) -> NetConfig {
+    NetConfig {
+        connect_timeout: (settings.connect_timeout_secs > 0)
+            .then(|| Duration::from_secs(settings.connect_timeout_secs)),
+    }
 }
 
 /// Byte-rate estimator shared by both transfer paths.
@@ -123,12 +159,12 @@ impl Engine {
         emitter: Arc<dyn Emitter>,
         downloads_dir: PathBuf,
     ) -> MoinResult<Self> {
-        tokio::fs::create_dir_all(&data_dir)
-            .await
-            .map_err(|error| MoinError::io(format!("Could not create the moin data directory: {error}")))?;
-        let store = Store::open(&data_dir)
-            .await
-            .map_err(|error| MoinError::io(format!("Could not open the downloads database: {error}")))?;
+        tokio::fs::create_dir_all(&data_dir).await.map_err(|error| {
+            MoinError::io(format!("Could not create the moin data directory: {error}"))
+        })?;
+        let store = Store::open(&data_dir).await.map_err(|error| {
+            MoinError::io(format!("Could not open the downloads database: {}", error.message))
+        })?;
         let category_path = data_dir.join("categories.json");
         let categories = CategoryStore::load(&category_path);
         let mut loaded_settings = settings::load(&data_dir);
@@ -138,15 +174,12 @@ impl Engine {
         }
         if loaded_settings.rpc_token.is_empty() {
             loaded_settings.rpc_token = Uuid::new_v4().to_string();
-            settings::save(&data_dir, &loaded_settings)
-                .map_err(|error| MoinError::io(format!("Could not save default moin settings: {}", error.message)))?;
+            settings::save(&data_dir, &loaded_settings)?;
         }
         let mut tasks = HashMap::new();
-        for mut task in store
-            .all()
-            .await
-            .map_err(|error| MoinError::io(format!("Could not load downloads: {error}")))?
-        {
+        for mut task in store.all().await.map_err(|error| {
+            MoinError::io(format!("Could not load downloads: {}", error.message))
+        })? {
             // A previous run died mid-transfer: fall back to paused instead of
             // silently resuming, so the user stays in control.
             if matches!(
@@ -155,10 +188,17 @@ impl Engine {
             ) {
                 task.status = TaskStatus::Paused;
                 task.updated_at = now_ms();
-                store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
+                store.upsert(&task).await?;
             }
             tasks.insert(task.id.clone(), task);
         }
+        warn_unowned_partials(&tasks, &downloads_dir).await;
+
+        let embedded = Arc::new(EmbeddedBackend::new());
+        embedded.reconfigure(net_config(&loaded_settings));
+        let tool = Arc::new(Aria2Tool::new(loaded_settings.aria2_path.clone()));
+        let aria2 = Arc::new(Aria2Backend::new(tool.clone(), data_dir.clone()));
+
         let engine = Self {
             inner: Arc::new(Inner {
                 data_dir,
@@ -173,6 +213,9 @@ impl Engine {
                 stopping: AtomicBool::new(false),
                 queue_notify: Notify::new(),
                 emitter,
+                embedded,
+                aria2,
+                tool,
             }),
         };
         let scheduler = engine.clone();
@@ -188,7 +231,10 @@ impl Engine {
         };
         let mut tasks: Vec<_> = tasks.values().cloned().collect();
         tasks.sort_by(|left, right| {
-            right.created_at.cmp(&left.created_at).then_with(|| right.id.cmp(&left.id))
+            right
+                .created_at
+                .cmp(&left.created_at)
+                .then_with(|| right.id.cmp(&left.id))
         });
         tasks
     }
@@ -210,19 +256,32 @@ impl Engine {
         let parsed = Url::parse(url.trim())
             .map_err(|error| MoinError::invalid_input("url", error.to_string()))?;
         if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
-            return Err(MoinError::invalid_input("url", "Only absolute HTTP and HTTPS URLs are supported."));
+            return Err(MoinError::invalid_input(
+                "url",
+                "Only absolute HTTP and HTTPS URLs are supported.",
+            ));
         }
         if url.len() > 16_384 {
             return Err(MoinError::invalid_input("url", "The URL is too long."));
         }
         if headers.len() > 64 {
-            return Err(MoinError::invalid_input("headers", "At most 64 request headers are allowed."));
+            return Err(MoinError::invalid_input(
+                "headers",
+                "At most 64 request headers are allowed.",
+            ));
         }
         let mut header_bytes = 0usize;
         for (name, value) in &headers {
-            header_bytes = header_bytes.saturating_add(name.len()).saturating_add(value.len());
-            if HeaderName::from_bytes(name.as_bytes()).is_err() || HeaderValue::from_str(value).is_err() {
-                return Err(MoinError::invalid_input("headers", "A header name or value is invalid."));
+            header_bytes = header_bytes
+                .saturating_add(name.len())
+                .saturating_add(value.len());
+            if HeaderName::from_bytes(name.as_bytes()).is_err()
+                || HeaderValue::from_str(value).is_err()
+            {
+                return Err(MoinError::invalid_input(
+                    "headers",
+                    "A header name or value is invalid.",
+                ));
             }
         }
         if header_bytes > 64 * 1024 {
@@ -232,7 +291,12 @@ impl Engine {
         let (suggested_category, available_categories) = {
             let categories = guard(&self.inner.categories)?;
             (
-                categories.suggest(parsed.as_str(), filename.as_deref(), AddMethodKind::ManualLink, None),
+                categories.suggest(
+                    parsed.as_str(),
+                    filename.as_deref(),
+                    AddMethodKind::ManualLink,
+                    None,
+                ),
                 categories.list(),
             )
         };
@@ -241,7 +305,10 @@ impl Engine {
             .as_ref()
             .is_some_and(|id| !available_categories.iter().any(|item| &item.id == id))
         {
-            return Err(MoinError::not_found("category", category_id.as_deref().unwrap_or_default()));
+            return Err(MoinError::not_found(
+                "category",
+                category_id.as_deref().unwrap_or_default(),
+            ));
         }
         let default_folder = if dir.as_os_str().is_empty() {
             self.inner.downloads_dir.clone()
@@ -264,9 +331,9 @@ impl Engine {
         let final_dir = staging_folder
             .filter(|staging| staging != &final_folder)
             .map(|_| final_folder.to_string_lossy().into_owned());
-        tokio::fs::create_dir_all(&folder)
-            .await
-            .map_err(|error| MoinError::io(format!("Could not create the download directory: {error}")))?;
+        tokio::fs::create_dir_all(&folder).await.map_err(|error| {
+            MoinError::io(format!("Could not create the download directory: {error}"))
+        })?;
         let requested = filename
             .as_deref()
             .and_then(sanitize_filename)
@@ -274,67 +341,56 @@ impl Engine {
                 sanitize_filename(&filename_from_url(parsed.as_str()))
                     .unwrap_or_else(|| "download".to_string())
             });
-        let target = self.unique_destination(&folder, &requested).await?;
+        let backend = self.pick_backend(TaskKind::Http).id().to_string();
         let timestamp = now_ms();
-        let task = Task {
-            id: Uuid::new_v4().to_string(),
-            kind: TaskKind::Http,
-            url: parsed.to_string(),
-            filename: target
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("download")
-                .to_string(),
-            dest: target.to_string_lossy().into_owned(),
-            status: if settings.add_paused { TaskStatus::Paused } else { TaskStatus::Queued },
-            total: None,
-            received: 0,
-            error: None,
-            created_at: timestamp,
-            updated_at: timestamp,
-            completed_at: None,
-            archived: false,
-            active_ms: 0,
-            backend: Some("embedded".to_string()),
-            category: category_id,
-            final_dir,
-            headers,
+        // One critical section covers "check for a clash, pick a free name,
+        // build the task, publish it": two concurrent adds of the same name
+        // must never resolve to the same file. The existence probe is a plain
+        // `std::fs` call so the section stays await-free.
+        let task = {
+            let mut tasks = guard(&self.inner.tasks)?;
+            let occupied: HashSet<String> = tasks
+                .values()
+                .map(|task| task.dest.to_lowercase())
+                .collect();
+            let target = unique_destination(&folder, &requested, &occupied)?;
+            let task = Task {
+                id: Uuid::new_v4().to_string(),
+                kind: TaskKind::Http,
+                url: parsed.to_string(),
+                filename: target
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("download")
+                    .to_string(),
+                dest: target.to_string_lossy().into_owned(),
+                status: if settings.add_paused {
+                    TaskStatus::Paused
+                } else {
+                    TaskStatus::Queued
+                },
+                total: None,
+                received: 0,
+                error: None,
+                created_at: timestamp,
+                updated_at: timestamp,
+                completed_at: None,
+                archived: false,
+                active_ms: 0,
+                backend: Some(backend),
+                category: category_id,
+                final_dir,
+                headers,
+            };
+            tasks.insert(task.id.clone(), task.clone());
+            task
         };
-        self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
-        guard(&self.inner.tasks)?.insert(task.id.clone(), task.clone());
+        self.inner.store.upsert(&task).await?;
         self.inner.emitter.added(&task);
         if task.status == TaskStatus::Queued {
             self.inner.queue_notify.notify_one();
         }
         Ok(task)
-    }
-
-    async fn unique_destination(&self, folder: &Path, filename: &str) -> MoinResult<PathBuf> {
-        let mut candidate = folder.join(filename);
-        let (stem, extension) = split_extension(filename);
-        let occupied_destinations: HashSet<String> = guard(&self.inner.tasks)?
-            .values()
-            .map(|task| task.dest.to_lowercase())
-            .collect();
-        let mut suffix = 1usize;
-        loop {
-            let path = candidate.to_string_lossy().to_lowercase();
-            let occupied_by_task = occupied_destinations.contains(path.as_str());
-            let exists = tokio::fs::try_exists(&candidate).await.unwrap_or(true);
-            if !occupied_by_task && !exists {
-                return Ok(candidate);
-            }
-            let next = if extension.is_empty() {
-                format!("{stem} ({suffix})")
-            } else {
-                format!("{stem} ({suffix}).{extension}")
-            };
-            candidate = folder.join(next);
-            suffix += 1;
-            if suffix > 10_000 {
-                return Err(MoinError::conflict("Could not find an available destination filename."));
-            }
-        }
     }
 
     pub async fn pause(&self, id: &str) -> MoinResult<()> {
@@ -400,6 +456,8 @@ impl Engine {
                 task.status.as_str()
             )));
         }
+        // The byte count is deliberately left alone: the `.part` on disk is
+        // what the next attempt resumes from.
         self.set_status(id, TaskStatus::Queued, None).await?;
         self.inner.queue_notify.notify_one();
         Ok(())
@@ -424,16 +482,21 @@ impl Engine {
             self.wait_inactive(id).await?;
         }
         let task = self.task(id)?;
+        // `.part.aria2` is the control file the external backend leaves behind;
+        // a stale one would make the next attempt resume into a dead session.
         for path in [
             PathBuf::from(&task.dest),
             PathBuf::from(task.part_path()),
             PathBuf::from(task.meta_path()),
+            PathBuf::from(format!("{}.aria2", task.part_path())),
         ] {
             match tokio::fs::remove_file(path).await {
                 Ok(()) => {}
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                 Err(error) => {
-                    return Err(MoinError::io(format!("Could not remove the download file: {error}")))
+                    return Err(MoinError::io(format!(
+                        "Could not remove the download file: {error}"
+                    )))
                 }
             }
         }
@@ -455,10 +518,12 @@ impl Engine {
     /// Drop the record and leave every file on disk alone.
     pub async fn forget(&self, id: &str) -> MoinResult<()> {
         if self.is_active(id) {
-            return Err(MoinError::conflict("Pause or cancel the download before removing its record."));
+            return Err(MoinError::conflict(
+                "Pause or cancel the download before removing its record.",
+            ));
         }
         self.task(id)?;
-        self.inner.store.delete(id).await.map_err(|error| MoinError::io(error))?;
+        self.inner.store.delete(id).await?;
         guard(&self.inner.tasks)?.remove(id);
         self.inner.emitter.removed(id);
         Ok(())
@@ -477,32 +542,25 @@ impl Engine {
         let concurrency_changed = {
             let mut current = guard(&self.inner.settings)?;
             let changed = current.max_concurrent != next.max_concurrent;
-            *current = next;
+            *current = next.clone();
             changed
         };
+        // A new connect timeout only takes effect once the client is rebuilt,
+        // and a new aria2 path only after the probe cache is dropped.
+        self.inner.embedded.reconfigure(net_config(&next));
+        self.inner.tool.set_override(next.aria2_path.clone());
         if concurrency_changed {
             self.inner.queue_notify.notify_one();
         }
         Ok(())
     }
 
-    /// The backend list the settings page renders. `aria2` stays unavailable
-    /// until the aria2c backend is ported; it is listed so the row can explain
-    /// itself instead of disappearing.
+    /// The backend list the settings page renders. `available` is the live
+    /// probe result, so the aria2 row can explain itself instead of vanishing.
     pub fn backends(&self) -> Vec<BackendInfo> {
         vec![
-            BackendInfo {
-                id: "embedded".to_string(),
-                label: "Built-in".to_string(),
-                http: true,
-                available: true,
-            },
-            BackendInfo {
-                id: "aria2".to_string(),
-                label: "aria2c".to_string(),
-                http: true,
-                available: false,
-            },
+            BackendInfo::of(self.inner.embedded.as_ref()),
+            BackendInfo::of(self.inner.aria2.as_ref()),
         ]
     }
 
@@ -510,28 +568,20 @@ impl Engine {
         let mut next = self.settings();
         next.rpc_token = Uuid::new_v4().to_string();
         if let Err(error) = self.set_settings(next.clone()) {
-            log::warn!("Could not persist a new moin RPC token: {error}");
+            log::warn!("Could not persist a new moin RPC token: {}", error.message);
         }
         next.rpc_token
     }
 
     pub async fn tool_status(&self) -> ToolStatus {
-        let settings = self.settings();
-        let path = settings.aria2_path.filter(|value| !value.trim().is_empty());
-        ToolStatus {
-            id: "aria2".to_string(),
-            present: false,
-            path: path.clone(),
-            version: None,
-            source: path.map(|_| ToolSource::Override),
-        }
+        self.inner.tool.status().await
     }
 
     pub async fn set_tool_path(&self, path: Option<String>) -> ToolStatus {
         let mut next = self.settings();
         next.aria2_path = path.filter(|value| !value.trim().is_empty());
         if let Err(error) = self.set_settings(next) {
-            log::warn!("Could not persist the aria2 path: {error}");
+            log::warn!("Could not persist the aria2 path: {}", error.message);
         }
         self.tool_status().await
     }
@@ -574,6 +624,9 @@ impl Engine {
         Ok(categories)
     }
 
+    /// Remove a category and untag its downloads. Files stay where they are and
+    /// `final_dir` keeps its value: dropping a label is not a reason to move
+    /// somebody's data.
     pub async fn delete_category(&self, id: &str) -> MoinResult<Vec<Category>> {
         let categories = {
             let mut store = guard(&self.inner.categories)?;
@@ -586,14 +639,13 @@ impl Engine {
                 .filter(|task| task.category.as_deref() == Some(id))
                 .map(|task| {
                     task.category = None;
-                    task.final_dir = None;
                     task.updated_at = now_ms();
                     task.clone()
                 })
                 .collect::<Vec<_>>()
         };
         for task in affected {
-            self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
+            self.inner.store.upsert(&task).await?;
             self.inner.emitter.updated(&task);
         }
         Ok(categories)
@@ -607,22 +659,104 @@ impl Engine {
         Ok(categories)
     }
 
+    /// Re-tag downloads and move their artefacts into the new category folder.
+    ///
+    /// A running transfer is paused first and given time to release its file
+    /// handles, because renaming a file another thread is writing to would
+    /// corrupt it. Cross-volume moves fall back to copy + delete and report
+    /// their own progress.
     pub async fn move_to_category(
         &self,
         ids: Vec<String>,
         category: Option<String>,
-        _default_dir: PathBuf,
+        default_dir: PathBuf,
     ) -> MoinResult<()> {
-        if let Some(id) = category.as_deref() {
-            if guard(&self.inner.categories)?.get(id).is_none() {
-                return Err(MoinError::not_found("category", id));
-            }
-        }
+        let target = match category.as_deref() {
+            Some(id) => Some(
+                guard(&self.inner.categories)?
+                    .get(id)
+                    .ok_or_else(|| MoinError::not_found("category", id))?,
+            ),
+            None => None,
+        };
+        let save_dir = target
+            .as_ref()
+            .and_then(|item| item.save_dir.as_deref())
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from)
+            .unwrap_or(default_dir);
+        let staging_dir = target
+            .as_ref()
+            .and_then(|item| item.incomplete_dir.as_deref())
+            .filter(|value| !value.trim().is_empty())
+            .map(PathBuf::from);
+
         for id in ids {
-            // Files are left where they are: moving a finished download is a
-            // separate action the download list offers, not a side effect of
-            // re-tagging a record.
-            self.mutate(&id, |task| task.category = category.clone()).await?;
+            self.task(&id)?;
+            if self.is_active(&id) {
+                if let Ok(control) = self.control(&id) {
+                    control.set(Signal::Pause);
+                }
+                self.wait_inactive(&id).await?;
+            }
+            let task = self.task(&id)?;
+            let finished = task.status == TaskStatus::Completed;
+            // An unfinished download keeps using the staging folder; a finished
+            // one belongs in the category's save folder.
+            let folder = if finished {
+                save_dir.clone()
+            } else {
+                staging_dir.clone().unwrap_or_else(|| save_dir.clone())
+            };
+            let final_dir = (!finished && folder != save_dir)
+                .then(|| save_dir.to_string_lossy().into_owned());
+            let current_folder = Path::new(&task.dest).parent().map(Path::to_path_buf);
+            if current_folder.as_deref() == Some(folder.as_path()) {
+                // Already in the right folder: only the label and the pending
+                // destination change, nothing is touched on disk.
+                self.mutate(&id, |task| {
+                    task.category = category.clone();
+                    task.final_dir = final_dir.clone();
+                })
+                .await?;
+                continue;
+            }
+            tokio::fs::create_dir_all(&folder).await.map_err(|error| {
+                MoinError::io(format!("Could not create the category directory: {error}"))
+            })?;
+            let target_dest = self.reserve_destination(&folder, &task.filename)?;
+            let sources = [
+                PathBuf::from(task.part_path()),
+                PathBuf::from(task.meta_path()),
+                PathBuf::from(format!("{}.aria2", task.part_path())),
+                PathBuf::from(&task.dest),
+            ];
+            for source in sources {
+                let name = source
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let destination = target_dest
+                    .parent()
+                    .unwrap_or(&folder)
+                    .join(&name);
+                self.move_file(&id, &source, &destination)
+                    .await
+                    .map_err(MoinError::io)?;
+            }
+            let target_name = target_dest
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or(&task.filename)
+                .to_string();
+            self.mutate_relocated(&id, |task| {
+                task.dest = target_dest.to_string_lossy().into_owned();
+                task.filename = target_name;
+                task.category = category.clone();
+                task.final_dir = final_dir;
+            })
+            .await?;
         }
         Ok(())
     }
@@ -641,16 +775,21 @@ impl Engine {
 
     pub async fn shutdown(&self) {
         self.inner.stopping.store(true, Ordering::Release);
+        self.inner.queue_notify.notify_waiters();
         let controls: Vec<_> = guard(&self.inner.controls)
             .map(|items| items.values().cloned().collect())
             .unwrap_or_default();
+        // `Cancel`, not `Pause`: the process is going away, so a worker that
+        // lingers is a worker that keeps a file handle open.
         for control in controls {
-            control.set(Signal::Pause);
+            control.set(Signal::Cancel);
         }
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + SHUTDOWN_GRACE;
         while self.has_active_transfers() && Instant::now() < deadline {
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
+        self.inner.embedded.shutdown().await;
+        self.inner.aria2.shutdown().await;
     }
 
     fn task(&self, id: &str) -> MoinResult<Task> {
@@ -674,7 +813,7 @@ impl Engine {
     }
 
     async fn wait_inactive(&self, id: &str) -> MoinResult<()> {
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + STOP_WAIT;
         while self.is_active(id) {
             if Instant::now() >= deadline {
                 return Err(MoinError::conflict(
@@ -699,7 +838,29 @@ impl Engine {
             task.updated_at = now_ms();
             task.clone()
         };
-        self.inner.store.upsert(&task).await.map_err(|error| MoinError::io(error))?;
+        self.inner.store.upsert(&task).await?;
+        self.inner.emitter.updated(&task);
+        Ok(task)
+    }
+
+    /// Same as [`Engine::mutate`], for a change that touches `dest` or
+    /// `filename`. `Store::upsert` deliberately never rewrites those identity
+    /// columns, so the row is re-inserted instead (see `B3.md` → 待协调).
+    async fn mutate_relocated<F>(&self, id: &str, update: F) -> MoinResult<Task>
+    where
+        F: FnOnce(&mut Task),
+    {
+        let task = {
+            let mut tasks = guard(&self.inner.tasks)?;
+            let task = tasks
+                .get_mut(id)
+                .ok_or_else(|| MoinError::not_found("download", id))?;
+            update(task);
+            task.updated_at = now_ms();
+            task.clone()
+        };
+        self.inner.store.delete(&task.id).await?;
+        self.inner.store.upsert(&task).await?;
         self.inner.emitter.updated(&task);
         Ok(task)
     }
@@ -718,6 +879,27 @@ impl Engine {
             }
         })
         .await
+    }
+
+    /// Pick the backend for `kind`: the external engine when it is installed and
+    /// can handle the source, the built-in one otherwise.
+    fn pick_backend(&self, kind: TaskKind) -> Arc<dyn DownloadBackend> {
+        let aria2 = self.inner.aria2.clone() as Arc<dyn DownloadBackend>;
+        if aria2.supports(kind) && aria2.available() {
+            return aria2;
+        }
+        self.inner.embedded.clone() as Arc<dyn DownloadBackend>
+    }
+
+    /// A path inside `folder` that neither another task nor the filesystem has
+    /// claimed yet. Callers hold the task lock, so the probe is the plain
+    /// `std::fs` one: this must not await.
+    fn reserve_destination(&self, folder: &Path, filename: &str) -> MoinResult<PathBuf> {
+        let occupied: HashSet<String> = guard(&self.inner.tasks)?
+            .values()
+            .map(|task| task.dest.to_lowercase())
+            .collect();
+        unique_destination(folder, filename, &occupied)
     }
 
     async fn run_scheduler(&self) {
@@ -768,7 +950,11 @@ impl Engine {
             if let Ok(mut controls) = guard(&self.inner.controls) {
                 controls.insert(task.id.clone(), control.clone());
             }
-            if self.set_status(&task.id, TaskStatus::Connecting, None).await.is_err() {
+            if self
+                .set_status(&task.id, TaskStatus::Connecting, None)
+                .await
+                .is_err()
+            {
                 self.finish_active(&task.id);
                 continue;
             }
@@ -788,51 +974,120 @@ impl Engine {
                 return;
             }
         };
-        let mut outcome = self.download_http(&task, &control).await;
-        if matches!(outcome, Outcome::Completed) {
-            if let Ok(current) = self.task(&id) {
-                if current.final_dir.is_some() {
-                    let _ = self.set_status(&id, TaskStatus::Moving, None).await;
-                    if let Err(error) = self.relocate_completed(&current).await {
-                        outcome = Outcome::Failed(error);
-                    }
-                }
-            }
+        let backend = self.pick_backend(task.kind);
+        let backend_id = backend.id().to_string();
+        if task.backend.as_deref() != Some(backend_id.as_str()) {
+            let _ = self
+                .mutate(&id, |current| current.backend = Some(backend_id))
+                .await;
         }
-        if matches!(outcome, Outcome::Completed) {
-            if let Ok(current) = self.task(&id) {
-                if let Ok(metadata) = tokio::fs::metadata(&current.dest).await {
-                    let size = metadata.len();
-                    let _ = self
-                        .mutate(&id, |task| {
-                            task.received = size;
-                            task.total = Some(size);
-                        })
-                        .await;
-                }
-            }
-        } else if let Ok(current) = self.task(&id) {
-            if let Ok(metadata) = tokio::fs::metadata(current.part_path()).await {
-                let size = metadata.len();
-                let _ = self.mutate(&id, |task| task.received = size).await;
-            }
-        }
-        let (status, error) = match outcome {
-            Outcome::Completed => (TaskStatus::Completed, None),
-            Outcome::Paused => (TaskStatus::Paused, None),
-            Outcome::Canceled => (TaskStatus::Canceled, None),
-            Outcome::Stalled => (
-                TaskStatus::Stalled,
-                Some("No data was received before the stall timeout.".to_string()),
-            ),
-            Outcome::Failed(message) => (TaskStatus::Failed, Some(message)),
+        let settings = self.settings();
+        let opts = TransferOpts {
+            connections: settings.connections,
+            min_split_size: settings.min_split_size,
+            hide_part: settings.hide_part_files,
+            stall_timeout: Duration::from_secs(settings.stall_timeout_secs),
         };
-        if let Ok(updated) = self.set_status(&id, status, error).await {
-            if status == TaskStatus::Completed {
-                self.inner.emitter.completed(&updated);
+        let progress = self.make_progress(&id);
+        let mut run = backend.run(task, opts, control, progress);
+        let mut ticker = tokio::time::interval(PERSIST_INTERVAL);
+        // The first tick of a fresh interval fires immediately; skip it so the
+        // database is not written before a single byte moved.
+        ticker.tick().await;
+        let outcome = loop {
+            tokio::select! {
+                outcome = &mut run => break outcome,
+                _ = ticker.tick() => self.persist_progress(&id).await,
             }
+        };
+        self.finish(&id, outcome).await;
+    }
+
+    /// Turn a backend outcome into a task status.
+    async fn finish(&self, id: &str, outcome: Outcome) {
+        if matches!(outcome, Outcome::Completed) {
+            let needs_move = self
+                .task(id)
+                .map(|task| task.final_dir.is_some())
+                .unwrap_or(false);
+            if needs_move {
+                let task = match self.task(id) {
+                    Ok(task) => task,
+                    Err(_) => {
+                        self.finish_active(id);
+                        return;
+                    }
+                };
+                let _ = self.set_status(id, TaskStatus::Moving, None).await;
+                if let Err(message) = self.relocate_to_final(&task).await {
+                    self.settle(id, TaskStatus::Failed, Some(message)).await;
+                    self.finish_active(id);
+                    self.wake_queue();
+                    return;
+                }
+            }
+            let previous = self.task(id).map(|task| task.status).ok();
+            let updated = self.settle(id, TaskStatus::Completed, None).await;
+            if previous != Some(TaskStatus::Completed) {
+                if let Some(task) = updated {
+                    self.inner.emitter.completed(&task);
+                }
+            }
+        } else {
+            let (status, error) = match outcome {
+                Outcome::Completed => unreachable!("handled above"),
+                Outcome::Paused => (TaskStatus::Paused, None),
+                Outcome::Canceled => (TaskStatus::Canceled, None),
+                Outcome::Stalled => (
+                    TaskStatus::Stalled,
+                    Some("No data was received before the stall timeout.".to_string()),
+                ),
+                Outcome::Failed(message) => (TaskStatus::Failed, Some(message)),
+            };
+            self.settle(id, status, error).await;
         }
-        self.finish_active(&id);
+        self.finish_active(id);
+        self.wake_queue();
+    }
+
+    /// Record the terminal status together with the byte count the files on
+    /// disk actually hold, so a paused or failed row never over-reports.
+    async fn settle(
+        &self,
+        id: &str,
+        status: TaskStatus,
+        error: Option<String>,
+    ) -> Option<Task> {
+        let current = self.task(id).ok()?;
+        let measured = if status == TaskStatus::Completed {
+            tokio::fs::metadata(&current.dest)
+                .await
+                .ok()
+                .map(|metadata| metadata.len())
+        } else {
+            tokio::fs::metadata(current.part_path())
+                .await
+                .ok()
+                .map(|metadata| metadata.len())
+        };
+        self.mutate(id, |task| {
+            if let Some(size) = measured {
+                task.received = size;
+                if status == TaskStatus::Completed {
+                    task.total = Some(size);
+                }
+            }
+            task.status = status;
+            task.error = error;
+            if status == TaskStatus::Completed && task.completed_at.is_none() {
+                task.completed_at = Some(now_ms());
+            }
+        })
+        .await
+        .ok()
+    }
+
+    fn wake_queue(&self) {
         if !self.inner.stopping.load(Ordering::Acquire) {
             self.inner.queue_notify.notify_one();
         }
@@ -847,262 +1102,61 @@ impl Engine {
         }
     }
 
-    async fn download_http(&self, task: &Task, control: &Control) -> Outcome {
-        let settings = self.settings();
-        let mut builder = Client::builder();
-        if settings.connect_timeout_secs > 0 {
-            builder = builder.connect_timeout(Duration::from_secs(settings.connect_timeout_secs));
-        }
-        let client = match builder.build() {
-            Ok(client) => client,
-            Err(error) => return Outcome::Failed(format!("Could not configure the HTTP client: {error}")),
+    /// Write the in-memory byte count to the database. Called on a timer while
+    /// a transfer runs, so a crash loses at most one interval of progress.
+    async fn persist_progress(&self, id: &str) {
+        let snapshot = match guard(&self.inner.tasks) {
+            Ok(tasks) => tasks.get(id).cloned(),
+            Err(_) => None,
         };
-        let part = task.part_path();
-        let meta_path = task.meta_path();
-        let destination = PathBuf::from(&task.dest);
-        let mut offset = tokio::fs::metadata(&part)
-            .await
-            .map(|metadata| metadata.len())
-            .unwrap_or(0);
-        let mut request_headers = reqwest::header::HeaderMap::new();
-        for (name, value) in &task.headers {
-            let (Ok(name), Ok(value)) = (
-                HeaderName::from_bytes(name.as_bytes()),
-                HeaderValue::from_str(value),
-            ) else {
-                continue;
-            };
-            request_headers.insert(name, value);
+        let Some(task) = snapshot else { return };
+        if !matches!(
+            task.status,
+            TaskStatus::Connecting | TaskStatus::Downloading | TaskStatus::Moving
+        ) {
+            return;
         }
-        let has_resume_plan = tokio::fs::try_exists(&meta_path).await.unwrap_or(false);
-        let mut range_total = None;
-        let mut ranges_supported = false;
-        if settings.connections > 1 || has_resume_plan {
-            if let Ok(response) = client
-                .get(&task.url)
-                .headers(request_headers.clone())
-                .header(RANGE, "bytes=0-0")
-                .send()
-                .await
-            {
-                if response.status().as_u16() == 206 {
-                    if let Some((0, Some(total))) = response
-                        .headers()
-                        .get(CONTENT_RANGE)
-                        .and_then(|value| value.to_str().ok())
-                        .and_then(parse_content_range)
-                    {
-                        ranges_supported = total > 0;
-                        range_total = Some(total);
-                    }
-                }
-            }
+        if let Err(error) = self.inner.store.upsert(&task).await {
+            log::debug!("Could not persist download progress: {}", error.message);
         }
-        let use_segments = settings.connections > 1
-            && ranges_supported
-            && range_total.is_some_and(|total| total >= settings.min_split_size);
-        if has_resume_plan && !use_segments {
-            if let Err(error) = tokio::fs::remove_file(&part).await {
-                if error.kind() != std::io::ErrorKind::NotFound {
-                    return Outcome::Failed(format!(
-                        "Could not discard an incompatible segmented partial: {error}"
-                    ));
-                }
-            }
-            if let Err(error) = tokio::fs::remove_file(&meta_path).await {
-                if error.kind() != std::io::ErrorKind::NotFound {
-                    return Outcome::Failed(format!(
-                        "Could not discard an incompatible segmented resume plan: {error}"
-                    ));
-                }
-            }
-            offset = 0;
-        }
-        if use_segments {
-            let total = range_total.unwrap_or_default();
-            let _ = self.set_status(&task.id, TaskStatus::Downloading, None).await;
-            let task_id = task.id.clone();
-            let emitter = self.inner.emitter.clone();
-            // Segmented workers all push into the same running total, so one
-            // sampler over `received` yields the combined throughput. The
-            // counter also carries the final reading back out, because the
-            // transfer itself only reports through the callback.
-            let sampler = Arc::new(Mutex::new(SpeedSampler::new()));
-            let latest = Arc::new(AtomicU64::new(0));
-            let tracker = latest.clone();
-            let progress: ProgressFn = Arc::new(move |received: u64, total: Option<u64>| {
-                tracker.store(received, Ordering::Release);
-                let speed = sampler
-                    .lock()
-                    .map(|mut sampler| sampler.sample(received))
-                    .unwrap_or(0);
-                emitter.progress(TaskProgress {
-                    id: task_id.clone(),
-                    received,
-                    total,
-                    speed,
-                    status: TaskStatus::Downloading,
-                });
-            });
-            let outcome = crate::segmented::download(
-                &client,
-                &task.url,
-                &request_headers,
-                &part,
-                &task.dest,
-                &meta_path,
-                settings.connections,
-                settings.min_split_size,
-                settings.hide_part_files,
-                Duration::from_secs(settings.stall_timeout_secs),
-                control,
-                &progress,
-            )
-            .await;
-            let received = latest.load(Ordering::Acquire);
-            if let Err(error) = self
-                .mutate(&task.id, |current| {
-                    current.received = received;
-                    current.total = Some(total);
-                    current.backend = Some("embedded".to_string());
-                })
-                .await
-            {
-                return Outcome::Failed(error.message);
-            }
-            return outcome;
-        }
-        let mut request = client.get(&task.url).headers(request_headers);
-        if offset > 0 {
-            request = request.header(RANGE, format!("bytes={offset}-"));
-        }
-        let response = match request.send().await {
-            Ok(response) => response,
-            Err(error) => return Outcome::Failed(friendly_http_error(&error)),
-        };
-        let status = response.status();
-        if status.as_u16() == 416 && offset > 0 {
-            let total = response
-                .headers()
-                .get(CONTENT_RANGE)
-                .and_then(|value| value.to_str().ok())
-                .and_then(parse_unsatisfied_total);
-            if total == Some(offset) {
-                return self.finalize(&part, &destination).await;
-            }
-            return Outcome::Failed(
-                "The server rejected the resume offset; retry the download to restart it.".to_string(),
-            );
-        }
-        if !status.is_success() {
-            return Outcome::Failed(format!("The server returned HTTP {status}."));
-        }
-        let resuming = status.as_u16() == 206 && offset > 0;
-        let total = if resuming {
-            let Some((range_start, total)) = response
-                .headers()
-                .get(CONTENT_RANGE)
-                .and_then(|value| value.to_str().ok())
-                .and_then(parse_content_range)
-            else {
-                return Outcome::Failed("The server returned an invalid Content-Range header.".to_string());
-            };
-            if range_start != offset {
-                return Outcome::Failed("The server resumed from an unexpected byte offset.".to_string());
-            }
-            total
-        } else {
-            response.content_length()
-        };
-        let mut options = tokio::fs::OpenOptions::new();
-        options.create(true).write(true);
-        if resuming {
-            options.append(true);
-        } else {
-            options.truncate(true);
-        }
-        let mut file = match options.open(&part).await {
-            Ok(file) => file,
-            Err(error) => return Outcome::Failed(format!("Could not open the partial file: {error}")),
-        };
-        let received_start = if resuming { offset } else { 0 };
-        let mut received = received_start;
-        let mut stream = response.bytes_stream();
-        let mut last_byte = Instant::now();
-        let mut last_persist = Instant::now();
-        let mut sampler = SpeedSampler::new();
-        self.record_progress(task, received, total, 0, TaskStatus::Downloading);
-        let _ = self.set_status(&task.id, TaskStatus::Downloading, None).await;
-        loop {
-            match control.signal() {
-                Signal::Pause => {
-                    let _ = file.flush().await;
-                    return Outcome::Paused;
-                }
-                Signal::Cancel => {
-                    let _ = file.flush().await;
-                    return Outcome::Canceled;
-                }
-                Signal::Run => {}
-            }
-            let chunk = match tokio::time::timeout(Duration::from_secs(1), stream.next()).await {
-                Ok(Some(chunk)) => chunk,
-                Ok(None) => break,
-                Err(_) => {
-                    if settings.stall_timeout_secs > 0
-                        && last_byte.elapsed() >= Duration::from_secs(settings.stall_timeout_secs)
-                    {
-                        let _ = file.flush().await;
-                        return Outcome::Stalled;
-                    }
-                    continue;
-                }
-            };
-            let bytes = match chunk {
-                Ok(bytes) => bytes,
-                Err(error) => {
-                    let _ = file.flush().await;
-                    return Outcome::Failed(friendly_http_error(&error));
-                }
-            };
-            if let Err(error) = file.write_all(&bytes).await {
-                return Outcome::Failed(format!("Could not write the partial file: {error}"));
-            }
-            received = received.saturating_add(bytes.len() as u64);
-            last_byte = Instant::now();
-            let speed = sampler.sample(received);
-            self.record_progress(task, received, total, speed, TaskStatus::Downloading);
-            if last_persist.elapsed() >= Duration::from_secs(1) {
-                let _ = self
-                    .mutate(&task.id, |current| {
-                        current.received = received;
-                        current.total = total;
-                        current.backend = Some("embedded".to_string());
-                    })
-                    .await;
-                last_persist = Instant::now();
-            }
-        }
-        if let Err(error) = file.flush().await {
-            return Outcome::Failed(format!("Could not flush the partial file: {error}"));
-        }
-        drop(file);
-        if total.is_some_and(|expected| expected != received) {
-            return Outcome::Failed(format!(
-                "The connection ended after {received} of {} bytes.",
-                total.unwrap_or_default()
-            ));
-        }
-        if control.signal() == Signal::Pause {
-            return Outcome::Paused;
-        }
-        if control.signal() == Signal::Cancel {
-            return Outcome::Canceled;
-        }
-        self.finalize(&part, &destination).await
     }
 
-    async fn relocate_completed(&self, task: &Task) -> Result<(), String> {
+    /// The callback a backend reports through. It keeps the in-memory task in
+    /// step with the transfer and hands a smoothed reading to the host, which
+    /// batches it.
+    fn make_progress(&self, id: &str) -> ProgressFn {
+        let engine = self.clone();
+        let task_id = id.to_string();
+        let sampler = Arc::new(Mutex::new(SpeedSampler::new()));
+        Arc::new(move |received: u64, total: Option<u64>| {
+            let speed = sampler
+                .lock()
+                .map(|mut sampler| sampler.sample(received))
+                .unwrap_or(0);
+            if let Ok(mut tasks) = guard(&engine.inner.tasks) {
+                if let Some(current) = tasks.get_mut(&task_id) {
+                    current.received = received;
+                    if total.is_some() {
+                        current.total = total;
+                    }
+                    if current.status == TaskStatus::Connecting {
+                        current.status = TaskStatus::Downloading;
+                    }
+                }
+            }
+            engine.inner.emitter.progress(TaskProgress {
+                id: task_id.clone(),
+                received,
+                total,
+                speed,
+                status: TaskStatus::Downloading,
+            });
+        })
+    }
+
+    /// Move a finished download out of the staging folder into its category
+    /// destination, then point the record at the new path.
+    async fn relocate_to_final(&self, task: &Task) -> Result<(), String> {
         let Some(final_dir) = task.final_dir.as_deref() else {
             return Ok(());
         };
@@ -1111,32 +1165,16 @@ impl Engine {
             .await
             .map_err(|error| format!("Could not create the category destination directory: {error}"))?;
         let target = self
-            .unique_destination(&folder, &task.filename)
-            .await
+            .reserve_destination(&folder, &task.filename)
             .map_err(|error| error.message)?;
         let source = PathBuf::from(&task.dest);
-        match tokio::fs::rename(&source, &target).await {
-            Ok(()) => {}
-            Err(rename_error) => {
-                tokio::fs::copy(&source, &target).await.map_err(|copy_error| {
-                    format!(
-                        "Could not move the completed file ({rename_error}); cross-volume copy failed: {copy_error}"
-                    )
-                })?;
-                if let Err(remove_error) = tokio::fs::remove_file(&source).await {
-                    let _ = tokio::fs::remove_file(&target).await;
-                    return Err(format!(
-                        "The completed file was copied but its staging copy could not be removed: {remove_error}"
-                    ));
-                }
-            }
-        }
+        self.move_file(&task.id, &source, &target).await?;
         let target_name = target
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or(&task.filename)
             .to_string();
-        self.mutate(&task.id, |current| {
+        self.mutate_relocated(&task.id, |current| {
             current.dest = target.to_string_lossy().into_owned();
             current.filename = target_name;
             current.final_dir = None;
@@ -1146,45 +1184,129 @@ impl Engine {
         Ok(())
     }
 
-    async fn finalize(&self, part: &str, destination: &Path) -> Outcome {
-        if tokio::fs::try_exists(destination).await.unwrap_or(true) {
-            return Outcome::Failed("The destination file already exists; it was not overwritten.".to_string());
+    /// Rename `source` onto `target`, falling back to copy + delete across
+    /// volumes. The copy path reports progress so a large cross-drive move does
+    /// not look frozen.
+    async fn move_file(&self, id: &str, source: &Path, target: &Path) -> Result<(), String> {
+        if !tokio::fs::try_exists(source).await.unwrap_or(false) {
+            return Ok(());
         }
-        if let Some(parent) = destination.parent() {
-            if let Err(error) = tokio::fs::create_dir_all(parent).await {
-                return Outcome::Failed(format!("Could not create the destination directory: {error}"));
-            }
+        if let Some(parent) = target.parent() {
+            tokio::fs::create_dir_all(parent).await.map_err(|error| {
+                format!("Could not create {}: {error}", parent.display())
+            })?;
         }
-        match tokio::fs::rename(part, destination).await {
-            Ok(()) => Outcome::Completed,
-            Err(error) => Outcome::Failed(format!("Could not finalize the download: {error}")),
+        if tokio::fs::rename(source, target).await.is_ok() {
+            return Ok(());
+        }
+        let mut input = tokio::fs::File::open(source)
+            .await
+            .map_err(|error| format!("Could not read {}: {error}", source.display()))?;
+        let total = input.metadata().await.ok().map(|metadata| metadata.len());
+        let mut output = tokio::fs::File::create(target)
+            .await
+            .map_err(|error| format!("Could not create {}: {error}", target.display()))?;
+        let mut buffer = vec![0u8; COPY_CHUNK];
+        let mut copied = 0u64;
+        loop {
+            let read = match input.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(read) => read,
+                Err(error) => return Err(format!("Could not read {}: {error}", source.display())),
+            };
+            output
+                .write_all(&buffer[..read])
+                .await
+                .map_err(|error| format!("Could not write {}: {error}", target.display()))?;
+            copied = copied.saturating_add(read as u64);
+            self.inner.emitter.progress(TaskProgress {
+                id: id.to_string(),
+                received: copied,
+                total,
+                speed: 0,
+                status: TaskStatus::Moving,
+            });
+        }
+        if let Err(error) = output.flush().await {
+            return Err(format!("Could not flush {}: {error}", target.display()));
+        }
+        drop(output);
+        if let Err(error) = tokio::fs::remove_file(source).await {
+            let _ = tokio::fs::remove_file(target).await;
+            return Err(format!(
+                "The file was copied but its previous copy could not be removed: {error}"
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// `folder/filename`, or the first `stem (n).ext` variant that is neither used
+/// by a task nor present on disk.
+fn unique_destination(
+    folder: &Path,
+    filename: &str,
+    occupied: &HashSet<String>,
+) -> MoinResult<PathBuf> {
+    let (stem, extension) = split_extension(filename);
+    let mut candidate = folder.join(filename);
+    let mut suffix = 1usize;
+    loop {
+        let taken_by_task = occupied.contains(&candidate.to_string_lossy().to_lowercase());
+        let exists = candidate.try_exists().unwrap_or(true);
+        if !taken_by_task && !exists {
+            return Ok(candidate);
+        }
+        let next = if extension.is_empty() {
+            format!("{stem} ({suffix})")
+        } else {
+            format!("{stem} ({suffix}).{extension}")
+        };
+        candidate = folder.join(next);
+        suffix += 1;
+        if suffix > 10_000 {
+            return Err(MoinError::conflict(
+                "Could not find an available destination filename.",
+            ));
         }
     }
+}
 
-    /// Update the in-memory task and hand the reading to the host. The host
-    /// batches these, so this stays cheap enough for a per-chunk call.
-    fn record_progress(
-        &self,
-        task: &Task,
-        received: u64,
-        total: Option<u64>,
-        speed: u64,
-        status: TaskStatus,
-    ) {
-        if let Ok(mut tasks) = guard(&self.inner.tasks) {
-            if let Some(current) = tasks.get_mut(&task.id) {
-                current.received = received;
-                current.total = total;
-                current.status = status;
-            }
+/// Report partial files that no task owns. They are left alone on purpose: a
+/// user who renamed a task's record still wants the bytes, and guessing wrong
+/// means deleting somebody's half-finished download.
+async fn warn_unowned_partials(tasks: &HashMap<String, Task>, downloads_dir: &Path) {
+    let mut owned: HashSet<String> = HashSet::new();
+    let mut folders: HashSet<PathBuf> = HashSet::new();
+    for task in tasks.values() {
+        for path in [task.part_path(), task.meta_path()] {
+            owned.insert(path.to_lowercase());
         }
-        self.inner.emitter.progress(TaskProgress {
-            id: task.id.clone(),
-            received,
-            total,
-            speed,
-            status,
-        });
+        if let Some(parent) = Path::new(&task.dest).parent() {
+            folders.insert(parent.to_path_buf());
+        }
+    }
+    folders.insert(downloads_dir.to_path_buf());
+    let mut reported = 0usize;
+    for folder in folders {
+        let Ok(mut entries) = tokio::fs::read_dir(&folder).await else {
+            continue;
+        };
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.ends_with(".part") && !name.ends_with(".part.meta") {
+                continue;
+            }
+            let path = entry.path().to_string_lossy().to_string();
+            if owned.contains(&path.to_lowercase()) {
+                continue;
+            }
+            if reported >= ORPHAN_WARN_LIMIT {
+                return;
+            }
+            reported += 1;
+            log::warn!("Leaving a partial file that no download owns untouched: {path}");
+        }
     }
 }
 
@@ -1195,32 +1317,15 @@ fn split_extension(filename: &str) -> (&str, &str) {
     }
 }
 
-fn parse_content_range(value: &str) -> Option<(u64, Option<u64>)> {
-    let value = value.strip_prefix("bytes ")?;
-    let (range, total) = value.split_once('/')?;
-    let (start, _end) = range.split_once('-')?;
-    let total = if total == "*" { None } else { total.parse().ok() };
-    Some((start.parse().ok()?, total))
-}
-
-fn parse_unsatisfied_total(value: &str) -> Option<u64> {
-    value.strip_prefix("bytes */")?.parse().ok()
-}
-
-fn friendly_http_error(error: &reqwest::Error) -> String {
-    if error.is_timeout() {
-        "The connection timed out.".to_string()
-    } else if error.is_connect() {
-        "Could not reach the server.".to_string()
-    } else {
-        format!("The HTTP request failed: {error}")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{Engine, Emitter};
-    use crate::models::{Settings, Task, TaskProgress, TaskStatus};
+    use crate::models::{
+        Category, Settings, Task, TaskKind, TaskProgress, TaskStatus,
+    };
+    use crate::store::Store;
+    use std::collections::BTreeMap;
+    use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     use std::time::Duration;
@@ -1248,16 +1353,112 @@ mod tests {
         fn removed(&self, _: &str) {}
     }
 
+    /// A task that stays paused, so a test never touches the network.
+    async fn paused_engine(data: &Path, downloads: &Path) -> Engine {
+        let settings = Settings {
+            add_paused: true,
+            ..Default::default()
+        };
+        write_settings(data, &settings);
+        Engine::new(
+            data.to_path_buf(),
+            Arc::new(NoopSink),
+            downloads.to_path_buf(),
+        )
+        .await
+        .unwrap()
+    }
+
+    fn write_settings(dir: &Path, settings: &Settings) {
+        std::fs::write(
+            dir.join("settings.json"),
+            serde_json::to_vec(settings).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn sample_task(dest: &Path, status: TaskStatus) -> Task {
+        Task {
+            id: "record".to_string(),
+            kind: TaskKind::Http,
+            url: "https://example.test/file.bin".to_string(),
+            filename: dest
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("file.bin")
+                .to_string(),
+            dest: dest.to_string_lossy().into_owned(),
+            status,
+            total: None,
+            received: 0,
+            error: None,
+            created_at: 1,
+            updated_at: 1,
+            completed_at: None,
+            archived: false,
+            active_ms: 0,
+            backend: None,
+            category: None,
+            final_dir: None,
+            headers: BTreeMap::new(),
+        }
+    }
+
+    fn sample_category(id: &str, save_dir: &Path) -> Category {
+        Category {
+            id: id.to_string(),
+            name: id.to_string(),
+            color: String::new(),
+            icon: None,
+            hidden_from_all: false,
+            save_dir: Some(save_dir.to_string_lossy().into_owned()),
+            incomplete_dir: None,
+            sources: Vec::new(),
+            triggers: Vec::new(),
+            order: 10,
+            legacy: BTreeMap::new(),
+        }
+    }
+
+    async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
+        let mut request = Vec::new();
+        let mut chunk = [0u8; 1024];
+        loop {
+            let count = tokio::io::AsyncReadExt::read(socket, &mut chunk)
+                .await
+                .unwrap();
+            if count == 0 {
+                break;
+            }
+            request.extend_from_slice(&chunk[..count]);
+            if request.windows(4).any(|window| window == b"\r\n\r\n") {
+                break;
+            }
+        }
+        String::from_utf8_lossy(&request).to_string()
+    }
+
     #[tokio::test]
     async fn speed_sampler_primes_then_measures() {
         let mut sampler = super::SpeedSampler::new();
-        assert_eq!(sampler.sample(1024), 0, "the first sample only records a baseline");
+        assert_eq!(
+            sampler.sample(1024),
+            0,
+            "the first sample only records a baseline"
+        );
 
         tokio::time::sleep(Duration::from_millis(600)).await;
-        assert!(sampler.sample(1024 + 512 * 1024) > 0, "a window with new bytes reports a rate");
+        assert!(
+            sampler.sample(1024 + 512 * 1024) > 0,
+            "a window with new bytes reports a rate"
+        );
 
         tokio::time::sleep(Duration::from_millis(600)).await;
-        assert_eq!(sampler.sample(1024 + 512 * 1024), 0, "a window without bytes reports zero");
+        assert_eq!(
+            sampler.sample(1024 + 512 * 1024),
+            0,
+            "a window without bytes reports zero"
+        );
     }
 
     #[tokio::test]
@@ -1276,9 +1477,453 @@ mod tests {
             engine.pause("missing").await.unwrap_err().code,
             crate::MoinErrorCode::NotFound
         );
-        assert!(engine.backends().iter().any(|backend| backend.id == "embedded"));
-        assert_eq!(engine.settings().max_concurrent, Settings::default().max_concurrent);
+        let backends = engine.backends();
+        assert_eq!(backends.len(), 2, "both engines are always listed");
+        let embedded = backends
+            .iter()
+            .find(|backend| backend.id == "embedded")
+            .unwrap();
+        assert!(embedded.available);
+        assert!(backends.iter().any(|backend| backend.id == "aria2"));
+        assert_eq!(
+            engine.settings().max_concurrent,
+            Settings::default().max_concurrent
+        );
         engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn illegal_state_transitions_return_conflict() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        let task = engine
+            .add_http(
+                "https://example.test/a.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(task.status, TaskStatus::Paused);
+        assert_eq!(
+            engine.pause(&task.id).await.unwrap_err().code,
+            crate::MoinErrorCode::Conflict,
+            "a paused download cannot be paused again"
+        );
+        assert_eq!(
+            engine.retry(&task.id).await.unwrap_err().code,
+            crate::MoinErrorCode::Conflict,
+            "only failed, stalled and canceled downloads are retried"
+        );
+        engine.resume(&task.id).await.unwrap();
+        assert_eq!(
+            engine.resume(&task.id).await.unwrap_err().code,
+            crate::MoinErrorCode::Conflict,
+            "a queued download cannot be resumed"
+        );
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn archiving_keeps_the_file_and_the_record() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        let task = engine
+            .add_http(
+                "https://example.test/keep.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        tokio::fs::write(&task.dest, b"payload").await.unwrap();
+        engine.archive_many(vec![task.id.clone()], false).await.unwrap();
+        let listed = engine.list();
+        let archived = listed.iter().find(|item| item.id == task.id).unwrap();
+        assert!(archived.archived);
+        assert!(
+            tokio::fs::try_exists(&task.dest).await.unwrap(),
+            "archiving must not delete the file"
+        );
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn deleting_removes_every_artifact_and_keeps_the_record() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        let task = engine
+            .add_http(
+                "https://example.test/drop.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        let artifacts = [
+            PathBuf::from(&task.dest),
+            PathBuf::from(task.part_path()),
+            PathBuf::from(task.meta_path()),
+            PathBuf::from(format!("{}.aria2", task.part_path())),
+        ];
+        for path in &artifacts {
+            tokio::fs::write(path, b"payload").await.unwrap();
+        }
+        engine.archive_many(vec![task.id.clone()], true).await.unwrap();
+        for path in &artifacts {
+            assert!(
+                !tokio::fs::try_exists(path).await.unwrap(),
+                "{} should be gone",
+                path.display()
+            );
+        }
+        let listed = engine.list();
+        let kept = listed.iter().find(|item| item.id == task.id).unwrap();
+        assert!(kept.archived);
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn retry_requeues_a_failed_download_without_clearing_progress() {
+        // Phase 1: a body shorter than its own Content-Length fails the
+        // transfer after 40 bytes, leaving a `.part` behind.
+        let short_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
+        let short_address = short_listener.local_addr().unwrap();
+        let short_server = tokio::spawn(async move {
+            let (mut socket, _) = short_listener.accept().await.unwrap();
+            let _ = read_request(&mut socket).await;
+            let header = "HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n";
+            tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes())
+                .await
+                .unwrap();
+            tokio::io::AsyncWriteExt::write_all(&mut socket, &[7u8; 40])
+                .await
+                .unwrap();
+        });
+
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        // One connection and one slot: the probe is skipped and the queue can
+        // be occupied deterministically below.
+        let settings = Settings {
+            connections: 1,
+            max_concurrent: 1,
+            stall_timeout_secs: 5,
+            ..Default::default()
+        };
+        write_settings(data_dir.path(), &settings);
+        let engine = Engine::new(
+            data_dir.path().to_path_buf(),
+            Arc::new(NoopSink),
+            download_dir.path().to_path_buf(),
+        )
+        .await
+        .unwrap();
+        let task = engine
+            .add_http(
+                format!("http://{short_address}/short.bin"),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        let failed = wait_for(&engine, &task.id, |task| {
+            task.status == TaskStatus::Failed
+        })
+        .await;
+        short_server.await.unwrap();
+        assert_eq!(failed.received, 40, "the partial holds the received bytes");
+
+        // Phase 2: occupy the only slot with a request the server never
+        // answers, so the retried task has to wait in the queue.
+        let hang_listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
+        let hang_address = hang_listener.local_addr().unwrap();
+        let holder = tokio::spawn(async move {
+            let mut sockets = Vec::new();
+            loop {
+                let Ok((socket, _)) = hang_listener.accept().await else {
+                    return;
+                };
+                sockets.push(socket);
+            }
+        });
+        let blocker = engine
+            .add_http(
+                format!("http://{hang_address}/hang.bin"),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        wait_for(&engine, &blocker.id, |task| {
+            task.status == TaskStatus::Connecting
+        })
+        .await;
+
+        engine.retry(&task.id).await.unwrap();
+        let requeued = engine
+            .list()
+            .into_iter()
+            .find(|item| item.id == task.id)
+            .unwrap();
+        assert_eq!(requeued.status, TaskStatus::Queued);
+        assert_eq!(requeued.received, 40, "retrying keeps the byte count");
+        // The hanging worker never finishes; the runtime drops it with the test.
+        holder.abort();
+    }
+
+    #[tokio::test]
+    async fn forget_drops_the_record_from_memory_and_the_store() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        let task = engine
+            .add_http(
+                "https://example.test/forget.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        tokio::fs::write(&task.dest, b"payload").await.unwrap();
+        engine.forget(&task.id).await.unwrap();
+        assert!(engine.list().is_empty());
+        let store = Store::open(data_dir.path()).await.unwrap();
+        assert!(store.all().await.unwrap().is_empty());
+        assert!(
+            tokio::fs::try_exists(&task.dest).await.unwrap(),
+            "forgetting a record must leave the file alone"
+        );
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn add_http_rejects_blank_urls_and_deduplicates_names() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        assert_eq!(
+            engine
+                .add_http(
+                    String::new(),
+                    download_dir.path().to_path_buf(),
+                    None,
+                    Default::default(),
+                    None,
+                )
+                .await
+                .unwrap_err()
+                .code,
+            crate::MoinErrorCode::InvalidInput
+        );
+        let first = engine
+            .add_http(
+                "https://example.test/same.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        let second = engine
+            .add_http(
+                "https://example.test/same.bin".to_string(),
+                download_dir.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_ne!(first.dest, second.dest, "the same name must not be reused");
+        assert_eq!(second.filename, "same (1).bin");
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn set_settings_persists_the_download_directory() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let category_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        let mut next = engine.settings();
+        next.download_dir = Some(download_dir.path().to_string_lossy().into_owned());
+        engine.set_settings(next.clone()).unwrap();
+        let saved = engine.settings();
+        assert_eq!(saved.download_dir, next.download_dir);
+        assert_eq!(
+            engine.category_folder(None, PathBuf::from(saved.download_dir.clone().unwrap())),
+            download_dir.path().to_string_lossy()
+        );
+        engine
+            .create_category(sample_category("docs", category_dir.path()))
+            .await
+            .unwrap();
+        assert_eq!(
+            engine.category_folder(Some("docs".to_string()), PathBuf::from("/elsewhere")),
+            category_dir.path().to_string_lossy(),
+            "a category save directory wins over the default"
+        );
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn restart_demotes_unfinished_downloads_to_paused() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let dest = download_dir.path().join("movie.bin");
+        {
+            let store = Store::open(data_dir.path()).await.unwrap();
+            store
+                .upsert(&sample_task(&dest, TaskStatus::Downloading))
+                .await
+                .unwrap();
+        }
+        let engine = Engine::new(
+            data_dir.path().to_path_buf(),
+            Arc::new(NoopSink),
+            download_dir.path().to_path_buf(),
+        )
+        .await
+        .unwrap();
+        let listed = engine.list();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(
+            listed[0].status,
+            TaskStatus::Paused,
+            "a crashed transfer must not resume on its own"
+        );
+        assert!(!engine.has_active_transfers());
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn move_to_category_relocates_the_partial_files() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let staging = tempfile::tempdir().unwrap();
+        let category_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), staging.path()).await;
+        let task = engine
+            .add_http(
+                "https://example.test/report.pdf".to_string(),
+                staging.path().to_path_buf(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        tokio::fs::write(task.part_path(), b"half a document")
+            .await
+            .unwrap();
+        engine
+            .create_category(sample_category("docs", category_dir.path()))
+            .await
+            .unwrap();
+        engine
+            .move_to_category(
+                vec![task.id.clone()],
+                Some("docs".to_string()),
+                staging.path().to_path_buf(),
+            )
+            .await
+            .unwrap();
+        let moved = engine
+            .list()
+            .into_iter()
+            .find(|item| item.id == task.id)
+            .unwrap();
+        assert_eq!(moved.category.as_deref(), Some("docs"));
+        assert_eq!(moved.final_dir, None);
+        assert_eq!(
+            Path::new(&moved.dest).parent().unwrap(),
+            category_dir.path(),
+            "the destination follows the category"
+        );
+        assert!(tokio::fs::try_exists(moved.part_path()).await.unwrap());
+        assert!(!tokio::fs::try_exists(task.part_path()).await.unwrap());
+        assert_eq!(
+            tokio::fs::read(moved.part_path()).await.unwrap(),
+            b"half a document"
+        );
+        engine.shutdown().await;
+    }
+
+    #[tokio::test]
+    async fn deleting_a_category_untags_without_moving_files() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let download_dir = tempfile::tempdir().unwrap();
+        let category_dir = tempfile::tempdir().unwrap();
+        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
+        engine
+            .create_category(sample_category("docs", category_dir.path()))
+            .await
+            .unwrap();
+        let task = engine
+            .add_http(
+                "https://example.test/report.pdf".to_string(),
+                download_dir.path().to_path_buf(),
+                Some("docs".to_string()),
+                Default::default(),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(task.category.as_deref(), Some("docs"));
+        engine.delete_category("docs").await.unwrap();
+        let untagged = engine
+            .list()
+            .into_iter()
+            .find(|item| item.id == task.id)
+            .unwrap();
+        assert_eq!(untagged.category, None);
+        assert_eq!(untagged.dest, task.dest, "files are not moved");
+        engine.shutdown().await;
+    }
+
+    async fn wait_for(
+        engine: &Engine,
+        id: &str,
+        predicate: impl Fn(&Task) -> bool,
+    ) -> Task {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(15);
+        loop {
+            let current = engine
+                .list()
+                .into_iter()
+                .find(|item| item.id == id)
+                .expect("the task stays in the list");
+            if predicate(&current) {
+                return current;
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "timed out while waiting for {} (last status {:?})",
+                id,
+                current.status
+            );
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
     }
 
     /// The multi-connection path used to hardcode `speed: 0`, which left the
@@ -1286,12 +1931,16 @@ mod tests {
     #[tokio::test]
     async fn segmented_download_reports_a_live_speed() {
         let body: Vec<u8> = (0..256 * 1024).map(|value| (value % 251) as u8).collect();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
         let address = listener.local_addr().unwrap();
         let source = Arc::new(body.clone());
         let server = tokio::spawn(async move {
             loop {
-                let Ok((mut socket, _)) = listener.accept().await else { return };
+                let Ok((mut socket, _)) = listener.accept().await else {
+                    return;
+                };
                 let source = source.clone();
                 tokio::spawn(async move {
                     let request = read_request(&mut socket).await;
@@ -1317,10 +1966,14 @@ mod tests {
                         source.len(),
                         payload.len()
                     );
-                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
+                    tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes())
+                        .await
+                        .unwrap();
                     // Trickle the body so the transfer outlives one speed window.
                     for chunk in payload.chunks(4096) {
-                        tokio::io::AsyncWriteExt::write_all(&mut socket, chunk).await.unwrap();
+                        tokio::io::AsyncWriteExt::write_all(&mut socket, chunk)
+                            .await
+                            .unwrap();
                         tokio::time::sleep(Duration::from_millis(80)).await;
                     }
                 });
@@ -1332,12 +1985,10 @@ mod tests {
         let mut settings = Settings::default();
         settings.connections = 4;
         settings.min_split_size = 1;
-        std::fs::write(
-            data_dir.path().join("settings.json"),
-            serde_json::to_vec(&settings).unwrap(),
-        )
-        .unwrap();
-        let sink = Arc::new(SpeedSink { max_speed: AtomicU64::new(0) });
+        write_settings(data_dir.path(), &settings);
+        let sink = Arc::new(SpeedSink {
+            max_speed: AtomicU64::new(0),
+        });
         let engine = Engine::new(
             data_dir.path().to_path_buf(),
             sink.clone(),
@@ -1357,7 +2008,11 @@ mod tests {
             .unwrap();
         tokio::time::timeout(Duration::from_secs(20), async {
             loop {
-                let current = engine.list().into_iter().find(|item| item.id == task.id).unwrap();
+                let current = engine
+                    .list()
+                    .into_iter()
+                    .find(|item| item.id == task.id)
+                    .unwrap();
                 if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed) {
                     break current;
                 }
@@ -1375,26 +2030,12 @@ mod tests {
         engine.shutdown().await;
     }
 
-    async fn read_request(socket: &mut tokio::net::TcpStream) -> String {
-        let mut request = Vec::new();
-        let mut chunk = [0u8; 1024];
-        loop {
-            let count = tokio::io::AsyncReadExt::read(socket, &mut chunk).await.unwrap();
-            if count == 0 {
-                break;
-            }
-            request.extend_from_slice(&chunk[..count]);
-            if request.windows(4).any(|window| window == b"\r\n\r\n") {
-                break;
-            }
-        }
-        String::from_utf8_lossy(&request).to_string()
-    }
-
     #[tokio::test]
     async fn queued_http_download_falls_back_when_range_is_not_supported() {
         let body = b"wingharness download smoke test".to_vec();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .unwrap();
         let address = listener.local_addr().unwrap();
         let payload = body.clone();
         let server = tokio::spawn(async move {
@@ -1405,8 +2046,12 @@ mod tests {
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                     payload.len()
                 );
-                tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes()).await.unwrap();
-                tokio::io::AsyncWriteExt::write_all(&mut socket, &payload).await.unwrap();
+                tokio::io::AsyncWriteExt::write_all(&mut socket, header.as_bytes())
+                    .await
+                    .unwrap();
+                tokio::io::AsyncWriteExt::write_all(&mut socket, &payload)
+                    .await
+                    .unwrap();
             }
         });
 
@@ -1431,7 +2076,11 @@ mod tests {
             .unwrap();
         tokio::time::timeout(Duration::from_secs(5), async {
             loop {
-                let current = engine.list().into_iter().find(|item| item.id == task.id).unwrap();
+                let current = engine
+                    .list()
+                    .into_iter()
+                    .find(|item| item.id == task.id)
+                    .unwrap();
                 if matches!(current.status, TaskStatus::Completed | TaskStatus::Failed) {
                     break current;
                 }
