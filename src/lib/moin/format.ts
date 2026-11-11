@@ -1,3 +1,14 @@
+// Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
+// See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
+
+/**
+ * Byte / speed / ETA / time formatting for the download page.
+ *
+ * Units are fixed at `B/KB/MB/GB/TB` on purpose: they are not translated, which
+ * is why nothing here goes through i18n. Only `formatDate` follows the system
+ * locale, which is the single place the page inherits the OS language.
+ */
+
 export function formatBytes(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   if (value < 1024) return `${value} B`;
@@ -34,8 +45,22 @@ export function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`;
 }
 
-export function formatDate(milliseconds: number): string {
-  return new Date(milliseconds).toLocaleString(undefined, {
+/** Elapsed time, used for the "time spent downloading" figure. */
+export function formatDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "—";
+  const totalSeconds = Math.floor(ms / 1000);
+  if (totalSeconds < 1) return `${Math.floor(ms)}ms`;
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  if (minutes < 60) return `${minutes}m ${totalSeconds % 60}s`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ${hours % 24}h`;
+}
+
+export function formatDate(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
   });
