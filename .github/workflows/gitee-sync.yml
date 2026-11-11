@@ -1,14 +1,13 @@
 name: "gitee-sync"
 
-# Syncs a published release to Gitee: pushes the release tag and creates the
-# matching Gitee release with the same notes. Hooking `release: published`
-# instead of the build pipeline means the sync happens after the draft has been
-# reviewed and published on GitHub, not while it is still a draft.
-# `workflow_dispatch` backfills a release that was published before this
-# workflow existed.
+# Publishes the latest GitHub release to Gitee once a day, and syncs a chosen
+# release on demand. A scheduled run only acts when Gitee has no release for
+# the latest tag; a manual run skips that check, so it can backfill an older
+# version or repair a release whose upload previously failed.
 on:
-  release:
-    types: [published]
+  schedule:
+    # 02:00 Asia/Shanghai (the runner cron is UTC).
+    - cron: "0 18 * * *"
   workflow_dispatch:
     inputs:
       tag:
@@ -17,11 +16,55 @@ on:
         type: string
 
 env:
-  GITEE_OWNER: Anfioo
+  # Lowercase matches the canonical Gitee URLs; the login is case-insensitive.
+  GITEE_OWNER: anfioo
   GITEE_REPO: WingHarness
+  GITEE_API: https://gitee.com/api/v5
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.target.outputs.tag }}
+      skip: ${{ steps.target.outputs.skip }}
+    steps:
+      - name: Resolve the release to sync
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run; syncing ${INPUT_TAG} unconditionally."
+            echo "tag=${INPUT_TAG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+          if [ -z "${tag}" ]; then
+            echo "No published release yet; nothing to sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${tag}?access_token=${GITEE_TOKEN}")"
+          if printf '%s' "${response}" | jq -e '.id' > /dev/null 2>&1; then
+            echo "Gitee already has a release for ${tag}; nothing to sync."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Gitee has no release for ${tag}; syncing."
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
   sync:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,13 +75,13 @@ jobs:
           # The tagged commit may be anywhere in the history, and it has to be
           # pushed complete before the tag can land on Gitee.
           fetch-depth: 0
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ needs.check.outputs.tag }}
 
       - name: Resolve the release tag
         id: resolve
         shell: bash
         env:
-          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          TAG: ${{ needs.check.outputs.tag }}
         run: |
           if ! commit="$(git rev-parse --verify "refs/tags/${TAG}^{commit}" 2>/dev/null)"; then
             echo "Tag ${TAG} does not exist on GitHub." >&2
@@ -65,10 +108,24 @@ jobs:
           remote="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git"
           echo "::add-mask::${remote}"
 
+          # Gitee occasionally fails to resolve from a hosted runner; retry
+          # instead of failing the whole sync on a transient DNS hiccup.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if "$@"; then
+                return 0
+              fi
+              echo "Attempt ${attempt} failed; retrying in 5s." >&2
+              sleep 5
+            done
+            return 1
+          }
+
           # An annotated tag lists the tag object and the peeled commit, a
           # lightweight tag lists the commit only; the last line is the commit
           # either way.
-          remote_sha="$(git ls-remote --tags "${remote}" "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | tail -n 1 | awk '{print $1}')"
+          remote_sha="$(retry git ls-remote --tags "${remote}" "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | tail -n 1 | awk '{print $1}')"
 
           if [ -n "${remote_sha}" ]; then
             if [ "${remote_sha}" != "${COMMIT}" ]; then
@@ -77,7 +134,7 @@ jobs:
             fi
             echo "Tag ${TAG} is already on Gitee."
           else
-            git push "${remote}" "refs/tags/${TAG}:refs/tags/${TAG}"
+            retry git push "${remote}" "refs/tags/${TAG}:refs/tags/${TAG}"
           fi
 
       - name: Read the GitHub release notes
@@ -92,6 +149,13 @@ jobs:
             body="Release ${TAG}"
           fi
 
+          # The notes link to commits and compares; point them at Gitee so the
+          # mirrored release does not send readers back to GitHub.
+          github_url="https://github.com/${GITHUB_REPOSITORY}"
+          gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
+          body="${body//"${github_url}"/"${gitee_url}"}"
+          body="${body//"View changes on GitHub"/"View changes on Gitee"}"
+
           {
             echo "body<<WH_GITEE_BODY_EOF"
             printf '%s\n' "${body}"
@@ -105,19 +169,32 @@ jobs:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           TAG: ${{ steps.resolve.outputs.tag }}
         run: |
-          status="$(curl -sS -o /dev/null -w '%{http_code}' \
-            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
-          echo "Gitee release lookup returned HTTP ${status}."
+          # Gitee answers 200 with a literal `null` body when the tag has no
+          # release, so the status code alone cannot tell the two apart.
+          response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            -w '\n%{http_code}' \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
+          status="$(printf '%s' "${response}" | tail -n 1)"
+          body="$(printf '%s\n' "${response}" | sed '$d')"
 
-          if [ "${status}" = "200" ]; then
+          if [ "${status}" != "200" ]; then
+            echo "Gitee release lookup failed with HTTP ${status}." >&2
+            exit 1
+          fi
+
+          if id="$(printf '%s' "${body}" | jq -er '.id' 2>/dev/null)"; then
+            echo "Gitee already has a release for ${TAG}."
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "id=${id}" >> "$GITHUB_OUTPUT"
           else
+            echo "Gitee has no release for ${TAG}."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
       # Re-runs must not fail on an existing release, and the action has no
       # update_release: a release that is already there is left untouched.
       - name: Create the Gitee release
+        id: create
         if: steps.release.outputs.exists != 'true'
         uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
         with:
@@ -130,6 +207,223 @@ jobs:
           gitee_release_body: ${{ steps.notes.outputs.body }}
           gitee_target_commitish: ${{ steps.resolve.outputs.commit }}
 
+      # Creating a release writes the body once; a manual re-run of an existing
+      # release still needs the rewritten notes applied.
+      - name: Update the Gitee release notes
+        if: steps.release.outputs.exists == 'true'
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          BODY: ${{ steps.notes.outputs.body }}
+        run: |
+          if ! response="$(curl -sS --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 120 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -X PATCH \
+            --data-urlencode "access_token=${GITEE_TOKEN}" \
+            --data-urlencode "body=${BODY}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}")"; then
+            echo "Updating the release notes failed: ${response}" >&2
+            exit 1
+          fi
+          echo "Updated the notes for the existing Gitee release."
+
+      - name: Download the GitHub release assets
+        id: assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          dir="${RUNNER_TEMP}/gitee-assets"
+          mkdir -p "${dir}"
+
+          # gh exits non-zero when the release has no attachments; an empty
+          # release is still worth syncing.
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir "${dir}" --clobber || true
+
+          echo "Downloaded $(find "${dir}" -maxdepth 1 -type f | wc -l) file(s) from the GitHub release."
+          echo "dir=${dir}" >> "$GITHUB_OUTPUT"
+
+      - name: Plan the Gitee uploads
+        id: plan
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          DIR: ${{ steps.assets.outputs.dir }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+        run: |
+          attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            -w '\n%{http_code}' \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+          status="$(printf '%s' "${attachments}" | tail -n 1)"
+          body="$(printf '%s\n' "${attachments}" | sed '$d')"
+
+          # An unreadable list must fail the job: treating it as empty would
+          # re-upload files that are already on the release.
+          if [ "${status}" != "200" ]; then
+            echo "Listing Gitee attachments failed with HTTP ${status}." >&2
+            exit 1
+          fi
+
+          existing="$(printf '%s' "${body}" | jq -r '.[].name' 2>/dev/null || true)"
+
+          files=()
+          has_latest=false
+          latest_missing=false
+
+          for file in "${DIR}"/*; do
+            [ -f "${file}" ] || continue
+            name="$(basename "${file}")"
+
+            if [ "${name}" = "latest.json" ]; then
+              has_latest=true
+              if ! printf '%s\n' "${existing}" | grep -qxF "${name}"; then
+                latest_missing=true
+              fi
+              continue
+            fi
+
+            if printf '%s\n' "${existing}" | grep -qxF "${name}"; then
+              echo "Already on Gitee: ${name}"
+              continue
+            fi
+            files+=("${file}")
+          done
+
+          echo "Files to upload: ${#files[@]}, latest.json missing: ${latest_missing}."
+          {
+            echo "count=${#files[@]}"
+            echo "has_latest=${has_latest}"
+            echo "latest_missing=${latest_missing}"
+            if [ "${#files[@]}" -gt 0 ]; then
+              echo "files<<WH_GITEE_FILES_EOF"
+              printf '%s\n' "${files[@]}"
+              echo "WH_GITEE_FILES_EOF"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the release files to Gitee
+        if: steps.plan.outputs.count != '0'
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          FILES: ${{ steps.plan.outputs.files }}
+        run: |
+          # The composite action uploads through Python without a timeout, so a
+          # stalled connection hangs silently. curl shows progress and gives up
+          # on a transfer that drops below 1 KiB/s for a minute.
+          while IFS= read -r file; do
+            [ -n "${file}" ] || continue
+            name="$(basename "${file}")"
+            echo "Uploading ${name} ($(du -h "${file}" | cut -f1))..."
+
+            if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \
+              --connect-timeout 30 --max-time 900 \
+              --speed-limit 1024 --speed-time 60 \
+              --retry 3 --retry-delay 5 --retry-all-errors \
+              -F "access_token=${GITEE_TOKEN}" \
+              -F "file=@${file}" \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files")"; then
+              echo "Upload failed for ${name}: ${response}" >&2
+              exit 1
+            fi
+
+            url="$(printf '%s' "${response}" | jq -r '.browser_download_url // empty')"
+            if [ -z "${url}" ]; then
+              echo "Gitee returned no download URL for ${name}: ${response}" >&2
+              exit 1
+            fi
+            echo "Uploaded ${name}: ${url}"
+          done <<< "${FILES}"
+
+      # The updater manifest must point at Gitee, not GitHub. The base URL is
+      # the documented Gitee layout; probing one uploaded file proves it before
+      # a broken latest.json is published.
+      - name: Resolve the Gitee download base
+        id: base
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          probe="$(find "${DIR}" -maxdepth 1 -type f ! -name 'latest.json' -printf '%f\n' | head -n 1)"
+          if [ -z "${probe}" ]; then
+            echo "No release files found; nothing to point latest.json at." >&2
+            exit 1
+          fi
+
+          base="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${TAG}"
+          # A range request answers 206 when Gitee honours it, 200 when it does not.
+          status="$(curl -sS -L -r 0-0 --retry 5 --retry-delay 3 --retry-all-errors \
+            -o /dev/null -w '%{http_code}' "${base}/${probe}")"
+          if [ "${status}" != "200" ] && [ "${status}" != "206" ]; then
+            echo "Gitee download URL check failed: ${base}/${probe} returned HTTP ${status}." >&2
+            exit 1
+          fi
+
+          echo "Gitee download base: ${base}"
+          echo "base=${base}" >> "$GITHUB_OUTPUT"
+
+      - name: Point latest.json at Gitee
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+        run: |
+          latest="${DIR}/latest.json"
+          if [ ! -f "${latest}" ]; then
+            echo "This release has no latest.json."
+            exit 0
+          fi
+
+          # Covers both the download URLs and the release notes inside the
+          # manifest, which carry the same GitHub links as the release body.
+          github_url="https://github.com/${GITHUB_REPOSITORY}"
+          gitee_url="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
+          jq --arg old_url "${github_url}" --arg new_url "${gitee_url}" \
+            --arg old_text "View changes on GitHub" --arg new_text "View changes on Gitee" \
+            'walk(if type == "string" then split($old_url) | join($new_url) else . end)
+             | walk(if type == "string" then split($old_text) | join($new_text) else . end)' \
+            "${latest}" > "${latest}.tmp"
+          mv "${latest}.tmp" "${latest}"
+
+          if grep -qF "${github_url}" "${latest}"; then
+            echo "latest.json still points at GitHub." >&2
+            exit 1
+          fi
+          echo "latest.json now points at ${gitee_url}."
+
+      # Uploaded last so the manifest never references a file that is not there.
+      - name: Upload latest.json to Gitee
+        if: steps.plan.outputs.has_latest == 'true' && steps.plan.outputs.latest_missing == 'true'
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          FILE: ${{ steps.assets.outputs.dir }}/latest.json
+        run: |
+          echo "Uploading latest.json..."
+
+          if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 900 \
+            --speed-limit 1024 --speed-time 60 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -F "access_token=${GITEE_TOKEN}" \
+            -F "file=@${FILE}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files")"; then
+            echo "Upload failed for latest.json: ${response}" >&2
+            exit 1
+          fi
+
+          url="$(printf '%s' "${response}" | jq -r '.browser_download_url // empty')"
+          if [ -z "${url}" ]; then
+            echo "Gitee returned no download URL for latest.json: ${response}" >&2
+            exit 1
+          fi
+          echo "Uploaded latest.json: ${url}"
+
       - name: Summarize
         shell: bash
         env:
@@ -137,6 +431,6 @@ jobs:
           RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
         run: |
           if [ "${RELEASE_EXISTS}" = "true" ]; then
-            echo "Gitee already had a release for ${TAG}; left it untouched."
+            echo "Gitee already had a release for ${TAG}."
           fi
           echo "Gitee release: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/tag/${TAG}" >> "$GITHUB_STEP_SUMMARY"
