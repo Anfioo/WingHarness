@@ -1,6 +1,7 @@
 //! Application configuration commands.
 
 use serde::Serialize;
+use tauri::Manager;
 
 use crate::config::{self, Config};
 
@@ -63,10 +64,27 @@ pub fn get_config() -> ConfigView {
 /// The proxy is pushed into the process environment here as well: requests made
 /// after this call use the new setting without a restart.
 #[tauri::command]
-pub fn save_config(config: Config) -> Result<ConfigView, String> {
+pub fn save_config(app: tauri::AppHandle, config: Config) -> Result<ConfigView, String> {
+    let previous_proxy = config::load().proxy;
     config::save(&config)?;
     // Read back rather than use the argument: `save` normalizes the values.
-    config::apply_proxy_env(&config::load().proxy);
+    let proxy = config::load().proxy;
+    config::apply_proxy_env(&proxy);
+
+    // The download engine captures the proxy when it builds its client, so a
+    // mode/address change has to rebuild it. Other already-built clients still
+    // need a restart, which the settings page says.
+    if proxy != previous_proxy {
+        if let Some(state) = app.try_state::<moin_core::MoinState>() {
+            let state = state.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = state.refresh_network().await {
+                    eprintln!("Could not rebuild the download client: {}", error.message);
+                }
+            });
+        }
+    }
+
     Ok(view())
 }
 

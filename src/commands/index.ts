@@ -117,6 +117,7 @@ export type {
   ConfigView,
   FilePreviewConfig,
   ProxyConfig,
+  ProxyMode,
 } from "./services/config/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";
