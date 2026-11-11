@@ -158,6 +158,10 @@ jobs:
           body="${body//"${github_url}"/"${gitee_url}"}"
           body="${body//"View changes on GitHub"/"View changes on Gitee"}"
 
+          # A single mirror line at the end; the manifest and the artifacts
+          # keep their Gitee URLs.
+          body="${body}"$'\n\n'"Mirror for GitHub: ${github_url}/releases/tag/${TAG}"
+
           {
             echo "body<<WH_GITEE_BODY_EOF"
             printf '%s\n' "${body}"
@@ -533,6 +537,32 @@ jobs:
           fi
 
           echo "Fixed manifest: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/latest/latest.json"
+
+      # Gitee orders the releases page by recency. Refreshing the fixed
+      # pointer above makes it the newest entry, so the versioned release is
+      # touched once more to keep it on top.
+      - name: Touch the versioned release
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          BODY: ${{ steps.notes.outputs.body }}
+        run: |
+          # Gitee requires tag_name, name and body on the update endpoint.
+          if ! response="$(curl -sS --fail-with-body --http1.1 \
+            --connect-timeout 30 --max-time 120 \
+            --retry 3 --retry-delay 5 --retry-all-errors \
+            -X PATCH \
+            --data-urlencode "access_token=${GITEE_TOKEN}" \
+            --data-urlencode "tag_name=${TAG}" \
+            --data-urlencode "name=${TAG}" \
+            --data-urlencode "body=${BODY}" \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}")"; then
+            echo "Touching the versioned release failed: ${response}" >&2
+            exit 1
+          fi
+          echo "Touched ${TAG} so it stays above the fixed 'latest' pointer."
 
       - name: Summarize
         shell: bash
