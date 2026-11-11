@@ -8,6 +8,7 @@ export default {
     connections: "Connections",
     logs: "Logs",
     test: "Test",
+    runtime: "Runtime",
   },
   tabs: {
     rules: "Rule patches",

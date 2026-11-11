@@ -17,6 +17,8 @@ import mdEditorEn from "./locales/md-editor/en";
 import mdEditorZh from "./locales/md-editor/zh";
 import portsEn from "./locales/ports/en";
 import portsZh from "./locales/ports/zh";
+import runtimeEn from "./locales/runtime/en";
+import runtimeZh from "./locales/runtime/zh";
 import spacePreviewEn from "./locales/space-preview/en";
 import spacePreviewZh from "./locales/space-preview/zh";
 
@@ -35,6 +37,7 @@ i18n
           systools: systoolsEn,
           mdEditor: mdEditorEn,
           ports: portsEn,
+          runtime: runtimeEn,
           spacePreview: spacePreviewEn,
         },
       },
@@ -48,6 +51,7 @@ i18n
           systools: systoolsZh,
           mdEditor: mdEditorZh,
           ports: portsZh,
+          runtime: runtimeZh,
           spacePreview: spacePreviewZh,
         },
       },

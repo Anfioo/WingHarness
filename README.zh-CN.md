@@ -165,6 +165,7 @@ pnpm dlx shadcn@latest add button
 | [PLUGINS.zh-CN.md](./docs/features/PLUGINS.zh-CN.md) | 插件格式、清单文件，以及自动生成设置界面 |
 | [PORTS.zh-CN.md](./docs/features/PORTS.zh-CN.md) | 本机监听的 TCP 端口、固定端口，以及结束占用端口的进程 |
 | [PROJECT.zh-CN.md](./docs/features/PROJECT.zh-CN.md) | 项目文件浏览与编辑 |
+| [RUNTIME.zh-CN.md](./docs/features/RUNTIME.zh-CN.md) | 下载并安装 mihomo 与 frpc 运行时 |
 | [SERVERS.zh-CN.md](./docs/features/SERVERS.zh-CN.md) | SSH / SFTP 服务器管理 |
 | [SVN.zh-CN.md](./docs/features/SVN.zh-CN.md) | 原生 Subversion 工作副本 |
 | [SYSTOOLS.zh-CN.md](./docs/features/SYSTOOLS.zh-CN.md) | Windows 系统维护控制台 |

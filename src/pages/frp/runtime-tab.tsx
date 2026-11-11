@@ -9,6 +9,7 @@ import {
   type RuntimeView,
 } from "@/commands/services/frp/types";
 import { DiscoveredList } from "@/components/frp/discovered-list";
+import { RuntimeInstaller } from "@/components/runtime/runtime-installer";
 import { RuntimeCard } from "@/components/frp/runtime-card";
 import { RuntimeImportDialog } from "@/components/frp/runtime-import-dialog";
 import { Button } from "@/components/ui/button";
@@ -183,6 +184,18 @@ export function RuntimeTab({ workspace }: RuntimeTabProps) {
       </div>
 
       <p className="text-muted-foreground text-xs">{t("frp.runtime.scanHint")}</p>
+
+      {/* The official build is a fixed entry: it cannot be deleted, and the
+          three install paths always target `frp/frpc.exe`. Other frpc builds
+          remain ordinary records below. */}
+      <RuntimeInstaller
+        kind="frp"
+        title={t("runtime.frp.title")}
+        description={t("runtime.frp.description")}
+        hint={t("runtime.frpHint")}
+        official
+        onInstalled={() => void workspace.reload()}
+      />
 
       {workspace.runtimes.length === 0 ? (
         <div className="border-border text-muted-foreground flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-8 text-center text-sm">

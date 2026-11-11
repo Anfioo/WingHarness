@@ -132,6 +132,10 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        // The runtime installer fetches in the frontend; the plugin supplies a
+        // Rust-backed fetch so a cross-origin runtime URL is not blocked by the
+        // webview's CORS rules.
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(plugins::system_tray::init());

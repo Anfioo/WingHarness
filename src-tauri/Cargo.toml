@@ -96,6 +96,10 @@ ports-core = { path = "ports-core" }
 tauri = { version = "2", features = ["tray-icon", "unstable"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
+# The runtime installer's fetch happens in the frontend, but the webview is a
+# Cross-Origin context. This plugin runs the request in Rust and hands the body
+# back, which is the only way an arbitrary user-supplied URL can be downloaded.
+tauri-plugin-http = "2"
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 # preserve_order keeps insertion order (via indexmap) when rewriting JSON configs.
