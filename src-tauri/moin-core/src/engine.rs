@@ -883,12 +883,25 @@ impl Engine {
 
     /// Pick the backend for `kind`: the external engine when it is installed and
     /// can handle the source, the built-in one otherwise.
+    /// Resolve the backend for a task. `settings.http_backend` names the
+    /// *preferred* engine, exactly like upstream: when it is not installed, was
+    /// removed, or cannot handle this kind, the first usable backend wins, so a
+    /// stale preference can never block a download.
     fn pick_backend(&self, kind: TaskKind) -> Arc<dyn DownloadBackend> {
         let aria2 = self.inner.aria2.clone() as Arc<dyn DownloadBackend>;
-        if aria2.supports(kind) && aria2.available() {
-            return aria2;
+        let embedded = self.inner.embedded.clone() as Arc<dyn DownloadBackend>;
+        let preferred = self.settings().http_backend;
+        let candidates: [&Arc<dyn DownloadBackend>; 2] = [&aria2, &embedded];
+        if let Some(chosen) = candidates.iter().find(|backend| {
+            backend.id() == preferred && backend.supports(kind) && backend.available()
+        }) {
+            return Arc::clone(chosen);
         }
-        self.inner.embedded.clone() as Arc<dyn DownloadBackend>
+        candidates
+            .iter()
+            .find(|backend| backend.supports(kind) && backend.available())
+            .map(|backend| Arc::clone(backend))
+            .unwrap_or(embedded)
     }
 
     /// A path inside `folder` that neither another task nor the filesystem has

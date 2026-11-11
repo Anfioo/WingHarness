@@ -358,6 +358,7 @@ export default function DownloadsTab({
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-12 text-center">
           <Download className="text-muted-foreground size-8" />
           <p className="font-medium">{t("moin.common.empty")}</p>
+          <p className="text-muted-foreground text-sm">{t("moin.common.emptyHint")}</p>
           <Button type="button" size="sm" onClick={() => setAddOpen(true)}>
             <Plus />
             {t("moin.add.submit")}
@@ -366,7 +367,8 @@ export default function DownloadsTab({
       ) : visible.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-12 text-center">
           <Download className="text-muted-foreground size-8" />
-          <p className="font-medium">{t("moin.common.empty")}</p>
+          <p className="font-medium">{t("moin.filter.noMatches")}</p>
+          <p className="text-muted-foreground text-sm">{t("moin.filter.noMatchesHint")}</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {isFilterActive(filters) && (
               <Button type="button" size="sm" variant="outline" onClick={clearFilters}>

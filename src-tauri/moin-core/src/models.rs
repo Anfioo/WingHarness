@@ -127,6 +127,10 @@ pub struct Settings {
     pub stall_timeout_secs: u64,
     pub connect_timeout_secs: u64,
     pub download_dir: Option<String>,
+    /// Backend id used for direct HTTP downloads. It names a *preferred* engine:
+    /// when that engine is missing or cannot handle the task, the queue falls
+    /// back to the first usable backend instead of failing.
+    pub http_backend: String,
     pub aria2_path: Option<String>,
     pub rpc_enabled: bool,
     pub rpc_port: u16,
@@ -146,6 +150,7 @@ impl Default for Settings {
             stall_timeout_secs: 60,
             connect_timeout_secs: 30,
             download_dir: None,
+            http_backend: "embedded".to_string(),
             aria2_path: None,
             rpc_enabled: true,
             rpc_port: 47653,
@@ -173,6 +178,9 @@ impl Settings {
         }
         if !(1..=65_535).contains(&self.rpc_port) {
             return Err("rpc_port must be between 1 and 65535".to_string());
+        }
+        if !matches!(self.http_backend.as_str(), "embedded" | "aria2") {
+            return Err("http_backend must be embedded or aria2".to_string());
         }
         self.progress_flush_ms = self.progress_flush_ms.clamp(100, 5_000);
         Ok(())

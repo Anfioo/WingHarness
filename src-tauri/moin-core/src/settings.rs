@@ -115,6 +115,7 @@ mod tests {
             stall_timeout_secs: 0,
             connect_timeout_secs: 5,
             download_dir: Some("D:/Downloads".to_string()),
+            http_backend: "aria2".to_string(),
             aria2_path: Some("C:/tools/aria2c.exe".to_string()),
             rpc_enabled: false,
             rpc_port: 50000,

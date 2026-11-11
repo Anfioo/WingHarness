@@ -59,6 +59,8 @@ export interface MoinSettings {
   stall_timeout_secs: number;
   connect_timeout_secs: number;
   download_dir: string | null;
+  /** Preferred HTTP backend id: "embedded" or "aria2". */
+  http_backend: string;
   aria2_path: string | null;
   rpc_enabled: boolean;
   rpc_port: number;
