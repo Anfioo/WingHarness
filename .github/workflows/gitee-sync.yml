@@ -66,10 +66,24 @@ jobs:
           remote="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/${GITEE_REPO}.git"
           echo "::add-mask::${remote}"
 
+          # Gitee occasionally fails to resolve from a hosted runner; retry
+          # instead of failing the whole sync on a transient DNS hiccup.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              if "$@"; then
+                return 0
+              fi
+              echo "Attempt ${attempt} failed; retrying in 5s." >&2
+              sleep 5
+            done
+            return 1
+          }
+
           # An annotated tag lists the tag object and the peeled commit, a
           # lightweight tag lists the commit only; the last line is the commit
           # either way.
-          remote_sha="$(git ls-remote --tags "${remote}" "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | tail -n 1 | awk '{print $1}')"
+          remote_sha="$(retry git ls-remote --tags "${remote}" "refs/tags/${TAG}" "refs/tags/${TAG}^{}" | tail -n 1 | awk '{print $1}')"
 
           if [ -n "${remote_sha}" ]; then
             if [ "${remote_sha}" != "${COMMIT}" ]; then
@@ -78,7 +92,7 @@ jobs:
             fi
             echo "Tag ${TAG} is already on Gitee."
           else
-            git push "${remote}" "refs/tags/${TAG}:refs/tags/${TAG}"
+            retry git push "${remote}" "refs/tags/${TAG}:refs/tags/${TAG}"
           fi
 
       - name: Read the GitHub release notes
@@ -108,10 +122,18 @@ jobs:
         run: |
           # Gitee answers 200 with a literal `null` body when the tag has no
           # release, so the status code alone cannot tell the two apart.
-          response="$(curl -sS \
+          response="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            -w '\n%{http_code}' \
             "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
+          status="$(printf '%s' "${response}" | tail -n 1)"
+          body="$(printf '%s\n' "${response}" | sed '$d')"
 
-          if id="$(printf '%s' "${response}" | jq -er '.id' 2>/dev/null)"; then
+          if [ "${status}" != "200" ]; then
+            echo "Gitee release lookup failed with HTTP ${status}." >&2
+            exit 1
+          fi
+
+          if id="$(printf '%s' "${body}" | jq -er '.id' 2>/dev/null)"; then
             echo "Gitee already has a release for ${TAG}."
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "id=${id}" >> "$GITHUB_OUTPUT"
@@ -161,9 +183,20 @@ jobs:
           DIR: ${{ steps.assets.outputs.dir }}
           RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
         run: |
-          existing="$(curl -sS \
-            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}" \
-            | jq -r '.[].name' 2>/dev/null || true)"
+          attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            -w '\n%{http_code}' \
+            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+          status="$(printf '%s' "${attachments}" | tail -n 1)"
+          body="$(printf '%s\n' "${attachments}" | sed '$d')"
+
+          # An unreadable list must fail the job: treating it as empty would
+          # re-upload files that are already on the release.
+          if [ "${status}" != "200" ]; then
+            echo "Listing Gitee attachments failed with HTTP ${status}." >&2
+            exit 1
+          fi
+
+          existing="$(printf '%s' "${body}" | jq -r '.[].name' 2>/dev/null || true)"
 
           files=()
           has_latest=false
@@ -231,7 +264,8 @@ jobs:
 
           base="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${TAG}"
           # A range request answers 206 when Gitee honours it, 200 when it does not.
-          status="$(curl -sS -L -r 0-0 -o /dev/null -w '%{http_code}' "${base}/${probe}")"
+          status="$(curl -sS -L -r 0-0 --retry 5 --retry-delay 3 --retry-all-errors \
+            -o /dev/null -w '%{http_code}' "${base}/${probe}")"
           if [ "${status}" != "200" ] && [ "${status}" != "206" ]; then
             echo "Gitee download URL check failed: ${base}/${probe} returned HTTP ${status}." >&2
             exit 1
