@@ -266,7 +266,6 @@ its crate source.
 | `@tauri-apps/plugin-global-shortcut` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-opener` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-process` | MIT OR Apache-2.0 |
-| `@tauri-apps/plugin-updater` | MIT OR Apache-2.0 |
 | `@tauri-apps/plugin-window-state` | MIT OR Apache-2.0 |
 | `@xterm/addon-fit` | MIT |
 | `@xterm/xterm` | MIT |

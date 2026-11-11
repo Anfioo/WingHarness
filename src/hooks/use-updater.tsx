@@ -12,12 +12,12 @@ import { toast } from "sonner";
 import { cancelUpdateDownload, downloadAndInstallUpdate, isUpdateDownloadActive } from "@/commands";
 import type { UpdateInstallResult, UpdateProgress } from "@/commands";
 import { checkForUpdates, updateErrorMessage } from "@/lib/updater";
-import type { UpdateCheckResult } from "@/lib/updater";
+import type { UpdateCheckResult, UpdateInfo } from "@/lib/updater";
 import { createWindow } from "@/lib/window";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
-import type { Update } from "@tauri-apps/plugin-updater";
 
 const AVAILABLE_VERSION_STORAGE_KEY = "wingharness-updater-available-version";
 const SKIPPED_VERSION_STORAGE_KEY = "wingharness-updater-skipped-version";
@@ -67,11 +67,13 @@ export interface CheckUpdateOptions {
 }
 
 interface UpdaterContextValue {
-  update: Update | null;
+  update: UpdateInfo | null;
   availableVersion: string | null;
   skippedVersion: string | null;
   hasUpdate: boolean;
   checking: boolean;
+  /** The mirror the running check is talking to, `null` outside a check. */
+  checkingEndpoint: string | null;
   downloading: boolean;
   cancelling: boolean;
   progress: UpdateProgress | null;
@@ -85,7 +87,7 @@ interface UpdaterContextValue {
 const UpdaterContext = createContext<UpdaterContextValue | null>(null);
 
 export function UpdaterProvider({ children }: { children: ReactNode }) {
-  const [update, setUpdate] = useState<Update | null>(null);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
   const [availableVersion, setAvailableVersion] = useState<string | null>(() =>
     localStorage.getItem(AVAILABLE_VERSION_STORAGE_KEY)
   );
@@ -93,6 +95,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
     localStorage.getItem(SKIPPED_VERSION_STORAGE_KEY)
   );
   const [checking, setChecking] = useState(false);
+  const [checkingEndpoint, setCheckingEndpoint] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(
     () => localStorage.getItem(DOWNLOAD_ACTIVE_STORAGE_KEY) === "true"
   );
@@ -154,6 +157,17 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       .catch((error) => console.error("Failed to read update download status:", error));
   }, [storeDownloading]);
 
+  // The backend announces each endpoint before trying it, so the check spinner
+  // can name the mirror it is actually waiting on.
+  useEffect(() => {
+    const pending = listen<string | null>("updater:checking", ({ payload }) =>
+      setCheckingEndpoint(payload)
+    );
+    return () => {
+      void pending.then((unlisten) => unlisten());
+    };
+  }, []);
+
   const checkUpdate = useCallback(
     (options?: CheckUpdateOptions): Promise<UpdateCheckResult> => {
       if (pendingCheck.current) {
@@ -162,6 +176,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
 
       const { force = false, openWindow = true } = options ?? {};
       setChecking(true);
+      setCheckingEndpoint(null);
       const request = checkForUpdates();
       pendingCheck.current = request;
 
@@ -182,6 +197,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
         .finally(() => {
           pendingCheck.current = null;
           setChecking(false);
+          setCheckingEndpoint(null);
         });
 
       return request;
@@ -274,6 +290,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       skippedVersion,
       hasUpdate: availableVersion !== null,
       checking,
+      checkingEndpoint,
       downloading,
       cancelling,
       progress,
@@ -288,6 +305,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       availableVersion,
       skippedVersion,
       checking,
+      checkingEndpoint,
       downloading,
       cancelling,
       progress,
@@ -315,7 +333,7 @@ export function useUpdater() {
  * check it forces the prompt even for a skipped version — the user asked.
  */
 export function useManualUpdateCheck() {
-  const { checkUpdate, checking, downloading, openUpdateWindow } = useUpdater();
+  const { checkUpdate, checking, checkingEndpoint, downloading, openUpdateWindow } = useUpdater();
   const [showNoUpdate, setShowNoUpdate] = useState(false);
   const { t } = useAppTranslation();
 
@@ -347,6 +365,7 @@ export function useManualUpdateCheck() {
   return {
     checkUpdate: handleCheckUpdate,
     checking,
+    checkingEndpoint,
     downloading,
     showNoUpdate,
     dismissNoUpdate: () => setShowNoUpdate(false),

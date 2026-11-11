@@ -92,7 +92,9 @@ release, updater clients cannot discover updates either.
 
 ## How It Works
 
-1. The app checks the updater endpoint on startup or during a manual check
+1. The app checks the updater endpoints on startup or during a manual check. The
+   check walks them in order (`check_for_update`) and the About window's spinner
+   names the mirror it is waiting on — GitHub, Cloudflare or Gitee
 2. If a newer version is available, a dedicated update window opens, showing the new version, publish date and release notes (the `notes` field of `latest.json`)
 3. The window offers two choices: install now, or skip this version
 4. A skipped version no longer prompts on startup; a newer release prompts again. A manual check from the About window always forces the prompt, even for a skipped version

@@ -83,6 +83,7 @@
   "updater": {
     "checkForUpdates": "检查更新",
     "checking": "检查中...",
+    "checkingEndpoint": "检查中（{{endpoint}}）...",
     "updating": "正在更新...",
     "checkFailed": "检查更新失败。",
     "installFailed": "安装更新失败。",

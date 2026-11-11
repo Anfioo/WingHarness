@@ -43,6 +43,7 @@ export default function UpdatePage() {
     downloading,
     cancelling,
     checking,
+    checkingEndpoint,
     progress,
     checkUpdate,
     installUpdate,
@@ -251,7 +252,9 @@ export default function UpdatePage() {
         ) : (
           !update && (
             <p className="text-muted-foreground flex-1 text-center text-sm">
-              {t("updater.checking")}
+              {checkingEndpoint
+                ? t("updater.checkingEndpoint", { endpoint: checkingEndpoint })
+                : t("updater.checking")}
             </p>
           )
         )}

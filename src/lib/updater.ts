@@ -1,8 +1,9 @@
-import { check } from "@tauri-apps/plugin-updater";
-import type { Update } from "@tauri-apps/plugin-updater";
+import { checkForUpdate, type UpdateCheckInfo } from "@/commands";
+
+export type UpdateInfo = UpdateCheckInfo;
 
 export type UpdateCheckResult =
-  | { status: "available"; update: Update }
+  | { status: "available"; update: UpdateInfo }
   | { status: "up-to-date" }
   | { status: "disabled" }
   | { status: "error"; error: unknown };
@@ -13,7 +14,7 @@ export async function checkForUpdates(): Promise<UpdateCheckResult> {
   }
 
   try {
-    const update = await check();
+    const update = await checkForUpdate();
     if (update) {
       return { status: "available", update };
     }

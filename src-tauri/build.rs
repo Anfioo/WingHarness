@@ -82,6 +82,7 @@ const COMMANDS: &[&str] = &[
     "ccs_sync_from_ccswitch",
     "ccs_update_provider",
     "ccs_update_sort_order",
+    "check_for_update",
     "checkout_detached",
     "cherry_pick",
     "cherry_pick_many",

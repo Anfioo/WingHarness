@@ -169,7 +169,8 @@ export default function AboutPage() {
   const [appVersion, setAppVersion] = useState("");
   const [licensesOpen, setLicensesOpen] = useState(false);
   const { t, language } = useAppTranslation();
-  const { checkUpdate, checking, downloading, showNoUpdate } = useManualUpdateCheck();
+  const { checkUpdate, checking, checkingEndpoint, downloading, showNoUpdate } =
+    useManualUpdateCheck();
   const { availableVersion } = useUpdater();
 
   useEffect(() => {
@@ -310,7 +311,9 @@ export default function AboutPage() {
           <Button onClick={checkUpdate} className="w-full" variant="outline" disabled={checking}>
             <RefreshCw className={checking || downloading ? "animate-spin" : undefined} />
             {checking
-              ? t("updater.checking")
+              ? checkingEndpoint
+                ? t("updater.checkingEndpoint", { endpoint: checkingEndpoint })
+                : t("updater.checking")
               : downloading
                 ? t("updater.updating")
                 : t("updater.checkForUpdates")}

@@ -410,6 +410,7 @@ macro_rules! all_commands {
             crate::commands::tray::tray_menu_set_expanded,
             crate::commands::tray::update_tray_menu,
             crate::commands::updater::cancel_update_download,
+            crate::commands::updater::check_for_update,
             crate::commands::updater::download_and_install_update,
             crate::commands::updater::is_update_download_active,
             crate::shaic::commands::shaic_status,
