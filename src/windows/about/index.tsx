@@ -32,6 +32,7 @@ import { cancelDestroyWindow, destroyWindow } from "@/lib/window.ts";
 import { useManualUpdateCheck, useUpdater } from "@/hooks/use-updater";
 import noticesEn from "../../../THIRD_PARTY_NOTICES.md?raw";
 import noticesZh from "../../../THIRD_PARTY_NOTICES.zh-CN.md?raw";
+import moinLicenseText from "../../../licenses/moin-LICENSE.txt?raw";
 import packageJson from "../../../package.json";
 
 const techVersions = {
@@ -103,10 +104,28 @@ const UPSTREAMS: { name: string; license: string; url: string; module: string }[
     module: "src-tauri/src/mcphub",
   },
   {
+    name: "moin",
+    license: "MIT",
+    url: "https://github.com/exxvius/moin",
+    module: "src-tauri/moin-core, src/pages/moin, extension",
+  },
+  {
+    name: "openidea",
+    license: "Apache-2.0",
+    url: "https://github.com/l0ng-ai/openidea",
+    module: "src-tauri/db-core, src/pages/database",
+  },
+  {
     name: "OrcaSVN",
     license: "MIT",
     url: "https://github.com/wustites/OrcaSVN",
     module: "src-tauri/svn-core",
+  },
+  {
+    name: "Porter",
+    license: "MIT",
+    url: "https://github.com/t21dev/porter-app",
+    module: "src-tauri/ports-core, src/pages/ports",
   },
   {
     name: "shaic",
@@ -315,6 +334,9 @@ export default function AboutPage() {
                 <TabsTrigger value="notices" className="flex-1">
                   {t("about.licenseNotices")}
                 </TabsTrigger>
+                <TabsTrigger value="moinLicense" className="flex-1">
+                  {t("about.licenseMoin")}
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="sources" className="mt-2">
@@ -356,6 +378,12 @@ export default function AboutPage() {
               <TabsContent value="notices" className="mt-2">
                 <pre className="bg-muted/40 border-border/60 max-h-[360px] overflow-auto rounded-lg border p-3 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
                   {language.startsWith("zh") ? noticesZh : noticesEn}
+                </pre>
+              </TabsContent>
+
+              <TabsContent value="moinLicense" className="mt-2">
+                <pre className="bg-muted/40 border-border/60 max-h-[360px] overflow-auto rounded-lg border p-3 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">
+                  {moinLicenseText}
                 </pre>
               </TabsContent>
             </Tabs>

@@ -20,8 +20,9 @@
     "licensesDescription": "WingHarness is distributed under GPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
     "licenseSources": "Source projects",
     "licenseNotices": "Full notices",
+    "licenseMoin": "moin MIT",
     "licenseOpen": "Open {{name}}",
-    "licenseBundled": "Bundled libraries and their licenses are listed in the full notices. The license texts ship in the licenses directory."
+    "licenseBundled": "The full moin MIT license is embedded in its own tab. Other license texts are kept in the source repository's licenses directory."
   },
   "theme": {
     "toggle": "Toggle theme"

@@ -20,8 +20,9 @@
     "licensesDescription": "WingHarness 以 GPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
     "licenseSources": "来源项目",
     "licenseNotices": "完整声明",
+    "licenseMoin": "moin MIT 许可证",
     "licenseOpen": "打开 {{name}}",
-    "licenseBundled": "随附库及其许可证列在完整声明中。许可证文本随应用分发在 licenses 目录。"
+    "licenseBundled": "moin 的完整 MIT 许可证已内嵌在单独标签中。其他许可证文本保存在源码仓库的 licenses 目录。"
   },
   "theme": {
     "toggle": "切换主题"
