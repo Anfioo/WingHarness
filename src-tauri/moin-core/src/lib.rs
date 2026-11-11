@@ -8,6 +8,8 @@
 //! move bytes, `engine` runs the queue, `state` binds it to Tauri and `commands`
 //! exposes it over IPC.
 
+pub mod aria2;
+pub mod aria2_tool;
 mod backend;
 mod category;
 pub mod commands;
@@ -24,6 +26,8 @@ mod settings;
 pub mod state;
 mod store;
 
+pub use aria2::Aria2Backend;
+pub use aria2_tool::Aria2Tool;
 pub use backend::{Control, DownloadBackend, NetConfig, Outcome, Signal, TransferOpts};
 pub use embedded::EmbeddedBackend;
 pub use engine::{Emitter, Engine};
