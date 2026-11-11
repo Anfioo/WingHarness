@@ -152,6 +152,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [PLUGINS.md](./docs/features/PLUGINS.md) — the plugin format and its generated settings UI
 - [PORTS.md](./docs/features/PORTS.md) — TCP listening ports, pinned ports and ending the process behind a port
 - [PROJECT.md](./docs/features/PROJECT.md) — the project file explorer and editor
+- [RUNTIME.md](./docs/features/RUNTIME.md) — download and install the mihomo and frpc runtimes
 - [SERVERS.md](./docs/features/SERVERS.md) — the SSH / SFTP server manager
 - [SVN.md](./docs/features/SVN.md) — the Subversion workspace
 - [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console

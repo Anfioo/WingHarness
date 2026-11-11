@@ -1,6 +1,15 @@
 import { Channel } from "@tauri-apps/api/core";
 import { invokeCommand } from "../../base";
-import type { UpdateInstallResult, UpdateProgress } from "./types";
+import type { UpdateCheckInfo, UpdateInstallResult, UpdateProgress } from "./types";
+
+/**
+ * Ask the backend to try each configured endpoint in order. `null` means no
+ * newer version is available; the command also announces the endpoint it is
+ * checking on `updater:checking`.
+ */
+export function checkForUpdate(): Promise<UpdateCheckInfo | null> {
+  return invokeCommand("check_for_update", {});
+}
 
 export function downloadAndInstallUpdate(
   onProgress: (progress: UpdateProgress) => void
@@ -18,4 +27,4 @@ export function isUpdateDownloadActive(): Promise<boolean> {
   return invokeCommand("is_update_download_active", {});
 }
 
-export type { UpdateInstallResult, UpdateProgress } from "./types";
+export type { UpdateCheckInfo, UpdateInstallResult, UpdateProgress } from "./types";

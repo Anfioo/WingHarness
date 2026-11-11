@@ -1,5 +1,5 @@
 import { invokeCommand } from "../../base";
-import type { AppConfig, ConfigView } from "./types";
+import type { AppConfig, ConfigView, ProxyStatus } from "./types";
 
 /**
  * Emitted after a save, so other windows re-read the parts of the config they
@@ -9,6 +9,11 @@ export const CONFIG_CHANGED_EVENT = "config-changed";
 
 export function getConfig(): Promise<ConfigView> {
   return invokeCommand("get_config", {});
+}
+
+/** The proxy in effect, including the system address in `system` mode. */
+export function proxyStatus(): Promise<ProxyStatus> {
+  return invokeCommand("proxy_status", {});
 }
 
 /** Saves the configuration and returns the reloaded view. */

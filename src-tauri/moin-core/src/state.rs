@@ -85,6 +85,12 @@ impl MoinState {
         }
     }
 
+    /// Rebuild the download client after the app's proxy settings changed.
+    pub async fn refresh_network(&self) -> MoinResult<()> {
+        self.engine().await?.refresh_network();
+        Ok(())
+    }
+
     /// Build the engine on first use and cache it. A `OnceCell` (not a plain
     /// flag) is what stops two concurrent first calls from opening two SQLite
     /// pools on the same file.

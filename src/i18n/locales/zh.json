@@ -83,6 +83,8 @@
   "updater": {
     "checkForUpdates": "检查更新",
     "checking": "检查中...",
+    "checkingEndpoint": "检查中（{{endpoint}}）...",
+    "downloadedOf": "{{downloaded}} / {{total}}",
     "updating": "正在更新...",
     "checkFailed": "检查更新失败。",
     "installFailed": "安装更新失败。",
@@ -90,7 +92,6 @@
     "cancelling": "正在取消...",
     "downloadCancelled": "已取消更新下载。",
     "cancelFailed": "取消更新下载失败。",
-    "disabledInDev": "开发者模式下无法检查更新。",
     "upToDate": "您正在使用最新版本！",
     "updateAvailable": "发现新版本",
     "downloading": "正在下载更新",
@@ -99,6 +100,7 @@
     "releaseNotes": "更新说明：",
     "windowTitle": "软件更新",
     "publishedAt": "发布时间：",
+    "source": "来源：{{source}}",
     "skipVersion": "跳过这个版本",
     "retry": "重试",
     "installNow": "立即安装"
@@ -178,14 +180,25 @@
     "proxy": {
       "title": "代理",
       "description": "应用发起网络请求时使用的代理，应用启动的工具同样适用。",
+      "modeLabel": "代理模式",
+      "mode": {
+        "none": "不使用代理",
+        "system": "使用系统代理",
+        "custom": "自定义"
+      },
+      "modeHint": {
+        "none": "忽略环境变量和系统代理，所有请求直连。",
+        "system": "使用系统设置中的代理；环境变量里的代理会被清除。",
+        "custom": "使用下面填写的代理地址。"
+      },
       "urlLabel": "代理地址",
-      "urlHint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7891。留空则沿用环境变量或 Windows 系统中的代理。",
+      "urlHint": "例如 http://127.0.0.1:7890 或 socks5://127.0.0.1:7891。仅自定义模式使用。",
       "urlPlaceholder": "http://127.0.0.1:7890",
       "noProxyLabel": "直连列表",
       "noProxyHint": "以逗号分隔的直连地址，例如内网域名。本机地址（localhost、127.0.0.1）始终直连。",
       "noProxyPlaceholder": "localhost,127.0.0.1",
       "autoSave": "修改后自动保存，对保存之后发起的请求生效；已在运行的客户端需重启。",
-      "envNote": "以 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 写入应用启动的子进程环境。",
+      "envNote": "代理选择会以 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 写入应用启动的子进程环境；不使用代理时写入 NO_PROXY=*。",
       "loadFailed": "读取代理设置失败。"
     },
     "filePreview": {
@@ -1978,7 +1991,7 @@
       },
       "noRuntime": {
         "title": "先添加 frpc 运行时",
-        "description": "选择本机已有的 frpc 可执行文件即可，不需要联网下载。",
+        "description": "可在运行时页签安装官方版本，或选择本机已有的 frpc 可执行文件。",
         "action": "选择运行时"
       },
       "activeConnections": "活动连接",
@@ -2234,10 +2247,10 @@
     },
     "runtime": {
       "title": "运行时",
-      "subtitle": "只使用本机已有的 frpc 可执行文件，不会联网下载。",
+      "subtitle": "可安装上方官方运行时，或导入本机已有的 frpc 可执行文件。",
       "empty": {
         "title": "还没有导入运行时",
-        "description": "选择本机已有的 frpc.exe 导入即可，控制台直接运行它，不需要联网。"
+        "description": "可安装上方官方运行时，或选择本机已有的 frpc.exe 导入。"
       },
       "action": {
         "import": "导入 frpc",

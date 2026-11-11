@@ -109,7 +109,13 @@ export type {
   TraceEntry as ClashTraceEntry,
   ValidateView as ClashValidateView,
 } from "./services/clash/types";
-export { CONFIG_CHANGED_EVENT, getConfig, saveConfig, setDataDir } from "./services/config";
+export {
+  CONFIG_CHANGED_EVENT,
+  getConfig,
+  proxyStatus,
+  saveConfig,
+  setDataDir,
+} from "./services/config";
 export type {
   AgentOption,
   AiConfig,
@@ -117,6 +123,8 @@ export type {
   ConfigView,
   FilePreviewConfig,
   ProxyConfig,
+  ProxyMode,
+  ProxyStatus,
 } from "./services/config/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";
@@ -305,6 +313,8 @@ export type {
   ToolView,
 } from "./services/mcphub/types";
 export { runProgressDemo } from "./services/progress";
+export { runtimeReadArchive, runtimeTarget, runtimeWriteFile } from "./services/runtime";
+export type { RuntimeKind, RuntimeTarget } from "./services/runtime/types";
 export {
   shaicAgentDetail,
   shaicApply,
@@ -343,8 +353,10 @@ export { quitApp, setTrayMenuExpanded, updateTrayMenu } from "./services/tray";
 export type { TrayMenuLayout } from "./services/tray/types";
 export {
   cancelUpdateDownload,
+  checkForUpdate,
   downloadAndInstallUpdate,
   isUpdateDownloadActive,
+  type UpdateCheckInfo,
   type UpdateInstallResult,
   type UpdateProgress,
 } from "./services/updater";

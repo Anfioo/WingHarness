@@ -92,13 +92,25 @@ release, updater clients cannot discover updates either.
 
 ## How It Works
 
-1. The app checks the updater endpoint on startup or during a manual check
+1. The app checks the updater endpoints on startup or during a manual check. The
+   check walks them in order (`check_for_update`) and the About window's spinner
+   names the mirror it is waiting on — GitHub, Cloudflare or Gitee
 2. If a newer version is available, a dedicated update window opens, showing the new version, publish date and release notes (the `notes` field of `latest.json`)
 3. The window offers two choices: install now, or skip this version
 4. A skipped version no longer prompts on startup; a newer release prompts again. A manual check from the About window always forces the prompt, even for a skipped version
 5. If no update is available, the manual flow reports that the app is up to date. If the check fails, the UI reports an error with the underlying cause attached to the toast (network, 404, signing, ...), which keeps "update failed" diagnosable
-6. During download, progress is calculated from cumulative downloaded bytes; closing the window while downloading only hides it, the download and install continue
+6. During download, the window shows the percentage, the transferred / total size and the current speed; closing the window while downloading only hides it, the download and install continue
 7. After installation, the app relaunches automatically
+
+A development build can check updates and read the release notes, but the update
+window offers neither **skip this version** nor **install now**: there is no
+signed installer to run. The check reads the published manifests directly
+because the updater plugin is not registered in dev builds.
+
+Both the check and the download follow Settings → **Proxy**: `none` goes direct,
+`system` uses the OS proxy, and `custom` uses the configured address. The
+updater builds a fresh client each time, so a change applies to the next check
+without a restart.
 
 ## Dev Builds (keeping the developer menu)
 

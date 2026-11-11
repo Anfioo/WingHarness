@@ -84,6 +84,8 @@
   "updater": {
     "checkForUpdates": "Check for Updates",
     "checking": "Checking...",
+    "checkingEndpoint": "Checking ({{endpoint}})...",
+    "downloadedOf": "{{downloaded}} / {{total}}",
     "updating": "Updating...",
     "checkFailed": "Failed to check for updates.",
     "installFailed": "Failed to install the update.",
@@ -91,7 +93,6 @@
     "cancelling": "Cancelling...",
     "downloadCancelled": "Update download cancelled.",
     "cancelFailed": "Failed to cancel the update download.",
-    "disabledInDev": "Update checks are not available in dev mode.",
     "upToDate": "You're using the latest version!",
     "updateAvailable": "Update Available",
     "downloading": "Downloading Update",
@@ -100,6 +101,7 @@
     "releaseNotes": "Release Notes:",
     "windowTitle": "Software Update",
     "publishedAt": "Published: ",
+    "source": "Source: {{source}}",
     "skipVersion": "Skip This Version",
     "retry": "Retry",
     "installNow": "Install Now"
@@ -179,14 +181,25 @@
     "proxy": {
       "title": "Proxy",
       "description": "The proxy the app uses for network requests, including the tools it starts.",
+      "modeLabel": "Proxy mode",
+      "mode": {
+        "none": "No proxy",
+        "system": "System proxy",
+        "custom": "Custom"
+      },
+      "modeHint": {
+        "none": "Ignore both the environment and the system proxy; every request connects directly.",
+        "system": "Use the proxy configured in the OS. Proxy environment variables are cleared.",
+        "custom": "Use the address below."
+      },
       "urlLabel": "Proxy address",
-      "urlHint": "For example http://127.0.0.1:7890 or socks5://127.0.0.1:7891. Leave empty to use the proxy from the environment or Windows, if any.",
+      "urlHint": "For example http://127.0.0.1:7890 or socks5://127.0.0.1:7891. Used in custom mode only.",
       "urlPlaceholder": "http://127.0.0.1:7890",
       "noProxyLabel": "Bypass list",
       "noProxyHint": "Comma-separated hosts that connect directly, such as intranet.example.com. Localhost is always bypassed.",
       "noProxyPlaceholder": "localhost,127.0.0.1",
       "autoSave": "Changes save automatically and apply to requests made after saving; restart to cover clients that are already open.",
-      "envNote": "Exported as HTTP_PROXY, HTTPS_PROXY and ALL_PROXY to the app's child processes.",
+      "envNote": "The choice is exported to child processes as HTTP_PROXY, HTTPS_PROXY and ALL_PROXY; no-proxy mode writes NO_PROXY=*.",
       "loadFailed": "Could not load the proxy settings."
     },
     "filePreview": {
@@ -1979,7 +1992,7 @@
       },
       "noRuntime": {
         "title": "Add an frpc runtime first",
-        "description": "Pick an frpc binary that already exists on this machine; nothing is downloaded.",
+        "description": "Install the official runtime in the runtime tab, or pick an frpc binary that already exists on this machine.",
         "action": "Choose runtime"
       },
       "activeConnections": "Active connections",
@@ -2235,10 +2248,10 @@
     },
     "runtime": {
       "title": "Runtimes",
-      "subtitle": "Only frpc binaries that already exist on this machine; nothing is downloaded.",
+      "subtitle": "Install the official runtime above, or import another frpc binary from this machine.",
       "empty": {
         "title": "No runtime imported",
-        "description": "Choose an frpc.exe to import. The console runs it directly, with no network download."
+        "description": "Install the official runtime above, or choose an frpc.exe to import."
       },
       "action": {
         "import": "Import frpc",

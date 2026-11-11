@@ -39,10 +39,11 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/notes.rs` | `notes_delete`, `notes_list`, `notes_mkdir`, `notes_rename`, `notes_write` | 5 |
 | `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` — each takes the project `root` as its first argument | 7 |
 | `commands/projects.rs` | `project_active`, `project_forget`, `project_recent_list`, `project_remember`, `project_set_active` | 5 |
+| `commands/runtime.rs` | `runtime_read_archive`, `runtime_target`, `runtime_write_file` — the runtime installer's file bridge (fetching and unpacking happen in the frontend) | 3 |
 | `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
-| `commands/updater.rs` | `cancel_update_download`, `download_and_install_update`, `is_update_download_active` | 3 |
+| `commands/updater.rs` | `cancel_update_download`, `check_for_update`, `download_and_install_update`, `is_update_download_active` | 4 |
 
 `commands/fs_guard.rs` is not a command module: it is the path guard every
 frontend-supplied path goes through, so neither the notes store nor the project
@@ -89,11 +90,14 @@ project windows only, and the caller's origin additionally has to match.
   AI config sync's enabled agents, and the outbound proxy. It holds no project —
   projects are their own store, below — and the preview's own preferences are
   `preview.json`, not here
-- The proxy is written into `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
-  `NO_PROXY` bypass list) at startup and again on save, so every reqwest client
-  built afterwards and every spawned tool picks it up without knowing about the
-  setting. `config::apply_proxy_env` owns this; an empty URL leaves a proxy that
-  the launching shell exported alone
+- The proxy has three modes (`none`, `system`, `custom`) and is written into
+  `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and `NO_PROXY`) at startup and
+  again on save, so every reqwest client built afterwards and every spawned tool
+  picks it up without knowing about the setting. `config::apply_proxy_env` owns
+  this: `none` sets `NO_PROXY=*`, `system` clears the environment so the OS
+  proxy answers, and `custom` writes the configured URL. The updater's separate
+  reqwest 0.13 gets `system-proxy`/`socks` through feature unification in the
+  root `Cargo.toml`; `save_config` also rebuilds moin's client
 - `src/projects/mod.rs` is the project store: `<data dir>/projects.json`, with
   the recent list and the active project. It is plain `std` + `serde_json` for
   the same reason as `config`, and the backend never guesses a root from it —

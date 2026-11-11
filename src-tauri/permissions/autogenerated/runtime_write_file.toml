@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-runtime-write-file"
+description = "Enables the runtime_write_file command without any pre-configured scope."
+commands.allow = ["runtime_write_file"]
+
+[[permission]]
+identifier = "deny-runtime-write-file"
+description = "Denies the runtime_write_file command without any pre-configured scope."
+commands.deny = ["runtime_write_file"]
