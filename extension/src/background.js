@@ -19,10 +19,17 @@ const RETRY_TIMEOUT_MS = 20000;
 // After a decline while WingHarness is down, stop prompting on auto-captured
 // downloads for this long, so a user who just wants the browser isn't nagged.
 const SUPPRESS_AFTER_DECLINE_MS = 60000;
+// Let the browser finish redirect resolution before we hand the URL to the app.
+const FINAL_URL_SETTLE_MS = 350;
+const FINAL_URL_TIMEOUT_MS = 8000;
 
 // URLs we deliberately handed back to the browser (the manual-decline fallback),
 // so `onCreated` / the response interceptor don't capture them again and loop.
 const bypass = new Set();
+// Explicit context-menu captures first let the browser resolve redirects, then
+// hand the resulting download to WingHarness from `downloads.onCreated`.
+const pendingManualCaptures = new Map();
+const activeManualCaptureTabs = new Map();
 // Timestamp until which auto-capture stays out of the way after a decline.
 let suppressAutoUntil = 0;
 
@@ -51,35 +58,72 @@ B.action.onClicked.addListener(() => {
   B.runtime.openOptionsPage();
 });
 
+function queueManualCapture(request) {
+  const requests = pendingManualCaptures.get(request.url) || [];
+  requests.push(request);
+  pendingManualCaptures.set(request.url, requests);
+}
+
+function takeManualCapture(url) {
+  const requests = pendingManualCaptures.get(url);
+  if (!requests?.length) return null;
+  const request = requests.shift();
+  if (requests.length === 0) pendingManualCaptures.delete(url);
+  if (typeof request.tabId === "number") {
+    activeManualCaptureTabs.set(request.tabId, (activeManualCaptureTabs.get(request.tabId) || 0) + 1);
+  }
+  return request;
+}
+
+function finishManualCapture(request) {
+  if (typeof request?.tabId !== "number") return;
+  const count = activeManualCaptureTabs.get(request.tabId) || 0;
+  if (count <= 1) activeManualCaptureTabs.delete(request.tabId);
+  else activeManualCaptureTabs.set(request.tabId, count - 1);
+}
+
+function removeManualCapture(request) {
+  const requests = pendingManualCaptures.get(request.url);
+  if (!requests) return;
+  const index = requests.indexOf(request);
+  if (index >= 0) requests.splice(index, 1);
+  if (requests.length === 0) pendingManualCaptures.delete(request.url);
+}
+
+function hasPendingManualCapture(tabId) {
+  if (typeof tabId !== "number") return false;
+  if (activeManualCaptureTabs.has(tabId)) return true;
+  for (const requests of pendingManualCaptures.values()) {
+    if (requests.some((request) => request.tabId === tabId)) return true;
+  }
+  return false;
+}
+
 B.contextMenus.onClicked.addListener((info, tab) => {
   const url = info.linkUrl || info.srcUrl || info.selectionText;
   if (!isHandoffable(url)) {
     notify("Nothing to download", "That link isn't a direct file WingHarness can fetch.");
     return;
   }
-  captureAndFallback(url, tab?.url, tab?.id);
+
+  const request = { url, referrer: tab?.url, tabId: tab?.id };
+  queueManualCapture(request);
+  B.downloads.download({ url }).catch((error) => {
+    removeManualCapture(request);
+    notify("Couldn't start the browser download", String(error));
+  });
 });
 
-// ---- Links caught before the browser started downloading ----------------
+// ---- Captures that precede a browser download ----------------------------
 
-// A capture that hands the file back to the browser if WingHarness declines or
-// errors, so nothing is lost. Used by the context menu, the content-script link
-// interceptor, and (Firefox) the response interceptor — none of which have a
-// paused browser download to resume, so each re-issues one on fallback.
+// Firefox can cancel an attachment response before creating a browser download,
+// so that path still needs to hand the original response URL back on failure.
 async function captureAndFallback(url, referrer, tabId, filename) {
   const outcome = await capture({ url, referrer, tabId, filename });
   if (outcome === "handed") return;
   bypass.add(url);
   B.downloads.download({ url }).catch(() => bypass.delete(url));
 }
-
-// The content script pre-empts a click on a downloadable link and sends it here
-// before the browser ever requests it — no save dialog.
-B.runtime.onMessage.addListener((msg, sender) => {
-  if (msg?.type === "wingharness-capture-link" && isHandoffable(msg.url)) {
-    captureAndFallback(msg.url, sender?.tab?.url || msg.referrer, sender?.tab?.id, msg.filename);
-  }
-});
 
 // ---- Firefox: catch server-driven downloads before the save dialog ------
 
@@ -100,6 +144,9 @@ setupResponseInterception();
 
 function onHeadersReceived(details) {
   if (!cachedConfig.enabled || !cachedConfig.autoCapture) return {};
+  // A context-menu request is already being tracked through downloads.onCreated;
+  // do not capture the same Firefox attachment again at the response layer.
+  if (hasPendingManualCapture(details.tabId)) return {};
   // Only GET downloads can be safely re-issued if the user declines; leave the
   // rest (POST form results, etc.) to the browser.
   if (details.method && details.method !== "GET") return {};
@@ -121,36 +168,98 @@ function onHeadersReceived(details) {
 
 B.downloads.onCreated.addListener(async (item) => {
   const cfg = await loadConfig();
-  if (!cfg.enabled || !cfg.autoCapture) return;
-  if (!isHandoffable(item.url)) return;
-  if (bypass.has(item.url)) {
-    bypass.delete(item.url);
-    return; // a fallback download we already chose to leave with the browser
-  }
-  if (Date.now() < suppressAutoUntil) return; // recently declined; stay quiet
-  if (cfg.minBytes > 0 && item.fileSize > 0 && item.fileSize < cfg.minBytes) return;
+  const manual = takeManualCapture(item.url);
+  try {
+    if (!cfg.enabled || (!cfg.autoCapture && !manual)) return;
+    if (!isHandoffable(item.url)) return;
+    if (bypass.has(item.url)) {
+      bypass.delete(item.url);
+      return; // a fallback download we already chose to leave with the browser
+    }
+    if (!manual && Date.now() < suppressAutoUntil) return; // recently declined; stay quiet
+    if (!manual && cfg.minBytes > 0 && item.fileSize > 0 && item.fileSize < cfg.minBytes) return;
 
-  // Pause immediately so no bytes land while we decide. If the pause fails the
-  // download already finished (or can't be stopped) — leave it with the browser
-  // rather than risk WingHarness re-fetching it into a duplicate file.
-  const paused = await pause(item.id);
-  if (!paused) return;
+    // The item URL can be the initial link, not the resource the browser reached
+    // after redirects. Wait for finalUrl to settle before pausing and submitting.
+    const url = await resolveDownloadUrl(item);
+    if (!url || !isHandoffable(url)) {
+      if (manual) {
+        notify(
+          "Couldn't resolve the final download URL",
+          "The browser will continue this download. Try again after the page finishes redirecting.",
+        );
+      }
+      return;
+    }
 
-  const outcome = await capture({
-    url: item.url,
-    referrer: item.referrer,
-    // The browser's chosen path is a nicer name than the URL's tail.
-    filename: basename(item.filename),
-  });
+    // Pause after resolving the final URL so the browser can complete redirects.
+    // If the pause fails the download already finished or can't be stopped; leave
+    // it with the browser rather than risk a duplicate transfer.
+    const paused = await pause(item.id);
+    if (!paused) return;
 
-  if (outcome === "handed") {
-    await cancel(item.id);
-    await erase(item.id);
-  } else {
-    if (outcome === "declined") suppressAutoUntil = Date.now() + SUPPRESS_AFTER_DECLINE_MS;
-    await resume(item.id);
+    const outcome = await capture({
+      url,
+      referrer: manual?.referrer || item.referrer,
+      tabId: manual?.tabId,
+      // The browser's chosen path is a nicer name than the URL's tail.
+      filename: basename(item.filename),
+    });
+
+    if (outcome === "handed") {
+      await cancel(item.id);
+      await erase(item.id);
+    } else {
+      if (outcome === "declined") suppressAutoUntil = Date.now() + SUPPRESS_AFTER_DECLINE_MS;
+      await resume(item.id);
+    }
+  } finally {
+    finishManualCapture(manual);
   }
 });
+
+/** Wait for Chrome/Firefox to publish the post-redirect DownloadItem.finalUrl. */
+async function resolveDownloadUrl(item) {
+  let finalUrl = isHandoffable(item.finalUrl) ? item.finalUrl : item.url;
+  let lastUrlChangeAt = Date.now();
+  const deadline = Date.now() + FINAL_URL_TIMEOUT_MS;
+
+  const onChanged = (delta) => {
+    if (delta.id !== item.id || !isHandoffable(delta.finalUrl?.current)) return;
+    if (delta.finalUrl.current !== finalUrl) {
+      finalUrl = delta.finalUrl.current;
+      lastUrlChangeAt = Date.now();
+    }
+  };
+  B.downloads.onChanged.addListener(onChanged);
+
+  try {
+    while (Date.now() < deadline) {
+      const [latest] = await B.downloads.search({ id: item.id });
+      if (!latest) return null;
+
+      const currentUrl = isHandoffable(latest.finalUrl) ? latest.finalUrl : latest.url;
+      if (currentUrl && currentUrl !== finalUrl) {
+        finalUrl = currentUrl;
+        lastUrlChangeAt = Date.now();
+      }
+
+      if (latest.state === "complete") return finalUrl;
+      const urlIsSettled = Date.now() - lastUrlChangeAt >= FINAL_URL_SETTLE_MS;
+      if (urlIsSettled && (finalUrl !== item.url || latest.bytesReceived > 0)) return finalUrl;
+      await sleep(100);
+    }
+
+    // If no response or redirect arrived in time, leave this download to the
+    // browser instead of guessing that the original URL is the file URL.
+    return null;
+  } catch (e) {
+    console.warn(`${LOG} could not resolve the final download URL`, e);
+    return null;
+  } finally {
+    B.downloads.onChanged.removeListener(onChanged);
+  }
+}
 
 // ---- The shared capture pipeline ----------------------------------------
 

@@ -8,21 +8,25 @@ included in the desktop installer.
 
 ## Capture paths and behaviour
 
-The extension can hand off a download in three ways:
+The extension hands off downloads only after the browser resolves the request:
 
-1. **Link click.** A content script intercepts a downloadable link before the
-   browser requests it. This avoids the browser save dialog on the fast path.
-2. **Response interception, Firefox only.** The Firefox MV3 build can cancel a
-   server-driven attachment before its save dialog and forward it.
-3. **Browser download fallback.** For missed cases, the extension pauses a newly
-   created browser download and forwards its URL. Chromium may already have
-   shown the save dialog at this point.
+1. **Automatic capture.** When enabled, the browser starts the download and
+   follows its redirects. The extension waits for `DownloadItem.finalUrl` to
+   settle, pauses the browser copy and sends that final URL to WingHarness. This
+   prevents a landing or login page from being mistaken for the file.
+2. **Context-menu capture.** Choosing **Download with WingHarness** starts the
+   browser request under extension tracking, then hands the resolved download to
+   WingHarness. The browser copy resumes if capture fails.
+3. **Response interception, Firefox only.** The Firefox MV3 build can cancel a
+   `Content-Disposition: attachment` response before its save dialog and forward
+   the final response URL.
 
 Every path can include the target URL's cookies, the referer and user-agent.
-Right-clicking a link, image or video and choosing **Download with
-WingHarness** is always available while capture is enabled. Automatic capture
-is off by default. `blob:`, `data:`, streaming-media and non-HTTP URLs stay in
-the browser because WingHarness cannot fetch them as plain HTTP resources.
+Automatic capture is off by default; enable it in the extension options for
+ordinary link clicks. Chromium may show its save dialog before the extension
+receives the resolved download; disable **Ask where to save each file before
+downloading** to suppress it. `blob:`, `data:`, streaming-media and non-HTTP URLs
+stay in the browser because WingHarness cannot fetch them as plain HTTP resources.
 
 WingHarness must already be running. There is no custom URL scheme or deep link
 to launch it. When the app is unreachable, the prompt can wait while you start
@@ -118,8 +122,9 @@ token is accepted.
 | WingHarness is unreachable                | Start the app, enable browser integration and make the ports match. Restart after changing the app's switch or port.                                                                                                   |
 | The test returns 401                      | Copy the current token from the app and paste it into the extension. No app restart is needed for a token change.                                                                                                      |
 | The port is occupied                      | Choose another port in the app, restart it, then use the same port in the extension. A bind failure does not crash WingHarness.                                                                                        |
-| Chromium still opens a save dialog        | Enable auto-capture for link clicks. For a server-driven attachment, disable **Ask where to save each file before downloading** or accept the fallback behaviour.                                                      |
-| Right-click does nothing                  | Check the extension's capture switch and use a direct HTTP/HTTPS link. Browser-internal, `blob:` and `data:` URLs are unsupported.                                                                                     |
+| Chromium still opens a save dialog        | Enable auto-capture. Chromium exposes the download after redirect resolution, so the dialog may appear first; disable **Ask where to save each file before downloading** to suppress it.                               |
+| WingHarness receives HTML instead of file | Reload the extension so the updated version is active. Enable auto-capture and let the browser resolve redirects; the extension now hands off `finalUrl` instead of intercepting a link by its filename alone.         |
+| Right-click does nothing                  | Check the extension's capture switch and use an HTTP/HTTPS link. The menu lets the browser resolve redirects before capture; browser-internal, `blob:` and `data:` URLs are unsupported.                               |
 | Nothing appears in Downloads              | Check the app's task list, then inspect the extension background console. Chromium exposes **Inspect views: service worker**; Firefox exposes **Inspect** under `about:debugging`. Extension logs use `[wingharness]`. |
 | Firefox loses the extension after restart | This is expected for a temporary add-on. Load `dist/firefox/manifest.json` again.                                                                                                                                      |
 

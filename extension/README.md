@@ -1,27 +1,31 @@
 # WingHarness — browser download capture
 
 A companion extension that hands your browser's downloads to [WingHarness](../).
-It captures downloads three ways, from earliest to last-resort:
+It uses the browser's resolved download request, so redirect and login flows can
+finish before WingHarness receives the file URL:
 
-- **At the click (no save dialog)** — a content script pre-empts a click on a
-  downloadable link *before* the browser requests it, so WingHarness gets the URL
-  with no browser save window. This is the fast path most downloads take.
-- **At the response, Firefox only** — Firefox keeps blocking `webRequest` in MV3,
-  so a server-driven download (`Content-Disposition: attachment`) is cancelled
-  before its dialog and handed to WingHarness.
-- **After the fact (fallback)** — for anything the above miss, it intercepts the
-  browser's own download entry (`downloads.onCreated`), pauses, and hands it over.
-  On Chrome this can't beat the save dialog (MV3 removed the needed hook), so for
-  server-driven downloads either the click path catches it or you turn off Chrome's
-  "Ask where to save each file before downloading".
+- **Browser download capture** — the browser follows redirects and creates its
+  download entry. The extension waits for the final URL, pauses the browser copy
+  and submits that resolved URL to WingHarness. This avoids mistaking a landing
+  page or an authentication endpoint for the actual file.
+- **Response interception, Firefox only** — Firefox can cancel a
+  `Content-Disposition: attachment` response before the browser's save dialog and
+  hand its final response URL to WingHarness.
+
+On Chrome, the browser may show its save dialog before the extension sees the
+resolved download. Disable Chrome's **Ask where to save each file before
+downloading** setting if you do not want that dialog. A direct **Download with
+WingHarness** context-menu action also lets the browser resolve the request
+first, then hands the resolved download over.
 
 All paths include cookies, referer, and user-agent, so logged-in / gated
 downloads work. You can also always right-click a link/image/video →
 **Download with WingHarness**.
 
-**Auto-capture is off by default.** Out of the box the extension only acts on an
-explicit right-click, or on a click on a link that clearly points at a file once
-you switch auto-capture on in the options page.
+**Auto-capture is off by default.** Out of the box the extension only acts when
+you explicitly choose **Download with WingHarness** from the context menu. When
+you enable auto-capture in the options page, ordinary browser downloads are
+handed over after the browser resolves their final URL.
 
 If WingHarness isn't running when you capture something, the extension says so and
 asks you to start it. **It cannot start the app for you** — there is no custom URL
@@ -112,9 +116,17 @@ hold the port.
 
 **Downloads still open the browser's save dialog.**
 Auto-capture is off by default — enable **Auto-capture downloads** in the options.
-On Chrome, a download the *server* starts (a `Content-Disposition: attachment`
-response with no clickable link) can't be intercepted before the dialog; turn off
-Chrome's "Ask where to save each file before downloading" or let it fall through.
+Chromium only exposes the download to the extension after the browser has resolved
+its redirects, so the dialog may appear first. Turn off Chrome's "Ask where to save
+each file before downloading" to suppress it.
+
+**WingHarness receives an HTML page instead of the file.**
+Reload the extension from the browser's extensions page so the updated version is
+active. The content script no longer intercepts a link based only on its filename;
+with auto-capture enabled, let the browser follow the link and redirects. The
+extension waits for the browser's final download URL before handing it off. If
+using the context menu, choose the download action on the link and let the browser
+resolve it first.
 
 **Right-click does nothing.**
 Check the **Enable WingHarness capture** switch, and that the link is a direct
@@ -144,8 +156,8 @@ extension/
   icons/                   WingHarness icon (SVG source + 32/48/128 PNG)
   src/
     shared.js              config + WingHarness API (ping / verify / send), cookie header
-    content.js             click interceptor + in-page "start WingHarness" prompt
-    background.js          context menu, link/response/download intercept, retry prompt
+    content.js             in-page "start WingHarness" prompt
+    background.js          context menu, response/download capture and retry prompt
     prompt.html/.js        fallback popup-window prompt (restricted pages)
     options.html/.js/.css  pairing (port + token) and capture toggles
 ```

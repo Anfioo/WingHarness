@@ -1,92 +1,12 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin — see PRIVACY.md.
 //
-// Link interceptor. Runs on every page and catches a click on a downloadable
-// link *before* the browser turns it into a download — so WingHarness gets the
-// URL with no browser save dialog. This is the "resolve before capture" path;
-// server-driven downloads (no clickable file link) still fall to the
-// background's other hooks.
-//
-// It stays deliberately conservative: it only pre-empts a plain left click on an
-// http(s) link that clearly points at a file, so it never hijacks normal
-// navigation. Anything it doesn't recognize is left entirely to the browser.
+// The browser must resolve the link before handing a download to WingHarness.
+// A URL that looks like a file can still redirect to a landing page or an auth
+// flow, so this script intentionally never intercepts link clicks. The
+// background listens for the browser's actual download and uses its final URL.
 
 (() => {
-  const LOG = "[wingharness]";
   const B = globalThis.browser ?? globalThis.chrome;
-
-  // Only pre-empt when the extension is on and auto-capture is enabled. Cached
-  // from storage so the click handler can decide synchronously.
-  let active = false;
-  const refresh = () =>
-    B.storage.local
-      .get({ enabled: true, autoCapture: false })
-      .then((c) => {
-        active = c.enabled && c.autoCapture;
-      })
-      .catch((e) => console.warn(`${LOG} could not read capture settings`, e));
-  refresh();
-  B.storage.onChanged.addListener(refresh);
-
-  // File extensions that read as "download this", not "navigate here". Kept to
-  // unambiguous binaries/archives/media/docs so we never swallow a real page.
-  const DOWNLOAD_EXTS = new Set([
-    "zip", "rar", "7z", "tar", "gz", "bz2", "xz", "tgz", "zst",
-    "exe", "msi", "dmg", "pkg", "appimage", "deb", "rpm", "apk",
-    "iso", "img", "bin",
-    "mp4", "mkv", "webm", "avi", "mov", "flv", "wmv", "m4v",
-    "mp3", "flac", "wav", "aac", "ogg", "m4a", "opus",
-    "pdf", "epub", "mobi",
-    "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt", "ods", "odp",
-    "csv", "torrent",
-  ]);
-
-  function looksDownloadable(anchor) {
-    let url;
-    try {
-      url = new URL(anchor.href);
-    } catch {
-      return false;
-    }
-    // Never touch blob:/data:/mailto:/etc. — WingHarness can't re-fetch those,
-    // and the browser must keep handling them.
-    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-    // An explicit download attribute is the strongest "this is a file" signal.
-    if (anchor.hasAttribute("download")) return true;
-    const path = url.pathname.toLowerCase();
-    const dot = path.lastIndexOf(".");
-    if (dot < 0) return false;
-    return DOWNLOAD_EXTS.has(path.slice(dot + 1));
-  }
-
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (!active || event.defaultPrevented) return;
-      // Plain left click only — let modified clicks (new tab/window, save-as)
-      // and middle clicks fall through to the browser.
-      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-        return;
-      }
-      const anchor = event.target.closest?.("a[href]");
-      if (!anchor || !looksDownloadable(anchor)) return;
-
-      // Take over before the browser starts the download.
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      // A `download="name"` attribute is the name the browser would have used.
-      const dl = anchor.getAttribute("download");
-      const filename = dl && dl.trim() ? dl.trim() : undefined;
-      B.runtime
-        .sendMessage({
-          type: "wingharness-capture-link",
-          url: anchor.href,
-          referrer: location.href,
-          filename,
-        })
-        .catch(() => {});
-    },
-    true, // capture phase, so we win before the page's own handlers
-  );
 
   // ---- In-page "start WingHarness" prompt -------------------------------
   // The background asks us to show this when WingHarness is down, so the prompt

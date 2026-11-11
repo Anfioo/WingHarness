@@ -1,0 +1,93 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const vm = require("node:vm");
+
+const ROOT = path.resolve(__dirname, "..");
+const background = fs.readFileSync(path.join(ROOT, "extension/src/background.js"), "utf8");
+const content = fs.readFileSync(path.join(ROOT, "extension/src/content.js"), "utf8");
+const resolverStart = background.indexOf("async function resolveDownloadUrl(item) {");
+const resolverEnd = background.indexOf("// ---- The shared capture pipeline", resolverStart);
+assert.notEqual(resolverStart, -1, "the final-URL resolver exists");
+assert.notEqual(resolverEnd, -1, "the final-URL resolver has a clear end");
+const resolverSource = background.slice(resolverStart, resolverEnd).trim();
+
+function createResolver(downloadItem) {
+  const listeners = new Set();
+  const context = {
+    B: {
+      downloads: {
+        onChanged: {
+          addListener(listener) {
+            listeners.add(listener);
+          },
+          removeListener(listener) {
+            listeners.delete(listener);
+          },
+        },
+        async search() {
+          return [{ ...downloadItem }];
+        },
+      },
+    },
+    FINAL_URL_SETTLE_MS: 5,
+    FINAL_URL_TIMEOUT_MS: 100,
+    isHandoffable(value) {
+      return typeof value === "string" && /^https?:\/\//i.test(value);
+    },
+    sleep(ms) {
+      return new Promise((resolve) => setTimeout(resolve, Math.min(ms, 5)));
+    },
+    console,
+  };
+  vm.runInNewContext(
+    `${resolverSource}\nglobalThis.resolveDownloadUrl = resolveDownloadUrl;`,
+    context
+  );
+  return {
+    resolve: context.resolveDownloadUrl,
+    publishFinalUrl(url) {
+      downloadItem.finalUrl = url;
+      downloadItem.bytesReceived = 16;
+      for (const listener of listeners) {
+        listener({ id: downloadItem.id, finalUrl: { current: url } });
+      }
+    },
+  };
+}
+
+test("redirected browser downloads use DownloadItem.finalUrl", async () => {
+  const initial = "https://example.test/download/package.zip";
+  const final = "https://cdn.example.test/releases/package.zip?token=abc";
+  const download = {
+    id: 7,
+    url: initial,
+    finalUrl: initial,
+    bytesReceived: 0,
+    state: "in_progress",
+  };
+  const resolver = createResolver(download);
+  setTimeout(() => resolver.publishFinalUrl(final), 15);
+
+  assert.equal(await resolver.resolve({ id: 7, url: initial, finalUrl: initial }), final);
+});
+
+test("a download with no response or settled URL is left with the browser", async () => {
+  const initial = "https://example.test/download/package.zip";
+  const resolver = createResolver({
+    id: 8,
+    url: initial,
+    finalUrl: initial,
+    bytesReceived: 0,
+    state: "in_progress",
+  });
+
+  assert.equal(await resolver.resolve({ id: 8, url: initial, finalUrl: initial }), null);
+});
+
+test("the content script does not pre-empt links using only their filename", () => {
+  assert.doesNotMatch(content, /document\.addEventListener\(\s*["']click["']/);
+  assert.doesNotMatch(content, /wingharness-capture-link/);
+  assert.match(content, /wingharness-show-prompt/);
+});
