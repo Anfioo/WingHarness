@@ -23,9 +23,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { formatBytes, formatSpeed } from "@/lib/moin/format";
 import {
+  downloadArchive,
   extractArchive,
-  fetchArchive,
   writeArchiveFiles,
   type ArchiveSource,
   type RuntimeProgress,
@@ -52,9 +53,9 @@ function messageOf(error: unknown): string {
 
 /**
  * Install or replace one runtime from an official archive, a custom URL, or a
- * local archive. The archive is fetched/unpacked in the webview; Rust only
- * writes the resulting files, so this card is the same in Settings and in the
- * Clash/FRP pages.
+ * local archive. The archive is downloaded by the moin engine, unpacked in the
+ * webview, and written to disk by the runtime file bridge, so this card is the
+ * same in Settings and in the Clash/FRP pages.
  */
 export function RuntimeInstaller({
   kind,
@@ -93,7 +94,11 @@ export function RuntimeInstaller({
   ) => {
     if (busy) return;
     try {
-      setBusy({ phase: initial });
+      setBusy(
+        initial === "download"
+          ? { phase: "download", received: 0, total: null, speed: 0 }
+          : { phase: "extract" }
+      );
       const source = await load();
       setBusy({ phase: "extract" });
       const files = await extractArchive(source);
@@ -121,7 +126,9 @@ export function RuntimeInstaller({
   const installOfficial = () =>
     void runInstall(
       () =>
-        fetchArchive(OFFICIAL_RUNTIME_URLS[kind], (value) => setBusy({ phase: "download", value })),
+        downloadArchive(OFFICIAL_RUNTIME_URLS[kind], (stats) =>
+          setBusy({ phase: "download", ...stats })
+        ),
       "download"
     );
 
@@ -134,7 +141,7 @@ export function RuntimeInstaller({
     setUrlOpen(false);
     setUrlError(null);
     void runInstall(
-      () => fetchArchive(trimmed, (value) => setBusy({ phase: "download", value })),
+      () => downloadArchive(trimmed, (stats) => setBusy({ phase: "download", ...stats })),
       "download"
     );
   };
@@ -237,6 +244,17 @@ export function RuntimeInstaller({
                 : undefined
             )}
           />
+          {busy.phase === "download" && (
+            <div className="text-muted-foreground flex items-center justify-between text-xs tabular-nums">
+              <span>
+                {t("runtime.progress.bytes", {
+                  received: formatBytes(busy.received),
+                  total: formatBytes(busy.total),
+                })}
+              </span>
+              {busy.speed > 0 && <span>{formatSpeed(busy.speed)}</span>}
+            </div>
+          )}
         </div>
       )}
 

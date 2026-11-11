@@ -1,62 +1,141 @@
 // Turning a runtime archive into files on disk.
 //
-// The split matters: fetching is a frontend job (the http plugin runs it in
-// Rust only because the webview is a Cross-Origin context), unpacking is
-// 7z-wasm in a worker, and Rust only writes the extracted entries. None of the
-// bytes travel through JSON.
-import { fetch } from "@tauri-apps/plugin-http";
-import { runtimeWriteFile, type RuntimeKind } from "@/commands";
+// The split matters: downloading goes through the moin engine (it is the app's
+// HTTP client, and it already carries progress, retries and a resume plan),
+// unpacking is 7z-wasm in a worker, and Rust only writes the extracted entries.
+// The archive is a temporary artifact: it is deleted from the download list as
+// soon as its bytes are in memory.
+import {
+  moinAddDownload,
+  moinDeleteDownload,
+  moinForgetDownload,
+  moinListDownloads,
+  moinResumeDownload,
+  runtimeReadArchive,
+  runtimeWriteFile,
+  type MoinTask,
+  type RuntimeKind,
+} from "@/commands";
 
-/** Largest archive the frontend will accept, mirroring the backend's read cap. */
+/** Largest archive the installer will accept, mirroring the backend's read cap. */
 const MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
 
 /** Extraction is synchronous inside the worker; a stuck archive is terminated. */
 const EXTRACT_TIMEOUT_MS = 120_000;
 
+/** How often the download task is polled while the installer waits on it. */
+const DOWNLOAD_POLL_MS = 500;
+
+/** Queue time plus transfer time; a task paused by the user hits this. */
+const DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
+
 export type ArchiveSource = { name: string; bytes: Uint8Array };
 
 export type ExtractedFile = { path: string; buffer: ArrayBuffer };
 
+export type DownloadStats = {
+  /** 0–1 when the server reports a total, otherwise undefined. */
+  value?: number;
+  received: number;
+  total: number | null;
+  /** Bytes per second, smoothed over the polling samples. */
+  speed: number;
+};
+
 export type RuntimeProgress =
-  | { phase: "download"; value?: number }
+  | ({ phase: "download" } & DownloadStats)
   | { phase: "extract" }
   | { phase: "write"; value: number; done: number; total: number };
 
 type WorkerResponse = { ok: true; files: ExtractedFile[] } | { ok: false; error: string };
 
-/** Download an archive through the plugin's Rust-backed fetch. */
-export async function fetchArchive(
+/**
+ * Download an archive through the moin engine and read it back.
+ *
+ * The task is a normal download for as long as it runs — it appears in the
+ * Downloads page with its progress and may notify on completion — but it is
+ * removed again once its bytes are in memory, so installing a runtime does not
+ * leave anything in the user's download history.
+ */
+export async function downloadArchive(
   url: string,
-  onProgress?: (value: number | undefined) => void
+  onProgress?: (stats: DownloadStats) => void
 ): Promise<ArchiveSource> {
-  const response = await fetch(url, { method: "GET" });
-  if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`);
+  const task = await moinAddDownload({ url, category: null, filename: archiveName(url) });
+  // "Add downloads paused" applies to every new task, including this one; an
+  // install cannot sit and wait for a resume press.
+  if (task.status === "paused") await moinResumeDownload(task.id);
 
-  const total = Number(response.headers.get("content-length") ?? 0);
-  const name = fileName(response.url || url);
-  const chunks: Uint8Array[] = [];
-  let received = 0;
-
-  if (response.body) {
-    const reader = response.body.getReader();
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      received += value.byteLength;
-      if (received > MAX_ARCHIVE_BYTES) {
-        await reader.cancel();
-        throw new Error(`The archive is larger than ${MAX_ARCHIVE_BYTES / 1024 / 1024} MiB.`);
-      }
-      chunks.push(value);
-      onProgress?.(total > 0 ? Math.min(received / total, 1) : undefined);
-    }
-  } else {
-    const buffer = new Uint8Array(await response.arrayBuffer());
-    received = buffer.byteLength;
-    chunks.push(buffer);
+  try {
+    const finished = await waitForDownload(task.id, onProgress);
+    const bytes = await runtimeReadArchive(finished.dest);
+    return { name: finished.filename, bytes };
+  } finally {
+    // Delete removes the file (and any partials); forget removes the record.
+    // Both are best effort: a failure here must not turn a successful install
+    // into an error.
+    await moinDeleteDownload(task.id).catch(() => {});
+    await moinForgetDownload(task.id).catch(() => {});
   }
+}
 
-  return { name, bytes: concat(chunks, received) };
+/**
+ * A URL without an archive extension still yields a usable download: 7-Zip
+ * detects the format from the bytes, and the read command wants a known suffix.
+ */
+function archiveName(url: string): string {
+  try {
+    const name = new URL(url).pathname.split("/").pop() ?? "";
+    return /\.(7z|zip)$/i.test(name) ? name : "runtime.7z";
+  } catch {
+    return "runtime.7z";
+  }
+}
+
+async function waitForDownload(
+  id: string,
+  onProgress?: (stats: DownloadStats) => void
+): Promise<MoinTask> {
+  const started = Date.now();
+  let lastSample: { at: number; received: number } | null = null;
+  let speed = 0;
+  while (true) {
+    const current = (await moinListDownloads()).find((task) => task.id === id);
+    if (!current) throw new Error("The download task was removed.");
+
+    if ((current.total ?? current.received) > MAX_ARCHIVE_BYTES) {
+      throw new Error(`The archive is larger than ${MAX_ARCHIVE_BYTES / 1024 / 1024} MiB.`);
+    }
+
+    const now = Date.now();
+    if (lastSample && now > lastSample.at) {
+      const instant = ((current.received - lastSample.received) * 1000) / (now - lastSample.at);
+      if (instant >= 0) speed = speed > 0 ? speed * 0.6 + instant * 0.4 : instant;
+      lastSample = { at: now, received: current.received };
+    } else if (!lastSample) {
+      lastSample = { at: now, received: current.received };
+    }
+
+    onProgress?.({
+      value: current.total ? Math.min(current.received / current.total, 1) : undefined,
+      received: current.received,
+      total: current.total,
+      speed,
+    });
+
+    if (current.status === "completed") return current;
+    if (
+      current.status === "failed" ||
+      current.status === "canceled" ||
+      current.status === "stalled"
+    ) {
+      throw new Error(current.error ?? `The download ended as ${current.status}.`);
+    }
+    if (Date.now() - started > DOWNLOAD_TIMEOUT_MS) {
+      throw new Error("The download timed out.");
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, DOWNLOAD_POLL_MS));
+  }
 }
 
 /** Unpack an archive in a fresh worker; the worker is gone once it answers. */
@@ -109,23 +188,4 @@ export async function writeArchiveFiles(
     await runtimeWriteFile(kind, file.path, new Uint8Array(file.buffer));
     onProgress?.((index + 1) / files.length, index + 1, files.length);
   }
-}
-
-function fileName(url: string): string {
-  try {
-    const path = new URL(url).pathname;
-    return path.split("/").pop() || "runtime.7z";
-  } catch {
-    return "runtime.7z";
-  }
-}
-
-function concat(chunks: Uint8Array[], size: number): Uint8Array {
-  const bytes = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
 }

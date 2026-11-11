@@ -57,18 +57,25 @@ runtime list with its version. An installed Clash runtime needs no registration:
 ## Pipeline
 
 ```text
-fetch (frontend)
-  @tauri-apps/plugin-http → plugin:http|fetch
+download (moin engine)
+  moin_add_download → progress from moin:task-progress / task list
+  runtime_read_archive reads the completed file, then the task is deleted
 extract (Web Worker)
   7z-wasm `7zz x archive -oout -y -bd`
 write (Rust)
   runtime_write_file, one raw body per file
 ```
 
-- **Why the http plugin?** `fetch` in a webview obeys CORS, and the official
-  host returns no `Access-Control-Allow-Origin`. The plugin runs the request in
-  Rust and streams the body back, which is the only way an arbitrary
-  user-supplied URL can work. The archive is still downloaded by frontend code.
+- **Why moin?** It is already the app's HTTP client: it owns the queue, proxy
+  use, segmented transfers, retries and a resume plan. Reusing it removes the
+  separate `tauri-plugin-http` dependency that existed only to escape the
+  webview's CORS rules. The price is visibility: while it runs, the archive is
+  an ordinary download task — it appears in the Downloads page with progress,
+  may trigger the completion notification, and follows the category rules. The
+  installer polls the task, reads its completed file, then calls
+  `moin_delete_download` and `moin_forget_download`, so nothing is left in the
+  history or on disk. A task added while **Add downloads paused** is resumed
+  immediately.
 - **Why 7z-wasm?** It is the same `7-Zip 24.09` build the preview subsystem
   already bundles for archive listing; a `.7z` archive needs no new Rust
   dependency. The worker is created per install and terminated after it answers,
@@ -101,7 +108,7 @@ leaves a half-written executable.
 | Path | Responsibility |
 | --- | --- |
 | `src/lib/runtime/official.ts` | The official URLs and the binary name per kind |
-| `src/lib/runtime/install.ts` | Fetch with progress, worker lifecycle, sequential writes |
+| `src/lib/runtime/install.ts` | moin download task, progress, worker lifecycle, sequential writes |
 | `src/lib/runtime/extract.worker.ts` | 7z-wasm extraction, common-root stripping, path checks |
 | `src/components/runtime/runtime-installer.tsx` | The card: status, three sources, URL dialog, progress |
 | `src/windows/settings/runtime-section.tsx` | Settings section wrapping both cards |

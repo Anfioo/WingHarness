@@ -39,6 +39,7 @@ export default {
     download: "Downloading…",
     extract: "Extracting…",
     write: "Writing files {{done}}/{{total}}…",
+    bytes: "{{received}} / {{total}}",
   },
   messages: {
     installed: "The {{name}} is installed.",

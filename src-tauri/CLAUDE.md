@@ -43,7 +43,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
-| `commands/updater.rs` | `cancel_update_download`, `download_and_install_update`, `is_update_download_active` | 3 |
+| `commands/updater.rs` | `cancel_update_download`, `check_for_update`, `download_and_install_update`, `is_update_download_active` | 4 |
 
 `commands/fs_guard.rs` is not a command module: it is the path guard every
 frontend-supplied path goes through, so neither the notes store nor the project
@@ -176,7 +176,6 @@ data source windows and the `project-*` project windows — is listed in
 | `tauri` | Framework core (tray-icon feature) |
 | `tauri-plugin-opener` | Open external links |
 | `tauri-plugin-dialog` | Folder picker for the data directory |
-| `tauri-plugin-http` | The runtime installer's frontend `fetch`, run in Rust so a cross-origin archive URL is not blocked by CORS |
 | `tauri-plugin-global-shortcut` | OS-level shortcuts |
 | `tauri-plugin-single-instance` | Focus the running window instead of starting a second copy |
 | `tauri-plugin-window-state` | Restore window geometry (`tray-menu` denied) |

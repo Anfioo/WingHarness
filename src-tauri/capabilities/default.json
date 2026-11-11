@@ -53,15 +53,9 @@
     "core:webview:allow-webview-position",
     "core:webview:allow-webview-size",
     "opener:default",
-    {
-      "identifier": "http:default",
-      "allow": [{ "url": "https://*:*" }, { "url": "http://*:*" }]
-    },
     "dialog:allow-open",
     "dialog:allow-save",
     "process:allow-restart",
-    "updater:default",
-    "updater:allow-check",
     "global-shortcut:default",
     "global-shortcut:allow-is-registered",
     "global-shortcut:allow-register",
@@ -132,6 +126,7 @@
     "allow-ccs-sync-from-ccswitch",
     "allow-ccs-update-provider",
     "allow-ccs-update-sort-order",
+    "allow-check-for-update",
     "allow-checkout-detached",
     "allow-cherry-pick",
     "allow-cherry-pick-many",

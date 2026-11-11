@@ -38,6 +38,7 @@ export default {
     download: "下载中…",
     extract: "解压中…",
     write: "写入文件 {{done}}/{{total}}…",
+    bytes: "{{received}} / {{total}}",
   },
   messages: {
     installed: "{{name}}已安装。",

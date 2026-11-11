@@ -345,8 +345,10 @@ export { quitApp, setTrayMenuExpanded, updateTrayMenu } from "./services/tray";
 export type { TrayMenuLayout } from "./services/tray/types";
 export {
   cancelUpdateDownload,
+  checkForUpdate,
   downloadAndInstallUpdate,
   isUpdateDownloadActive,
+  type UpdateCheckInfo,
   type UpdateInstallResult,
   type UpdateProgress,
 } from "./services/updater";
