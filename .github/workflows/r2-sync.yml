@@ -4,9 +4,10 @@ run-name: r2-sync ${{ inputs.tag || 'auto latest' }}
 
 # Mirrors a release into the Cloudflare R2 bucket as
 #   WingHarness/<tag>/<asset>
-# with latest.json rewritten to the public domain. A scheduled run only acts
-# when the latest release is not in the bucket yet; a manual run always
-# re-uploads, so it can backfill or repair a partial mirror.
+# with latest.json rewritten to the public domain. The newest release is also
+# copied to the fixed WingHarness/latest/latest.json pointer. A scheduled run
+# only acts when the latest release is not in the bucket yet; a manual run
+# always re-uploads, so it can backfill or repair a partial mirror.
 on:
   schedule:
     # 03:00 Asia/Shanghai, an hour after the Gitee sync (the runner cron is UTC).
@@ -124,6 +125,7 @@ jobs:
         env:
           DIR: ${{ steps.assets.outputs.dir }}
           TAG: ${{ needs.check.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: auto
@@ -155,6 +157,15 @@ jobs:
 
           if [ -f "${DIR}/latest.json" ]; then
             upload "${DIR}/latest.json" "latest.json" "${R2_PREFIX}/${TAG}/latest.json"
+
+            # The fixed pointer follows the newest release only, so syncing an
+            # older tag on demand cannot roll it back.
+            latest_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+            if [ -n "${latest_tag}" ] && [ "${latest_tag}" = "${TAG}" ]; then
+              upload "${DIR}/latest.json" "latest.json" "${R2_PREFIX}/latest/latest.json"
+            else
+              echo "Not the latest release (${latest_tag:-unknown}); leaving ${R2_PREFIX}/latest/latest.json alone."
+            fi
           fi
 
       - name: Summarize
@@ -163,3 +174,4 @@ jobs:
           TAG: ${{ needs.check.outputs.tag }}
         run: |
           echo "R2 mirror: ${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}/latest.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "Fixed pointer: ${R2_PUBLIC_BASE}/${R2_PREFIX}/latest/latest.json" >> "$GITHUB_STEP_SUMMARY"
