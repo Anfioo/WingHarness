@@ -179,10 +179,16 @@ impl Settings {
     }
 }
 
+/// How a download entered the queue. moin also knew `manual-torrent`,
+/// `watch-folder` and `watch-url-file`; the BitTorrent port is out of scope, so
+/// those fold into the two surviving methods instead of failing to parse. That
+/// keeps a hand-copied `categories.json` loadable without a migration step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum AddMethodKind {
+    #[serde(alias = "manual-torrent")]
     ManualLink,
+    #[serde(alias = "watch-folder", alias = "watch-url-file")]
     BrowserCapture,
 }
 

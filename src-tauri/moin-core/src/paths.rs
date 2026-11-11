@@ -45,13 +45,21 @@ pub fn aria2_dir() -> MoinResult<PathBuf> {
 
 /// Write through a temporary file, flush it to disk and rename it into place,
 /// so a crash mid-write cannot leave a truncated JSON document behind.
+///
+/// The temporary keeps the full file name (`settings.json.tmp`, not
+/// `settings.tmp`): the data directory is user-visible, and two documents that
+/// share a stem must never collide on their staging file.
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> MoinResult<()> {
     let parent = path
         .parent()
         .ok_or_else(|| MoinError::io("The target path has no parent directory."))?;
     fs::create_dir_all(parent)
         .map_err(|error| MoinError::io(format!("Could not create a directory: {error}")))?;
-    let temporary = path.with_extension("tmp");
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| MoinError::io("The target path has no file name."))?;
+    let temporary = path.with_file_name(format!("{name}.tmp"));
     let mut file = fs::File::create(&temporary)
         .map_err(|error| MoinError::io(format!("Could not create a temporary file: {error}")))?;
     file.write_all(bytes)
