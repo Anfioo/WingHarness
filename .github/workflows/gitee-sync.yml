@@ -297,7 +297,6 @@ jobs:
 
           files=()
           has_latest=false
-          latest_missing=false
 
           for file in "${DIR}"/*; do
             [ -f "${file}" ] || continue
@@ -305,9 +304,6 @@ jobs:
 
             if [ "${name}" = "latest.json" ]; then
               has_latest=true
-              if ! printf '%s\n' "${existing}" | grep -qxF "${name}"; then
-                latest_missing=true
-              fi
               continue
             fi
 
@@ -322,11 +318,10 @@ jobs:
             files+=("${file}")
           done
 
-          echo "Files to upload: ${#files[@]}, latest.json missing: ${latest_missing}, R2 only: ${r2_only}."
+          echo "Files to upload: ${#files[@]}, R2 only: ${r2_only}."
           {
             echo "count=${#files[@]}"
             echo "has_latest=${has_latest}"
-            echo "latest_missing=${latest_missing}"
             echo "r2_only=${r2_only}"
             if [ "${#files[@]}" -gt 0 ]; then
               echo "files<<WH_GITEE_FILES_EOF"
@@ -420,34 +415,52 @@ jobs:
           fi
 
           # The download URLs follow the chosen mirror; the notes inside the
-          # manifest keep pointing at Gitee like the release body.
+          # manifest keep pointing at Gitee like the release body. GitHub's
+          # manifest may use either /releases/download/<tag>/ or
+          # /releases/latest/download/ (GitHub resolves the latter, Gitee and
+          # R2 do not), so both map to the versioned base.
           github_repo="https://github.com/${GITHUB_REPOSITORY}"
           github_download="${github_repo}/releases/download/${TAG}"
+          github_latest="${github_repo}/releases/latest/download"
           gitee_repo="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}"
-          jq --arg old_dl "${github_download}" --arg new_dl "${DOWNLOAD_BASE}" \
+          jq --arg old_dl "${github_download}" --arg old_latest "${github_latest}" \
+            --arg new_dl "${DOWNLOAD_BASE}" \
             --arg old_repo "${github_repo}" --arg new_repo "${gitee_repo}" \
             --arg old_text "View changes on GitHub" --arg new_text "View changes on Gitee" \
             'walk(if type == "string" then split($old_dl) | join($new_dl) else . end)
+             | walk(if type == "string" then split($old_latest) | join($new_dl) else . end)
              | walk(if type == "string" then split($old_repo) | join($new_repo) else . end)
              | walk(if type == "string" then split($old_text) | join($new_text) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
-          if grep -qF "${github_download}" "${latest}"; then
+          if grep -qF "${github_download}" "${latest}" || grep -qF "${github_latest}" "${latest}"; then
             echo "latest.json still points at GitHub downloads." >&2
             exit 1
           fi
           echo "latest.json now downloads from ${DOWNLOAD_BASE}."
 
       # Uploaded last so the manifest never references a file that is not there.
+      # Gitee cannot overwrite an attachment, so the old manifest is removed
+      # first: a re-run must refresh it rather than keep a stale copy.
       - name: Upload latest.json to Gitee
-        if: steps.plan.outputs.has_latest == 'true' && steps.plan.outputs.latest_missing == 'true'
+        if: steps.plan.outputs.has_latest == 'true'
         shell: bash
         env:
           GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
           RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
           FILE: ${{ steps.assets.outputs.dir }}/latest.json
         run: |
+          attachments="$(curl -sS --retry 5 --retry-delay 3 --retry-all-errors \
+            "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}")"
+          old_id="$(printf '%s' "${attachments}" | jq -r '.[]? | select(.name == "latest.json") | .id' | head -n 1)"
+          if [ -n "${old_id}" ]; then
+            echo "Removing the previous latest.json (attachment ${old_id})..."
+            curl -sS --fail-with-body --retry 3 --retry-delay 5 --retry-all-errors \
+              -X DELETE \
+              "${GITEE_API}/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files/${old_id}?access_token=${GITEE_TOKEN}"
+          fi
+
           echo "Uploading latest.json..."
 
           if ! response="$(curl --progress-bar -S --fail-with-body --http1.1 \

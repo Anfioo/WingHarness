@@ -107,14 +107,21 @@ jobs:
           fi
 
           # Only the download URLs change; the notes keep their GitHub links.
-          github_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          # GitHub's manifest may use either /releases/download/<tag>/ or
+          # /releases/latest/download/ (GitHub resolves the latter, R2 does
+          # not), so both map to the versioned R2 path.
+          github_repo="https://github.com/${GITHUB_REPOSITORY}"
+          github_download="${github_repo}/releases/download/${TAG}"
+          github_latest="${github_repo}/releases/latest/download"
           r2_base="${R2_PUBLIC_BASE}/${R2_PREFIX}/${TAG}"
-          jq --arg old "${github_base}" --arg new "${r2_base}" \
-            'walk(if type == "string" then split($old) | join($new) else . end)' \
+          jq --arg old_dl "${github_download}" --arg old_latest "${github_latest}" \
+            --arg new "${r2_base}" \
+            'walk(if type == "string" then split($old_dl) | join($new) else . end)
+             | walk(if type == "string" then split($old_latest) | join($new) else . end)' \
             "${latest}" > "${latest}.tmp"
           mv "${latest}.tmp" "${latest}"
 
-          if grep -qF "${github_base}" "${latest}"; then
+          if grep -qF "${github_download}" "${latest}" || grep -qF "${github_latest}" "${latest}"; then
             echo "latest.json still points at GitHub." >&2
             exit 1
           fi
