@@ -299,7 +299,7 @@ export default function CategoriesTab() {
               {deleting
                 ? t("moin.category.deleteConfirm", { name: categoryLabel(deleting, t) })
                 : ""}{" "}
-              {t("moin.common.confirmDelete")}
+              {t("moin.category.deleteUncategorized")} {t("moin.common.confirmDelete")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -21,6 +21,7 @@ mod fsattr;
 mod http;
 pub mod models;
 pub mod paths;
+pub mod rpc;
 mod segmented;
 mod settings;
 pub mod state;

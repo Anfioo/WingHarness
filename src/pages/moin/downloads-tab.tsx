@@ -195,6 +195,7 @@ export default function DownloadsTab({
   const copyUrl = async (task: MoinTask) => {
     try {
       await navigator.clipboard.writeText(task.url);
+      toast.success(t("moin.action.copied"));
     } catch (failure) {
       fail(failure);
     }
@@ -313,6 +314,15 @@ export default function DownloadsTab({
         resumeableCount={selectedVisible.filter(canResume).length}
         onSelectAll={() => setSelected(new Set(visible.map((task) => task.id)))}
         onSelectNone={() => setSelected(new Set())}
+        onInvertSelection={() =>
+          setSelected((current) => {
+            const next = new Set<string>();
+            for (const task of visible) {
+              if (!current.has(task.id)) next.add(task.id);
+            }
+            return next;
+          })
+        }
         onBulkPause={bulkPause}
         onBulkResume={bulkResume}
         onBulkRemove={bulkRemove}

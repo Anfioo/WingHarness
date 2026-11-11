@@ -60,9 +60,13 @@ SELECT id, kind, url, filename, dest, status, total, received, error,
   FROM tasks
  ORDER BY created_at DESC, id DESC";
 
-/// `url`, `filename`, `dest` and `created_at` describe where the task came from
-/// and are written once, exactly like the source store: a resumed download must
-/// not be able to point at a different file.
+/// `url` and `created_at` describe where the task came from and are written
+/// once: a resumed download must not be able to point at a different source.
+///
+/// `dest` and `filename` *are* updated, because two engine actions legitimately
+/// move a task: the category staging folder on completion, and
+/// `move_to_category`. Leaving them write-once made a restart resurrect the old
+/// path, which is why the engine had to delete and re-insert the row.
 const UPSERT_TASK: &str = "\
 INSERT INTO tasks (
     id, kind, url, filename, dest, status, total, received, error,
@@ -71,6 +75,8 @@ INSERT INTO tasks (
 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
 ON CONFLICT(id) DO UPDATE SET
     kind = excluded.kind,
+    filename = excluded.filename,
+    dest = excluded.dest,
     status = excluded.status,
     total = excluded.total,
     received = excluded.received,
@@ -285,7 +291,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upsert_is_idempotent_and_keeps_the_identity_columns() {
+    async fn upsert_keeps_the_identity_columns_and_moves_the_destination() {
         let dir = tempfile::tempdir().unwrap();
         let store = Store::open(dir.path()).await.unwrap();
         let mut task = task("one", 1);
@@ -299,10 +305,15 @@ mod tests {
         store.upsert(&task).await.unwrap();
         let all = store.all().await.unwrap();
         assert_eq!(all.len(), 1);
+        // The source and the creation time are identity: a resumed download must
+        // never be able to point somewhere else.
         assert_eq!(all[0].url, "https://example.test/file.zip");
-        assert_eq!(all[0].filename, "file.zip");
-        assert_eq!(all[0].dest, "C:/Downloads/file.zip");
         assert_eq!(all[0].created_at, 1);
+        // The destination is not identity: completion moves a task into its
+        // category folder and `move_to_category` moves it again, so a restart
+        // must see the current path.
+        assert_eq!(all[0].filename, "other.zip");
+        assert_eq!(all[0].dest, "D:/Downloads/other.zip");
         assert_eq!(all[0].status, TaskStatus::Downloading);
         assert_eq!(all[0].received, 42);
     }

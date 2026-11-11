@@ -194,7 +194,7 @@ export function CategoryCard({
         <button
           type="button"
           className="text-muted-foreground hover:text-foreground mt-0.5 cursor-grab touch-none rounded active:cursor-grabbing"
-          aria-label={t("moin.category.order")}
+          aria-label={t("moin.category.drag")}
           disabled={disabled}
           {...attributes}
           {...listeners}

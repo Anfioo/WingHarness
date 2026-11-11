@@ -175,13 +175,14 @@ pub async fn moin_regenerate_rpc_token(state: State<'_, MoinState>) -> MoinResul
 #[tauri::command]
 pub async fn moin_rpc_status(state: State<'_, MoinState>) -> MoinResult<RpcStatus> {
     let settings = state.engine().await?.settings();
-    // The loopback listener is not ported yet: report the configuration, and
-    // `bound: false` so the settings page can say it is not listening.
+    // `bound` comes from the listener itself, not from the settings: a port that
+    // was taken at startup leaves `rpc_enabled` true while nothing is listening.
+    let bound = crate::rpc::bound_address();
     Ok(RpcStatus {
         enabled: settings.rpc_enabled,
         port: settings.rpc_port,
-        bound: false,
-        address: None,
+        bound: bound.is_some(),
+        address: bound.map(|address| address.to_string()),
     })
 }
 

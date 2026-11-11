@@ -60,10 +60,16 @@ pub fn apply_settings(settings: &Settings) {
     NOTIFY_ON_COMPLETE.store(settings.notify_on_complete, Ordering::Relaxed);
 }
 
+/// Cheap to clone, and every clone shares one engine.
+///
+/// The browser-extension listener (`rpc::serve`) needs its own handle, and a
+/// second `OnceCell` would open a second SQLite pool on the same file, so the
+/// cell itself lives behind an `Arc`.
+#[derive(Clone)]
 pub struct MoinState {
     pub app: AppHandle,
     pub downloads_dir: PathBuf,
-    engine: OnceCell<Engine>,
+    engine: Arc<OnceCell<Engine>>,
 }
 
 impl MoinState {
@@ -75,7 +81,7 @@ impl MoinState {
         Self {
             app,
             downloads_dir,
-            engine: OnceCell::new(),
+            engine: Arc::new(OnceCell::new()),
         }
     }
 

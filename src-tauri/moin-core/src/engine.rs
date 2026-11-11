@@ -989,6 +989,7 @@ impl Engine {
             stall_timeout: Duration::from_secs(settings.stall_timeout_secs),
         };
         let progress = self.make_progress(&id);
+        let started = Instant::now();
         let mut run = backend.run(task, opts, control, progress);
         let mut ticker = tokio::time::interval(PERSIST_INTERVAL);
         // The first tick of a fresh interval fires immediately; skip it so the
@@ -1000,6 +1001,13 @@ impl Engine {
                 _ = ticker.tick() => self.persist_progress(&id).await,
             }
         };
+        // `active_ms` is the wall time this attempt spent transferring. The row
+        // shows `received / active_ms`, so a resumed download accumulates across
+        // attempts instead of reporting the speed of its last slice.
+        let elapsed = started.elapsed().as_millis().min(i64::MAX as u128) as i64;
+        let _ = self
+            .mutate(&id, |task| task.active_ms = task.active_ms.saturating_add(elapsed))
+            .await;
         self.finish(&id, outcome).await;
     }
 

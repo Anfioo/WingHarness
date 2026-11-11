@@ -252,7 +252,11 @@ export function TaskRow({
           variant="ghost"
           size="icon-sm"
           aria-expanded={expanded}
-          aria-label={expanded ? t("moin.common.hide") : t("moin.common.show")}
+          aria-label={
+            expanded
+              ? t("moin.task.collapseAria", { filename: task.filename })
+              : t("moin.task.expandAria", { filename: task.filename })
+          }
           onClick={() => onToggleExpand(task.id)}
         >
           {expanded ? <ChevronDown /> : <ChevronRight />}

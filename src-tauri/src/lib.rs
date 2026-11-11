@@ -33,6 +33,12 @@ pub fn run() {
                 // `moin:task-progress` batch per flush interval.
                 let (flush, notify) = moin_core::state::progress_handles();
                 moin_core::state::spawn_progress_flusher(app.handle().clone(), flush, notify);
+                // The browser-extension listener binds 127.0.0.1 on the port from
+                // `settings.json`. It is a separate clone of the same state, so it
+                // shares the one engine (and the one SQLite pool) with the page.
+                // A port that is already taken only logs a warning; it never keeps
+                // the app from starting.
+                moin_core::rpc::spawn(app.state::<moin_core::MoinState>().inner().clone());
                 // The proxy has to reach the environment before the first HTTP
                 // client is built anywhere in the app, and before any child
                 // process is spawned, so it is applied right after the config
@@ -155,6 +161,9 @@ pub fn run() {
             if let Some(moin) = app.try_state::<moin_core::MoinState>() {
                 moin_core::shutdown(&moin);
             }
+            // The listener holds a loopback port; releasing it here keeps the
+            // next start from finding it busy.
+            moin_core::rpc::stop();
             plugins::registry::stop_all_running();
             // The Clash core is our child process: left alone it keeps the
             // proxy ports and the controller long after the window is gone.

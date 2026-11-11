@@ -189,7 +189,15 @@ function SortMenu({ sort, onSortChange }: SortMenuProps) {
               {rule && (
                 <>
                   <span className="text-muted-foreground text-xs tabular-nums">{index + 1}</span>
-                  {rule.direction === "asc" ? <ArrowUp /> : <ArrowDown />}
+                  <span
+                    title={t(
+                      rule.direction === "asc"
+                        ? "moin.sort.direction.asc"
+                        : "moin.sort.direction.desc"
+                    )}
+                  >
+                    {rule.direction === "asc" ? <ArrowUp /> : <ArrowDown />}
+                  </span>
                 </>
               )}
             </DropdownMenuItem>
@@ -217,6 +225,7 @@ export interface DownloadsToolbarProps {
   resumeableCount: number;
   onSelectAll: () => void;
   onSelectNone: () => void;
+  onInvertSelection: () => void;
   onBulkPause: () => void;
   onBulkResume: () => void;
   onBulkRemove: () => void;
@@ -235,6 +244,7 @@ export function DownloadsToolbar({
   resumeableCount,
   onSelectAll,
   onSelectNone,
+  onInvertSelection,
   onBulkPause,
   onBulkResume,
   onBulkRemove,
@@ -282,6 +292,15 @@ export function DownloadsToolbar({
           onClick={onSelectNone}
         >
           {t("moin.common.selectNone")}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={visibleCount === 0}
+          onClick={onInvertSelection}
+        >
+          {t("moin.common.invertSelection")}
         </Button>
 
         {hasSelection && (

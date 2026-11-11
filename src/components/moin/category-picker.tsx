@@ -54,7 +54,7 @@ export function CategoryPicker({
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value={NONE}>{t("moin.common.clear")}</SelectItem>
+        <SelectItem value={NONE}>{t("moin.category.none")}</SelectItem>
         {ordered.map((category) => (
           <SelectItem key={category.id} value={category.id}>
             <CategoryGlyph icon={category.icon} color={category.color} className="size-2.5" />
