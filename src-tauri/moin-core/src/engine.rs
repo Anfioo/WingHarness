@@ -750,7 +750,7 @@ impl Engine {
                 .and_then(|name| name.to_str())
                 .unwrap_or(&task.filename)
                 .to_string();
-            self.mutate_relocated(&id, |task| {
+            self.mutate(&id, |task| {
                 task.dest = target_dest.to_string_lossy().into_owned();
                 task.filename = target_name;
                 task.category = category.clone();
@@ -838,28 +838,6 @@ impl Engine {
             task.updated_at = now_ms();
             task.clone()
         };
-        self.inner.store.upsert(&task).await?;
-        self.inner.emitter.updated(&task);
-        Ok(task)
-    }
-
-    /// Same as [`Engine::mutate`], for a change that touches `dest` or
-    /// `filename`. `Store::upsert` deliberately never rewrites those identity
-    /// columns, so the row is re-inserted instead (see `B3.md` → 待协调).
-    async fn mutate_relocated<F>(&self, id: &str, update: F) -> MoinResult<Task>
-    where
-        F: FnOnce(&mut Task),
-    {
-        let task = {
-            let mut tasks = guard(&self.inner.tasks)?;
-            let task = tasks
-                .get_mut(id)
-                .ok_or_else(|| MoinError::not_found("download", id))?;
-            update(task);
-            task.updated_at = now_ms();
-            task.clone()
-        };
-        self.inner.store.delete(&task.id).await?;
         self.inner.store.upsert(&task).await?;
         self.inner.emitter.updated(&task);
         Ok(task)
@@ -1195,7 +1173,7 @@ impl Engine {
             .and_then(|name| name.to_str())
             .unwrap_or(&task.filename)
             .to_string();
-        self.mutate_relocated(&task.id, |current| {
+        self.mutate(&task.id, |current| {
             current.dest = target.to_string_lossy().into_owned();
             current.filename = target_name;
             current.final_dir = None;
