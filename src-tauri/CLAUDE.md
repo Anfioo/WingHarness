@@ -90,11 +90,14 @@ project windows only, and the caller's origin additionally has to match.
   AI config sync's enabled agents, and the outbound proxy. It holds no project —
   projects are their own store, below — and the preview's own preferences are
   `preview.json`, not here
-- The proxy is written into `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and the
-  `NO_PROXY` bypass list) at startup and again on save, so every reqwest client
-  built afterwards and every spawned tool picks it up without knowing about the
-  setting. `config::apply_proxy_env` owns this; an empty URL leaves a proxy that
-  the launching shell exported alone
+- The proxy has three modes (`none`, `system`, `custom`) and is written into
+  `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` (and `NO_PROXY`) at startup and
+  again on save, so every reqwest client built afterwards and every spawned tool
+  picks it up without knowing about the setting. `config::apply_proxy_env` owns
+  this: `none` sets `NO_PROXY=*`, `system` clears the environment so the OS
+  proxy answers, and `custom` writes the configured URL. The updater's separate
+  reqwest 0.13 gets `system-proxy`/`socks` through feature unification in the
+  root `Cargo.toml`; `save_config` also rebuilds moin's client
 - `src/projects/mod.rs` is the project store: `<data dir>/projects.json`, with
   the recent list and the active project. It is plain `std` + `serde_json` for
   the same reason as `config`, and the backend never guesses a root from it —

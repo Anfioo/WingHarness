@@ -385,6 +385,7 @@ const COMMANDS: &[&str] = &[
     "project_set_active",
     "project_tree",
     "project_write",
+    "proxy_status",
     "quit_app",
     "read_file",
     "read_gitignore",

@@ -129,6 +129,10 @@ font-kit = "0.14"
 # switched off here: without it reqwest ignores HTTP_PROXY / HTTPS_PROXY, which
 # is exactly how the app's proxy setting reaches every client.
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "socks", "system-proxy"] }
+# `tauri-plugin-updater` builds its own client from reqwest 0.13 without the
+# proxy features. Cargo unifies features per crate version, so naming them here
+# is what makes the update check and download follow the proxy setting.
+reqwest_updater = { package = "reqwest", version = "0.13", default-features = false, features = ["system-proxy", "socks"] }
 regex = "1"
 sha2 = "0.10"
 # The updater compares published versions with the running one. The plugin
@@ -147,6 +151,11 @@ zip = { version = "4", default-features = false, features = ["deflate-flate2-zli
 # adapted from https://github.com/dariocurr/shaic (MIT). See its `UPSTREAM.md`
 # for what diverges from the original.
 shaic-core = { path = "shaic-core" }
+
+[target.'cfg(windows)'.dependencies]
+# The moin settings tab displays the effective system proxy. Reading WinINET's
+# settings is a registry lookup, not another process.
+windows-registry = "0.6"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

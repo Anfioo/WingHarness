@@ -17,8 +17,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util", "time", "process", "net"] }
 async-trait = "0.1"
-# `stream` is what `bytes_stream()` needs; the root crate's reqwest does not enable it.
-reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "json"] }
+# `stream` is what `bytes_stream()` needs. `system-proxy` and `socks` keep this
+# crate's client on the same proxy rules as the app, even when it is built
+# without the root crate's feature set (tests, tools).
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls", "json", "system-proxy", "socks"] }
 futures-util = "0.3"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
 uuid = { version = "1", features = ["v4"] }

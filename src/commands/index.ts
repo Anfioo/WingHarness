@@ -109,7 +109,13 @@ export type {
   TraceEntry as ClashTraceEntry,
   ValidateView as ClashValidateView,
 } from "./services/clash/types";
-export { CONFIG_CHANGED_EVENT, getConfig, saveConfig, setDataDir } from "./services/config";
+export {
+  CONFIG_CHANGED_EVENT,
+  getConfig,
+  proxyStatus,
+  saveConfig,
+  setDataDir,
+} from "./services/config";
 export type {
   AgentOption,
   AiConfig,
@@ -117,6 +123,8 @@ export type {
   ConfigView,
   FilePreviewConfig,
   ProxyConfig,
+  ProxyMode,
+  ProxyStatus,
 } from "./services/config/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";

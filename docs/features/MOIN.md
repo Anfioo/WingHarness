@@ -102,6 +102,7 @@ aria2 process starts on demand and is shut down with the app.
 | Completion notifications          | Enables a system notification when a task completes.                                                  |
 | Browser integration switch / port | Applied when the app starts; restart after changing either one. The default port is `47653`.          |
 | Access token                      | Read for every RPC request, so regeneration is immediate. Update the extension after regenerating it. |
+| Proxy                             | Follows Settings → **Proxy** (`none` / `system` / `custom`). Changing it rebuilds the download client; running aria2 processes keep their old environment until respawned. |
 
 Other queue, network, engine and notification settings apply to subsequent work
 without an application restart.

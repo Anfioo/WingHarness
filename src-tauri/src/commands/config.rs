@@ -1,8 +1,9 @@
 //! Application configuration commands.
 
 use serde::Serialize;
+use tauri::Manager;
 
-use crate::config::{self, Config};
+use crate::config::{self, Config, ProxyMode};
 
 /// One switch in the settings page's agent list.
 #[derive(Serialize)]
@@ -58,15 +59,144 @@ pub fn get_config() -> ConfigView {
     view()
 }
 
+/// The proxy requests currently use, for pages that only display it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyStatusView {
+    pub mode: ProxyMode,
+    /// The address requests actually go through, when one is known.
+    pub url: Option<String>,
+    /// The bypass list exported as `NO_PROXY`.
+    pub no_proxy: String,
+}
+
+/// Read-only proxy status for the moin settings tab.
+///
+/// The proxy is configured in Settings → Proxy; this only reports what that
+/// setting resolves to, including the address read from Windows in system mode.
+#[tauri::command]
+pub fn proxy_status() -> ProxyStatusView {
+    let proxy = config::load().proxy;
+    let mode = proxy.resolved_mode();
+    let url = match mode {
+        ProxyMode::None => None,
+        ProxyMode::Custom => {
+            let url = proxy.url.trim();
+            (!url.is_empty()).then(|| url.to_string())
+        }
+        ProxyMode::System => system_proxy(),
+    };
+
+    ProxyStatusView {
+        mode,
+        url,
+        no_proxy: config::bypass_list(&proxy),
+    }
+}
+
+#[cfg(windows)]
+fn system_proxy() -> Option<String> {
+    use windows_registry::CURRENT_USER;
+
+    let key = CURRENT_USER
+        .open(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        .ok()?;
+
+    if key.get_u32("ProxyEnable").ok().unwrap_or(0) != 0 {
+        if let Ok(server) = key.get_string("ProxyServer") {
+            let server = server.trim();
+            if !server.is_empty() {
+                return Some(preferred_proxy_server(server));
+            }
+        }
+    }
+
+    // A PAC script decides per request; the URL is the only address to show.
+    key.get_string("AutoConfigURL")
+        .ok()
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty())
+}
+
+#[cfg(not(windows))]
+fn system_proxy() -> Option<String> {
+    None
+}
+
+/// Windows stores either one `host:port` or `http=…;https=…`; prefer the HTTPS
+/// entry because that is what the update endpoints use.
+fn preferred_proxy_server(server: &str) -> String {
+    if !server.contains('=') {
+        return server.to_string();
+    }
+
+    let mut https = None;
+    let mut http = None;
+    for part in server.split(';') {
+        if let Some((scheme, value)) = part.split_once('=') {
+            let value = value.trim();
+            if value.is_empty() {
+                continue;
+            }
+            match scheme.trim().to_ascii_lowercase().as_str() {
+                "https" => https = Some(value),
+                "http" => http = Some(value),
+                _ => {}
+            }
+        }
+    }
+
+    https.or(http).unwrap_or(server).to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_plain_proxy_server_is_kept() {
+        assert_eq!(preferred_proxy_server("127.0.0.1:7890"), "127.0.0.1:7890");
+    }
+
+    #[test]
+    fn an_https_entry_wins_over_http() {
+        assert_eq!(
+            preferred_proxy_server("http=127.0.0.1:7890;https=127.0.0.1:7891"),
+            "127.0.0.1:7891"
+        );
+        assert_eq!(
+            preferred_proxy_server("ftp=127.0.0.1:21;http=127.0.0.1:8080"),
+            "127.0.0.1:8080"
+        );
+    }
+}
+
 /// Saves the configuration and returns the reloaded view.
 ///
 /// The proxy is pushed into the process environment here as well: requests made
 /// after this call use the new setting without a restart.
 #[tauri::command]
-pub fn save_config(config: Config) -> Result<ConfigView, String> {
+pub fn save_config(app: tauri::AppHandle, config: Config) -> Result<ConfigView, String> {
+    let previous_proxy = config::load().proxy;
     config::save(&config)?;
     // Read back rather than use the argument: `save` normalizes the values.
-    config::apply_proxy_env(&config::load().proxy);
+    let proxy = config::load().proxy;
+    config::apply_proxy_env(&proxy);
+
+    // The download engine captures the proxy when it builds its client, so a
+    // mode/address change has to rebuild it. Other already-built clients still
+    // need a restart, which the settings page says.
+    if proxy != previous_proxy {
+        if let Some(state) = app.try_state::<moin_core::MoinState>() {
+            let state = state.inner().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(error) = state.refresh_network().await {
+                    eprintln!("Could not rebuild the download client: {}", error.message);
+                }
+            });
+        }
+    }
+
     Ok(view())
 }
 
