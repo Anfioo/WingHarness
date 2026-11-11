@@ -107,6 +107,11 @@ window offers neither **skip this version** nor **install now**: there is no
 signed installer to run. The check reads the published manifests directly
 because the updater plugin is not registered in dev builds.
 
+Both the check and the download follow Settings → **Proxy**: `none` goes direct,
+`system` uses the OS proxy, and `custom` uses the configured address. The
+updater builds a fresh client each time, so a change applies to the next check
+without a restart.
+
 ## Dev Builds (keeping the developer menu)
 
 Packaged builds leave "Reload" and "Developer Tools" out of the right-click menu by default (end users should not lose editing state to a stray click, and release builds ship without the inspector). Pass `-DevBuild` to keep them:

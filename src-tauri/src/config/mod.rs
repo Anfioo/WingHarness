@@ -9,7 +9,6 @@ use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
@@ -55,20 +54,46 @@ pub struct Config {
     pub networked: bool,
 }
 
+/// How outbound requests choose a proxy.
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum ProxyMode {
+    /// Ignore both the environment and the OS proxy; every request goes direct.
+    None,
+    /// Use the OS proxy (the Windows Internet Settings proxy).
+    System,
+    /// Use [`ProxyConfig::url`].
+    Custom,
+}
+
 /// Proxy the app applies to its own HTTP clients and to its child processes.
 ///
 /// Stored as a URL rather than a host/port pair so it covers whatever the user
-/// already has — `http://`, `https://` or `socks5://`. An empty `url` means
-/// "leave the environment alone", which keeps a proxy exported by the shell that
-/// launched the app working.
+/// already has — `http://`, `https://` or `socks5://`.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
 pub struct ProxyConfig {
-    /// Proxy URL, e.g. `http://127.0.0.1:7890`.
+    /// Missing in configs written before the three modes existed; see
+    /// [`ProxyConfig::resolved_mode`] for how those are migrated.
+    pub mode: Option<ProxyMode>,
+    /// Proxy URL, e.g. `http://127.0.0.1:7890`. Custom mode only.
     pub url: String,
     /// Comma-separated hosts that bypass the proxy. Loopback is always added.
     #[serde(rename = "noProxy")]
     pub no_proxy: String,
+}
+
+impl ProxyConfig {
+    /// The effective mode. A config from before modes existed is read as custom
+    /// when it names an address, and as system when it does not — that is what
+    /// "leave the environment alone" used to mean in practice.
+    pub fn resolved_mode(&self) -> ProxyMode {
+        self.mode.unwrap_or(if self.url.trim().is_empty() {
+            ProxyMode::System
+        } else {
+            ProxyMode::Custom
+        })
+    }
 }
 
 /// The preview page's limits and display options.
@@ -125,12 +150,6 @@ const NO_PROXY_VARS: [&str; 2] = ["NO_PROXY", "no_proxy"];
 /// those requests back into itself.
 const LOOPBACK_BYPASS: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
 
-/// Whether this process currently carries proxy variables that *we* wrote.
-/// Only those are removed when the setting is cleared, so a proxy exported by
-/// the shell that started the app is never destroyed by an empty config.
-static PROXY_APPLIED: AtomicBool = AtomicBool::new(false);
-static NO_PROXY_APPLIED: AtomicBool = AtomicBool::new(false);
-
 /// AI 配置同步（shaic）设置。
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
 #[serde(default)]
@@ -167,6 +186,9 @@ impl Config {
             self.proxy.url = format!("http://{}", self.proxy.url);
         }
         self.proxy.no_proxy = self.proxy.no_proxy.trim().to_string();
+        // Persist the inference once, so the file read by the settings page and
+        // the file on disk always name a concrete mode.
+        self.proxy.mode = Some(self.proxy.resolved_mode());
 
         // A missing key or a zero is "use the default"; anything else is pulled
         // into the range the settings page offers, so the value on disk and the
@@ -213,39 +235,52 @@ pub fn default_dir() -> PathBuf {
 /// setting is saved. Already-built clients keep the proxy they were created
 /// with; restarting is the only way to reach those.
 pub fn apply_proxy_env(proxy: &ProxyConfig) {
-    let url = proxy.url.trim();
-    if url.is_empty() {
-        if PROXY_APPLIED.swap(false, Ordering::SeqCst) {
-            for key in PROXY_VARS {
-                env::remove_var(key);
-            }
-        }
-        if NO_PROXY_APPLIED.swap(false, Ordering::SeqCst) {
-            for key in NO_PROXY_VARS {
-                env::remove_var(key);
-            }
-        }
-        return;
-    }
-
+    // Every mode owns these variables. "System" has to remove any inherited
+    // proxy for the OS setting to take effect, so the old "leave the shell's
+    // environment alone" rule only survives as the default mode inference.
     for key in PROXY_VARS {
-        env::set_var(key, url);
+        env::remove_var(key);
     }
-    PROXY_APPLIED.store(true, Ordering::SeqCst);
 
-    // The user's list, with loopback ensured on top. Written even when the field
-    // is empty: a proxy in global mode must still not swallow local requests.
-    let mut bypass: Vec<&str> = LOOPBACK_BYPASS.to_vec();
-    for entry in proxy.no_proxy.split(',').map(str::trim).filter(|e| !e.is_empty()) {
-        if !bypass.iter().any(|kept| kept.eq_ignore_ascii_case(entry)) {
-            bypass.push(entry);
+    let mode = proxy.resolved_mode();
+    let url = proxy.url.trim();
+    if mode == ProxyMode::Custom && !url.is_empty() {
+        for key in PROXY_VARS {
+            env::set_var(key, url);
         }
     }
-    let bypass = bypass.join(",");
+
+    let bypass = bypass_list(proxy);
     for key in NO_PROXY_VARS {
         env::set_var(key, &bypass);
     }
-    NO_PROXY_APPLIED.store(true, Ordering::SeqCst);
+}
+
+/// The `NO_PROXY` value a mode exports.
+///
+/// `*` disables proxying entirely (including the OS proxy for clients that read
+/// it); system mode keeps loopback direct because the Clash controller lives
+/// there; custom mode adds the user's hosts on top of loopback.
+pub fn bypass_list(proxy: &ProxyConfig) -> String {
+    if proxy.resolved_mode() == ProxyMode::Custom && proxy.url.trim().is_empty() {
+        // A custom mode with no address behaves like "none" instead of silently
+        // falling back to the system proxy.
+        return "*".to_string();
+    }
+
+    match proxy.resolved_mode() {
+        ProxyMode::None => "*".to_string(),
+        ProxyMode::System => LOOPBACK_BYPASS.join(","),
+        ProxyMode::Custom => {
+            let mut bypass: Vec<&str> = LOOPBACK_BYPASS.to_vec();
+            for entry in proxy.no_proxy.split(',').map(str::trim).filter(|e| !e.is_empty()) {
+                if !bypass.iter().any(|kept| kept.eq_ignore_ascii_case(entry)) {
+                    bypass.push(entry);
+                }
+            }
+            bypass.join(",")
+        }
+    }
 }
 
 /// The directory the pointer currently names, read fresh from disk.
@@ -435,6 +470,8 @@ mod tests {
         config.normalize();
         assert_eq!(config.proxy.url, "http://127.0.0.1:7890");
         assert_eq!(config.proxy.no_proxy, "localhost,127.0.0.1");
+        // A pre-mode config with an address reads as custom.
+        assert_eq!(config.proxy.mode, Some(ProxyMode::Custom));
 
         config.proxy.url = "socks5://127.0.0.1:7891".to_string();
         config.normalize();
@@ -444,22 +481,46 @@ mod tests {
     #[test]
     fn proxy_round_trips_through_json() {
         let mut config = Config::default();
+        config.proxy.mode = Some(ProxyMode::Custom);
         config.proxy.url = "http://127.0.0.1:7890".to_string();
         config.proxy.no_proxy = "localhost".to_string();
 
         let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"mode\":\"custom\""), "{json}");
         assert!(json.contains("\"noProxy\":\"localhost\""), "{json}");
 
         let back: Config = serde_json::from_str(&json).unwrap();
         assert_eq!(back.proxy, config.proxy);
     }
 
+    /// A config from before modes existed names no mode; the address decides
+    /// whether it meant custom or system.
+    #[test]
+    fn a_missing_proxy_mode_is_inferred_from_the_url() {
+        let mut with_url: Config =
+            serde_json::from_str(r#"{"proxy":{"url":"http://127.0.0.1:7890"}}"#).unwrap();
+        with_url.normalize();
+        assert_eq!(with_url.proxy.mode, Some(ProxyMode::Custom));
+
+        let mut without_url: Config = serde_json::from_str(r#"{"proxy":{}}"#).unwrap();
+        without_url.normalize();
+        assert_eq!(without_url.proxy.mode, Some(ProxyMode::System));
+
+        let mut explicit: Config =
+            serde_json::from_str(r#"{"proxy":{"mode":"none","url":"http://127.0.0.1:7890"}}"#)
+                .unwrap();
+        explicit.normalize();
+        assert_eq!(explicit.proxy.mode, Some(ProxyMode::None));
+    }
+
     #[test]
     fn proxy_env_is_applied_and_cleared() {
         let keys = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"];
         let saved: Vec<Option<String>> = keys.iter().map(|key| env::var(key).ok()).collect();
+        let saved_no_proxy = env::var("NO_PROXY").ok();
 
         apply_proxy_env(&ProxyConfig {
+            mode: Some(ProxyMode::Custom),
             url: "http://127.0.0.1:7890".to_string(),
             no_proxy: "localhost".to_string(),
         });
@@ -471,17 +532,42 @@ mod tests {
             Some("localhost,127.0.0.1,::1")
         );
 
-        apply_proxy_env(&ProxyConfig::default());
+        // None clears the address and tells every client to bypass the OS
+        // proxy as well.
+        apply_proxy_env(&ProxyConfig {
+            mode: Some(ProxyMode::None),
+            url: "http://127.0.0.1:7890".to_string(),
+            no_proxy: String::new(),
+        });
         for key in keys {
             assert!(env::var(key).is_err(), "{key} should be removed");
         }
-        assert!(env::var("NO_PROXY").is_err());
+        assert_eq!(env::var("NO_PROXY").ok().as_deref(), Some("*"));
+
+        // System removes the environment proxy so the OS setting can answer,
+        // while still keeping loopback direct.
+        apply_proxy_env(&ProxyConfig {
+            mode: Some(ProxyMode::System),
+            url: String::new(),
+            no_proxy: String::new(),
+        });
+        for key in keys {
+            assert!(env::var(key).is_err(), "{key} should be removed");
+        }
+        assert_eq!(
+            env::var("NO_PROXY").ok().as_deref(),
+            Some("localhost,127.0.0.1,::1")
+        );
 
         for (key, value) in keys.iter().zip(saved) {
             match value {
                 Some(value) => env::set_var(key, value),
                 None => env::remove_var(key),
             }
+        }
+        match saved_no_proxy {
+            Some(value) => env::set_var("NO_PROXY", value),
+            None => env::remove_var("NO_PROXY"),
         }
     }
 

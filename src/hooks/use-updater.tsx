@@ -20,6 +20,7 @@ import { listen } from "@tauri-apps/api/event";
 import i18n from "@/i18n";
 
 const AVAILABLE_VERSION_STORAGE_KEY = "wingharness-updater-available-version";
+const AVAILABLE_UPDATE_STORAGE_KEY = "wingharness-updater-available-update";
 const SKIPPED_VERSION_STORAGE_KEY = "wingharness-updater-skipped-version";
 const DOWNLOAD_ACTIVE_STORAGE_KEY = "wingharness-updater-download-active";
 const DOWNLOAD_PROGRESS_STORAGE_KEY = "wingharness-updater-download-progress";
@@ -34,6 +35,29 @@ function readStoredProgress(): UpdateProgress | null {
     return JSON.parse(value) as UpdateProgress;
   } catch {
     localStorage.removeItem(DOWNLOAD_PROGRESS_STORAGE_KEY);
+    return null;
+  }
+}
+
+/**
+ * The metadata from the check that opened the update window.
+ *
+ * The window is its own webview, so without this it would run the whole check
+ * again — GitHub, then Cloudflare — just to render what the first window
+ * already fetched. Stored next to the version so every window shows the same
+ * result and no second round trip happens.
+ */
+function readStoredUpdate(): UpdateInfo | null {
+  const version = localStorage.getItem(AVAILABLE_VERSION_STORAGE_KEY);
+  const value = localStorage.getItem(AVAILABLE_UPDATE_STORAGE_KEY);
+  if (!version || !value) return null;
+
+  try {
+    const info = JSON.parse(value) as UpdateInfo;
+    if (info.version !== version) return null;
+    return info;
+  } catch {
+    localStorage.removeItem(AVAILABLE_UPDATE_STORAGE_KEY);
     return null;
   }
 }
@@ -87,7 +111,7 @@ interface UpdaterContextValue {
 const UpdaterContext = createContext<UpdaterContextValue | null>(null);
 
 export function UpdaterProvider({ children }: { children: ReactNode }) {
-  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [update, setUpdate] = useState<UpdateInfo | null>(readStoredUpdate);
   const [availableVersion, setAvailableVersion] = useState<string | null>(() =>
     localStorage.getItem(AVAILABLE_VERSION_STORAGE_KEY)
   );
@@ -115,6 +139,9 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
     const handleStorage = (event: StorageEvent) => {
       if (event.key === AVAILABLE_VERSION_STORAGE_KEY) {
         setAvailableVersion(event.newValue);
+        setUpdate(readStoredUpdate());
+      } else if (event.key === AVAILABLE_UPDATE_STORAGE_KEY) {
+        setUpdate(readStoredUpdate());
       } else if (event.key === SKIPPED_VERSION_STORAGE_KEY) {
         setSkippedVersion(event.newValue);
         skippedVersionRef.current = event.newValue;
@@ -135,6 +162,15 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(AVAILABLE_VERSION_STORAGE_KEY, version);
     } else {
       localStorage.removeItem(AVAILABLE_VERSION_STORAGE_KEY);
+    }
+  }, []);
+
+  const storeUpdateInfo = useCallback((info: UpdateInfo | null) => {
+    setUpdate(info);
+    if (info) {
+      localStorage.setItem(AVAILABLE_UPDATE_STORAGE_KEY, JSON.stringify(info));
+    } else {
+      localStorage.removeItem(AVAILABLE_UPDATE_STORAGE_KEY);
     }
   }, []);
 
@@ -188,13 +224,15 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       void request
         .then((result) => {
           if (result.status === "available") {
-            setUpdate(result.update);
+            // Version first, then the metadata: a window receiving the storage
+            // events can only pair them when both keys are already there.
             storeAvailableVersion(result.update.version);
+            storeUpdateInfo(result.update);
             if (openWindow && (force || result.update.version !== skippedVersionRef.current)) {
               openUpdateWindow();
             }
           } else if (result.status === "up-to-date") {
-            setUpdate(null);
+            storeUpdateInfo(null);
             storeAvailableVersion(null);
           }
           storeProgress(null);
@@ -207,7 +245,7 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
 
       return request;
     },
-    [storeAvailableVersion, storeProgress]
+    [storeAvailableVersion, storeUpdateInfo, storeProgress]
   );
 
   const handleProgress = useCallback((event: UpdateProgress) => {
@@ -269,10 +307,11 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
     try {
       const result = await downloadAndInstallUpdate(handleProgress);
       if (result === "installed") {
+        storeUpdateInfo(null);
         storeAvailableVersion(null);
         await relaunch();
       } else if (result === "up-to-date") {
-        setUpdate(null);
+        storeUpdateInfo(null);
         storeAvailableVersion(null);
       } else {
         storeProgress(null);
@@ -282,7 +321,15 @@ export function UpdaterProvider({ children }: { children: ReactNode }) {
       storeDownloading(false);
       setCancelling(false);
     }
-  }, [downloading, handleProgress, storeAvailableVersion, storeDownloading, storeProgress, update]);
+  }, [
+    downloading,
+    handleProgress,
+    storeAvailableVersion,
+    storeUpdateInfo,
+    storeDownloading,
+    storeProgress,
+    update,
+  ]);
 
   const cancelDownload = useCallback(async () => {
     if (!downloading || cancelling) {

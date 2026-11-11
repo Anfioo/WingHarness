@@ -529,6 +529,12 @@ impl Engine {
         Ok(())
     }
 
+    /// Rebuild the embedded HTTP client, so a proxy change in the app config
+    /// takes effect for new downloads without restarting.
+    pub fn refresh_network(&self) {
+        self.inner.embedded.reconfigure(net_config(&self.settings()));
+    }
+
     pub fn settings(&self) -> Settings {
         guard(&self.inner.settings)
             .map(|settings| settings.clone())

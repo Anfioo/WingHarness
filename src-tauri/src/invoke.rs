@@ -49,6 +49,7 @@ macro_rules! all_commands {
             crate::commands::ccs::ccs_set_sync_ccswitch_db,
             crate::commands::ccs::ccs_set_sync_from_ccswitch,
             crate::commands::config::get_config,
+            crate::commands::config::proxy_status,
             crate::commands::config::save_config,
             crate::commands::config::set_data_dir,
             crate::commands::db::db_apply_edits,

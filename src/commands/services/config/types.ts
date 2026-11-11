@@ -1,3 +1,12 @@
+/** What the configured proxy currently resolves to, for read-only display. */
+export interface ProxyStatus {
+  mode: ProxyMode;
+  /** The effective address; `null` means direct. */
+  url: string | null;
+  /** The bypass list exported as `NO_PROXY`. */
+  noProxy: string;
+}
+
 export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;
@@ -19,13 +28,16 @@ export interface FilePreviewConfig {
   highlight: boolean;
 }
 
+export type ProxyMode = "none" | "system" | "custom";
+
 /**
  * The outbound proxy the app and the tools it starts use.
  *
- * An empty `url` means "leave the environment alone", so a proxy exported by the
- * shell that launched the app keeps working.
+ * `mode` decides where the proxy comes from; `url` is only read in custom mode.
  */
 export interface ProxyConfig {
+  /** `none` goes direct, `system` uses the OS proxy, `custom` uses `url`. */
+  mode: ProxyMode;
   /** Proxy URL, e.g. `http://127.0.0.1:7890`. A bare `host:port` is read as HTTP. */
   url: string;
   /** Comma-separated hosts that bypass the proxy; loopback is always bypassed. */
