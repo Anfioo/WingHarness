@@ -1,11 +1,11 @@
 name: "gitee-sync"
 
-# Syncs a published release to Gitee: pushes the release tag and creates the
-# matching Gitee release with the same notes. Hooking `release: published`
-# instead of the build pipeline means the sync happens after the draft has been
-# reviewed and published on GitHub, not while it is still a draft.
-# `workflow_dispatch` backfills a release that was published before this
-# workflow existed.
+# Syncs a published release to Gitee: pushes the release tag, creates the
+# matching Gitee release with the same notes, and uploads the GitHub release
+# assets with latest.json repointed at Gitee.
+# Hooking `release: published` instead of the build pipeline means the sync
+# happens after the draft has been reviewed and published on GitHub, not while
+# it is still a draft. `workflow_dispatch` backfills an older release.
 on:
   release:
     types: [published]
@@ -17,7 +17,8 @@ on:
         type: string
 
 env:
-  GITEE_OWNER: Anfioo
+  # Lowercase matches the canonical Gitee URLs; the login is case-insensitive.
+  GITEE_OWNER: anfioo
   GITEE_REPO: WingHarness
 
 jobs:
@@ -110,9 +111,10 @@ jobs:
           response="$(curl -sS \
             "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/tags/${TAG}?access_token=${GITEE_TOKEN}")"
 
-          if printf '%s' "${response}" | jq -e '.id' > /dev/null 2>&1; then
+          if id="$(printf '%s' "${response}" | jq -er '.id' 2>/dev/null)"; then
             echo "Gitee already has a release for ${TAG}."
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "id=${id}" >> "$GITHUB_OUTPUT"
           else
             echo "Gitee has no release for ${TAG}."
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -121,6 +123,7 @@ jobs:
       # Re-runs must not fail on an existing release, and the action has no
       # update_release: a release that is already there is left untouched.
       - name: Create the Gitee release
+        id: create
         if: steps.release.outputs.exists != 'true'
         uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
         with:
@@ -133,6 +136,150 @@ jobs:
           gitee_release_body: ${{ steps.notes.outputs.body }}
           gitee_target_commitish: ${{ steps.resolve.outputs.commit }}
 
+      - name: Download the GitHub release assets
+        id: assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          dir="${RUNNER_TEMP}/gitee-assets"
+          mkdir -p "${dir}"
+
+          # gh exits non-zero when the release has no attachments; an empty
+          # release is still worth syncing.
+          gh release download "${TAG}" --repo "${GITHUB_REPOSITORY}" --dir "${dir}" --clobber || true
+
+          echo "Downloaded $(find "${dir}" -maxdepth 1 -type f | wc -l) file(s) from the GitHub release."
+          echo "dir=${dir}" >> "$GITHUB_OUTPUT"
+
+      - name: Plan the Gitee uploads
+        id: plan
+        shell: bash
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+          DIR: ${{ steps.assets.outputs.dir }}
+          RELEASE_ID: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+        run: |
+          existing="$(curl -sS \
+            "https://gitee.com/api/v5/repos/${GITEE_OWNER}/${GITEE_REPO}/releases/${RELEASE_ID}/attach_files?per_page=100&access_token=${GITEE_TOKEN}" \
+            | jq -r '.[].name' 2>/dev/null || true)"
+
+          files=()
+          has_latest=false
+          latest_missing=false
+
+          for file in "${DIR}"/*; do
+            [ -f "${file}" ] || continue
+            name="$(basename "${file}")"
+
+            if [ "${name}" = "latest.json" ]; then
+              has_latest=true
+              if ! printf '%s\n' "${existing}" | grep -qxF "${name}"; then
+                latest_missing=true
+              fi
+              continue
+            fi
+
+            if printf '%s\n' "${existing}" | grep -qxF "${name}"; then
+              echo "Already on Gitee: ${name}"
+              continue
+            fi
+            files+=("${file}")
+          done
+
+          echo "Files to upload: ${#files[@]}, latest.json missing: ${latest_missing}."
+          {
+            echo "count=${#files[@]}"
+            echo "has_latest=${has_latest}"
+            echo "latest_missing=${latest_missing}"
+            if [ "${#files[@]}" -gt 0 ]; then
+              echo "files<<WH_GITEE_FILES_EOF"
+              printf '%s\n' "${files[@]}"
+              echo "WH_GITEE_FILES_EOF"
+            fi
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload the release files to Gitee
+        if: steps.plan.outputs.count != '0'
+        uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
+        with:
+          gitee_action: upload_asset
+          gitee_owner: ${{ env.GITEE_OWNER }}
+          gitee_repo: ${{ env.GITEE_REPO }}
+          gitee_token: ${{ secrets.GITEE_TOKEN }}
+          gitee_release_id: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          gitee_tag_name: ${{ steps.resolve.outputs.tag }}
+          gitee_files: ${{ steps.plan.outputs.files }}
+          gitee_upload_retry_times: 3
+
+      # The updater manifest must point at Gitee, not GitHub. The base URL is
+      # the documented Gitee layout; probing one uploaded file proves it before
+      # a broken latest.json is published.
+      - name: Resolve the Gitee download base
+        id: base
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          probe="$(find "${DIR}" -maxdepth 1 -type f ! -name 'latest.json' -printf '%f\n' | head -n 1)"
+          if [ -z "${probe}" ]; then
+            echo "No release files found; nothing to point latest.json at." >&2
+            exit 1
+          fi
+
+          base="https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/download/${TAG}"
+          # A range request answers 206 when Gitee honours it, 200 when it does not.
+          status="$(curl -sS -L -r 0-0 -o /dev/null -w '%{http_code}' "${base}/${probe}")"
+          if [ "${status}" != "200" ] && [ "${status}" != "206" ]; then
+            echo "Gitee download URL check failed: ${base}/${probe} returned HTTP ${status}." >&2
+            exit 1
+          fi
+
+          echo "Gitee download base: ${base}"
+          echo "base=${base}" >> "$GITHUB_OUTPUT"
+
+      - name: Point latest.json at Gitee
+        shell: bash
+        env:
+          DIR: ${{ steps.assets.outputs.dir }}
+          TAG: ${{ steps.resolve.outputs.tag }}
+          GITEE_BASE: ${{ steps.base.outputs.base }}
+        run: |
+          latest="${DIR}/latest.json"
+          if [ ! -f "${latest}" ]; then
+            echo "This release has no latest.json."
+            exit 0
+          fi
+
+          github_base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+          jq --arg old "${github_base}" --arg new "${GITEE_BASE}" \
+            'walk(if type == "string" then split($old) | join($new) else . end)' \
+            "${latest}" > "${latest}.tmp"
+          mv "${latest}.tmp" "${latest}"
+
+          if grep -qF "${github_base}" "${latest}"; then
+            echo "latest.json still points at GitHub." >&2
+            exit 1
+          fi
+          echo "latest.json now downloads from ${GITEE_BASE}."
+
+      # Uploaded last so the manifest never references a file that is not there.
+      - name: Upload latest.json to Gitee
+        if: steps.plan.outputs.has_latest == 'true' && steps.plan.outputs.latest_missing == 'true'
+        uses: nicennnnnnnlee/action-gitee-release@44b412edade0c837fb0ad7d73f4674ec07c8b722 # v2.0.0
+        with:
+          gitee_action: upload_asset
+          gitee_owner: ${{ env.GITEE_OWNER }}
+          gitee_repo: ${{ env.GITEE_REPO }}
+          gitee_token: ${{ secrets.GITEE_TOKEN }}
+          gitee_release_id: ${{ steps.create.outputs.release-id || steps.release.outputs.id }}
+          gitee_tag_name: ${{ steps.resolve.outputs.tag }}
+          gitee_file_name: latest.json
+          gitee_file_path: ${{ steps.assets.outputs.dir }}/latest.json
+          gitee_upload_retry_times: 3
+
       - name: Summarize
         shell: bash
         env:
@@ -140,6 +287,6 @@ jobs:
           RELEASE_EXISTS: ${{ steps.release.outputs.exists }}
         run: |
           if [ "${RELEASE_EXISTS}" = "true" ]; then
-            echo "Gitee already had a release for ${TAG}; left it untouched."
+            echo "Gitee already had a release for ${TAG}."
           fi
           echo "Gitee release: https://gitee.com/${GITEE_OWNER}/${GITEE_REPO}/releases/tag/${TAG}" >> "$GITHUB_STEP_SUMMARY"
