@@ -95,7 +95,7 @@ export function Aria2Row({ disabled = false, onStatusChange }: Aria2RowProps) {
   const state = present ? [version, source].filter(Boolean).join(" · ") : t("moin.tool.missing");
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1 pb-2.5">
       <Field label={t("moin.backend.aria2")} hint={state}>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Button

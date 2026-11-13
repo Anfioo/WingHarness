@@ -1,7 +1,7 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
-import { useMemo, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MoinCategory, MoinTask, MoinTaskProgress } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -11,6 +11,12 @@ import { ROW_GRID, SelectionCheckbox, TaskRow } from "./task-row";
 
 /**
  * Virtualised download list.
+ *
+ * The list has no scroller of its own: it takes whatever height its rows need
+ * and lets the app shell's `<main>` scroll, so a long queue or several expanded
+ * rows still show a single scrollbar for the whole page. The virtualizer is
+ * bound to that ancestor instead, offset by `scrollMargin` — the distance from
+ * the top of the scroll content to the first row.
  *
  * Rows are absolutely positioned and measured individually (`measureElement`),
  * so an expanded row simply grows and the rows below shift: the estimate below
@@ -32,6 +38,15 @@ export interface TaskListProps {
 
 const ESTIMATED_ROW_HEIGHT = 60;
 
+/** Nearest ancestor that scrolls vertically, or `null` when nothing does. */
+function findScrollParent(start: HTMLElement | null): HTMLElement | null {
+  for (let node = start?.parentElement ?? null; node; node = node.parentElement) {
+    const { overflowY } = getComputedStyle(node);
+    if (overflowY === "auto" || overflowY === "scroll") return node;
+  }
+  return null;
+}
+
 export function TaskList({
   tasks,
   progress,
@@ -46,19 +61,46 @@ export function TaskList({
   handlers,
 }: TaskListProps) {
   const { t } = useAppTranslation();
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowsRef = useRef<HTMLDivElement>(null);
+  const [scrollElement, setScrollElement] = useState<HTMLElement | null>(null);
+  const [scrollMargin, setScrollMargin] = useState(0);
 
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories]
   );
 
+  // The shell owns the page scroller, so it is discovered rather than passed
+  // down: this component stays correct wherever it is mounted.
+  useLayoutEffect(() => {
+    setScrollElement(findScrollParent(rowsRef.current));
+  }, []);
+
+  // The toolbar and the banners above the list can wrap or appear, which moves
+  // the first row; re-measure after every render and keep a stable value from
+  // re-rendering forever.
+  useLayoutEffect(() => {
+    const element = rowsRef.current;
+    if (!element || !scrollElement) return;
+    const measure = () => {
+      const next =
+        element.getBoundingClientRect().top -
+        scrollElement.getBoundingClientRect().top +
+        scrollElement.scrollTop;
+      setScrollMargin((current) => (Math.abs(current - next) < 0.5 ? current : next));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  });
+
   const virtualizer = useVirtualizer({
     count: tasks.length,
-    getScrollElement: () => scrollRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => ESTIMATED_ROW_HEIGHT,
     getItemKey: (index) => tasks[index]?.id ?? index,
     overscan: 8,
+    scrollMargin,
   });
 
   const items = virtualizer.getVirtualItems();
@@ -87,34 +129,35 @@ export function TaskList({
         <span aria-hidden />
       </div>
 
-      <div ref={scrollRef} className="max-h-[70vh] min-h-0 overflow-auto">
-        <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-          {items.map((virtualRow) => {
-            const task = tasks[virtualRow.index];
-            if (!task) return null;
-            return (
-              <div
-                key={task.id}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
-              >
-                <TaskContextMenu task={task} categories={categories} handlers={handlers}>
-                  <TaskRow
-                    task={task}
-                    progress={progress[task.id]}
-                    category={task.category ? categoryById.get(task.category) : undefined}
-                    selected={selected.has(task.id)}
-                    expanded={expanded.has(task.id)}
-                    onToggleSelect={onToggleSelect}
-                    onToggleExpand={onToggleExpand}
-                  />
-                </TaskContextMenu>
-              </div>
-            );
-          })}
-        </div>
+      <div ref={rowsRef} className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {items.map((virtualRow) => {
+          const task = tasks[virtualRow.index];
+          if (!task) return null;
+          return (
+            <div
+              key={task.id}
+              data-index={virtualRow.index}
+              ref={virtualizer.measureElement}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${virtualRow.start - scrollMargin}px)` }}
+            >
+              <TaskContextMenu task={task} categories={categories} handlers={handlers}>
+                <TaskRow
+                  task={task}
+                  progress={progress[task.id]}
+                  category={task.category ? categoryById.get(task.category) : undefined}
+                  selected={selected.has(task.id)}
+                  expanded={expanded.has(task.id)}
+                  onToggleSelect={onToggleSelect}
+                  onToggleExpand={onToggleExpand}
+                  onPause={() => handlers.onPause(task)}
+                  onResume={() => handlers.onResume(task)}
+                  onDelete={() => handlers.onDelete(task)}
+                />
+              </TaskContextMenu>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

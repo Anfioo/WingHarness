@@ -2,11 +2,10 @@
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
 import { useEffect, useRef } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { Pause, Play, Trash2 } from "lucide-react";
 import type { MoinCategory, MoinTask, MoinTaskProgress, MoinTaskStatus } from "@/commands";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   formatBytes,
@@ -17,18 +16,20 @@ import {
   percent,
 } from "@/lib/moin/format";
 import { cn } from "@/lib/utils";
+import { SegmentBar } from "./segment-bar";
 
 /**
  * One row of the download list.
  *
  * Column order matches the table header in `task-list.tsx`. Everything except
- * the name, the status and the disclosure control is hidden below `md`, where a
+ * the name, the status and the row actions is hidden below `md`, where a
  * nine-column grid would be unreadable; the same values stay reachable in the
- * expanded panel.
+ * expanded panel. The whole row toggles that panel, so the disclosure control
+ * it used to carry is now the trailing action cluster.
  */
 export const ROW_GRID =
   "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 " +
-  "md:grid-cols-[auto_minmax(0,1fr)_6.5rem_8rem_7rem_5.5rem_5rem_8rem_auto]";
+  "md:grid-cols-[auto_minmax(0,1fr)_6.5rem_8rem_7rem_5.5rem_5rem_8rem_4.25rem]";
 
 export const STATUS_KEYS: Record<MoinTaskStatus, string> = {
   queued: "moin.status.queued",
@@ -38,7 +39,6 @@ export const STATUS_KEYS: Record<MoinTaskStatus, string> = {
   moving: "moin.status.moving",
   completed: "moin.status.completed",
   failed: "moin.status.failed",
-  stalled: "moin.status.stalled",
   canceled: "moin.status.canceled",
 };
 
@@ -50,7 +50,6 @@ export const STATUS_STYLES: Record<MoinTaskStatus, string> = {
   moving: "bg-primary/10 text-primary",
   completed: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   failed: "bg-destructive/10 text-destructive",
-  stalled: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   canceled: "bg-muted text-muted-foreground",
 };
 
@@ -73,7 +72,7 @@ export function canResume(task: MoinTask): boolean {
 }
 
 export function canRetry(task: MoinTask): boolean {
-  return task.status === "failed" || task.status === "stalled" || task.status === "canceled";
+  return task.status === "failed" || task.status === "canceled";
 }
 
 export function canCancel(task: MoinTask): boolean {
@@ -128,6 +127,9 @@ export interface TaskRowProps {
   expanded: boolean;
   onToggleSelect: (id: string) => void;
   onToggleExpand: (id: string) => void;
+  onPause: () => void;
+  onResume: () => void;
+  onDelete: () => void;
 }
 
 export function TaskRow({
@@ -138,6 +140,9 @@ export function TaskRow({
   expanded,
   onToggleSelect,
   onToggleExpand,
+  onPause,
+  onResume,
+  onDelete,
 }: TaskRowProps) {
   const { t } = useAppTranslation();
   const received = progress?.received ?? task.received;
@@ -146,6 +151,8 @@ export function TaskRow({
   // Live figures only exist while the engine is transferring; a completed or
   // paused task keeps its last tick in `progress`, so the status gates them.
   const live = isActiveStatus(task.status) && progress !== undefined;
+  const pausable = canPause(task);
+  const resumable = canResume(task);
   const speed = live ? formatSpeed(progress.speed) : "—";
   const eta =
     live && progress.total !== null
@@ -162,8 +169,18 @@ export function TaskRow({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      onClick={() => onToggleExpand(task.id)}
+      onKeyDown={(event) => {
+        if (event.target !== event.currentTarget) return;
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onToggleExpand(task.id);
+      }}
       className={cn(
-        "border-b transition-colors last:border-b-0",
+        "focus-visible:ring-ring/50 cursor-pointer border-b transition-colors outline-none last:border-b-0 focus-visible:ring-2",
         selected ? "bg-primary/5" : "hover:bg-accent/40"
       )}
     >
@@ -187,11 +204,6 @@ export function TaskRow({
             {backendLabel && (
               <Badge variant="outline" className="hidden shrink-0 lg:inline-flex">
                 {backendLabel}
-              </Badge>
-            )}
-            {task.archived && (
-              <Badge variant="secondary" className="shrink-0">
-                {t("moin.filter.archived")}
               </Badge>
             )}
             {/* Below `md` the status column is hidden, so the badge moves here. */}
@@ -220,17 +232,8 @@ export function TaskRow({
           </span>
         </div>
 
-        <div className="hidden min-w-0 md:block">
-          {completion === null ? (
-            <div className="bg-muted h-1.5 overflow-hidden rounded-full">
-              <div className="bg-primary h-full w-1/3 animate-pulse rounded-full" />
-            </div>
-          ) : (
-            <Progress value={completion} aria-label={t("moin.task.progress")} className="h-1.5" />
-          )}
-          <span className="text-muted-foreground mt-1 block text-[11px] tabular-nums">
-            {completion === null ? "—" : formatPercent(completion)}
-          </span>
+        <div className="text-muted-foreground hidden text-xs tabular-nums md:block">
+          {completion === null ? "—" : formatPercent(completion)}
         </div>
 
         <div className="text-muted-foreground hidden text-xs tabular-nums md:block">
@@ -247,24 +250,49 @@ export function TaskRow({
           {formatDate(task.created_at)}
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-expanded={expanded}
-          aria-label={
-            expanded
-              ? t("moin.task.collapseAria", { filename: task.filename })
-              : t("moin.task.expandAria", { filename: task.filename })
-          }
-          onClick={() => onToggleExpand(task.id)}
-        >
-          {expanded ? <ChevronDown /> : <ChevronRight />}
-        </Button>
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={!pausable && !resumable}
+            aria-label={pausable ? t("moin.action.pause") : t("moin.action.resume")}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (pausable) onPause();
+              else if (resumable) onResume();
+            }}
+          >
+            {pausable ? <Pause /> : <Play />}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive"
+            disabled={isActiveStatus(task.status)}
+            aria-label={t("moin.action.delete")}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 />
+          </Button>
+        </div>
       </div>
 
+      {progress && task.status !== "completed" && (
+        <div className="px-3 pb-2">
+          <SegmentBar progress={progress} />
+        </div>
+      )}
+
       {expanded && (
-        <dl className="text-muted-foreground grid gap-1.5 px-3 pb-3 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-3">
+        <dl
+          onClick={(event) => event.stopPropagation()}
+          className="text-muted-foreground grid gap-1.5 px-3 pb-3 text-xs sm:grid-cols-[auto_minmax(0,1fr)] sm:gap-x-3"
+        >
           <dt className="font-medium">{t("moin.task.path")}</dt>
           <dd className="text-foreground min-w-0 break-all">{task.dest}</dd>
 

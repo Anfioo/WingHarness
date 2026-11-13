@@ -125,7 +125,6 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             completed_at: None,
-            archived: false,
             active_ms: 0,
             backend: None,
             category: None,
@@ -157,7 +156,7 @@ mod tests {
                     stall_timeout: Duration::from_secs(1),
                 },
                 Control::new(),
-                Arc::new(|_, _| {}),
+                Arc::new(|_, _, _| {}),
             )
             .await;
         match outcome {
