@@ -23,6 +23,8 @@ import moinEn from "./locales/moin/en";
 import moinZh from "./locales/moin/zh";
 import spacePreviewEn from "./locales/space-preview/en";
 import spacePreviewZh from "./locales/space-preview/zh";
+import scoopEn from "./locales/scoop/en";
+import scoopZh from "./locales/scoop/zh";
 
 i18n
   .use(LanguageDetector)
@@ -42,6 +44,7 @@ i18n
           runtime: runtimeEn,
           moin: moinEn,
           spacePreview: spacePreviewEn,
+          scoop: scoopEn,
         },
       },
       zh: {
@@ -57,6 +60,7 @@ i18n
           runtime: runtimeZh,
           moin: moinZh,
           spacePreview: spacePreviewZh,
+          scoop: scoopZh,
         },
       },
     },

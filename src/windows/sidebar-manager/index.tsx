@@ -1,7 +1,10 @@
 import {
   Component,
+  createContext,
   createElement,
+  Fragment,
   useCallback,
+  useContext,
   useId,
   useMemo,
   useState,
@@ -14,6 +17,8 @@ import {
   useDraggable,
   useDroppable,
   type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -76,12 +81,64 @@ const sortItemId = (id: string) => `${ITEM_SORT}${id}`;
 const boxId = (key: string) => `${BOX}${key}`;
 const groupBox = (id: string) => `group:${id}`;
 const parentBox = (id: string) => `parent:${id}`;
+/** A group's title row: dropping there puts an entry first in that group. */
+const headBox = (id: string) => `head:${id}`;
 
 /** Where a dragged entry would land. */
 interface DropTarget {
   /** `group:<id>`, `parent:<id>`, `other`, or `pool`. */
   box: string;
   index: number;
+}
+
+/** What kind of thing is being dragged. */
+type DragKind = "group" | "parent" | "leaf";
+
+/** The landing spot under the pointer, used to draw the drag-time markers. */
+interface DropPreview {
+  /** The target box, or `null` while the groups themselves are reordered. */
+  box: string | null;
+  /** The group highlighted during a group reorder. */
+  groupId: string | null;
+  /** Where the marker is drawn among the box's current entries. */
+  insertAt: number;
+  /** The box refuses the entry: a parent cannot become a second-level entry. */
+  invalid: boolean;
+  /** The box the entry already sits in — dnd-kit opens its gap there already. */
+  from: string | null;
+}
+
+interface DragState {
+  kind: DragKind | null;
+  preview: DropPreview | null;
+}
+
+/**
+ * The drag-time state the lists read to draw their markers. It is derived from
+ * the same `dropTarget` resolution the drop itself uses, so a marker can never
+ * promise a landing spot the drop would not honour.
+ */
+const DragStateContext = createContext<DragState>({ kind: null, preview: null });
+
+function samePreview(a: DropPreview | null, b: DropPreview | null) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.box === b.box &&
+    a.groupId === b.groupId &&
+    a.insertAt === b.insertAt &&
+    a.invalid === b.invalid &&
+    a.from === b.from
+  );
+}
+
+/** What kind of thing an id being dragged stands for. */
+function dragKindOf(config: SidebarConfig, activeId: string): DragKind | null {
+  if (activeId.startsWith(GROUP_SORT)) return "group";
+  if (!activeId.startsWith(ITEM_SORT)) return null;
+  const item = findItem(config, activeId.slice(ITEM_SORT.length));
+  if (!item) return "leaf";
+  return item.kind === "parent" ? "parent" : "leaf";
 }
 
 /** The route, plugin, and custom-icon tables the board needs to label entries. */
@@ -111,8 +168,11 @@ const newId = (prefix: string) => `${prefix}:${Date.now().toString(36)}${idCount
 /** The entries stored in a box; empty for the two boxes outside the layout. */
 function boxItems(config: SidebarConfig, box: string): SidebarItem[] | null {
   if (box === OTHER_BOX || box === POOL_BOX) return [];
-  if (box.startsWith("group:")) {
-    const group = config.groups.find((item) => groupBox(item.id) === box);
+  // A group's title row holds the same entries as the group itself.
+  if (box.startsWith("group:") || box.startsWith("head:")) {
+    const group = config.groups.find(
+      (item) => groupBox(item.id) === box || headBox(item.id) === box
+    );
     return group ? group.items : null;
   }
   if (box.startsWith("parent:")) {
@@ -146,7 +206,9 @@ function dropTarget(config: SidebarConfig, overId: string): DropTarget | null {
   if (overId.startsWith(BOX)) {
     const box = overId.slice(BOX.length);
     const items = boxItems(config, box);
-    return items ? { box, index: items.length } : null;
+    if (!items) return null;
+    // A title row means "first in the group"; the rest of the box means "last".
+    return { box, index: box.startsWith("head:") ? 0 : items.length };
   }
   if (overId.startsWith(ITEM_SORT)) {
     return locate(config, overId.slice(ITEM_SORT.length));
@@ -182,6 +244,7 @@ function groupOf(config: SidebarConfig, overId: string): string | null {
   if (overId.startsWith(BOX)) {
     const box = overId.slice(BOX.length);
     if (box.startsWith("group:")) return box.slice("group:".length);
+    if (box.startsWith("head:")) return box.slice("head:".length);
     if (!box.startsWith("parent:")) return null;
 
     const parentId = box.slice("parent:".length);
@@ -394,6 +457,7 @@ function ManagerBody({ config }: { config: SidebarConfig }) {
   const [iconColor, setIconColor] = useState<string | null>(null);
   const [scope, setScope] = useState("");
   const [notes, setNotes] = useState("");
+  const [drag, setDrag] = useState<DragState>({ kind: null, preview: null });
   const cacheId = useId();
 
   const commit = useCallback(
@@ -408,7 +472,60 @@ function ManagerBody({ config }: { config: SidebarConfig }) {
     [config, save]
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setDrag({ kind: dragKindOf(config, String(event.active.id)), preview: null });
+  };
+
+  /** Mirrors `handleDragEnd`'s resolution so the markers match the real drop. */
+  const handleDragOver = (event: DragOverEvent) => {
+    const activeId = String(event.active.id);
+    const kind = dragKindOf(config, activeId);
+    const over = event.over;
+
+    if (!kind || !over) {
+      setDrag((state) => (state.preview ? { ...state, preview: null } : state));
+      return;
+    }
+
+    const overId = String(over.id);
+
+    if (kind === "group") {
+      const groupId = groupOf(config, overId);
+      const next: DropPreview | null = groupId
+        ? { box: null, groupId, insertAt: 0, invalid: false, from: null }
+        : null;
+      setDrag((state) => (samePreview(state.preview, next) ? state : { kind, preview: next }));
+      return;
+    }
+
+    const target = dropTarget(config, overId);
+    if (!target) {
+      setDrag((state) => (state.preview ? { ...state, preview: null } : state));
+      return;
+    }
+
+    const items = boxItems(config, target.box) ?? [];
+    const source = locate(config, activeId.slice(ITEM_SORT.length));
+    // A marker in the box the entry already sits in would duplicate the gap
+    // dnd-kit already holds open, so it is only drawn for a box it joins.
+    const insertAt =
+      source && source.box === target.box && source.index < target.index
+        ? Math.min(target.index + 1, items.length)
+        : Math.min(target.index, items.length);
+
+    const next: DropPreview = {
+      box: target.box,
+      groupId: null,
+      insertAt,
+      invalid: kind === "parent" && target.box.startsWith("parent:"),
+      from: source?.box ?? null,
+    };
+    setDrag((state) => (samePreview(state.preview, next) ? state : { kind, preview: next }));
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setDrag({ kind: null, preview: null });
+
     const { active, over } = event;
     if (!over) return;
 
@@ -614,61 +731,71 @@ function ManagerBody({ config }: { config: SidebarConfig }) {
           </span>
         </div>
 
-        <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext
-            items={config.groups.map((group) => sortGroupId(group.id))}
-            strategy={verticalListSortingStrategy}
-          >
-            <div className="space-y-3">
-              {config.groups.map((group) => (
-                <GroupCard
-                  key={group.id}
-                  group={group}
-                  catalog={catalog}
-                  onRename={(name) => openRenameGroup(group.id, name)}
-                  onDelete={() => setDraft({ mode: "deleteGroup", id: group.id, name: group.name })}
-                  onAddParent={() => openNewParent(group.id)}
-                  onEdit={openEditItem}
-                  onRemoveParent={removeParent}
-                  onDefaultChild={defaultChild}
-                />
-              ))}
+        <DndContext
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDrag({ kind: null, preview: null })}
+        >
+          <DragStateContext.Provider value={drag}>
+            <SortableContext
+              items={config.groups.map((group) => sortGroupId(group.id))}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-3">
+                {config.groups.map((group) => (
+                  <GroupCard
+                    key={group.id}
+                    group={group}
+                    catalog={catalog}
+                    onRename={(name) => openRenameGroup(group.id, name)}
+                    onDelete={() =>
+                      setDraft({ mode: "deleteGroup", id: group.id, name: group.name })
+                    }
+                    onAddParent={() => openNewParent(group.id)}
+                    onEdit={openEditItem}
+                    onRemoveParent={removeParent}
+                    onDefaultChild={defaultChild}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+
+            <div className="mt-3 space-y-3">
+              <OutsideCard
+                box={OTHER_BOX}
+                title={t("sidebarManager.other")}
+                hint={t("sidebarManager.otherHint")}
+                empty={t("sidebarManager.otherEmpty")}
+              >
+                {unplacedRoutes.map((route) => (
+                  <DraggableRow
+                    key={routeItemId(route.id)}
+                    id={routeItemId(route.id)}
+                    label={route.navLabel}
+                    icon={route.icon}
+                  />
+                ))}
+              </OutsideCard>
+
+              <OutsideCard
+                box={POOL_BOX}
+                title={t("sidebarManager.pool")}
+                hint={t("sidebarManager.poolHint")}
+                empty={t("sidebarManager.poolEmpty")}
+              >
+                {tabPlugins.map((plugin) => (
+                  <DraggableRow
+                    key={pluginItemId(plugin.id)}
+                    id={pluginItemId(plugin.id)}
+                    label={plugin.name}
+                    icon={Package}
+                  />
+                ))}
+              </OutsideCard>
             </div>
-          </SortableContext>
-
-          <div className="mt-3 space-y-3">
-            <OutsideCard
-              box={OTHER_BOX}
-              title={t("sidebarManager.other")}
-              hint={t("sidebarManager.otherHint")}
-              empty={t("sidebarManager.otherEmpty")}
-            >
-              {unplacedRoutes.map((route) => (
-                <DraggableRow
-                  key={routeItemId(route.id)}
-                  id={routeItemId(route.id)}
-                  label={route.navLabel}
-                  icon={route.icon}
-                />
-              ))}
-            </OutsideCard>
-
-            <OutsideCard
-              box={POOL_BOX}
-              title={t("sidebarManager.pool")}
-              hint={t("sidebarManager.poolHint")}
-              empty={t("sidebarManager.poolEmpty")}
-            >
-              {tabPlugins.map((plugin) => (
-                <DraggableRow
-                  key={pluginItemId(plugin.id)}
-                  id={pluginItemId(plugin.id)}
-                  label={plugin.name}
-                  icon={Package}
-                />
-              ))}
-            </OutsideCard>
-          </div>
+          </DragStateContext.Provider>
         </DndContext>
       </div>
 
@@ -845,14 +972,34 @@ function GroupCard({
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
     id: sortGroupId(group.id),
   });
+  const { setNodeRef: setHeadRef } = useDroppable({ id: boxId(headBox(group.id)) });
+  const { preview } = useContext(DragStateContext);
+
+  const box = groupBox(group.id);
+  const isHeadTarget = preview?.box === headBox(group.id);
+  const isBoxTarget = preview?.box === box;
+  const isReorderTarget = preview?.groupId === group.id;
+  // The title row always draws the line, even for an entry already in the
+  // group: the sortable gap only ever opens where that entry is now.
+  const showLine = Boolean(isHeadTarget || (isBoxTarget && preview?.from !== box));
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn("bg-card rounded-lg border", isDragging && "opacity-60")}
+      className={cn(
+        "bg-card rounded-lg border",
+        isDragging && "opacity-60",
+        isReorderTarget && "outline-primary outline-1 outline-dashed"
+      )}
     >
-      <div className="border-border flex items-center gap-1 border-b px-2 py-1.5">
+      <div
+        ref={setHeadRef}
+        className={cn(
+          "border-border flex items-center gap-1 border-b px-2 py-1.5",
+          isHeadTarget && "bg-primary/5 outline-primary outline-1 outline-dashed"
+        )}
+      >
         <button
           type="button"
           className="text-muted-foreground hover:text-foreground cursor-grab touch-none rounded p-0.5 active:cursor-grabbing"
@@ -892,16 +1039,22 @@ function GroupCard({
         items={group.items.map((item) => sortItemId(item.id))}
         strategy={verticalListSortingStrategy}
       >
-        <div className="min-h-10 space-y-1 p-1.5">
-          {group.items.length === 0 ? (
+        <div
+          className={cn(
+            "min-h-10 space-y-1 p-1.5",
+            isBoxTarget && "bg-primary/5 outline-primary outline-1 outline-dashed"
+          )}
+        >
+          {group.items.length === 0 && (
             <p className="text-muted-foreground px-1 py-1 text-xs">
               {t("sidebarManager.emptyGroup")}
             </p>
-          ) : (
-            group.items.map((item) =>
-              item.kind === "parent" ? (
+          )}
+          {group.items.map((item, index) => (
+            <Fragment key={item.id}>
+              <DropLine visible={showLine && preview?.insertAt === index} />
+              {item.kind === "parent" ? (
                 <ParentCard
-                  key={item.id}
                   parent={item}
                   catalog={catalog}
                   onEdit={onEdit}
@@ -909,15 +1062,11 @@ function GroupCard({
                   onDefaultChild={(childId) => onDefaultChild(item.id, childId)}
                 />
               ) : (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  catalog={catalog}
-                  onEdit={() => onEdit(item.id)}
-                />
-              )
-            )
-          )}
+                <ItemRow item={item} catalog={catalog} onEdit={() => onEdit(item.id)} />
+              )}
+            </Fragment>
+          ))}
+          <DropLine visible={showLine && (preview?.insertAt ?? 0) >= group.items.length} />
         </div>
       </SortableContext>
 
@@ -949,18 +1098,22 @@ function ParentCard({
   const { setNodeRef, transform, transition, attributes, listeners, isDragging } = useSortable({
     id: sortItemId(parent.id),
   });
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: boxId(parentBox(parent.id)) });
+  const { setNodeRef: setDropRef } = useDroppable({ id: boxId(parentBox(parent.id)) });
+  const { kind, preview } = useContext(DragStateContext);
   const Icon = iconOf(parent, catalog);
+
+  const box = parentBox(parent.id);
+  const isTarget = preview?.box === box;
+  // A parent cannot become a second-level entry, so every parent's inside is
+  // marked as refusing one while a parent is what is being dragged.
+  const refusesParents = kind === "parent";
+  const showLine = isTarget && !preview?.invalid && preview?.from !== box;
 
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={cn(
-        "bg-background rounded-md border",
-        isDragging && "opacity-60",
-        isOver && "ring-ring ring-2"
-      )}
+      className={cn("bg-background rounded-md border", isDragging && "opacity-60")}
     >
       <div className="flex items-center gap-1 px-2 py-1.5">
         <button
@@ -999,7 +1152,17 @@ function ParentCard({
         </div>
       </div>
 
-      <div ref={setDropRef} className="border-border min-h-10 border-t p-1.5">
+      <div
+        ref={setDropRef}
+        className={cn(
+          "border-border min-h-10 border-t p-1.5",
+          refusesParents
+            ? isTarget
+              ? "bg-destructive/5 outline-destructive outline-1 outline-dashed"
+              : "outline-destructive/40 outline-1 outline-dashed"
+            : isTarget && "bg-primary/5 outline-primary outline-1 outline-dashed"
+        )}
+      >
         <SortableContext
           items={parent.children.map((child) => sortItemId(child.id))}
           strategy={verticalListSortingStrategy}
@@ -1009,20 +1172,18 @@ function ParentCard({
             onValueChange={onDefaultChild}
             className="gap-1"
           >
-            {parent.children.length === 0 ? (
+            {parent.children.length === 0 && (
               <p className="text-muted-foreground px-1 py-1 text-xs">
                 {t("sidebarManager.emptyParent")}
               </p>
-            ) : (
-              parent.children.map((child) => (
-                <ChildRow
-                  key={child.id}
-                  child={child}
-                  catalog={catalog}
-                  onEdit={() => onEdit(child.id)}
-                />
-              ))
             )}
+            {parent.children.map((child, index) => (
+              <Fragment key={child.id}>
+                <DropLine visible={showLine && preview?.insertAt === index} />
+                <ChildRow child={child} catalog={catalog} onEdit={() => onEdit(child.id)} />
+              </Fragment>
+            ))}
+            <DropLine visible={showLine && (preview?.insertAt ?? 0) >= parent.children.length} />
           </RadioGroup>
         </SortableContext>
       </div>
@@ -1192,13 +1353,18 @@ function OutsideCard({
   empty: string;
   children: ReactNode;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: boxId(box) });
+  const { setNodeRef } = useDroppable({ id: boxId(box) });
+  const { preview } = useContext(DragStateContext);
+  const isTarget = preview?.box === box;
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
 
   return (
     <div
       ref={setNodeRef}
-      className={cn("bg-card rounded-lg border border-dashed", isOver && "ring-ring ring-2")}
+      className={cn(
+        "bg-card rounded-lg border border-dashed",
+        isTarget && "bg-primary/5 outline-primary outline-1 outline-dashed"
+      )}
     >
       <div className="border-border flex items-center gap-2 border-b border-dashed px-3 py-1.5">
         <span className="text-muted-foreground text-sm font-medium">{title}</span>
@@ -1210,7 +1376,15 @@ function OutsideCard({
         ) : (
           <p className="text-muted-foreground px-1 py-1 text-xs">{empty}</p>
         )}
+        <DropLine visible={isTarget} />
       </div>
     </div>
   );
+}
+
+/** The marker showing where the dragged entry would land. */
+function DropLine({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+
+  return <div aria-hidden className="border-primary mx-1 border-t-2 border-dashed" />;
 }

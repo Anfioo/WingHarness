@@ -168,6 +168,7 @@ pnpm dlx shadcn@latest add button
 | [PORTS.zh-CN.md](./docs/features/PORTS.zh-CN.md) | 本机监听的 TCP 端口、固定端口，以及结束占用端口的进程 |
 | [PROJECT.zh-CN.md](./docs/features/PROJECT.zh-CN.md) | 项目文件浏览与编辑 |
 | [RUNTIME.zh-CN.md](./docs/features/RUNTIME.zh-CN.md) | 下载并安装 mihomo 与 frpc 运行时 |
+| [SCOOP.zh-CN.md](./docs/features/SCOOP.zh-CN.md) | 安装 Scoop，管理两个目录与软链接、环境变量与代理，以及已装软件和桶 |
 | [SERVERS.zh-CN.md](./docs/features/SERVERS.zh-CN.md) | SSH / SFTP 服务器管理 |
 | [SVN.zh-CN.md](./docs/features/SVN.zh-CN.md) | 原生 Subversion 工作副本 |
 | [SYSTOOLS.zh-CN.md](./docs/features/SYSTOOLS.zh-CN.md) | Windows 系统维护控制台 |
@@ -201,7 +202,21 @@ GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）。见 [LICEN
 [licenses/](./licenses/)。每个已移植子系统的来源，以及哪些上游项目不得移植，记录在
 [docs/UPSTREAM_PROJECTS.zh-CN.md](./docs/UPSTREAM_PROJECTS.zh-CN.md)。
 
-## 贡献
+## 🤝 贡献
 
 欢迎贡献。请先读 [CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md)：开发环境、
 提交信息格式，以及从上游项目移植代码的规则都在那里。
+
+<a href="https://github.com/Anfioo/WingHarness/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Anfioo/WingHarness" alt="WingHarness 贡献者" />
+</a>
+
+## ⭐ Star 历史
+
+<a href="https://www.star-history.com/?repos=Anfioo%2FWingHarness&type=date&releases=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+ </picture>
+</a>

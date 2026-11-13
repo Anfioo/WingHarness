@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use crate::models::{BackendInfo, Task, TaskKind};
+use crate::models::{BackendInfo, SegmentProgress, Task, TaskKind};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[repr(u8)]
@@ -81,7 +81,10 @@ pub enum Outcome {
     Failed(String),
 }
 
-pub type ProgressFn = Arc<dyn Fn(u64, Option<u64>) + Send + Sync>;
+/// `(received, total, segments)`: the running byte count, the server's total
+/// when known, and one entry per active connection for a segmented transfer.
+/// Backends that transfer over a single stream pass an empty slice.
+pub type ProgressFn = Arc<dyn Fn(u64, Option<u64>, &[SegmentProgress]) + Send + Sync>;
 
 #[async_trait]
 pub trait DownloadBackend: Send + Sync {

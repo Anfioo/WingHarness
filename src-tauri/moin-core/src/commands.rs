@@ -1,7 +1,7 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
 // See `UPSTREAM.md` for the porting record.
 
-//! Tauri command surface: 29 thin forwards.
+//! Tauri command surface: 26 thin forwards.
 //!
 //! Every command does the same three things — take `State<MoinState>`, resolve
 //! the engine, forward to it — plus the one event the engine cannot emit on its
@@ -85,33 +85,26 @@ pub async fn moin_cancel_download(state: State<'_, MoinState>, id: String) -> Mo
 }
 
 #[tauri::command]
-pub async fn moin_remove_download(state: State<'_, MoinState>, id: String) -> MoinResult<()> {
-    state.engine().await?.remove(&id).await
+pub async fn moin_delete_download(
+    state: State<'_, MoinState>,
+    id: String,
+    delete_files: bool,
+) -> MoinResult<()> {
+    state.engine().await?.delete(&id, delete_files).await
 }
 
 #[tauri::command]
-pub async fn moin_delete_download(state: State<'_, MoinState>, id: String) -> MoinResult<()> {
-    state.engine().await?.delete(&id).await
-}
-
-#[tauri::command]
-pub async fn moin_remove_downloads(state: State<'_, MoinState>, ids: Vec<String>) -> MoinResult<()> {
-    state.engine().await?.archive_many(ids, false).await
-}
-
-#[tauri::command]
-pub async fn moin_delete_downloads(state: State<'_, MoinState>, ids: Vec<String>) -> MoinResult<()> {
-    state.engine().await?.archive_many(ids, true).await
+pub async fn moin_delete_downloads(
+    state: State<'_, MoinState>,
+    ids: Vec<String>,
+    delete_files: bool,
+) -> MoinResult<()> {
+    state.engine().await?.delete_many(ids, delete_files).await
 }
 
 #[tauri::command]
 pub async fn moin_retry_download(state: State<'_, MoinState>, id: String) -> MoinResult<()> {
     state.engine().await?.retry(&id).await
-}
-
-#[tauri::command]
-pub async fn moin_forget_download(state: State<'_, MoinState>, id: String) -> MoinResult<()> {
-    state.engine().await?.forget(&id).await
 }
 
 #[tauri::command]
