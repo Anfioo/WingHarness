@@ -1,9 +1,11 @@
 # Downloads
 
 The **Downloads** page (`/moin`) is WingHarness's HTTP/HTTPS download manager. It
-appears in the sidebar under **其他** (Other) and contains three tabs: Downloads,
-Categories and Settings. The engine is embedded in the Tauri process; there is no
-separate download daemon to install or manage.
+appears in the sidebar under **其他** (Other) and has a single view: the download
+list, with status filters, search and sorting. Categories are managed from the
+category menu in the filter row. Its settings live in the app's Settings window,
+under the **Downloads** item. The engine is embedded in the Tauri process; there
+is no separate download daemon to install or manage.
 
 This port deliberately covers direct HTTP/HTTPS downloads only. BitTorrent,
 media-site scraping, `moin://` deep links, old moin data migration and in-app
@@ -13,10 +15,10 @@ aria2c installation are out of scope.
 
 | Area            | Behaviour                                                                                                                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Downloads       | Add a URL with an optional filename, category and request headers; inspect status, progress, speed, ETA, engine and errors; use virtual scrolling, search, filters and up to three sort levels. |
-| Task actions    | Pause, resume, retry, cancel, archive, delete files, forget records, reveal completed files, copy URLs and move tasks to another category, individually or in batches where supported.          |
-| Categories      | Create, edit, delete and drag-sort categories; configure colours, icons, source filters, priorities, final folders and incomplete folders.                                                      |
-| Settings        | Configure the queue, connections, split size, timeouts, partial-file visibility, notifications, download engine and browser integration.                                                        |
+| Downloads       | Add a URL with an optional filename, category and request headers; inspect status, progress, speed, ETA, engine and errors; watch each connection of a segmented transfer fill its own bar under the row; use virtual scrolling, search, filters and up to three sort levels. |
+| Task actions    | Pause, resume, retry, cancel, delete records, reveal completed files, copy URLs and move tasks to another category, individually or in batches where supported.          |
+| Categories      | From the category menu in the filter row: create one with **New category**, or open **Manage categories** for the card grid — create, edit, delete and drag-sort, with colours, icons, source filters, priorities, final folders and incomplete folders. |
+| Settings        | In the app Settings window → Downloads: queue, connections, split size, timeouts, partial-file visibility, notifications, download engine and browser integration.                             |
 | Browser capture | Send links from the companion extension over authenticated loopback RPC. See [MOIN_EXTENSION.md](./MOIN_EXTENSION.md).                                                                          |
 
 ## Download lifecycle
@@ -40,13 +42,12 @@ aria2c installation are out of scope.
    downloads continue. Quitting from the tray stops the app and leaves `.part`
    files for the next run.
 
-The three record-removal actions are intentionally different:
-
-| Action | Record                                                      | Files                                                      |
-| ------ | ----------------------------------------------------------- | ---------------------------------------------------------- |
-| Remove | Kept and marked archived; visible under the Archived filter | Kept                                                       |
-| Delete | Kept and marked archived                                    | Completed file and known partial/control files are deleted |
-| Forget | Deleted from the list and database                          | Kept                                                       |
+The list has three status buckets: **Incomplete** (queued, connecting,
+downloading, moving, paused and canceled), **Done** and **Failed**. Deleting a
+record removes it from the list and the database; the completed file and any
+partials stay on disk. The one caller that also removes files is the runtime
+installer, which passes `delete_files` so its temporary archive does not
+accumulate.
 
 ## Categories and trigger rules
 
@@ -85,10 +86,13 @@ executable and its loopback JSON-RPC interface. WingHarness probes, in order:
 
 It never downloads aria2c. Selecting aria2 expresses a preference, not a hard
 requirement: if the executable is missing or unusable, new tasks fall back to
-the built-in engine and the Settings page exposes the detection state. The
+the built-in engine and the Settings window exposes the detection state. The
 aria2 process starts on demand and is shut down with the app.
 
 ## Settings
+
+Everything below is in the app Settings window, under **Downloads**; every
+control applies immediately, with no save button.
 
 | Setting                           | Effect                                                                                                |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -152,7 +156,7 @@ All commands are prefixed `moin_` and registered in `invoke.rs`, `build.rs`,
 
 | Group      | Commands                                                                                                                                                                                                                                                           |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Tasks      | `moin_list_downloads`, `moin_add_download`, `moin_pause_download`, `moin_resume_download`, `moin_cancel_download`, `moin_remove_download`, `moin_delete_download`, `moin_remove_downloads`, `moin_delete_downloads`, `moin_retry_download`, `moin_forget_download` |
+| Tasks      | `moin_list_downloads`, `moin_add_download`, `moin_pause_download`, `moin_resume_download`, `moin_cancel_download`, `moin_delete_download`, `moin_delete_downloads`, `moin_retry_download` |
 | Settings   | `moin_get_settings`, `moin_set_settings`, `moin_patch_settings`                                                                                                                                                                                                    |
 | Engines    | `moin_list_backends`, `moin_tool_status`, `moin_set_tool_path`                                                                                                                                                                                                     |
 | RPC        | `moin_rpc_status`, `moin_regenerate_rpc_token`                                                                                                                                                                                                                     |
@@ -163,8 +167,12 @@ All commands are prefixed `moin_` and registered in `invoke.rs`, `build.rs`,
 Backend events are `moin:task-added`, `moin:task-updated`,
 `moin:task-removed`, `moin:task-progress`, `moin:task-completed`,
 `moin:settings-changed` and `moin:categories-changed`. Progress payloads are
-always batches. Errors use `{ code, message, detail? }`; the UI localizes the
-stable code and keeps the English message as a fallback.
+always batches. A payload carries `segments` — one `{ start, end, position }`
+per connection — for a segmented transfer, and an empty list for a single
+stream. The embedded backend reports real positions; aria2 only exposes its
+aggregate `completedLength`, so its segments are an even split for display.
+Errors use `{ code, message, detail? }`; the UI localizes the stable code and
+keeps the English message as a fallback.
 
 ## Development checks
 
@@ -187,7 +195,7 @@ full test name and `--ignored`.
 | Symptom                                                | Likely cause and action                                                                                                                |
 | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | A URL fails immediately with Failed                    | Check the URL, HTTP status and request headers. A 404 is a permanent task failure until retried with a corrected URL or task.          |
-| A task becomes Stalled                                 | No data arrived within the stall timeout, or the connection was interrupted. The `.part` file remains; restore connectivity and retry. |
+| A task fails after a stall                            | No data arrived within the stall timeout, or the connection was interrupted. The task is marked Failed and the `.part` file remains; restore connectivity and retry. |
 | A task is Paused after an app restart                  | This is intentional crash recovery. Resume it manually; received bytes and partial files are retained.                                 |
 | aria2 is unavailable                                   | Install or select a working `aria2c`, then detect again. Leaving the preference unavailable falls back to the built-in engine.         |
 | The RPC status is Not listening                        | Enable browser integration, check for a port conflict and restart after changing the switch or port.                                   |

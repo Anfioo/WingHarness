@@ -35,7 +35,7 @@ it manually; declining the prompt leaves the download to the browser.
 
 ## Pairing
 
-1. Start WingHarness and open **Downloads → Settings → Browser integration**.
+1. Start WingHarness and open **Settings → Downloads → Browser integration**.
 2. Enable browser integration, note the port (default `47653`) and copy the
    access token. The app generates and stores this token; the extension never
    invents one.

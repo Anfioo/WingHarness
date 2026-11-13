@@ -8,7 +8,6 @@
 import {
   moinAddDownload,
   moinDeleteDownload,
-  moinForgetDownload,
   moinListDownloads,
   moinResumeDownload,
   runtimeReadArchive,
@@ -71,11 +70,10 @@ export async function downloadArchive(
     const bytes = await runtimeReadArchive(finished.dest);
     return { name: finished.filename, bytes };
   } finally {
-    // Delete removes the file (and any partials); forget removes the record.
-    // Both are best effort: a failure here must not turn a successful install
-    // into an error.
-    await moinDeleteDownload(task.id).catch(() => {});
-    await moinForgetDownload(task.id).catch(() => {});
+    // The archive is an implementation detail, so the record and the file both
+    // go. Best effort: a failure here must not turn a successful install into
+    // an error.
+    await moinDeleteDownload(task.id, true).catch(() => {});
   }
 }
 
@@ -124,11 +122,7 @@ async function waitForDownload(
     });
 
     if (current.status === "completed") return current;
-    if (
-      current.status === "failed" ||
-      current.status === "canceled" ||
-      current.status === "stalled"
-    ) {
+    if (current.status === "failed" || current.status === "canceled") {
       throw new Error(current.error ?? `The download ended as ${current.status}.`);
     }
     if (Date.now() - started > DOWNLOAD_TIMEOUT_MS) {

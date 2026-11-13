@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS tasks (
     error        TEXT,
     created_at   INTEGER NOT NULL,
     updated_at   INTEGER NOT NULL,
-    archived     INTEGER NOT NULL DEFAULT 0,
     active_ms    INTEGER NOT NULL DEFAULT 0,
     completed_at INTEGER,
     backend      TEXT,
@@ -43,8 +42,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 /// adds them. The torrent-only columns (`info_hash`, `torrent_source`,
 /// `uploaded`, `torrent_files`, `own_dir`, `skip_torrent_export`,
 /// `force_start`) are the only ones this port drops.
-const ADDED_COLUMNS: [&str; 7] = [
-    "ALTER TABLE tasks ADD COLUMN archived INTEGER NOT NULL DEFAULT 0",
+const ADDED_COLUMNS: [&str; 6] = [
     "ALTER TABLE tasks ADD COLUMN active_ms INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN completed_at INTEGER",
     "ALTER TABLE tasks ADD COLUMN backend TEXT",
@@ -55,7 +53,7 @@ const ADDED_COLUMNS: [&str; 7] = [
 
 const SELECT_TASKS: &str = "\
 SELECT id, kind, url, filename, dest, status, total, received, error,
-       created_at, updated_at, archived, active_ms, completed_at, backend,
+       created_at, updated_at, active_ms, completed_at, backend,
        category, headers, final_dir
   FROM tasks
  ORDER BY created_at DESC, id DESC";
@@ -70,9 +68,9 @@ SELECT id, kind, url, filename, dest, status, total, received, error,
 const UPSERT_TASK: &str = "\
 INSERT INTO tasks (
     id, kind, url, filename, dest, status, total, received, error,
-    created_at, updated_at, archived, active_ms, completed_at, backend,
+    created_at, updated_at, active_ms, completed_at, backend,
     category, headers, final_dir
-) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
 ON CONFLICT(id) DO UPDATE SET
     kind = excluded.kind,
     filename = excluded.filename,
@@ -82,13 +80,21 @@ ON CONFLICT(id) DO UPDATE SET
     received = excluded.received,
     error = excluded.error,
     updated_at = excluded.updated_at,
-    archived = excluded.archived,
     active_ms = excluded.active_ms,
     completed_at = excluded.completed_at,
     backend = excluded.backend,
     category = excluded.category,
     headers = excluded.headers,
     final_dir = excluded.final_dir";
+
+/// Whether `tasks` carries a column. A migration that removes one has to run on
+/// both a database from an older release and one this version just created.
+async fn has_column(pool: &SqlitePool, name: &str) -> Result<bool, sqlx::Error> {
+    let rows = sqlx::query("PRAGMA table_info(tasks)").fetch_all(pool).await?;
+    Ok(rows
+        .iter()
+        .any(|row| row.get::<String, _>("name") == name))
+}
 
 #[derive(Clone)]
 pub struct Store {
@@ -122,6 +128,21 @@ impl Store {
                 }
             }
         }
+        // `archived` left the model. Records the user had archived under the old
+        // rule are dropped, and the column goes with the state. A database this
+        // version created never has it, hence the probe.
+        if has_column(&pool, "archived").await? {
+            sqlx::query("DELETE FROM tasks WHERE archived = 1")
+                .execute(&pool)
+                .await?;
+            sqlx::query("ALTER TABLE tasks DROP COLUMN archived")
+                .execute(&pool)
+                .await?;
+        }
+        // A transfer that ran out of data is a failure now, not a state of its own.
+        sqlx::query("UPDATE tasks SET status = 'failed' WHERE status = 'stalled'")
+            .execute(&pool)
+            .await?;
         Ok(Self { pool })
     }
 
@@ -150,7 +171,6 @@ impl Store {
             .bind(&task.error)
             .bind(task.created_at)
             .bind(task.updated_at)
-            .bind(i64::from(task.archived))
             .bind(task.active_ms)
             .bind(task.completed_at)
             .bind(&task.backend)
@@ -192,7 +212,6 @@ fn task_from_row(row: SqliteRow) -> MoinResult<Task> {
     let kind: String = row.try_get("kind")?;
     let received: i64 = row.try_get("received")?;
     let total: Option<i64> = row.try_get("total")?;
-    let archived: i64 = row.try_get("archived")?;
     let headers: Option<String> = row.try_get("headers")?;
     Ok(Task {
         id: row.try_get("id")?,
@@ -211,7 +230,6 @@ fn task_from_row(row: SqliteRow) -> MoinResult<Task> {
         created_at: row.try_get("created_at")?,
         updated_at: row.try_get("updated_at")?,
         completed_at: row.try_get("completed_at")?,
-        archived: archived != 0,
         active_ms: row.try_get("active_ms")?,
         backend: row.try_get("backend")?,
         category: row.try_get("category")?,
@@ -255,7 +273,6 @@ mod tests {
             created_at,
             updated_at: created_at,
             completed_at: None,
-            archived: false,
             active_ms: 0,
             backend: None,
             category: None,
@@ -398,6 +415,64 @@ mod tests {
         assert_eq!(reloaded[0].category.as_deref(), Some("archives"));
         assert_eq!(reloaded[0].final_dir.as_deref(), Some("D:/Downloads"));
         assert_eq!(reloaded[0].headers.get("Cookie").map(String::as_str), Some("a=b"));
+    }
+
+    #[tokio::test]
+    async fn drops_archived_records_and_folds_stalled_into_failed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("downloads.db");
+        {
+            let options = SqliteConnectOptions::new()
+                .filename(&path)
+                .create_if_missing(true);
+            let pool = SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_with(options)
+                .await
+                .unwrap();
+            sqlx::query(
+                "CREATE TABLE tasks (
+                    id TEXT PRIMARY KEY, kind TEXT NOT NULL, url TEXT NOT NULL,
+                    filename TEXT NOT NULL, dest TEXT NOT NULL, status TEXT NOT NULL,
+                    total INTEGER, received INTEGER NOT NULL DEFAULT 0, error TEXT,
+                    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL,
+                    archived INTEGER NOT NULL DEFAULT 0
+                )",
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+            for (id, status, archived) in [("kept", "stalled", 0), ("gone", "completed", 1)] {
+                sqlx::query(
+                    "INSERT INTO tasks (id, kind, url, filename, dest, status, received,
+                                        created_at, updated_at, archived)
+                     VALUES (?1, 'http', 'https://example.test/file.bin', 'file.bin',
+                             'C:/Downloads/file.bin', ?2, 10, 1, 1, ?3)",
+                )
+                .bind(id)
+                .bind(status)
+                .bind(archived)
+                .execute(&pool)
+                .await
+                .unwrap();
+            }
+            pool.close().await;
+        }
+
+        let store = Store::open(dir.path()).await.unwrap();
+        let all = store.all().await.unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].id, "kept");
+        assert_eq!(all[0].status, TaskStatus::Failed);
+
+        let columns: Vec<String> = sqlx::query("PRAGMA table_info(tasks)")
+            .fetch_all(&store.pool)
+            .await
+            .unwrap()
+            .iter()
+            .map(|row| row.get::<String, _>("name"))
+            .collect();
+        assert!(!columns.iter().any(|name| name == "archived"));
     }
 
     #[tokio::test]

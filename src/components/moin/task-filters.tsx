@@ -1,52 +1,41 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
-import { Search, X } from "lucide-react";
+import { Plus, Search, Settings2, X } from "lucide-react";
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
+import type { ReactNode } from "react";
 import type { MoinCategory, MoinTask } from "@/commands";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { isActiveStatus } from "./task-row";
 
 /**
- * Status tabs. Exactly one status is selected at a time; the All tab includes
- * paused and archived tasks so newly captured downloads cannot be hidden by
- * the default filter.
+ * Status tabs. Exactly one bucket is selected at a time.
  *
- * `canceled` has no tab of its own in the frozen key set, so it is grouped
- * under `failed`: both are terminal states that need the user to act. Archived
- * tasks are shown in their own tab regardless of their underlying status.
+ * The page only distinguishes three outcomes: everything still unfinished
+ * (queued, connecting, downloading, moving, paused and canceled), completed, and
+ * failed. The row badge keeps the finer status.
  */
-export type StatusBucket = "active" | "completed" | "paused" | "failed" | "stalled" | "archived";
+export type StatusBucket = "incomplete" | "completed" | "failed";
 
-export const STATUS_BUCKETS: StatusBucket[] = [
-  "active",
-  "completed",
-  "paused",
-  "failed",
-  "stalled",
-  "archived",
-];
+export const STATUS_BUCKETS: StatusBucket[] = ["incomplete", "completed", "failed"];
 
 export type StatusFilter = "all" | StatusBucket;
 
 const BUCKET_MATCHERS: Record<StatusFilter, (task: MoinTask) => boolean> = {
   all: () => true,
-  active: (task) => !task.archived && isActiveStatus(task.status),
-  completed: (task) => !task.archived && task.status === "completed",
-  paused: (task) => !task.archived && task.status === "paused",
-  failed: (task) => !task.archived && (task.status === "failed" || task.status === "canceled"),
-  stalled: (task) => !task.archived && task.status === "stalled",
-  archived: (task) => task.archived,
+  incomplete: (task) => task.status !== "completed" && task.status !== "failed",
+  completed: (task) => task.status === "completed",
+  failed: (task) => task.status === "failed",
 };
 
 export function matchesStatusBucket(task: MoinTask, bucket: StatusFilter): boolean {
@@ -80,8 +69,18 @@ export interface TaskFiltersProps {
   onStatusChange: (next: StatusFilter) => void;
   categoryIds: Set<string>;
   onCategoryIdsChange: (next: Set<string>) => void;
+  /** Opens the category editor on a blank record. */
+  onCreateCategory: () => void;
+  /** Opens the manager dialog behind the dropdown. */
+  onManageCategories: () => void;
   search: string;
   onSearchChange: (next: string) => void;
+  /** Right end of the status-tab row, e.g. the add and refresh buttons. */
+  actions?: ReactNode;
+  /** Sits between the category picker and the search box, e.g. the sort menu. */
+  beforeSearch?: ReactNode;
+  /** Right-aligned slot on the category/search row, e.g. the bulk actions. */
+  trailing?: ReactNode;
 }
 
 export function TaskFilters({
@@ -91,8 +90,13 @@ export function TaskFilters({
   onStatusChange,
   categoryIds,
   onCategoryIdsChange,
+  onCreateCategory,
+  onManageCategories,
   search,
   onSearchChange,
+  actions,
+  beforeSearch,
+  trailing,
 }: TaskFiltersProps) {
   const { t } = useAppTranslation();
 
@@ -105,39 +109,49 @@ export function TaskFilters({
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
-      <RadioGroupPrimitive.Root
-        value={status}
-        onValueChange={(value) => onStatusChange(value as StatusFilter)}
-        aria-label={t("moin.common.filter")}
-        orientation="horizontal"
-        className="bg-muted text-muted-foreground flex h-9 w-fit max-w-full items-center gap-0 overflow-x-auto rounded-lg p-[3px]"
-      >
-        {(["all", ...STATUS_BUCKETS] as StatusFilter[]).map((filter) => {
-          const count =
-            filter === "all"
-              ? tasks.length
-              : tasks.filter((task) => BUCKET_MATCHERS[filter](task)).length;
-          return (
-            <RadioGroupPrimitive.Item
-              key={filter}
-              value={filter}
-              className="focus-visible:ring-ring data-[state=checked]:bg-background data-[state=checked]:text-foreground inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 data-[state=checked]:shadow-sm"
-            >
-              {t(`moin.filter.${filter}`)}
-              <span className="text-muted-foreground text-xs tabular-nums">{count}</span>
-            </RadioGroupPrimitive.Item>
-          );
-        })}
-      </RadioGroupPrimitive.Root>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <RadioGroupPrimitive.Root
+          value={status}
+          onValueChange={(value) => onStatusChange(value as StatusFilter)}
+          aria-label={t("moin.common.filter")}
+          orientation="horizontal"
+          className="bg-muted text-muted-foreground flex h-9 w-fit max-w-full min-w-0 items-center gap-0 overflow-x-auto rounded-lg p-[3px]"
+        >
+          {(["all", ...STATUS_BUCKETS] as StatusFilter[]).map((filter) => {
+            const count =
+              filter === "all"
+                ? tasks.length
+                : tasks.filter((task) => BUCKET_MATCHERS[filter](task)).length;
+            return (
+              <RadioGroupPrimitive.Item
+                key={filter}
+                value={filter}
+                className="focus-visible:ring-ring data-[state=checked]:bg-background data-[state=checked]:text-foreground inline-flex h-full shrink-0 items-center justify-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 data-[state=checked]:shadow-sm"
+              >
+                {t(`moin.filter.${filter}`)}
+                <span className="text-muted-foreground text-xs tabular-nums">{count}</span>
+              </RadioGroupPrimitive.Item>
+            );
+          })}
+        </RadioGroupPrimitive.Root>
+
+        {actions && <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>}
+      </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="sm">
               {t("moin.task.category")}
-              {categoryIds.size > 0 && (
-                <span className="text-muted-foreground tabular-nums">{categoryIds.size}</span>
-              )}
+              {/* One fixed slot: the plus turns into the count, so the button
+                  keeps its width whether nothing or one/two categories are on. */}
+              <span className="text-muted-foreground inline-flex min-w-5 justify-center tabular-nums">
+                {categoryIds.size > 0 ? (
+                  categoryIds.size
+                ) : (
+                  <Plus className="size-3.5" aria-hidden />
+                )}
+              </span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
@@ -164,21 +178,26 @@ export function TaskFilters({
                 </DropdownMenuCheckboxItem>
               ))
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onCreateCategory()}>
+              <Plus />
+              {t("moin.category.new")}
+            </DropdownMenuItem>
             {categoryIds.size > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={false}
-                  onSelect={(event) => event.preventDefault()}
-                  onCheckedChange={() => onCategoryIdsChange(new Set())}
-                >
-                  <X />
-                  {t("moin.common.clear")}
-                </DropdownMenuCheckboxItem>
-              </>
+              <DropdownMenuItem onSelect={() => onCategoryIdsChange(new Set())}>
+                <X />
+                {t("moin.common.clear")}
+              </DropdownMenuItem>
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => onManageCategories()}>
+              <Settings2 />
+              {t("moin.category.manage")}
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {beforeSearch}
 
         <div className="relative min-w-0">
           <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -200,6 +219,8 @@ export function TaskFilters({
             </button>
           )}
         </div>
+
+        {trailing}
       </div>
     </div>
   );
