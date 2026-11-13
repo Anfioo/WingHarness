@@ -63,6 +63,7 @@ const scoop = {
     envHint: "SCOOP → ScoopCurrent，SCOOP_GLOBAL → ScoopGlobalCurrent。",
     steps: "会先创建两个目录与两个软链接、写入用户环境变量，然后在下方终端运行内置的 install.ps1。",
     start: "开始安装",
+    preparing: "准备中…",
     starting: "安装中…",
     adoptTitle: "检测到已有 Scoop",
     adoptHint: "{{path}} 已经是一个可用的 Scoop 安装。可以只建立链接和环境变量，不必重新安装。",

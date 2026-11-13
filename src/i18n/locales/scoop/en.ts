@@ -67,6 +67,7 @@ const scoop = {
     steps:
       "The two folders and their links are created and the user environment variables are written first; the bundled install.ps1 then runs in the terminal below.",
     start: "Install Scoop",
+    preparing: "Preparing…",
     starting: "Installing…",
     adoptTitle: "An existing Scoop was found",
     adoptHint:
