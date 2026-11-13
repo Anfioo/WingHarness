@@ -10,14 +10,12 @@ import {
   moinDeleteDownload,
   moinDeleteDownloads,
   moinErrorKey,
-  moinForgetDownload,
   moinMoveToCategory,
   moinPauseDownload,
-  moinRemoveDownload,
-  moinRemoveDownloads,
   moinResumeDownload,
   moinRetryDownload,
   revealPath,
+  type MoinCategory,
   type MoinTask,
   type MoinTaskProgress,
 } from "@/commands";
@@ -35,8 +33,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useMoinCategories } from "@/hooks/use-moin-categories";
 import { AddDownloadDialog } from "@/components/moin/add-download-dialog";
+import { CategoryEditor } from "@/components/moin/category-editor";
+import { CategoryManagerDialog } from "@/components/moin/category-manager-dialog";
+import { categoryLabel } from "@/components/moin/category-card";
 import {
-  DownloadsToolbar,
+  DownloadsActions,
+  SortMenu,
   loadSortRules,
   saveSortRules,
   sortTasks,
@@ -50,6 +52,7 @@ import {
   type StatusFilter,
   type TaskFilterState,
 } from "@/components/moin/task-filters";
+import { TaskBulkActions } from "@/components/moin/task-bulk-actions";
 import { TaskList } from "@/components/moin/task-list";
 import { canPause, canResume } from "@/components/moin/task-row";
 import type { TaskActionHandlers } from "@/components/moin/task-context-menu";
@@ -81,7 +84,15 @@ export default function DownloadsTab({
   reload: () => Promise<void>;
 }) {
   const { t } = useAppTranslation();
-  const { categories } = useMoinCategories();
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    create: createCategory,
+    update: updateCategory,
+    remove: removeCategory,
+    reorder: reorderCategories,
+  } = useMoinCategories();
 
   const [filters, setFilters] = useState<TaskFilterState>(clearFilterState);
   const [sort, setSort] = useState<SortRule[]>(loadSortRules);
@@ -89,6 +100,18 @@ export default function DownloadsTab({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [addOpen, setAddOpen] = useState(false);
   const [pending, setPending] = useState<PendingConfirmation | null>(null);
+
+  // Category management: the editor and the delete confirmation are shared by
+  // the two entry points (the filter menu and the manager dialog), so they are
+  // owned here rather than by either of them.
+  const [managerOpen, setManagerOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editing, setEditing] = useState<MoinCategory | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<MoinCategory | null>(null);
+  // The list as it was when a save started: the editor only closes once the
+  // hook swaps in the saved list, so a rejected write keeps the draft open.
+  const [pendingCategorySave, setPendingCategorySave] = useState<MoinCategory[] | null>(null);
 
   // Sort preference is the only thing this page persists; task data stays in the
   // backend. `saveSortRules` swallows storage failures.
@@ -111,6 +134,17 @@ export default function DownloadsTab({
     setSelected(prune);
     setExpanded(prune);
   }, [tasks]);
+
+  // `create` / `update` resolve even when the command is rejected — the hook
+  // turns that into `categoriesError` — so the saved list itself is the success
+  // signal.
+  useEffect(() => {
+    if (!pendingCategorySave || categories === pendingCategorySave) return;
+    setEditorOpen(false);
+    setEditing(null);
+    setPendingCategorySave(null);
+    toast.success(t("moin.category.saved"));
+  }, [categories, pendingCategorySave, t]);
 
   const visible = useMemo(
     () =>
@@ -189,25 +223,13 @@ export default function DownloadsTab({
     onCopyUrl: (task) => void copyUrl(task),
     onMoveToCategory: (task, category) =>
       void runCommand(() => moinMoveToCategory([task.id], category)),
-    onRemove: (task) =>
-      setPending({
-        titleKey: "moin.action.removeConfirm",
-        count: 1,
-        run: () => runCommand(() => moinRemoveDownload(task.id)),
-      }),
     onDelete: (task) =>
       setPending({
         titleKey: "moin.action.deleteConfirm",
         descriptionKey: "moin.common.confirmDelete",
         count: 1,
         destructive: true,
-        run: () => runCommand(() => moinDeleteDownload(task.id)),
-      }),
-    onForget: (task) =>
-      setPending({
-        titleKey: "moin.action.forgetConfirm",
-        count: 1,
-        run: () => runCommand(() => moinForgetDownload(task.id)),
+        run: () => runCommand(() => moinDeleteDownload(task.id, false)),
       }),
   };
 
@@ -227,19 +249,6 @@ export default function DownloadsTab({
     });
   };
 
-  const bulkRemove = () => {
-    const ids = selectedVisible.map((task) => task.id);
-    if (ids.length === 0) return;
-    setPending({
-      titleKey: "moin.action.removeConfirm",
-      count: ids.length,
-      run: async () => {
-        await runCommand(() => moinRemoveDownloads(ids));
-        setSelected(new Set());
-      },
-    });
-  };
-
   const bulkDelete = () => {
     const ids = selectedVisible.map((task) => task.id);
     if (ids.length === 0) return;
@@ -249,7 +258,7 @@ export default function DownloadsTab({
       count: ids.length,
       destructive: true,
       run: async () => {
-        await runCommand(() => moinDeleteDownloads(ids));
+        await runCommand(() => moinDeleteDownloads(ids, false));
         setSelected(new Set());
       },
     });
@@ -257,35 +266,53 @@ export default function DownloadsTab({
 
   const clearFilters = () => setFilters(clearFilterState());
 
+  const openCategoryCreate = () => {
+    setEditing(null);
+    setEditorOpen(true);
+  };
+
+  const openCategoryEdit = (category: MoinCategory) => {
+    setEditing(category);
+    setEditorOpen(true);
+  };
+
+  const closeCategoryEditor = () => {
+    setEditorOpen(false);
+    setEditing(null);
+    setPendingCategorySave(null);
+  };
+
+  const submitCategory = async (category: MoinCategory) => {
+    setSavingCategory(true);
+    setPendingCategorySave(categories);
+    try {
+      if (editing) await updateCategory(category);
+      else await createCategory(category);
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
+  // Templates skip the editor, so they commit straight away.
+  const createCategoryTemplate = (category: MoinCategory) => {
+    setSavingCategory(true);
+    void createCategory(category).finally(() => setSavingCategory(false));
+  };
+
+  const confirmCategoryDelete = async () => {
+    const target = deletingCategory;
+    if (!target) return;
+    setSavingCategory(true);
+    try {
+      await removeCategory(target.id);
+    } finally {
+      setSavingCategory(false);
+      setDeletingCategory(null);
+    }
+  };
+
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      <DownloadsToolbar
-        loading={loading}
-        onRefresh={() => void reload()}
-        onAdd={() => setAddOpen(true)}
-        sort={sort}
-        onSortChange={setSort}
-        selectedCount={selectedVisible.length}
-        visibleCount={visible.length}
-        pauseableCount={selectedVisible.filter(canPause).length}
-        resumeableCount={selectedVisible.filter(canResume).length}
-        onSelectAll={() => setSelected(new Set(visible.map((task) => task.id)))}
-        onSelectNone={() => setSelected(new Set())}
-        onInvertSelection={() =>
-          setSelected((current) => {
-            const next = new Set<string>();
-            for (const task of visible) {
-              if (!current.has(task.id)) next.add(task.id);
-            }
-            return next;
-          })
-        }
-        onBulkPause={bulkPause}
-        onBulkResume={bulkResume}
-        onBulkRemove={bulkRemove}
-        onBulkDelete={bulkDelete}
-      />
-
       <TaskFilters
         tasks={tasks}
         categories={categories}
@@ -293,8 +320,29 @@ export default function DownloadsTab({
         onStatusChange={(next: StatusFilter) => setFilters({ ...filters, status: next })}
         categoryIds={filters.categoryIds}
         onCategoryIdsChange={(next) => setFilters({ ...filters, categoryIds: next })}
+        onCreateCategory={openCategoryCreate}
+        onManageCategories={() => setManagerOpen(true)}
         search={filters.search}
         onSearchChange={(next) => setFilters({ ...filters, search: next })}
+        actions={
+          <DownloadsActions
+            loading={loading}
+            onRefresh={() => void reload()}
+            onAdd={() => setAddOpen(true)}
+          />
+        }
+        beforeSearch={<SortMenu sort={sort} onSortChange={setSort} />}
+        trailing={
+          <TaskBulkActions
+            selectedCount={selectedVisible.length}
+            visibleCount={visible.length}
+            pauseableCount={selectedVisible.filter(canPause).length}
+            resumeableCount={selectedVisible.filter(canResume).length}
+            onPause={bulkPause}
+            onResume={bulkResume}
+            onDelete={bulkDelete}
+          />
+        }
       />
 
       {error && (
@@ -360,6 +408,58 @@ export default function DownloadsTab({
         categories={categories}
         onAdded={reload}
       />
+
+      <CategoryManagerDialog
+        open={managerOpen}
+        onOpenChange={setManagerOpen}
+        categories={categories}
+        tasks={tasks}
+        loading={categoriesLoading}
+        error={categoriesError}
+        saving={savingCategory}
+        onCreate={openCategoryCreate}
+        onCreateTemplate={createCategoryTemplate}
+        onEdit={openCategoryEdit}
+        onDelete={setDeletingCategory}
+        onReorder={reorderCategories}
+      />
+
+      <CategoryEditor
+        open={editorOpen}
+        category={editing}
+        categories={categories}
+        saving={savingCategory}
+        onOpenChange={(open) => (open ? setEditorOpen(true) : closeCategoryEditor())}
+        onSubmit={(category) => void submitCategory(category)}
+      />
+
+      <AlertDialog
+        open={deletingCategory !== null}
+        onOpenChange={(open) => !open && setDeletingCategory(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("moin.common.delete")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deletingCategory
+                ? t("moin.category.deleteConfirm", { name: categoryLabel(deletingCategory, t) })
+                : ""}{" "}
+              {t("moin.category.deleteUncategorized")} {t("moin.common.confirmDelete")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingCategory}>
+              {t("moin.common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savingCategory}
+              onClick={() => void confirmCategoryDelete()}
+            >
+              {t("moin.common.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={pending !== null}

@@ -14,8 +14,12 @@ import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 
 /**
- * Form primitives for the settings tab: one titled card, and the label/control
- * rows every field in it is built from.
+ * Form primitives for the download settings partition: one titled group, and
+ * the label/control rows every field in it is built from.
+ *
+ * The group has no card of its own — the Settings window draws its partitions
+ * as plain rows separated by whitespace, so a filled block here would be the
+ * only white patch on the page.
  *
  * Rows are deliberately split in two columns — label plus hint on the left, the
  * control on the right — so a long hint never pushes the control out of line
@@ -23,18 +27,23 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
  */
 
 export type SectionProps = {
-  title: string;
+  /** Group heading; omit it when the partition heading already says the same. */
+  title?: string;
   description?: string;
   children: ReactNode;
 };
 
-/** A titled card grouping related settings. */
+/** A titled group of rows, divided by hairlines. */
 export function Section({ title, description, children }: SectionProps) {
   return (
-    <section className="bg-card rounded-lg border p-4 sm:p-5">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {description && <p className="text-muted-foreground mt-1 text-xs">{description}</p>}
-      <div className="mt-4 flex flex-col gap-4">{children}</div>
+    <section className="space-y-1">
+      {title && (
+        <div>
+          <h3 className="text-sm font-semibold">{title}</h3>
+          {description && <p className="text-muted-foreground mt-0.5 text-xs">{description}</p>}
+        </div>
+      )}
+      <div className="divide-y">{children}</div>
     </section>
   );
 }
@@ -54,7 +63,7 @@ export type FieldProps = {
 /** One label/control row. */
 export function Field({ label, htmlFor, hint, note, error, children }: FieldProps) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+    <div className="grid gap-2 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-6">
       <div className="min-w-0 space-y-0.5">
         <label htmlFor={htmlFor} className="block text-sm font-medium">
           {label}
@@ -65,7 +74,7 @@ export function Field({ label, htmlFor, hint, note, error, children }: FieldProp
             {error}
           </p>
         ) : (
-          note && <p className="text-muted-foreground text-xs">{note}</p>
+          note && <p className="text-muted-foreground truncate font-mono text-xs">{note}</p>
         )}
       </div>
       <div className="min-w-0 sm:justify-self-end">{children}</div>

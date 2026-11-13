@@ -256,6 +256,66 @@ pub fn apply_proxy_env(proxy: &ProxyConfig) {
     }
 }
 
+/// The proxy Windows itself is configured to use, for the system mode.
+///
+/// Read from WinINET's Internet Settings rather than from the environment: in
+/// system mode every proxy variable is deliberately cleared, so the
+/// environment has nothing to answer with.
+#[cfg(windows)]
+pub fn system_proxy_url() -> Option<String> {
+    use windows_registry::CURRENT_USER;
+
+    let key = CURRENT_USER
+        .open(r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
+        .ok()?;
+
+    if key.get_u32("ProxyEnable").ok().unwrap_or(0) != 0 {
+        if let Ok(server) = key.get_string("ProxyServer") {
+            let server = server.trim();
+            if !server.is_empty() {
+                return Some(preferred_proxy_server(server));
+            }
+        }
+    }
+
+    // A PAC script decides per request; the URL is the only address to show.
+    key.get_string("AutoConfigURL")
+        .ok()
+        .map(|url| url.trim().to_string())
+        .filter(|url| !url.is_empty())
+}
+
+#[cfg(not(windows))]
+pub fn system_proxy_url() -> Option<String> {
+    None
+}
+
+/// Windows stores either one `host:port` or `http=…;https=…`; prefer the HTTPS
+/// entry because that is what the update endpoints use.
+fn preferred_proxy_server(server: &str) -> String {
+    if !server.contains('=') {
+        return server.to_string();
+    }
+
+    let mut https = None;
+    let mut http = None;
+    for part in server.split(';') {
+        if let Some((scheme, value)) = part.split_once('=') {
+            let value = value.trim();
+            if value.is_empty() {
+                continue;
+            }
+            match scheme.trim().to_ascii_lowercase().as_str() {
+                "https" => https = Some(value),
+                "http" => http = Some(value),
+                _ => {}
+            }
+        }
+    }
+
+    https.or(http).unwrap_or(server).to_string()
+}
+
 /// The `NO_PROXY` value a mode exports.
 ///
 /// `*` disables proxying entirely (including the OS proxy for clients that read
@@ -458,6 +518,23 @@ mod tests {
         config.file_preview.max_bytes = u64::MAX;
         config.normalize();
         assert_eq!(config.file_preview.max_bytes, MAX_FILE_PREVIEW_BYTES);
+    }
+
+    #[test]
+    fn a_plain_proxy_server_is_kept() {
+        assert_eq!(preferred_proxy_server("127.0.0.1:7890"), "127.0.0.1:7890");
+    }
+
+    #[test]
+    fn an_https_entry_wins_over_http() {
+        assert_eq!(
+            preferred_proxy_server("http=127.0.0.1:7890;https=127.0.0.1:7891"),
+            "127.0.0.1:7891"
+        );
+        assert_eq!(
+            preferred_proxy_server("ftp=127.0.0.1:21;http=127.0.0.1:8080"),
+            "127.0.0.1:8080"
+        );
     }
 
     /// A value pasted from a proxy app is usually `host:port`; the scheme is

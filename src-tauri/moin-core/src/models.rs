@@ -27,7 +27,6 @@ pub enum TaskStatus {
     Moving,
     Completed,
     Failed,
-    Stalled,
     Canceled,
 }
 
@@ -49,7 +48,6 @@ impl TaskStatus {
             Self::Moving => "moving",
             Self::Completed => "completed",
             Self::Failed => "failed",
-            Self::Stalled => "stalled",
             Self::Canceled => "canceled",
         }
     }
@@ -62,7 +60,8 @@ impl TaskStatus {
             "paused" => Self::Paused,
             "moving" => Self::Moving,
             "completed" => Self::Completed,
-            "stalled" => Self::Stalled,
+            // Stalled was folded into Failed; an old row is read as a failure.
+            "stalled" => Self::Failed,
             "canceled" => Self::Canceled,
             _ => Self::Failed,
         }
@@ -85,8 +84,6 @@ pub struct Task {
     #[serde(default)]
     pub completed_at: Option<i64>,
     #[serde(default)]
-    pub archived: bool,
-    #[serde(default)]
     pub active_ms: i64,
     #[serde(default)]
     pub backend: Option<String>,
@@ -108,6 +105,17 @@ impl Task {
     }
 }
 
+/// One connection's byte range and how far it has written.
+///
+/// `position` is the next byte to write, so `position - start` is the segment's
+/// progress. A completed segment has `position == end + 1`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SegmentProgress {
+    pub start: u64,
+    pub end: u64,
+    pub position: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TaskProgress {
     pub id: String,
@@ -115,6 +123,10 @@ pub struct TaskProgress {
     pub total: Option<u64>,
     pub speed: u64,
     pub status: TaskStatus,
+    /// Empty for a single-stream transfer and for backends that cannot report
+    /// per-connection ranges.
+    #[serde(default)]
+    pub segments: Vec<SegmentProgress>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

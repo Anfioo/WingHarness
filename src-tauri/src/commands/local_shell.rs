@@ -28,8 +28,21 @@ fn sessions() -> &'static Mutex<std::collections::HashMap<String, PtySession>> {
     SESSIONS.get_or_init(|| Mutex::new(std::collections::HashMap::new()))
 }
 
+/// Opens a pseudo-console.
+///
+/// With no `command` this is the interactive shell the terminal page uses.
+/// With one it runs that command line and exits — the Scoop page uses it to
+/// stream an installer, and passes the variables it needs through `env` rather
+/// than writing them into a script file.
 #[tauri::command]
-pub fn local_shell_start(app: AppHandle, cols: u16, rows: u16) -> Result<String, String> {
+pub fn local_shell_start(
+    app: AppHandle,
+    cols: u16,
+    rows: u16,
+    command: Option<String>,
+    cwd: Option<String>,
+    env: Option<std::collections::HashMap<String, String>>,
+) -> Result<String, String> {
     let pty_system = NativePtySystem::default();
     let pair = pty_system
         .openpty(PtySize {
@@ -46,7 +59,27 @@ pub fn local_shell_start(app: AppHandle, cols: u16, rows: u16) -> Result<String,
     } else {
         std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string())
     };
-    let cmd = CommandBuilder::new(shell);
+    let mut cmd = CommandBuilder::new(shell);
+
+    if let Some(dir) = cwd.as_deref() {
+        cmd.cwd(dir);
+    }
+    if let Some(values) = env {
+        for (key, value) in values {
+            cmd.env(key, value);
+        }
+    }
+    if let Some(line) = command.as_deref() {
+        if cfg!(target_os = "windows") {
+            // `/d` skips AutoRun, which could otherwise run a user's startup
+            // commands before ours; `/c` runs the line and exits.
+            cmd.arg("/d");
+            cmd.arg("/c");
+        } else {
+            cmd.arg("-c");
+        }
+        cmd.arg(line);
+    }
 
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;
     // The slave side is owned by the spawned process; drop it in the parent.

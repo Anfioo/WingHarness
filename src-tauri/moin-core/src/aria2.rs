@@ -27,7 +27,7 @@ use uuid::Uuid;
 
 use crate::aria2_tool::{new_command, Aria2Tool};
 use crate::backend::{Control, DownloadBackend, Outcome, ProgressFn, Signal, TransferOpts};
-use crate::models::{now_ms, Task, TaskKind};
+use crate::models::{now_ms, SegmentProgress, Task, TaskKind};
 use crate::paths;
 
 pub const ID: &str = "aria2";
@@ -235,7 +235,7 @@ impl Aria2Backend {
                     return Outcome::Failed(error);
                 }
                 if let Ok(metadata) = tokio::fs::metadata(&destination).await {
-                    progress(metadata.len(), Some(metadata.len()));
+                    progress(metadata.len(), Some(metadata.len()), &[]);
                 }
             }
             Outcome::Failed(message) => {
@@ -282,7 +282,8 @@ impl Aria2Backend {
             match rpc.tell_status(gid).await {
                 Ok(status) => {
                     let total = (status.total > 0).then_some(status.total);
-                    progress(status.completed, total);
+                    let segments = simulated_segments(status.total, status.completed, opts.connections);
+                    progress(status.completed, total, &segments);
                     match status.state.as_str() {
                         "complete" => return Outcome::Completed,
                         "removed" => return Outcome::Canceled,
@@ -540,6 +541,49 @@ fn number(value: Option<&Value>) -> u64 {
     }
 }
 
+/// Per-connection bars for the download list.
+///
+/// `aria2.tellStatus` exposes only the aggregate `completedLength`, never the
+/// range each connection owns, so the split is even and the completed bytes are
+/// spread across the segments. This is a presentation aid, not a measurement;
+/// the embedded backend reports the real positions.
+fn simulated_segments(total: u64, completed: u64, connections: usize) -> Vec<SegmentProgress> {
+    if total == 0 {
+        return Vec::new();
+    }
+    let limit = total.min(MAX_CONNECTIONS as u64) as usize;
+    let count = connections.clamp(1, MAX_CONNECTIONS).min(limit.max(1));
+    let completed = completed.min(total);
+    let base = total / count as u64;
+    let share = completed / count as u64;
+    let mut remaining = completed;
+    let mut start = 0u64;
+    let mut segments = Vec::with_capacity(count);
+    for index in 0..count {
+        let end = if index + 1 == count {
+            total - 1
+        } else {
+            start + base - 1
+        };
+        let length = end - start + 1;
+        // The last segment absorbs the division remainder, capped so a segment
+        // can never report more bytes than it owns.
+        let received = if index + 1 == count {
+            remaining.min(length)
+        } else {
+            share.min(length)
+        };
+        remaining = remaining.saturating_sub(received);
+        segments.push(SegmentProgress {
+            start,
+            end,
+            position: start + received,
+        });
+        start = end + 1;
+    }
+    segments
+}
+
 /// Minimal JSON-RPC client for the daemon.
 struct Rpc {
     client: reqwest::Client,
@@ -678,7 +722,6 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             completed_at: None,
-            archived: false,
             active_ms: 0,
             backend: Some(ID.to_string()),
             category: None,
@@ -688,7 +731,7 @@ mod tests {
     }
 
     fn quiet() -> ProgressFn {
-        Arc::new(|_, _| {})
+        Arc::new(|_, _, _| {})
     }
 
     fn options() -> TransferOpts {
@@ -920,6 +963,31 @@ mod tests {
         })
     }
 
+    #[test]
+    fn simulated_segments_cover_the_file_and_the_completed_bytes() {
+        let segments = simulated_segments(4096, 2048, 4);
+        assert_eq!(segments.len(), 4);
+        assert_eq!(segments.first().map(|segment| segment.start), Some(0));
+        assert_eq!(segments.last().map(|segment| segment.end), Some(4095));
+        for pair in segments.windows(2) {
+            assert_eq!(pair[0].end + 1, pair[1].start);
+        }
+        assert!(segments.iter().all(|segment| segment.position <= segment.end + 1));
+        let received: u64 = segments
+            .iter()
+            .map(|segment| segment.position - segment.start)
+            .sum();
+        assert_eq!(received, 2048);
+    }
+
+    #[test]
+    fn simulated_segments_never_split_more_ways_than_bytes() {
+        let segments = simulated_segments(3, 3, 8);
+        assert_eq!(segments.len(), 3);
+        assert!(segments.iter().all(|segment| segment.position == segment.end + 1));
+        assert!(simulated_segments(0, 0, 8).is_empty());
+    }
+
     #[tokio::test]
     async fn the_rpc_client_reads_a_result_and_ignores_a_foreign_id() {
         let daemon = fake::Daemon::start(Vec::new());
@@ -939,7 +1007,7 @@ mod tests {
         let rpc = Rpc::new(daemon.port, "s3cret".to_string());
         let seen = Arc::new(Mutex::new(Vec::new()));
         let recorder = Arc::clone(&seen);
-        let progress: ProgressFn = Arc::new(move |received, total| {
+        let progress: ProgressFn = Arc::new(move |received, total, _| {
             recorder
                 .lock()
                 .expect("the progress log")
@@ -1071,7 +1139,7 @@ mod tests {
                     stall_timeout: Duration::from_secs(60),
                 },
                 Control::new(),
-                Arc::new(|_, _| {}),
+                Arc::new(|_, _, _| {}),
             )
             .await;
         backend.shutdown().await;
@@ -1096,7 +1164,7 @@ mod tests {
                 sample_task("/tmp/file.zip"),
                 options(),
                 Control::new(),
-                Arc::new(|_, _| {}),
+                Arc::new(|_, _, _| {}),
             )
             .await;
         assert!(matches!(outcome, Outcome::Failed(message) if message == "aria2c was not found"));

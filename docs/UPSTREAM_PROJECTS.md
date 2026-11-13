@@ -36,6 +36,7 @@ Only these licences may be ported into WingHarness:
 | MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with GPL-3.0. |
 | Apache-2.0 | Yes | One-way compatible with GPL-3.0. |
 | MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with GPL-3.0. |
+| Unlicense / public domain | Yes | No conditions; a copy may carry no notice, but this project records it anyway. |
 | EPL-2.0 | **No** | Only compatible through EPL-2.0's Secondary License notice; without it in the source (elkjs and `@viz-js/viz` do not carry it) the code cannot be combined with GPL-3.0. |
 | AGPL-3.0 | **No** | Would require the whole project to become AGPL-3.0. |
 | No licence file | **No** | Default copyright: all rights reserved. Ask the author first. |
@@ -71,6 +72,7 @@ for the project name (2026-11-05).
 | [SpacePreview](https://github.com/likehao19/SpacePreview) | MIT | `space-preview-core`, `src/lib/space-preview`, `src/components/space-preview`, `preview-window` | Version 0.10.22 (`db531eb`); engines and viewers carried over nearly verbatim, the host and the window are a rewrite; `space-preview-core/UPSTREAM.md` and `src/components/space-preview/UPSTREAM.md` |
 
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
+| [ScoopInstaller/Install](https://github.com/ScoopInstaller/Install) | Unlicense | `src-tauri/resources/scoop/install.ps1` | Bundled unchanged on 2026-11-13; SHA-256 `94f983b1…f2512`; `THIRD_PARTY_NOTICES.md` |
 
 **Notes on this group**
 
