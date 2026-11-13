@@ -1094,3 +1094,24 @@ export type {
   MoinToolStatus,
   MoinTrigger,
 } from "./services/moin/types";
+export {
+  scoopApplyLocation,
+  scoopPlanRun,
+  scoopPrepareInstall,
+  scoopSearch,
+  scoopStatus,
+} from "./services/scoop";
+export type {
+  ScoopApp,
+  ScoopBucket,
+  ScoopEnvVar,
+  ScoopInstallRequest,
+  ScoopLocation,
+  ScoopLocationRequest,
+  ScoopPlan,
+  ScoopProxy,
+  ScoopProxyMode,
+  ScoopRunRequest,
+  ScoopSearchHit,
+  ScoopStatus,
+} from "./services/scoop/types";

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-status"
+description = "Enables the scoop_status command without any pre-configured scope."
+commands.allow = ["scoop_status"]
+
+[[permission]]
+identifier = "deny-scoop-status"
+description = "Denies the scoop_status command without any pre-configured scope."
+commands.deny = ["scoop_status"]

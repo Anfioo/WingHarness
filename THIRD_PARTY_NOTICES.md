@@ -156,6 +156,17 @@ DTOs are derived from Porter. The macOS, Linux and Flatpak paths, outbound
 connections, UDP, whole-app elevation and the shell/theme/update features were
 not carried over. See `src-tauri/ports-core/UPSTREAM.md` for the porting record.
 
+### ScoopInstaller/Install
+
+- Project: [ScoopInstaller/Install](https://github.com/ScoopInstaller/Install)
+- License: Unlicense (public domain)
+- License text: [licenses/ScoopInstaller-Install-UNLICENSE.txt](./licenses/ScoopInstaller-Install-UNLICENSE.txt)
+
+`src-tauri/resources/scoop/install.ps1` is the upstream installer, bundled
+unchanged so installing Scoop never has to download the script first. The Scoop
+page runs it from the data directory; it is not modified. SHA-256 at import:
+`94f983b190438311e006b957db7c8422709e0ba62a6c2ac04e278164108f2512`.
+
 ### shaic
 
 - Project: [shaic](https://github.com/dariocurr/shaic)
