@@ -90,6 +90,16 @@ export function WindowFrame({ titleBar, children, className, contentClassName }:
             />
           ))}
         <WindowContextMenu />
+        {/* A page can pin a fixed overlay over the frame — the main sidebar is one
+            — and it paints over the border the root draws underneath. Fixed
+            escapes the root's `overflow-hidden`, so this ring is not clipped and
+            lands on the same outermost pixels, above every overlay. */}
+        {!isMaximized && (
+          <div
+            aria-hidden
+            className="border-border pointer-events-none fixed inset-0 z-50 rounded-lg border"
+          />
+        )}
         <Toaster />
       </div>
     </ThemeProvider>
