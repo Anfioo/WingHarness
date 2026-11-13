@@ -15,6 +15,7 @@ import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
 import { MdEditorSection } from "./md-editor-section.tsx";
 import { PortsSection } from "./ports-section.tsx";
 import { RuntimeSection } from "./runtime-section.tsx";
+import { DownloadSection } from "./download-section.tsx";
 import {
   Palette,
   Keyboard,
@@ -28,6 +29,7 @@ import {
   Bot,
   Plug,
   Cpu,
+  Download,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
@@ -45,7 +47,8 @@ type SettingSection =
   | "aiConfig"
   | "ccs"
   | "ports"
-  | "runtime";
+  | "runtime"
+  | "download";
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
@@ -76,6 +79,11 @@ export default function SettingsPage() {
       id: "proxy" as SettingSection,
       label: t("settings.proxy.title"),
       icon: Globe,
+    },
+    {
+      id: "download" as SettingSection,
+      label: t("settings.download.title"),
+      icon: Download,
     },
     {
       id: "data" as SettingSection,
@@ -125,7 +133,7 @@ export default function SettingsPage() {
       contentClassName="flex flex-1 overflow-hidden"
     >
       <aside className="border-border flex w-40 flex-col border-r p-4">
-        <nav className="flex-1 space-y-1">
+        <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto">
           {menuItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -158,6 +166,8 @@ export default function SettingsPage() {
           {activeSection === "plugins" && <PluginsSection />}
 
           {activeSection === "proxy" && <ProxySection />}
+
+          {activeSection === "download" && <DownloadSection />}
 
           {activeSection === "data" && <DataSection />}
 

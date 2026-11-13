@@ -19,7 +19,6 @@ export type MoinTaskStatus =
   | "moving"
   | "completed"
   | "failed"
-  | "stalled"
   | "canceled";
 
 export interface MoinTask {
@@ -35,12 +34,18 @@ export interface MoinTask {
   created_at: number;
   updated_at: number;
   completed_at: number | null;
-  archived: boolean;
   active_ms: number;
   backend: string | null;
   category: string | null;
   final_dir: string | null;
   headers: Record<string, string>;
+}
+
+/** One connection's byte range and how far it has written. */
+export interface MoinSegmentProgress {
+  start: number;
+  end: number;
+  position: number;
 }
 
 export interface MoinTaskProgress {
@@ -49,6 +54,8 @@ export interface MoinTaskProgress {
   total: number | null;
   speed: number;
   status: MoinTaskStatus;
+  /** Empty for a single-stream transfer and for aria2. */
+  segments: MoinSegmentProgress[];
 }
 
 export interface MoinSettings {

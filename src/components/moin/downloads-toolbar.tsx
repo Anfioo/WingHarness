@@ -1,17 +1,7 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin at 79e7587.
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Pause,
-  Play,
-  Plus,
-  RefreshCw,
-  Trash2,
-  Undo2,
-} from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Plus, RefreshCw, Undo2 } from "lucide-react";
 import type { MoinTask, MoinTaskProgress, MoinTaskStatus } from "@/commands";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +12,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { percent } from "@/lib/moin/format";
 
@@ -55,10 +44,9 @@ const STATUS_RANK: Record<MoinTaskStatus, number> = {
   moving: 2,
   queued: 3,
   paused: 4,
-  stalled: 5,
-  failed: 6,
-  canceled: 7,
-  completed: 8,
+  failed: 5,
+  canceled: 6,
+  completed: 7,
 };
 
 function isSortKey(value: unknown): value is SortKey {
@@ -140,7 +128,12 @@ interface SortMenuProps {
   onSortChange: (next: SortRule[]) => void;
 }
 
-function SortMenu({ sort, onSortChange }: SortMenuProps) {
+/**
+ * The sort control. It lives in the filter row (`TaskFilters`) between the
+ * category picker and the search box, so it is exported rather than kept
+ * private to this module.
+ */
+export function SortMenu({ sort, onSortChange }: SortMenuProps) {
   const { t } = useAppTranslation();
 
   // Clicking an active key flips its direction; clicking an inactive one
@@ -213,52 +206,22 @@ function SortMenu({ sort, onSortChange }: SortMenuProps) {
   );
 }
 
-export interface DownloadsToolbarProps {
+export interface DownloadsActionsProps {
   loading: boolean;
   onRefresh: () => void;
   onAdd: () => void;
-  sort: SortRule[];
-  onSortChange: (next: SortRule[]) => void;
-  selectedCount: number;
-  visibleCount: number;
-  pauseableCount: number;
-  resumeableCount: number;
-  onSelectAll: () => void;
-  onSelectNone: () => void;
-  onInvertSelection: () => void;
-  onBulkPause: () => void;
-  onBulkResume: () => void;
-  onBulkRemove: () => void;
-  onBulkDelete: () => void;
 }
 
-export function DownloadsToolbar({
-  loading,
-  onRefresh,
-  onAdd,
-  sort,
-  onSortChange,
-  selectedCount,
-  visibleCount,
-  pauseableCount,
-  resumeableCount,
-  onSelectAll,
-  onSelectNone,
-  onInvertSelection,
-  onBulkPause,
-  onBulkResume,
-  onBulkRemove,
-  onBulkDelete,
-}: DownloadsToolbarProps) {
+/**
+ * The add and refresh buttons. They sit at the right end of the status-tab row
+ * (passed to `TaskFilters` as `actions`), so this renders a bare cluster with no
+ * row of its own.
+ */
+export function DownloadsActions({ loading, onRefresh, onAdd }: DownloadsActionsProps) {
   const { t } = useAppTranslation();
-  const hasSelection = selectedCount > 0;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <Button type="button" size="sm" onClick={onAdd}>
-        <Plus />
-        {t("moin.add.submit")}
-      </Button>
+    <>
       <Button
         type="button"
         variant="outline"
@@ -269,75 +232,10 @@ export function DownloadsToolbar({
       >
         <RefreshCw className={loading ? "animate-spin" : ""} />
       </Button>
-
-      <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
-
-      <SortMenu sort={sort} onSortChange={onSortChange} />
-
-      <div className="ml-auto flex min-w-0 flex-wrap items-center gap-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={visibleCount === 0 || selectedCount === visibleCount}
-          onClick={onSelectAll}
-        >
-          {t("moin.common.selectAll")}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!hasSelection}
-          onClick={onSelectNone}
-        >
-          {t("moin.common.selectNone")}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={visibleCount === 0}
-          onClick={onInvertSelection}
-        >
-          {t("moin.common.invertSelection")}
-        </Button>
-
-        {hasSelection && (
-          <>
-            <span className="text-muted-foreground px-1 text-xs tabular-nums">
-              {t("moin.common.selectedCount", { selected: selectedCount, total: visibleCount })}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pauseableCount === 0}
-              onClick={onBulkPause}
-            >
-              <Pause />
-              {t("moin.action.pause")}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={resumeableCount === 0}
-              onClick={onBulkResume}
-            >
-              <Play />
-              {t("moin.action.resume")}
-            </Button>
-            <Button type="button" variant="outline" size="sm" onClick={onBulkRemove}>
-              {t("moin.action.remove")}
-            </Button>
-            <Button type="button" variant="destructive" size="sm" onClick={onBulkDelete}>
-              <Trash2 />
-              {t("moin.action.delete")}
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
+      <Button type="button" size="sm" onClick={onAdd}>
+        <Plus />
+        {t("moin.add.submit")}
+      </Button>
+    </>
   );
 }

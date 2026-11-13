@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-plan-run"
+description = "Enables the scoop_plan_run command without any pre-configured scope."
+commands.allow = ["scoop_plan_run"]
+
+[[permission]]
+identifier = "deny-scoop-plan-run"
+description = "Denies the scoop_plan_run command without any pre-configured scope."
+commands.deny = ["scoop_plan_run"]

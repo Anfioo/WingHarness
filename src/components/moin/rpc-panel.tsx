@@ -157,26 +157,30 @@ export function RpcPanel({ settings, saving, onPatch, onReload }: RpcPanelProps)
         </div>
       </Field>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={status?.bound ? "secondary" : "outline"}>
-          <span
-            aria-hidden
-            className={
-              status?.bound
-                ? "size-1.5 rounded-full bg-emerald-500"
-                : "bg-muted-foreground size-1.5 rounded-full"
-            }
-          />
-          {status?.bound ? t("moin.rpc.running") : t("moin.rpc.stopped")}
-        </Badge>
-        {status?.address && (
-          <code className="text-muted-foreground font-mono text-xs">{status.address}</code>
+      <div className="space-y-1.5 py-2.5">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {status?.address && (
+            <code className="text-muted-foreground font-mono text-xs">{status.address}</code>
+          )}
+          <Badge variant={status?.bound ? "secondary" : "outline"}>
+            <span
+              aria-hidden
+              className={
+                status?.bound
+                  ? "size-1.5 rounded-full bg-emerald-500"
+                  : "bg-muted-foreground size-1.5 rounded-full"
+              }
+            />
+            {status?.bound ? t("moin.rpc.running") : t("moin.rpc.stopped")}
+          </Badge>
+        </div>
+
+        {restartPending && (
+          <p className="text-muted-foreground text-right text-xs">
+            {t("moin.settings.hint.restartRequired")}
+          </p>
         )}
       </div>
-
-      {restartPending && (
-        <p className="text-muted-foreground text-xs">{t("moin.settings.hint.restartRequired")}</p>
-      )}
     </Section>
   );
 }

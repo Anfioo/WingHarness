@@ -37,8 +37,8 @@ use crate::category::CategoryStore;
 use crate::embedded::EmbeddedBackend;
 use crate::error::{MoinError, MoinResult};
 use crate::models::{
-    filename_from_url, now_ms, sanitize_filename, AddMethodKind, BackendInfo, Category, Settings,
-    Task, TaskKind, TaskProgress, TaskStatus, ToolStatus,
+    filename_from_url, now_ms, sanitize_filename, AddMethodKind, BackendInfo, Category,
+    SegmentProgress, Settings, Task, TaskKind, TaskProgress, TaskStatus, ToolStatus,
 };
 use crate::{settings, store::Store};
 
@@ -77,6 +77,11 @@ struct Inner {
 /// How often a byte rate is recomputed from the running total.
 const SPEED_WINDOW: Duration = Duration::from_millis(500);
 
+/// Weight a new window carries in the exponential average. A third settles a
+/// real change in roughly a second and a half without letting one burst, or one
+/// gap, move the displayed figure on its own.
+const SPEED_SMOOTHING: f64 = 0.3;
+
 /// How often a running transfer writes its byte count to `downloads.db`.
 /// Progress events are cheap; a database round trip per chunk is not.
 const PERSIST_INTERVAL: Duration = Duration::from_secs(1);
@@ -114,6 +119,11 @@ fn net_config(settings: &Settings) -> NetConfig {
 /// the bytes it already had on disk as one huge burst. Between samples the last
 /// figure is reused, so a fast connection does not turn into a per-chunk
 /// division and the UI still gets a value on every progress tick.
+///
+/// Each window's reading is folded into the previous one instead of replacing
+/// it. Eight connections deliver in uneven bursts, so a raw `delta / elapsed`
+/// jumps by tens of percent every half second; the exponential average keeps the
+/// number readable while still following a real change within a second or two.
 struct SpeedSampler {
     last_at: Instant,
     last_bytes: u64,
@@ -146,7 +156,16 @@ impl SpeedSampler {
             return self.speed;
         }
         let delta = bytes.saturating_sub(self.last_bytes);
-        self.speed = (delta as f64 / elapsed.as_secs_f64()) as u64;
+        let instant = delta as f64 / elapsed.as_secs_f64();
+        self.speed = if delta == 0 {
+            0
+        } else if self.speed == 0 {
+            // Nothing to smooth against yet: the first measured window is the
+            // starting point of the average.
+            instant as u64
+        } else {
+            (self.speed as f64 + (instant - self.speed as f64) * SPEED_SMOOTHING) as u64
+        };
         self.last_bytes = bytes;
         self.last_at = Instant::now();
         self.speed
@@ -375,7 +394,6 @@ impl Engine {
                 created_at: timestamp,
                 updated_at: timestamp,
                 completed_at: None,
-                archived: false,
                 active_ms: 0,
                 backend: Some(backend),
                 category: category_id,
@@ -416,7 +434,7 @@ impl Engine {
         let task = self.task(id)?;
         if !matches!(
             task.status,
-            TaskStatus::Paused | TaskStatus::Failed | TaskStatus::Stalled
+            TaskStatus::Paused | TaskStatus::Failed
         ) {
             return Err(MoinError::conflict(format!(
                 "A {} download cannot be resumed.",
@@ -431,7 +449,7 @@ impl Engine {
     pub async fn cancel(&self, id: &str) -> MoinResult<()> {
         let task = self.task(id)?;
         match task.status {
-            TaskStatus::Queued | TaskStatus::Paused | TaskStatus::Failed | TaskStatus::Stalled => {
+            TaskStatus::Queued | TaskStatus::Paused | TaskStatus::Failed => {
                 self.set_status(id, TaskStatus::Canceled, None).await?;
             }
             TaskStatus::Connecting | TaskStatus::Downloading => self.control(id)?.set(Signal::Cancel),
@@ -449,7 +467,7 @@ impl Engine {
         let task = self.task(id)?;
         if !matches!(
             task.status,
-            TaskStatus::Failed | TaskStatus::Stalled | TaskStatus::Canceled
+            TaskStatus::Failed | TaskStatus::Canceled
         ) {
             return Err(MoinError::conflict(format!(
                 "A {} download cannot be retried.",
@@ -463,18 +481,13 @@ impl Engine {
         Ok(())
     }
 
-    /// Archive the record and keep the downloaded file.
-    pub async fn remove(&self, id: &str) -> MoinResult<()> {
-        let task = self.task(id)?;
-        if task.archived {
-            return Ok(());
-        }
-        self.mutate(id, |task| task.archived = true).await?;
-        Ok(())
-    }
-
-    /// Archive the record and delete the downloaded file (and its partials).
-    pub async fn delete(&self, id: &str) -> MoinResult<()> {
+    /// Drop the record. The downloaded file and any partials stay on disk
+    /// unless `delete_files` is set, which only the runtime installer asks for:
+    /// its archive is an implementation detail, not something to keep.
+    ///
+    /// A running transfer is canceled first: leaving it writing after its record
+    /// is gone would strand the file with nothing tracking it.
+    pub async fn delete(&self, id: &str, delete_files: bool) -> MoinResult<()> {
         if self.is_active(id) {
             if let Ok(control) = self.control(id) {
                 control.set(Signal::Cancel);
@@ -482,50 +495,37 @@ impl Engine {
             self.wait_inactive(id).await?;
         }
         let task = self.task(id)?;
-        // `.part.aria2` is the control file the external backend leaves behind;
-        // a stale one would make the next attempt resume into a dead session.
-        for path in [
-            PathBuf::from(&task.dest),
-            PathBuf::from(task.part_path()),
-            PathBuf::from(task.meta_path()),
-            PathBuf::from(format!("{}.aria2", task.part_path())),
-        ] {
-            match tokio::fs::remove_file(path).await {
-                Ok(()) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => {
-                    return Err(MoinError::io(format!(
-                        "Could not remove the download file: {error}"
-                    )))
+        if delete_files {
+            // `.part.aria2` is the control file the external backend leaves
+            // behind; a stale one would make the next attempt resume into a dead
+            // session.
+            for path in [
+                PathBuf::from(&task.dest),
+                PathBuf::from(task.part_path()),
+                PathBuf::from(task.meta_path()),
+                PathBuf::from(format!("{}.aria2", task.part_path())),
+            ] {
+                match tokio::fs::remove_file(path).await {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                    Err(error) => {
+                        return Err(MoinError::io(format!(
+                            "Could not remove the download file: {error}"
+                        )))
+                    }
                 }
             }
         }
-        self.mutate(id, |task| task.archived = true).await?;
-        Ok(())
-    }
-
-    pub async fn archive_many(&self, ids: Vec<String>, delete_file: bool) -> MoinResult<()> {
-        for id in ids {
-            if delete_file {
-                self.delete(&id).await?;
-            } else {
-                self.remove(&id).await?;
-            }
-        }
-        Ok(())
-    }
-
-    /// Drop the record and leave every file on disk alone.
-    pub async fn forget(&self, id: &str) -> MoinResult<()> {
-        if self.is_active(id) {
-            return Err(MoinError::conflict(
-                "Pause or cancel the download before removing its record.",
-            ));
-        }
-        self.task(id)?;
         self.inner.store.delete(id).await?;
         guard(&self.inner.tasks)?.remove(id);
         self.inner.emitter.removed(id);
+        Ok(())
+    }
+
+    pub async fn delete_many(&self, ids: Vec<String>, delete_files: bool) -> MoinResult<()> {
+        for id in ids {
+            self.delete(&id, delete_files).await?;
+        }
         Ok(())
     }
 
@@ -1044,7 +1044,7 @@ impl Engine {
                 Outcome::Paused => (TaskStatus::Paused, None),
                 Outcome::Canceled => (TaskStatus::Canceled, None),
                 Outcome::Stalled => (
-                    TaskStatus::Stalled,
+                    TaskStatus::Failed,
                     Some("No data was received before the stall timeout.".to_string()),
                 ),
                 Outcome::Failed(message) => (TaskStatus::Failed, Some(message)),
@@ -1133,7 +1133,7 @@ impl Engine {
         let engine = self.clone();
         let task_id = id.to_string();
         let sampler = Arc::new(Mutex::new(SpeedSampler::new()));
-        Arc::new(move |received: u64, total: Option<u64>| {
+        Arc::new(move |received: u64, total: Option<u64>, segments: &[SegmentProgress]| {
             let speed = sampler
                 .lock()
                 .map(|mut sampler| sampler.sample(received))
@@ -1155,6 +1155,7 @@ impl Engine {
                 total,
                 speed,
                 status: TaskStatus::Downloading,
+                segments: segments.to_vec(),
             });
         })
     }
@@ -1230,6 +1231,7 @@ impl Engine {
                 total,
                 speed: 0,
                 status: TaskStatus::Moving,
+                segments: Vec::new(),
             });
         }
         if let Err(error) = output.flush().await {
@@ -1400,7 +1402,6 @@ mod tests {
             created_at: 1,
             updated_at: 1,
             completed_at: None,
-            archived: false,
             active_ms: 0,
             backend: None,
             category: None,
@@ -1467,6 +1468,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn speed_sampler_eases_toward_a_new_rate() {
+        let mut sampler = super::SpeedSampler::new();
+        assert_eq!(sampler.sample(0), 0);
+
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let first = sampler.sample(512 * 1024);
+        assert!(first > 0, "the first measured window seeds the average");
+
+        tokio::time::sleep(Duration::from_millis(600)).await;
+        let second = sampler.sample(512 * 1024 + 8 * 1024 * 1024);
+        let instant = (8 * 1024 * 1024) as f64 / 0.6;
+        assert!(second > first, "a faster window raises the average");
+        assert!(
+            (second as f64) < instant,
+            "the average lags the instantaneous rate instead of jumping to it"
+        );
+    }
+
+    #[tokio::test]
     async fn terminal_actions_are_rejected_on_running_downloads() {
         let data_dir = tempfile::tempdir().unwrap();
         let download_dir = tempfile::tempdir().unwrap();
@@ -1521,7 +1541,7 @@ mod tests {
         assert_eq!(
             engine.retry(&task.id).await.unwrap_err().code,
             crate::MoinErrorCode::Conflict,
-            "only failed, stalled and canceled downloads are retried"
+            "only failed and canceled downloads are retried"
         );
         engine.resume(&task.id).await.unwrap();
         assert_eq!(
@@ -1533,7 +1553,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn archiving_keeps_the_file_and_the_record() {
+    async fn deleting_keeps_the_file_and_drops_the_record() {
         let data_dir = tempfile::tempdir().unwrap();
         let download_dir = tempfile::tempdir().unwrap();
         let engine = paused_engine(data_dir.path(), download_dir.path()).await;
@@ -1548,19 +1568,19 @@ mod tests {
             .await
             .unwrap();
         tokio::fs::write(&task.dest, b"payload").await.unwrap();
-        engine.archive_many(vec![task.id.clone()], false).await.unwrap();
-        let listed = engine.list();
-        let archived = listed.iter().find(|item| item.id == task.id).unwrap();
-        assert!(archived.archived);
+        engine.delete(&task.id, false).await.unwrap();
+        assert!(engine.list().is_empty());
+        let store = Store::open(data_dir.path()).await.unwrap();
+        assert!(store.all().await.unwrap().is_empty());
         assert!(
             tokio::fs::try_exists(&task.dest).await.unwrap(),
-            "archiving must not delete the file"
+            "deleting a record must leave the file alone"
         );
         engine.shutdown().await;
     }
 
     #[tokio::test]
-    async fn deleting_removes_every_artifact_and_keeps_the_record() {
+    async fn deleting_files_removes_every_artifact() {
         let data_dir = tempfile::tempdir().unwrap();
         let download_dir = tempfile::tempdir().unwrap();
         let engine = paused_engine(data_dir.path(), download_dir.path()).await;
@@ -1583,7 +1603,7 @@ mod tests {
         for path in &artifacts {
             tokio::fs::write(path, b"payload").await.unwrap();
         }
-        engine.archive_many(vec![task.id.clone()], true).await.unwrap();
+        engine.delete(&task.id, true).await.unwrap();
         for path in &artifacts {
             assert!(
                 !tokio::fs::try_exists(path).await.unwrap(),
@@ -1591,9 +1611,7 @@ mod tests {
                 path.display()
             );
         }
-        let listed = engine.list();
-        let kept = listed.iter().find(|item| item.id == task.id).unwrap();
-        assert!(kept.archived);
+        assert!(engine.list().is_empty());
         engine.shutdown().await;
     }
 
@@ -1692,33 +1710,6 @@ mod tests {
         assert_eq!(requeued.received, 40, "retrying keeps the byte count");
         // The hanging worker never finishes; the runtime drops it with the test.
         holder.abort();
-    }
-
-    #[tokio::test]
-    async fn forget_drops_the_record_from_memory_and_the_store() {
-        let data_dir = tempfile::tempdir().unwrap();
-        let download_dir = tempfile::tempdir().unwrap();
-        let engine = paused_engine(data_dir.path(), download_dir.path()).await;
-        let task = engine
-            .add_http(
-                "https://example.test/forget.bin".to_string(),
-                download_dir.path().to_path_buf(),
-                None,
-                Default::default(),
-                None,
-            )
-            .await
-            .unwrap();
-        tokio::fs::write(&task.dest, b"payload").await.unwrap();
-        engine.forget(&task.id).await.unwrap();
-        assert!(engine.list().is_empty());
-        let store = Store::open(data_dir.path()).await.unwrap();
-        assert!(store.all().await.unwrap().is_empty());
-        assert!(
-            tokio::fs::try_exists(&task.dest).await.unwrap(),
-            "forgetting a record must leave the file alone"
-        );
-        engine.shutdown().await;
     }
 
     #[tokio::test]

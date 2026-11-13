@@ -2,17 +2,7 @@
 // See `src-tauri/moin-core/UPSTREAM.md` for the porting record.
 
 import type { ReactNode } from "react";
-import {
-  Copy,
-  Eraser,
-  FolderInput,
-  FolderOpen,
-  Pause,
-  Play,
-  RotateCcw,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Copy, FolderInput, FolderOpen, Pause, Play, RotateCcw, Trash2, X } from "lucide-react";
 import type { MoinCategory, MoinTask } from "@/commands";
 import {
   ContextMenu,
@@ -40,9 +30,7 @@ export interface TaskActionHandlers {
   onReveal: (task: MoinTask) => void;
   onCopyUrl: (task: MoinTask) => void;
   onMoveToCategory: (task: MoinTask, category: string | null) => void;
-  onRemove: (task: MoinTask) => void;
   onDelete: (task: MoinTask) => void;
-  onForget: (task: MoinTask) => void;
 }
 
 export interface TaskContextMenuProps {
@@ -54,8 +42,8 @@ export interface TaskContextMenuProps {
 
 export function TaskContextMenu({ task, categories, handlers, children }: TaskContextMenuProps) {
   const { t } = useAppTranslation();
-  // A running transfer cannot be archived or forgotten; the engine would answer
-  // `conflict`, so those entries stay disabled until it reaches a final state.
+  // A running transfer cannot be deleted; the engine would answer `conflict`,
+  // so the entry stays disabled until it reaches a final state.
   const settled = !isActiveStatus(task.status);
 
   return (
@@ -120,22 +108,12 @@ export function TaskContextMenu({ task, categories, handlers, children }: TaskCo
         <ContextMenuSeparator />
 
         <ContextMenuItem
-          disabled={!settled || task.archived}
-          onSelect={() => handlers.onRemove(task)}
-        >
-          {t("moin.action.remove")}
-        </ContextMenuItem>
-        <ContextMenuItem
           variant="destructive"
           disabled={!settled}
           onSelect={() => handlers.onDelete(task)}
         >
           <Trash2 />
           {t("moin.action.delete")}
-        </ContextMenuItem>
-        <ContextMenuItem disabled={!settled} onSelect={() => handlers.onForget(task)}>
-          <Eraser />
-          {t("moin.action.forget")}
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>

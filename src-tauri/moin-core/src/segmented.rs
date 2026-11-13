@@ -22,6 +22,7 @@ use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use crate::backend::{Control, Outcome, ProgressFn, Signal};
 use crate::fsattr;
 use crate::http::{probe_total, stall_limit, POLL};
+use crate::models::SegmentProgress;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct Segment {
@@ -245,7 +246,7 @@ async fn run_segment(
     received: Arc<AtomicU64>,
     aborted: Arc<AtomicBool>,
     control: Control,
-    progress: Arc<dyn Fn(u64, Option<u64>) + Send + Sync>,
+    progress: ProgressFn,
 ) -> SegmentResult {
     let mut file = match tokio::fs::OpenOptions::new().write(true).open(&path).await {
         Ok(file) => file,
@@ -312,12 +313,23 @@ async fn run_segment(
                 let current = received
                     .fetch_add(count as u64, Ordering::AcqRel)
                     .saturating_add(count as u64);
-                if let Ok(mut segments) = shared.lock() {
-                    if let Some(saved) = segments.get_mut(index) {
-                        saved.position = segment.position;
+                let snapshot = match shared.lock() {
+                    Ok(mut segments) => {
+                        if let Some(saved) = segments.get_mut(index) {
+                            saved.position = segment.position;
+                        }
+                        segments
+                            .iter()
+                            .map(|saved| SegmentProgress {
+                                start: saved.start,
+                                end: saved.end,
+                                position: saved.position,
+                            })
+                            .collect::<Vec<_>>()
                     }
-                }
-                progress(current, Some(total));
+                    Err(_) => Vec::new(),
+                };
+                progress(current, Some(total), &snapshot);
                 if segment.complete() {
                     let _ = file.flush().await;
                     return SegmentResult::Done;
@@ -407,8 +419,9 @@ fn split(total: u64, connections: usize, minimum: u64) -> Vec<Segment> {
 mod tests {
     use super::{download, plan_matches, save_plan, split, valid_plan, ResumePlan, Segment};
     use crate::backend::{Control, ProgressFn};
+    use crate::models::SegmentProgress;
     use reqwest::header::HeaderMap;
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     #[tokio::test]
@@ -536,7 +549,14 @@ mod tests {
         let part = dir.path().join("file.bin.part");
         let dest = dir.path().join("file.bin");
         let meta = dir.path().join("file.bin.part.meta");
-        let progress: ProgressFn = Arc::new(|_, _| {});
+        let reports: Arc<Mutex<Vec<Vec<SegmentProgress>>>> = Arc::new(Mutex::new(Vec::new()));
+        let recorder = Arc::clone(&reports);
+        let progress: ProgressFn = Arc::new(move |_, _, segments| {
+            recorder
+                .lock()
+                .expect("the segment log")
+                .push(segments.to_vec());
+        });
         let outcome = download(
             &reqwest::Client::new(),
             &format!("http://{address}/file.bin"),
@@ -555,5 +575,17 @@ mod tests {
         server.abort();
         assert!(matches!(outcome, crate::backend::Outcome::Completed));
         assert_eq!(tokio::fs::read(dest).await.unwrap(), body);
+
+        let reports = reports.lock().expect("the segment log");
+        let widest = reports
+            .iter()
+            .max_by_key(|segments| segments.len())
+            .expect("at least one progress report");
+        assert_eq!(widest.len(), 4);
+        assert_eq!(widest.first().map(|segment| segment.start), Some(0));
+        assert_eq!(
+            widest.last().map(|segment| segment.end),
+            Some(body.len() as u64 - 1)
+        );
     }
 }
