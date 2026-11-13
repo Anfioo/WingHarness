@@ -201,7 +201,21 @@ GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）。见 [LICEN
 [licenses/](./licenses/)。每个已移植子系统的来源，以及哪些上游项目不得移植，记录在
 [docs/UPSTREAM_PROJECTS.zh-CN.md](./docs/UPSTREAM_PROJECTS.zh-CN.md)。
 
-## 贡献
+## 🤝 贡献
 
 欢迎贡献。请先读 [CONTRIBUTING.zh-CN.md](./CONTRIBUTING.zh-CN.md)：开发环境、
 提交信息格式，以及从上游项目移植代码的规则都在那里。
+
+<a href="https://github.com/Anfioo/WingHarness/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Anfioo/WingHarness" alt="WingHarness 贡献者" />
+</a>
+
+## ⭐ Star 历史
+
+<a href="https://www.star-history.com/?repos=Anfioo%2FWingHarness&type=date&releases=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+ </picture>
+</a>
