@@ -201,6 +201,10 @@
       "envNote": "代理选择会以 HTTP_PROXY、HTTPS_PROXY、ALL_PROXY 写入应用启动的子进程环境；不使用代理时写入 NO_PROXY=*。",
       "loadFailed": "读取代理设置失败。"
     },
+    "download": {
+      "title": "下载",
+      "description": "下载的保存目录、队列、网络行为与下载引擎。"
+    },
     "filePreview": {
       "title": "文件预览",
       "description": "文件预览打开和显示文件的方式。"

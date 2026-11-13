@@ -58,28 +58,22 @@ export async function moinCancelDownload(id: string): Promise<void> {
   return await invokeCommand<{ id: string }, void>("moin_cancel_download", { id });
 }
 
-export async function moinRemoveDownload(id: string): Promise<void> {
-  return await invokeCommand<{ id: string }, void>("moin_remove_download", { id });
+export async function moinDeleteDownload(id: string, deleteFiles: boolean): Promise<void> {
+  return await invokeCommand<{ id: string; deleteFiles: boolean }, void>("moin_delete_download", {
+    id,
+    deleteFiles,
+  });
 }
 
-export async function moinDeleteDownload(id: string): Promise<void> {
-  return await invokeCommand<{ id: string }, void>("moin_delete_download", { id });
-}
-
-export async function moinRemoveDownloads(ids: string[]): Promise<void> {
-  return await invokeCommand<{ ids: string[] }, void>("moin_remove_downloads", { ids });
-}
-
-export async function moinDeleteDownloads(ids: string[]): Promise<void> {
-  return await invokeCommand<{ ids: string[] }, void>("moin_delete_downloads", { ids });
+export async function moinDeleteDownloads(ids: string[], deleteFiles: boolean): Promise<void> {
+  return await invokeCommand<{ ids: string[]; deleteFiles: boolean }, void>(
+    "moin_delete_downloads",
+    { ids, deleteFiles }
+  );
 }
 
 export async function moinRetryDownload(id: string): Promise<void> {
   return await invokeCommand<{ id: string }, void>("moin_retry_download", { id });
-}
-
-export async function moinForgetDownload(id: string): Promise<void> {
-  return await invokeCommand<{ id: string }, void>("moin_forget_download", { id });
 }
 
 export async function moinGetSettings(): Promise<MoinSettings> {

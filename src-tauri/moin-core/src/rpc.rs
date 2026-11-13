@@ -765,7 +765,6 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             completed_at: None,
-            archived: false,
             active_ms: 0,
             backend: Some("embedded".to_string()),
             category: None,
