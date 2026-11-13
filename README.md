@@ -173,6 +173,7 @@ repository yet.
 | [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
 | [RUNTIME.md](./docs/features/RUNTIME.md) | Downloading and installing the mihomo and frpc runtimes |
+| [SCOOP.md](./docs/features/SCOOP.md) | Installing Scoop, its two folders and links, environment variables, the proxy, and its apps and buckets |
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
 | [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |

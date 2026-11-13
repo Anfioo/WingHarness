@@ -1,8 +1,33 @@
 import { invokeCommand } from "../../base";
 
-/** Spawn a local shell (cmd.exe on Windows) and return its session id. */
-export function localShellStart(cols: number, rows: number): Promise<string> {
-  return invokeCommand<{ cols: number; rows: number }, string>("local_shell_start", { cols, rows });
+/** Options for a non-interactive run: command line, working directory, env. */
+export interface LocalShellRun {
+  command: string;
+  cwd?: string;
+  env?: Record<string, string>;
+}
+
+/**
+ * Spawn a local shell (cmd.exe on Windows) and return its session id.
+ *
+ * With `options.command` the shell runs that line and exits; without it the
+ * shell stays interactive, which is what the terminal page uses.
+ */
+export function localShellStart(
+  cols: number,
+  rows: number,
+  options?: LocalShellRun
+): Promise<string> {
+  return invokeCommand<
+    {
+      cols: number;
+      rows: number;
+      command?: string;
+      cwd?: string;
+      env?: Record<string, string>;
+    },
+    string
+  >("local_shell_start", { cols, rows, ...options });
 }
 
 /** Send user-typed input bytes to the shell. */

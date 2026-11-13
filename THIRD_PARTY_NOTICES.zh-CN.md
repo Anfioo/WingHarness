@@ -138,6 +138,16 @@ Porter.
 macOS、Linux 与 Flatpak 路径、出站连接、UDP、整应用提权，以及外壳、主题与更新类
 功能都没有移植。移植记录见 `src-tauri/ports-core/UPSTREAM.md`。
 
+### ScoopInstaller/Install
+
+- 项目：[ScoopInstaller/Install](https://github.com/ScoopInstaller/Install)
+- 许可证：Unlicense（公有领域）
+- 许可证文本：[licenses/ScoopInstaller-Install-UNLICENSE.txt](./licenses/ScoopInstaller-Install-UNLICENSE.txt)
+
+`src-tauri/resources/scoop/install.ps1` 是上游安装脚本的原样副本，随应用一起分发，
+因此安装 Scoop 前不必再下载该脚本。Scoop 页面从数据目录运行它，不做修改。导入时的
+SHA-256：`94f983b190438311e006b957db7c8422709e0ba62a6c2ac04e278164108f2512`。
+
 ### shaic
 
 - 项目：[shaic](https://github.com/dariocurr/shaic)

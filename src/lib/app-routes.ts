@@ -1,6 +1,7 @@
 import {
   Blocks,
   Bot,
+  Boxes,
   Building2,
   Database,
   FolderGit2,
@@ -54,6 +55,7 @@ export type AppRouteId =
   | "frp"
   | "privateRegistry"
   | "localTerminal"
+  | "scoop"
   | "clash"
   | "plugins"
   | "ccSwitch"
@@ -210,6 +212,18 @@ export const appRoutes: AppRoute[] = [
     icon: SquareTerminal,
     scope: "本地 PTY / cmd.exe",
     items: ["本地命令行", "交互式输入", "实时输出"],
+  },
+  {
+    id: "scoop",
+    group: "ecosystem",
+    path: "/scoop",
+    title: "Scoop",
+    navLabel: "Scoop",
+    description:
+      "安装并使用 Scoop：安装目录、SCOOP / SCOOP_GLOBAL 环境变量与下载代理都在这一页设置。安装完成后可以查看版本、已装软件与桶，按名称搜索并安装新软件；每次操作都会显示实际执行的命令、代理和终端输出。",
+    icon: Boxes,
+    scope: "本机 / Windows 包管理",
+    items: ["一键安装", "目录与代理", "已装软件与桶", "搜索并安装"],
   },
   {
     id: "clash",
