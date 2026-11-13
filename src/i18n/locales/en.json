@@ -202,6 +202,10 @@
       "envNote": "The choice is exported to child processes as HTTP_PROXY, HTTPS_PROXY and ALL_PROXY; no-proxy mode writes NO_PROXY=*.",
       "loadFailed": "Could not load the proxy settings."
     },
+    "download": {
+      "title": "Downloads",
+      "description": "Save folder, queue, network behaviour and engine for downloads."
+    },
     "filePreview": {
       "title": "File preview",
       "description": "How the file preview opens and displays files."

@@ -256,7 +256,7 @@ async fn single_stream(
     let mut stream = response.bytes_stream();
     let limit = stall_limit(stall_timeout, POLL);
     let mut idle_polls = 0u32;
-    progress(received, total);
+    progress(received, total, &[]);
 
     let mut interrupted = None;
     loop {
@@ -274,7 +274,7 @@ async fn single_stream(
                 }
                 received = received.saturating_add(bytes.len() as u64);
                 idle_polls = 0;
-                progress(received, total);
+                progress(received, total, &[]);
             }
             Ok(Some(Err(error))) => {
                 interrupted = Some(Outcome::Failed(describe(&error)));
