@@ -22,7 +22,8 @@ CSS v4 + shadcn/ui.
   `preview-window` (the hidden standalone preview window), `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
   `mcp-hub`, `clash`, `plugins`, `private-registry`, `moin` (HTTP/HTTPS
-  downloads, categories and settings at `/moin`)
+  downloads, categories and settings at `/moin`), `scoop` (install, apps and
+  buckets at `/scoop`)
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,

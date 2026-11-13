@@ -173,6 +173,7 @@ repository yet.
 | [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
 | [RUNTIME.md](./docs/features/RUNTIME.md) | Downloading and installing the mihomo and frpc runtimes |
+| [SCOOP.md](./docs/features/SCOOP.md) | Installing Scoop, its two folders and links, environment variables, the proxy, and its apps and buckets |
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
 | [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |
@@ -211,8 +212,22 @@ Third-party components keep their own licenses — see
 upstream projects must not be ported, is recorded in
 [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md).
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) first — it
 covers the development setup, the commit format, and the rules for porting code
 from an upstream project.
+
+<a href="https://github.com/Anfioo/WingHarness/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Anfioo/WingHarness" alt="WingHarness contributors" />
+</a>
+
+## ⭐ Star History
+
+<a href="https://www.star-history.com/?repos=Anfioo%2FWingHarness&type=date&releases=&legend=bottom-right">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&theme=dark&legend=bottom-right" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=Anfioo/WingHarness&type=date&legend=bottom-right" />
+ </picture>
+</a>

@@ -34,6 +34,7 @@ const pageMap = {
   "/server-window": lazy(() => import("./pages/server-window/index")),
   "/private-registry": lazy(() => import("./pages/private-registry/index")),
   "/local-terminal": lazy(() => import("./pages/local-terminal/index")),
+  "/scoop": lazy(() => import("./pages/scoop/index")),
   "/clash": lazy(() => import("./pages/clash/index")),
   "/plugins": lazy(() => import("./pages/plugins/index")),
   "/plugin-focus": lazy(() => import("./pages/plugin-focus/index")),

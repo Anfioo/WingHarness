@@ -1,0 +1,151 @@
+const scoop = {
+  title: "Scoop",
+  subtitle:
+    "Install Scoop on this machine and keep its two folders, environment variables and download proxy in one place.",
+  status: {
+    installed: "Installed",
+    missing: "Not installed",
+  },
+  error: {
+    status: "Could not read the Scoop state:",
+  },
+  restart: {
+    message:
+      "Scoop is installed and the environment variables are written. Reopen the app so new terminals and other tools can find the scoop command.",
+    button: "Reopen app",
+  },
+  tabs: {
+    overview: "Overview",
+    search: "Search & install",
+    buckets: "Buckets",
+    settings: "Settings",
+  },
+  location: {
+    data: "Data folder",
+    user: "User folder",
+    custom: "Custom",
+    unknown: "Unknown",
+    customPlaceholder: "e.g. D:\\Tools\\scoop",
+  },
+  path: {
+    scoop: "SCOOP folder (scoop)",
+    global: "SCOOP_GLOBAL folder (scoopg)",
+    scoopHint: "Where normal installs (scoop install) put their files; the data folder by default.",
+    globalHint:
+      "Where global installs (scoop install -g) put their files; the data folder by default.",
+  },
+  proxy: {
+    mode: {
+      inherit: "Follow settings",
+      none: "Direct",
+      custom: "Custom",
+    },
+    direct: "Direct (no proxy)",
+    system: "System proxy",
+    fromSettings: "from settings",
+    fromPage: "page override",
+    placeholder: "http://127.0.0.1:7890",
+  },
+  install: {
+    locationTitle: "Install folders",
+    proxyTitle: "Download proxy",
+    proxyHint:
+      "The installer, the scoop command and later downloads use this proxy. It follows the app settings by default.",
+    summaryTitle: "What will be created",
+    scoopFolder: "Folder · scoop (real files)",
+    globalFolder: "Folder · scoopg (real files)",
+    scoopLink: "Link · ScoopCurrent",
+    globalLink: "Link · ScoopGlobalCurrent",
+    scoopEnv: "Variable SCOOP",
+    globalEnv: "Variable SCOOP_GLOBAL",
+    linkValue: "{{link}} → {{target}}",
+    envValue: "{{link}} (real path {{target}})",
+    linkNote:
+      "ScoopCurrent and ScoopGlobalCurrent are fixed directory links; they point at the real scoop and scoopg folders. The variables always name the links, so moving a folder only means re-pointing its link.",
+    samePath: "This folder is the link path itself, so no link is created for it.",
+    envHint: "SCOOP → ScoopCurrent, SCOOP_GLOBAL → ScoopGlobalCurrent.",
+    steps:
+      "The two folders and their links are created and the user environment variables are written first; the bundled install.ps1 then runs in the terminal below.",
+    start: "Install Scoop",
+    starting: "Installing…",
+    adoptTitle: "An existing Scoop was found",
+    adoptHint:
+      "{{path}} already holds a usable Scoop install. The links and environment variables can be pointed at it without reinstalling.",
+    adopt: "Use this install",
+    note: "The installer is the official install.ps1 (Unlicense), bundled with the app; nothing is downloaded before it runs.",
+    proxy: "Proxy",
+  },
+  overview: {
+    version: "Scoop version",
+    unknownVersion: "Unknown",
+    apps: "Installed apps",
+    buckets: "Buckets",
+    pathsTitle: "Folders, links and variables",
+    refresh: "Refresh",
+    scoopFolder: "Folder · scoop",
+    globalFolder: "Folder · scoopg",
+    scoopLink: "Link · ScoopCurrent",
+    globalLink: "Link · ScoopGlobalCurrent",
+    scoopEnv: "Variable SCOOP",
+    globalEnv: "Variable SCOOP_GLOBAL",
+    linkValue: "{{link}} → {{target}}",
+    envValue: "{{link}} (real path {{target}})",
+    envMissing: "Not set",
+    dataDir: "Data folder",
+    proxy: "Proxy",
+    installedTitle: "Installed apps",
+    filterPlaceholder: "Filter by name",
+    noApps: "No apps are installed yet.",
+    noMatches: "No apps match the filter.",
+    globalBadge: "Global",
+  },
+  search: {
+    placeholder: "7zip or scoop install 7zip",
+    install: "Install",
+    online: "Search online",
+    hint: "Typing a name searches the manifests of the cloned buckets locally. Search online runs scoop search and streams its output into the terminal below.",
+    localTitle: "Local results",
+    searching: "Searching…",
+    empty: "No app matches.",
+    idle: "Type a name to search.",
+    installed: "Installed",
+    installOne: "Install",
+  },
+  buckets: {
+    title: "Buckets",
+    count: "{{count}} in total",
+    empty: "No bucket has been cloned yet.",
+    apps: "{{count}} manifests",
+  },
+  settings: {
+    locationTitle: "Install location",
+    locationNote:
+      "The links cannot be re-pointed from here once Scoop is installed. Move or uninstall the existing install first.",
+    proxyTitle: "Scoop proxy",
+    proxyHint:
+      "Every install or search writes this proxy into the Scoop configuration first, so downloads leave through the same route.",
+    syncProxy: "Sync proxy now",
+  },
+  run: {
+    title: "Run",
+    state: {
+      running: "Running",
+      ok: "Finished",
+      idle: "Ready",
+      failed: "Failed",
+    },
+    showCommand: "Full command",
+    hideCommand: "Hide command",
+    clear: "Clear",
+    envHint:
+      "%SCOOP% and %HTTP_PROXY% in the script come from the explicit environment of this run.",
+    idle: "Waiting for a run…",
+    launching: "Starting {{command}}",
+    exitedOk: "The process exited with code 0.",
+    exitedFail: "The process exited with code {{code}}.",
+    prepareFailed: "Could not prepare the run: {{message}}",
+    adopted: "Now using {{path}}.",
+  },
+};
+
+export default scoop;
