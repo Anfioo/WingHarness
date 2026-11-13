@@ -40,12 +40,19 @@ that junction. A real folder that is not empty is never deleted — the command
 refuses and asks the user to choose that folder instead. If a chosen folder is
 literally the link path itself, no link is created for it.
 
-The variables are written to `HKCU\Environment` through PowerShell's
-`[Environment]::SetEnvironmentVariable(..., 'User')`, which also broadcasts
-`WM_SETTINGCHANGE`. Already-running processes cannot see them, so the app never
+The variables are written directly to `HKCU\Environment`, then a detached
+PowerShell broadcasts `WM_SETTINGCHANGE` so Explorer and new consoles reload
+their environment. That broadcast waits on every top-level window, so it is not
+awaited: the prepare step must never be able to freeze on a hung window.
+Already-running processes cannot see the variables anyway, so the app never
 relies on `PATH`: every Scoop command is invoked through the absolute path
 `%SCOOP%\shims\scoop.cmd`. The page says a restart is needed, and offers one,
 only so other tools and new terminals pick the variables up.
+
+All five commands are declared with `#[tauri::command(async)]`, so Tauri runs
+them on its thread pool rather than on the main thread. Without that, the
+PowerShell broadcast above would deadlock against a blocked UI thread and the
+window would be reported as not responding.
 
 The overview and the settings tab show the two real folders, the two links as
 `link → folder`, and each variable as `link (real path …)`, so nothing looks
