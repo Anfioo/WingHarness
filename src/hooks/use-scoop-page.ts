@@ -29,6 +29,8 @@ export interface ScoopPageController {
   plan: ScoopPlan | null;
   run: ScoopRun | null;
   running: ScoopRunKind | null;
+  /** A backend call is preparing the run (folders, links, script). */
+  preparing: boolean;
   lastExit: number | null;
   logs: ScoopLogEntry[];
   restartNeeded: boolean;
@@ -65,6 +67,7 @@ export function useScoopPage(): ScoopPageController {
   const [plan, setPlan] = useState<ScoopPlan | null>(null);
   const [run, setRun] = useState<ScoopRun | null>(null);
   const [running, setRunning] = useState<ScoopRunKind | null>(null);
+  const [preparing, setPreparing] = useState(false);
   const [lastExit, setLastExit] = useState<number | null>(null);
   const [logs, setLogs] = useState<ScoopLogEntry[]>([]);
   const [restartNeeded, setRestartNeeded] = useState(false);
@@ -72,6 +75,19 @@ export function useScoopPage(): ScoopPageController {
   const logIdRef = useRef(0);
   const runIdRef = useRef(0);
   const runKindRef = useRef<ScoopRunKind | null>(null);
+  const pendingRef = useRef(false);
+
+  const beginPreparation = useCallback(() => {
+    if (pendingRef.current) return false;
+    pendingRef.current = true;
+    setPreparing(true);
+    return true;
+  }, []);
+
+  const endPreparation = useCallback(() => {
+    pendingRef.current = false;
+    setPreparing(false);
+  }, []);
 
   const appendLog = useCallback((text: string, tone: ScoopLogTone = "info") => {
     const id = (logIdRef.current += 1);
@@ -141,7 +157,7 @@ export function useScoopPage(): ScoopPageController {
   );
 
   const prepareInstall = useCallback(async () => {
-    if (running) return;
+    if (running || !beginPreparation()) return;
     try {
       const next = await scoopPrepareInstall({
         scoop: prefs.scoop,
@@ -152,13 +168,18 @@ export function useScoopPage(): ScoopPageController {
       startPlan(next, "install");
     } catch (error) {
       appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+    } finally {
+      endPreparation();
     }
-  }, [appendLog, prefs, running, startPlan, t]);
+  }, [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]);
 
   const adopt = useCallback(async () => {
-    if (running) return;
+    if (running || !beginPreparation()) return;
     const found = status?.otherInstall;
-    if (!found) return;
+    if (!found) {
+      endPreparation();
+      return;
+    }
     try {
       const next = await scoopApplyLocation({
         scoop: { location: "custom", customPath: found },
@@ -169,12 +190,14 @@ export function useScoopPage(): ScoopPageController {
       setRestartNeeded(true);
     } catch (error) {
       appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+    } finally {
+      endPreparation();
     }
-  }, [appendLog, running, status, t]);
+  }, [appendLog, beginPreparation, endPreparation, running, status, t]);
 
   const runScoop = useCallback(
     async (kind: "install" | "search", spec: string) => {
-      if (running) return;
+      if (running || !beginPreparation()) return;
       try {
         const next = await scoopPlanRun({
           kind,
@@ -185,16 +208,18 @@ export function useScoopPage(): ScoopPageController {
         startPlan(next, kind === "search" ? "search" : "app");
       } catch (error) {
         appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+      } finally {
+        endPreparation();
       }
     },
-    [appendLog, prefs, running, startPlan, t]
+    [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]
   );
 
   const installApp = useCallback((spec: string) => runScoop("install", spec), [runScoop]);
   const searchOnline = useCallback((spec: string) => runScoop("search", spec), [runScoop]);
 
   const syncProxy = useCallback(async () => {
-    if (running) return;
+    if (running || !beginPreparation()) return;
     try {
       const next = await scoopPlanRun({
         kind: "config",
@@ -205,8 +230,10 @@ export function useScoopPage(): ScoopPageController {
       startPlan(next, "config");
     } catch (error) {
       appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+    } finally {
+      endPreparation();
     }
-  }, [appendLog, prefs, running, startPlan, t]);
+  }, [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]);
 
   const clearRun = useCallback(() => {
     setPlan(null);
@@ -228,6 +255,7 @@ export function useScoopPage(): ScoopPageController {
     plan,
     run,
     running,
+    preparing,
     lastExit,
     logs,
     restartNeeded,

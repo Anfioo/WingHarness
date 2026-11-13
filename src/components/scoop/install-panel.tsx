@@ -8,7 +8,7 @@ import { PathPicker, ProxyPicker } from "./pickers";
 /** The first-run screen: two folders, proxy, what will be written, install. */
 export function ScoopInstallPanel({ page }: { page: ScoopPageController }) {
   const { t } = useAppTranslation();
-  const busy = page.running !== null;
+  const busy = page.running !== null || page.preparing;
   const status = page.status;
   const scoopTarget = chosenPath("scoop", page.prefs.scoop, status);
   const globalTarget = chosenPath("global", page.prefs.global, status);
@@ -74,7 +74,11 @@ export function ScoopInstallPanel({ page }: { page: ScoopPageController }) {
           disabled={busy || !scoopTarget || !globalTarget}
           onClick={() => void page.prepareInstall()}
         >
-          {page.running === "install" ? t("scoop.install.starting") : t("scoop.install.start")}
+          {page.preparing
+            ? t("scoop.install.preparing")
+            : page.running === "install"
+              ? t("scoop.install.starting")
+              : t("scoop.install.start")}
         </Button>
       </section>
 

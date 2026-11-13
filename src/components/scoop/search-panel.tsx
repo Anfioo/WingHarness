@@ -18,7 +18,7 @@ export function ScoopSearchPanel({ page }: { page: ScoopPageController }) {
   const [hits, setHits] = useState<ScoopSearchHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const busy = page.running !== null;
+  const busy = page.running !== null || page.preparing;
 
   useEffect(() => {
     const text = query.trim();
