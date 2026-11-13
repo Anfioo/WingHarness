@@ -1110,8 +1110,10 @@ fn install_script_text(proxy: &EffectiveProxy) -> String {
     script.push_str("@echo off\r\n");
     script.push_str("chcp 65001 >nul\r\n");
     script.push_str("echo [scoop] proxy: %SCOOP_PROXY_LABEL%\r\n");
-    script.push_str("echo [scoop] SCOOP        (link): %SCOOP% -> %SCOOP_TARGET%\r\n");
-    script.push_str("echo [scoop] SCOOP_GLOBAL (link): %SCOOP_GLOBAL% -> %SCOOP_GLOBAL_TARGET%\r\n");
+    script.push_str("echo [scoop] SCOOP link        : %SCOOP%\r\n");
+    script.push_str("echo [scoop] SCOOP real        : %SCOOP_TARGET%\r\n");
+    script.push_str("echo [scoop] SCOOP_GLOBAL link : %SCOOP_GLOBAL%\r\n");
+    script.push_str("echo [scoop] SCOOP_GLOBAL real : %SCOOP_GLOBAL_TARGET%\r\n");
     script.push_str("echo [scoop] installer: %SCOOP_INSTALL_PS1%\r\n");
     script.push_str(
         "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%SCOOP_INSTALL_PS1%\" \
@@ -1125,13 +1127,15 @@ fn install_script_text(proxy: &EffectiveProxy) -> String {
     script.push_str("\r\n");
     script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
     script.push_str("echo [scoop] installer exited with code %SCOOP_EXIT%\r\n");
-    script.push_str("if \"%SCOOP_EXIT%\"==\"0\" (\r\n");
-    script.push_str("  echo [scoop] configuring the Scoop proxy for future installs\r\n");
+    // `goto` rather than an `if (...)` block: a `)` inside an expanded proxy
+    // address would close the block early.
+    script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_done\r\n");
+    script.push_str("echo [scoop] configuring the Scoop proxy for future installs\r\n");
     script.push_str(&format!(
-        "  call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
+        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
         proxy.config_command()
     ));
-    script.push_str(")\r\n");
+    script.push_str(":scoop_done\r\n");
     script.push_str("exit /b %SCOOP_EXIT%\r\n");
     script
 }
@@ -1141,8 +1145,10 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy) -> String {
     script.push_str("@echo off\r\n");
     script.push_str("chcp 65001 >nul\r\n");
     script.push_str("echo [scoop] proxy: %SCOOP_PROXY_LABEL%\r\n");
-    script.push_str("echo [scoop] SCOOP        (link): %SCOOP% -> %SCOOP_TARGET%\r\n");
-    script.push_str("echo [scoop] SCOOP_GLOBAL (link): %SCOOP_GLOBAL% -> %SCOOP_GLOBAL_TARGET%\r\n");
+    script.push_str("echo [scoop] SCOOP link        : %SCOOP%\r\n");
+    script.push_str("echo [scoop] SCOOP real        : %SCOOP_TARGET%\r\n");
+    script.push_str("echo [scoop] SCOOP_GLOBAL link : %SCOOP_GLOBAL%\r\n");
+    script.push_str("echo [scoop] SCOOP_GLOBAL real : %SCOOP_GLOBAL_TARGET%\r\n");
 
     // `call` is required: invoking a batch file without it transfers control
     // and `exit /b` inside scoop.cmd would end this script before the next line.
