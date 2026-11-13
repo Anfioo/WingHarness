@@ -19,6 +19,9 @@ struct PtySession {
     writer: Mutex<Box<dyn Write + Send>>,
     master: Mutex<Box<dyn MasterPty + Send>>,
     child: Arc<Mutex<Box<dyn portable_pty::Child + Send>>>,
+    /// Can kill while another thread is blocked in `child.wait()`.
+    killer: Mutex<Box<dyn portable_pty::ChildKiller + Send + Sync>>,
+    pid: Option<u32>,
 }
 
 static SESSIONS: OnceLock<Mutex<std::collections::HashMap<String, PtySession>>> = OnceLock::new();
@@ -90,14 +93,27 @@ pub fn local_shell_start(
 
     let id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
     let session_id = format!("local-{id}");
+    let pid = child.process_id();
+    let killer = child.clone_killer();
     let child_shared: Arc<Mutex<Box<dyn portable_pty::Child + Send>>> = Arc::new(Mutex::new(child));
+
+    sessions().lock().unwrap().insert(
+        session_id.clone(),
+        PtySession {
+            writer: Mutex::new(writer),
+            master: Mutex::new(pair.master),
+            child: child_shared.clone(),
+            killer: Mutex::new(killer),
+            pid,
+        },
+    );
 
     // Pump PTY output onto the event bus. Only a real EOF (Ok(0)) ends the
     // pump; transient read errors (common on Windows ConPTY when a TUI child
     // takes over the console) are retried instead of killing the session.
     {
         let session_id = session_id.clone();
-        let child = child_shared.clone();
+        let app = app.clone();
         std::thread::spawn(move || {
             let mut buf = [0u8; 8192];
             let mut consecutive_errors = 0u32;
@@ -123,28 +139,32 @@ pub fn local_shell_start(
                     }
                 }
             }
+        });
+    }
 
-            // Wait for the child process to actually exit before broadcasting
-            // exit. The pipe may see EOF while cmd.exe is still alive.
+    // Exit watcher. ConPTY does not report EOF when the child exits, so a
+    // pump that only watched the reader would block forever and `exit` would
+    // never be announced. Waiting on the child is what produces the event;
+    // dropping the session afterwards closes the console and unblocks the
+    // pump.
+    {
+        let app = app.clone();
+        let session_id = session_id.clone();
+        let child = child_shared;
+        std::thread::spawn(move || {
             let code = {
                 let mut child_guard = child.lock().unwrap();
                 child_guard.wait().ok().map(|status| status.exit_code())
             };
+            // Let the last chunk of output reach the event bus first.
+            std::thread::sleep(Duration::from_millis(150));
+            sessions().lock().unwrap().remove(&session_id);
             let _ = app.emit(
                 "local-shell-exit",
                 serde_json::json!({ "sessionId": session_id, "code": code }),
             );
         });
     }
-
-    sessions().lock().unwrap().insert(
-        session_id.clone(),
-        PtySession {
-            writer: Mutex::new(writer),
-            master: Mutex::new(pair.master),
-            child: child_shared,
-        },
-    );
 
     Ok(session_id)
 }
@@ -180,10 +200,15 @@ pub fn local_shell_resize(session_id: String, cols: u16, rows: u16) -> Result<()
 
 #[tauri::command]
 pub fn local_shell_kill(session_id: String) -> Result<(), String> {
-    let mut map = sessions().lock().unwrap();
-    if let Some(session) = map.remove(&session_id) {
+    let session = sessions().lock().unwrap().remove(&session_id);
+    if let Some(session) = session {
+        // The killer is independent of `child`, so this does not deadlock
+        // with the exit watcher that is blocked in `wait`.
+        let _ = session.killer.lock().unwrap().kill();
+        if let Some(pid) = session.pid {
+            let _ = crate::proc::kill_tree_of(pid);
+        }
         let mut child = session.child.lock().unwrap();
-        let _ = child.kill();
         let _ = child.wait();
     }
     Ok(())
