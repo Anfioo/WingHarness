@@ -9,7 +9,7 @@ import { ProxyPicker } from "./pickers";
 export function ScoopSettingsPanel({ page }: { page: ScoopPageController }) {
   const { t } = useAppTranslation();
   const status = page.status;
-  const busy = page.running !== null;
+  const busy = page.running !== null || page.preparing;
   if (!status) return null;
 
   return (

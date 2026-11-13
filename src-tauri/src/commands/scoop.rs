@@ -16,7 +16,7 @@ use std::collections::BTreeSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use serde::{Deserialize, Serialize};
 
@@ -429,6 +429,35 @@ fn read_buckets(target: &Path) -> Vec<ScoopBucketView> {
     buckets
 }
 
+/// Runs a captured child with a hard deadline.
+///
+/// The Scoop commands are off the main thread, but a PowerShell or `scoop.cmd`
+/// that never exits would still leave the page waiting forever. A child that
+/// outlives the deadline is killed together with its descendants.
+fn run_with_timeout(mut command: Command, seconds: u64, label: &str) -> Result<std::process::Output, String> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .creation_flags_no_window()
+        .spawn()
+        .map_err(|error| format!("Failed to start {label}: {error}"))?;
+    let pid = child.id();
+
+    let (sender, receiver) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = sender.send(child.wait_with_output());
+    });
+
+    match receiver.recv_timeout(std::time::Duration::from_secs(seconds)) {
+        Ok(Ok(output)) => Ok(output),
+        Ok(Err(error)) => Err(format!("{label} failed: {error}")),
+        Err(_) => {
+            let _ = crate::proc::kill_tree_of(pid);
+            Err(format!("{label} did not finish within {seconds} seconds."))
+        }
+    }
+}
+
 /// A small installer is not a version source; ask the installed CLI once.
 fn scoop_version(root: &Path) -> Option<String> {
     let shim = root.join("shims").join("scoop.cmd");
@@ -436,16 +465,18 @@ fn scoop_version(root: &Path) -> Option<String> {
         return None;
     }
 
-    let output = Command::new("cmd")
-        .arg("/d")
-        .arg("/c")
-        .arg(&shim)
-        .arg("--version")
-        .env("SCOOP", root)
-        .env("SCOOP_GLOBAL", root)
-        .creation_flags_no_window()
-        .output()
-        .ok()?;
+    let command = {
+        let mut command = Command::new("cmd");
+        command
+            .arg("/d")
+            .arg("/c")
+            .arg(&shim)
+            .arg("--version")
+            .env("SCOOP", root)
+            .env("SCOOP_GLOBAL", root);
+        command
+    };
+    let output = run_with_timeout(command, 20, "scoop --version").ok()?;
 
     let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&output.stderr));
@@ -504,7 +535,7 @@ fn root_view(kind: PathKind) -> RootView {
     RootView { root, target, link }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scoop_status() -> ScoopStatusView {
     status()
 }
@@ -549,7 +580,7 @@ fn status() -> ScoopStatusView {
 // ---------------------------------------------------------------------------
 // Catalog and search
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
     let query = query.trim().to_lowercase();
     if query.is_empty() {
@@ -951,13 +982,9 @@ fn apply_location(
 fn create_junction(link: &Path, target: &Path) -> Result<(), String> {
     use std::os::windows::process::CommandExt;
     let command = format!("mklink /J \"{}\" \"{}\"", link.display(), target.display());
-    let output = Command::new("cmd")
-        .arg("/d")
-        .arg("/c")
-        .raw_arg(&command)
-        .creation_flags_no_window()
-        .output()
-        .map_err(|error| format!("Failed to create the link: {error}"))?;
+    let mut process = Command::new("cmd");
+    process.arg("/d").arg("/c").raw_arg(&command);
+    let output = run_with_timeout(process, 20, "mklink")?;
 
     if output.status.success() {
         Ok(())
@@ -977,10 +1004,26 @@ fn create_junction(_link: &Path, _target: &Path) -> Result<(), String> {
     Err("Scoop is only supported on Windows.".to_string())
 }
 
-/// Writes the user-scope variables. `SetEnvironmentVariable` also broadcasts
-/// `WM_SETTINGCHANGE`, so Explorer and new consoles see the change.
+/// Writes the user-scope variables and asks Windows to reload its environment.
+///
+/// The registry write is the part that must succeed, and it is instant. The
+/// broadcast is what lets already-running shells see the change, but
+/// `SetEnvironmentVariable` waits on every top-level window while doing it —
+/// measured at seconds even with a responsive desktop, and indefinitely when
+/// one window is stuck. It therefore runs in a detached helper and is not
+/// awaited; the app's own commands always pass the variables explicitly.
 #[cfg(windows)]
 fn set_user_env(values: &[(&str, &str)]) -> Result<(), String> {
+    use windows_registry::CURRENT_USER;
+
+    let key = CURRENT_USER
+        .create("Environment")
+        .map_err(|error| format!("Failed to open the user environment key: {error}"))?;
+    for (name, value) in values {
+        key.set_string(name, value)
+            .map_err(|error| format!("Failed to write {name}: {error}"))?;
+    }
+
     let escape = |value: &str| value.replace('\'', "''");
     let mut script = String::new();
     for (name, value) in values {
@@ -991,24 +1034,23 @@ fn set_user_env(values: &[(&str, &str)]) -> Result<(), String> {
         ));
     }
 
-    let output = Command::new("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            &script,
-        ])
+    let mut command = Command::new("powershell.exe");
+    command.args([
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        &script,
+    ]);
+    let _ = command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .creation_flags_no_window()
-        .output()
-        .map_err(|error| format!("Failed to run PowerShell: {error}"))?;
+        .spawn();
 
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
-    }
+    Ok(())
 }
 
 #[cfg(not(windows))]
@@ -1239,13 +1281,13 @@ fn parse_spec(spec: &str, kind: &str) -> Result<String, String> {
     Ok(tokens.join(" "))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scoop_apply_location(request: ScoopLocationRequest) -> Result<ScoopStatusView, String> {
     apply_location(&request.scoop, &request.scoop_global)?;
     Ok(status())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scoop_prepare_install(request: ScoopInstallRequest) -> Result<ScoopPlanView, String> {
     let mut applied = apply_location(&request.scoop, &request.scoop_global)?;
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
@@ -1266,7 +1308,7 @@ pub fn scoop_prepare_install(request: ScoopInstallRequest) -> Result<ScoopPlanVi
     plan_view(&applied, &proxy, INSTALL_CMD_NAME, script, env, log)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String> {
     let applied = current_location()?;
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
