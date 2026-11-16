@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-browser-navigate"
+description = "Enables the codeg_browser_navigate command without any pre-configured scope."
+commands.allow = ["codeg_browser_navigate"]
+
+[[permission]]
+identifier = "deny-codeg-browser-navigate"
+description = "Denies the codeg_browser_navigate command without any pre-configured scope."
+commands.deny = ["codeg_browser_navigate"]

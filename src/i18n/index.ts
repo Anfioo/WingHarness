@@ -25,6 +25,8 @@ import spacePreviewEn from "./locales/space-preview/en";
 import spacePreviewZh from "./locales/space-preview/zh";
 import scoopEn from "./locales/scoop/en";
 import scoopZh from "./locales/scoop/zh";
+import codegEn from "./locales/codeg/en";
+import codegZh from "./locales/codeg/zh";
 
 i18n
   .use(LanguageDetector)
@@ -45,6 +47,7 @@ i18n
           moin: moinEn,
           spacePreview: spacePreviewEn,
           scoop: scoopEn,
+          codeg: codegEn,
         },
       },
       zh: {
@@ -61,6 +64,7 @@ i18n
           moin: moinZh,
           spacePreview: spacePreviewZh,
           scoop: scoopZh,
+          codeg: codegZh,
         },
       },
     },

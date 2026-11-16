@@ -2,6 +2,7 @@ pub mod ccs;
 pub mod claude_chat;
 pub mod claude_fork;
 pub mod claude_history;
+pub mod codeg;
 pub mod config;
 pub mod db;
 pub mod devtools;

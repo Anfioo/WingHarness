@@ -16,6 +16,7 @@ import { MdEditorSection } from "./md-editor-section.tsx";
 import { PortsSection } from "./ports-section.tsx";
 import { RuntimeSection } from "./runtime-section.tsx";
 import { DownloadSection } from "./download-section.tsx";
+import { CodegSection } from "./codeg-section.tsx";
 import {
   Palette,
   Keyboard,
@@ -30,6 +31,7 @@ import {
   Plug,
   Cpu,
   Download,
+  Code2,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
@@ -48,7 +50,8 @@ type SettingSection =
   | "ccs"
   | "ports"
   | "runtime"
-  | "download";
+  | "download"
+  | "codeg";
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
@@ -125,6 +128,11 @@ export default function SettingsPage() {
       label: t("runtime.title"),
       icon: Cpu,
     },
+    {
+      id: "codeg" as SettingSection,
+      label: t("codeg.settings.title"),
+      icon: Code2,
+    },
   ];
 
   return (
@@ -184,6 +192,8 @@ export default function SettingsPage() {
           {activeSection === "ports" && <PortsSection />}
 
           {activeSection === "runtime" && <RuntimeSection />}
+
+          {activeSection === "codeg" && <CodegSection />}
         </div>
       </div>
     </WindowFrame>
