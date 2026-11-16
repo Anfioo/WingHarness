@@ -27,7 +27,38 @@ export function formatBytes(size: number): string {
     value /= 1024;
     unit += 1;
   }
-  return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
+  // Bytes are whole; a rate computed over a fractional interval is not, and
+  // printing that raw would show `78.20136852394917 B`.
+  return `${unit === 0 ? Math.round(value) : value.toFixed(1)} ${units[unit]}`;
+}
+
+/** Time constant of the displayed speed's moving average, in seconds. */
+const RATE_SMOOTHING_SECONDS = 1.5;
+
+/**
+ * Byte rates come from differencing cumulative counters once a second, so a
+ * bursty transfer makes the raw figure leap between near-zero and megabytes.
+ * An exponential moving average keeps the readout and its chart readable while
+ * still following a real change within a few seconds.
+ */
+export function smoothRate(previous: number, next: number, seconds: number): number {
+  const weight = 1 - Math.exp(-seconds / RATE_SMOOTHING_SECONDS);
+  return previous + (next - previous) * weight;
+}
+
+/**
+ * Rounds a rate up to the next readable step — 1, 2 or 5 in binary units — so
+ * an axis label stays a round number and small wobbles do not rescale a plot.
+ */
+export function niceCeiling(value: number): number {
+  if (value <= 0) return 1;
+  let unit = 1;
+  while (value >= unit * 1024 && unit < 1024 ** 3) unit *= 1024;
+  const scaled = value / unit;
+  const magnitude = 10 ** Math.floor(Math.log10(scaled));
+  const ratio = scaled / magnitude;
+  const step = ratio <= 1 ? 1 : ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10;
+  return Math.max(1, step * magnitude * unit);
 }
 
 export function Segmented<T extends string>({

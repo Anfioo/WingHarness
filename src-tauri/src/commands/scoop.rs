@@ -1095,6 +1095,52 @@ fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEn
         .collect()
 }
 
+/// The real folder behind `SCOOP`: where the installed apps live.
+pub(crate) fn scoop_root() -> Result<PathBuf, String> {
+    Ok(current_location()?.scoop.target)
+}
+
+/// `<scoop>/apps` — one folder per installed app, plugin or not.
+pub(crate) fn apps_dir() -> Result<PathBuf, String> {
+    Ok(scoop_root()?.join("apps"))
+}
+
+/// `<scoop>/persist` — the per-app folder Scoop keeps across updates.
+pub(crate) fn persist_dir() -> Result<PathBuf, String> {
+    Ok(scoop_root()?.join("persist"))
+}
+
+/// A Scoop command prepared for a caller that captures its output instead of
+/// running it in the page's terminal.
+pub(crate) struct ScoopCommand {
+    pub script: PathBuf,
+    pub env: Vec<ScoopEnvVar>,
+}
+
+/// Prepares `<subcommand> <app>` as a script plus the environment it needs.
+///
+/// The app name travels in the child's environment rather than in the script
+/// text, so the script file stays pure ASCII and the name cannot become part of
+/// a command line (`cmd.exe` would expand it). The caller validates the name
+/// first: this is the last point before it reaches a shell variable.
+pub(crate) fn prepare_scoop_command(subcommand: &str, app: &str) -> Result<ScoopCommand, String> {
+    let applied = current_location()?;
+    let proxy = effective_proxy("inherit", None);
+
+    let mut env = environment(&applied, &proxy);
+    env.push(ScoopEnvVar {
+        name: "SCOOP_PLUGIN_APP".to_string(),
+        value: app.to_string(),
+    });
+
+    let script = format!(
+        "@echo off\r\nchcp 65001 >nul\r\ncall \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} \"%SCOOP_PLUGIN_APP%\"\r\nexit /b %ERRORLEVEL%\r\n"
+    );
+    let path = write_script(&format!("plugin-{subcommand}.cmd"), &script)?;
+
+    Ok(ScoopCommand { script: path, env })
+}
+
 fn write_script(name: &str, text: &str) -> Result<PathBuf, String> {
     let dir = work_dir();
     fs::create_dir_all(&dir)

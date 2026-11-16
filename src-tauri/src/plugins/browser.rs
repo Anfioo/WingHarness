@@ -410,6 +410,28 @@ pub fn reload(app: &AppHandle, host: &str, id: &str) -> Result<(), String> {
         .map_err(|error| format!("Failed to reload the plugin page: {error}"))
 }
 
+/// Opens the plugin page's own inspector.
+///
+/// The page is an OS-level view, so the app has no other way to show what the
+/// browser knows about it — the inspector's *Application* panel is where the
+/// page's cookies, local storage, session storage and IndexedDB are visible.
+///
+/// The inspector is a separate window the webview runtime owns, so closing the
+/// page closes it too. A release build has to be made with the `devtools`
+/// feature; without it the command still answers, with the reason.
+#[cfg(any(debug_assertions, feature = "devtools"))]
+pub fn devtools(app: &AppHandle, host: &str, id: &str) -> Result<(), String> {
+    webview_of(app, host, id)?.open_devtools();
+    Ok(())
+}
+
+/// See the other [`devtools`]: a build without the inspector answers the same
+/// call with the reason it cannot comply.
+#[cfg(not(any(debug_assertions, feature = "devtools")))]
+pub fn devtools(_app: &AppHandle, _host: &str, _id: &str) -> Result<(), String> {
+    Err("DevTools are not available in this build.".to_string())
+}
+
 /// The address a plugin's page is on right now.
 ///
 /// Read by polling rather than pushed: a client-side router moving between

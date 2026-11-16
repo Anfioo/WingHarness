@@ -1,6 +1,6 @@
 import { Channel } from "@tauri-apps/api/core";
 import { invokeCommand } from "../../base";
-import type { PluginInstallProgress, PluginOutputEvent, PluginView } from "./types";
+import type { PluginOutputEvent, PluginView } from "./types";
 
 /** Every installed plugin, including folders whose manifest will not parse. */
 export function pluginsList(): Promise<PluginView[]> {
@@ -8,23 +8,44 @@ export function pluginsList(): Promise<PluginView[]> {
 }
 
 /**
- * Unpacks a dropped zip and registers the plugin inside it.
+ * Installs a plugin from the added Scoop buckets.
  *
- * The plugin arrives disabled, so a stray drop cannot run anything. Progress
- * arrives on `onProgress` while the archive is unpacked, in **unpacked** bytes.
+ * The install is Scoop's `scoop install <app>`, and its output streams on
+ * `onEvent` into the same panel a run uses. The plugin arrives disabled, so
+ * installing cannot run anything.
  */
 export function pluginsInstall(
-  zip: string,
-  onProgress: (progress: PluginInstallProgress) => void
+  app: string,
+  onEvent: (event: PluginOutputEvent) => void
 ): Promise<PluginView> {
-  const channel = new Channel<PluginInstallProgress>();
-  channel.onmessage = onProgress;
-  return invokeCommand("plugins_install", { zip, onProgress: channel });
+  const channel = new Channel<PluginOutputEvent>();
+  channel.onmessage = onEvent;
+  return invokeCommand("plugins_install", { app, onEvent: channel });
 }
 
-/** Removes a plugin's folder and everything stored about it. */
-export function pluginsUninstall(id: string): Promise<void> {
-  return invokeCommand("plugins_uninstall", { id });
+/** Updates a plugin to the version its bucket now names. */
+export function pluginsUpdate(
+  id: string,
+  onEvent: (event: PluginOutputEvent) => void
+): Promise<void> {
+  const channel = new Channel<PluginOutputEvent>();
+  channel.onmessage = onEvent;
+  return invokeCommand("plugins_update", { id, onEvent: channel });
+}
+
+/**
+ * Uninstalls a plugin through Scoop.
+ *
+ * Its persist folder — the user's settings — is kept, so reinstalling the same
+ * app brings them back.
+ */
+export function pluginsUninstall(
+  id: string,
+  onEvent: (event: PluginOutputEvent) => void
+): Promise<void> {
+  const channel = new Channel<PluginOutputEvent>();
+  channel.onmessage = onEvent;
+  return invokeCommand("plugins_uninstall", { id, onEvent: channel });
 }
 
 export function pluginsSetEnabled(id: string, enabled: boolean): Promise<void> {

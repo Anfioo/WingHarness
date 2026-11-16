@@ -120,6 +120,20 @@ pub async fn plugins_browser_reload(
     off_thread(move || browser::reload(&app, &host, &id)).await
 }
 
+/// Opens the plugin page's own inspector.
+///
+/// The page is an OS-level view with no DOM the app can read, so this is the
+/// only way to see what the browser holds for it — the inspector's
+/// *Application* panel lists the page's cookies and web storage.
+#[tauri::command]
+pub async fn plugins_browser_devtools(
+    app: AppHandle,
+    host: String,
+    id: String,
+) -> Result<(), String> {
+    off_thread(move || browser::devtools(&app, &host, &id)).await
+}
+
 /// The address a plugin's page is on right now.
 ///
 /// Polled by the frontend, because a client-side route change does not tell the

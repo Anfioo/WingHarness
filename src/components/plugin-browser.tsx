@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, ArrowRight, ExternalLink, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Code2, ExternalLink, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   pluginsBrowserBack,
   pluginsBrowserClose,
+  pluginsBrowserDevtools,
   pluginsBrowserForward,
   pluginsBrowserNavigate,
   pluginsBrowserOpen,
@@ -16,6 +17,7 @@ import {
 } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DEV_BUILD } from "@/lib/dev-flag";
 import { DOCUMENT_ID } from "@/lib/document-id";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 
@@ -243,6 +245,28 @@ export function PluginBrowser({
         >
           <RotateCw className="size-3.5" />
         </Button>
+
+        {/* Dev-only, like the window menu's entry: the inspector is not in a
+            release build unless it was packaged with BUILD_DEV=1. It is the
+            only way to see the page's cookies and web storage, because the
+            page is a native view with no DOM the app can read. */}
+        {DEV_BUILD && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5"
+            title={t("pluginPanel.devtools")}
+            disabled={!visible}
+            onClick={() =>
+              void pluginsBrowserDevtools(hostLabel, id).catch((error: unknown) =>
+                toast.error(String(error))
+              )
+            }
+          >
+            <Code2 className="size-3.5" />
+          </Button>
+        )}
 
         <Input
           value={draft}

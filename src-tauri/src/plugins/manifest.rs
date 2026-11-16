@@ -18,7 +18,10 @@ pub const MANIFEST_FILE: &str = "plugin.json";
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifest {
-    /// Folder name and state key; also how the settings page refers to it.
+    /// The Scoop app name the plugin was installed as, which is also its folder
+    /// name and its state key. Filled in by [`read`] from the folder rather than
+    /// read from the file, so a manifest cannot disagree with where it lives.
+    #[serde(default)]
     pub id: String,
     /// Shown in the UI. Falls back to `id` when blank.
     #[serde(default)]
@@ -75,7 +78,8 @@ pub struct ConfigFileSource {
     /// Which adapter reads and writes the file.
     #[serde(rename = "type", default)]
     pub file_type: ConfigFileType,
-    /// Where the file is. Relative to the plugin root by default; with
+    /// Where the file is. Relative paths live in the app's **persist folder**
+    /// (`<scoop>/persist/<app>`), which Scoop keeps across updates; with
     /// [`ConfigFileSource::absolute`] it is used as written instead.
     pub path: String,
     /// Whether `path` names the file outright instead of being resolved against
@@ -182,13 +186,18 @@ pub fn field_type_name(field_type: FieldType) -> &'static str {
     }
 }
 
-/// Reads and validates the manifest in `dir`.
-pub fn read(dir: &Path) -> Result<PluginManifest, String> {
+/// Reads and validates the manifest of the app installed as `id`.
+///
+/// `dir` is the app's `current` folder and `id` its Scoop app name, which
+/// becomes the plugin's own id: the app name is what installing, updating and
+/// uninstalling address, so it is the only identity that stays true.
+pub fn read(dir: &Path, id: &str) -> Result<PluginManifest, String> {
     let path = dir.join(MANIFEST_FILE);
     let bytes =
         fs::read(&path).map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
-    let manifest: PluginManifest = serde_json::from_slice(strip_bom(&bytes))
+    let mut manifest: PluginManifest = serde_json::from_slice(strip_bom(&bytes))
         .map_err(|error| format!("Invalid {}: {error}", path.display()))?;
+    manifest.id = id.to_string();
     validate(&manifest)?;
     Ok(manifest)
 }
@@ -461,15 +470,15 @@ mod tests {
             if !dir.join(MANIFEST_FILE).is_file() {
                 continue;
             }
-            let manifest = read(&dir)
+            let name = dir.file_name().unwrap().to_string_lossy().to_string();
+            let manifest = read(&dir, &name)
                 .unwrap_or_else(|error| panic!("{} does not load: {error}", dir.display()));
 
-            // The id has to match the folder, or installing the example would
-            // land it somewhere other than where a reader expects to look.
-            assert_eq!(
-                manifest.id,
-                dir.file_name().unwrap().to_string_lossy(),
-                "{} declares a different id",
+            // The example is meant to be run as `apps/<folder>/current`, so its
+            // entry has to be the file that sits beside the manifest.
+            assert!(
+                dir.join(&manifest.entry).is_file(),
+                "{} declares an entry that is not in the folder",
                 dir.display()
             );
             checked += 1;

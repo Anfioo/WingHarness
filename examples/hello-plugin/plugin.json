@@ -1,5 +1,4 @@
 {
-  "id": "hello-plugin",
   "name": "示例插件",
   "version": "1.0.0",
   "description": "把配置文件里的值打印出来，用来确认插件链路是否正常。",

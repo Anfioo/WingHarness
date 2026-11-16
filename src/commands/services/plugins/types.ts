@@ -43,8 +43,8 @@ export interface PluginConfigFieldView extends PluginConfigField {
 export interface PluginConfigFileView {
   fileType: PluginConfigFileType;
   /**
-   * Path relative to the plugin folder, or as written when the plugin declared
-   * the source `absolute`.
+   * Path relative to the app's persist folder (`<scoop>/persist/<app>`), or as
+   * written when the plugin declared the source `absolute`.
    */
   path: string;
   /**
@@ -66,7 +66,7 @@ export interface PluginView {
   name: string;
   version: string;
   description: string;
-  /** Script the plugin runs, relative to its folder. */
+  /** Script the plugin runs, relative to the folder it is installed in. */
   entry: string;
   /**
    * Script the app runs when stopping, when the plugin declares one. `null`
@@ -93,11 +93,3 @@ export type PluginOutputEvent =
   | { kind: "line"; stream: "stdout" | "stderr"; text: string }
   | { kind: "done"; code: number }
   | { kind: "failed"; message: string };
-
-/** How far a plugin install has got, as the settings page shows it. */
-export interface PluginInstallProgress {
-  /** Bytes written so far across every file in the archive. */
-  written: number;
-  /** Total unpacked size, settled before any file is written. */
-  total: number;
-}

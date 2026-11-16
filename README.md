@@ -169,7 +169,7 @@ repository yet.
 | [MOIN.md](./docs/features/MOIN.md) | HTTP/HTTPS downloads, segmented resume, queues, categories and aria2 |
 | [MOIN_EXTENSION.md](./docs/features/MOIN_EXTENSION.md) | Browser download capture, pairing, permissions and privacy |
 | [NOTES.md](./docs/features/NOTES.md) | Markdown notes kept in the data directory |
-| [PLUGINS.md](./docs/features/PLUGINS.md) | The plugin format, its manifest, and the generated settings UI |
+| [PLUGINS.md](./docs/features/PLUGINS.md) | Plugins as Scoop apps: the manifest, the persist folder, and the generated settings UI |
 | [PORTS.md](./docs/features/PORTS.md) | TCP listening ports, the pinned set, and ending the process behind a port |
 | [PROJECT.md](./docs/features/PROJECT.md) | The project file explorer and editor |
 | [RUNTIME.md](./docs/features/RUNTIME.md) | Downloading and installing the mihomo and frpc runtimes |

@@ -6,7 +6,8 @@
 //!
 //! Nothing is injected into the run: a plugin reads its own config files, which
 //! the config window edits directly. The only things the app sets are the paths
-//! a script cannot work out for itself — `PLUGIN_ID` and `PLUGIN_DIR`.
+//! a script cannot work out for itself — `PLUGIN_ID`, `PLUGIN_DIR` and
+//! `PLUGIN_PERSIST`.
 //!
 //! Every line the app sees is also written to a durable per-plugin log (see
 //! [`super::log`]), so the run stays readable after the window is closed.
@@ -106,11 +107,11 @@ pub enum Started {
 ///
 /// There is no stop script here: stopping reads it from the manifest, because a
 /// plugin can be up without this app having started it (see [`stop`]).
-pub fn start(id: &str, dir: &Path, entry: &str) -> Result<Started, String> {
+pub fn start(id: &str, dir: &Path, persist: &Path, entry: &str) -> Result<Started, String> {
     if is_running(id) {
         return Ok(Started::AlreadyRunning);
     }
-    launch(id, dir, entry, None).map(|()| Started::Now)
+    launch(id, dir, persist, entry, None).map(|()| Started::Now)
 }
 
 /// Stops a plugin.
@@ -169,13 +170,25 @@ pub fn stop(
 /// Runs one plugin on its own thread, so the caller returns immediately.
 ///
 /// The stream always ends with `done` or `failed`.
-pub fn spawn(id: String, dir: PathBuf, entry: String, on_event: Channel<OutputEvent>) {
-    std::thread::spawn(move || run_one(&id, &dir, &entry, &on_event));
+pub fn spawn(
+    id: String,
+    dir: PathBuf,
+    persist: PathBuf,
+    entry: String,
+    on_event: Channel<OutputEvent>,
+) {
+    std::thread::spawn(move || run_one(&id, &dir, &persist, &entry, &on_event));
 }
 
 /// [`run`], reporting a failure as an event instead of returning it.
-pub fn run_one(id: &str, dir: &Path, entry: &str, on_event: &Channel<OutputEvent>) {
-    if let Err(message) = run(id, dir, entry, on_event) {
+pub fn run_one(
+    id: &str,
+    dir: &Path,
+    persist: &Path,
+    entry: &str,
+    on_event: &Channel<OutputEvent>,
+) {
+    if let Err(message) = run(id, dir, persist, entry, on_event) {
         log::failed(id, &message);
         let _ = on_event.send(OutputEvent::Failed { message });
     }
@@ -185,6 +198,7 @@ pub fn run_one(id: &str, dir: &Path, entry: &str, on_event: &Channel<OutputEvent
 pub fn run(
     id: &str,
     dir: &Path,
+    persist: &Path,
     entry: &str,
     on_event: &Channel<OutputEvent>,
 ) -> Result<(), String> {
@@ -195,7 +209,7 @@ pub fn run(
         return Err(format!("Plugin '{id}' is already running."));
     }
 
-    launch(id, dir, entry, Some(on_event.clone()))
+    launch(id, dir, persist, entry, Some(on_event.clone()))
 }
 
 /// Starts the script and streams it on a thread of its own.
@@ -205,6 +219,7 @@ pub fn run(
 fn launch(
     id: &str,
     dir: &Path,
+    persist: &Path,
     entry: &str,
     on_event: Option<Channel<OutputEvent>>,
 ) -> Result<(), String> {
@@ -230,6 +245,10 @@ fn launch(
         .creation_flags_no_window()
         .env("PLUGIN_ID", id)
         .env("PLUGIN_DIR", dir)
+        // The app's `current` folder is replaced on every update, so the config
+        // files the user edits live outside it. A plugin reading only
+        // `%PLUGIN_DIR%` would lose them on the next `scoop update`.
+        .env("PLUGIN_PERSIST", persist)
         // Nothing reads stdin, and inheriting it would let the script sit on a
         // prompt nobody can answer.
         .stdin(Stdio::null())

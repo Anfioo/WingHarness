@@ -1,5 +1,5 @@
-import { useId, useMemo, useState } from "react";
-import { formatBytes } from "./shared";
+import { useEffect, useId, useMemo, useState } from "react";
+import { formatBytes, niceCeiling } from "./shared";
 
 export type TrafficPoint = {
   at: number;
@@ -44,7 +44,16 @@ export function TrafficChart({
   const visible = useMemo(() => points.filter((point) => point.at >= start), [points, start]);
 
   const max = visible.reduce((value, point) => Math.max(value, point.up, point.down), 0);
-  const ceiling = max > 0 ? max : 1;
+  // A ceiling that follows the raw maximum rescales the whole curve every time
+  // a peak enters or leaves the window. Rounding to a readable step and only
+  // shrinking once the traffic is clearly below it keeps the plot still.
+  const targetCeiling = niceCeiling(max);
+  const [ceiling, setCeiling] = useState(targetCeiling);
+  useEffect(() => {
+    setCeiling((current) =>
+      targetCeiling > current || max < current / 2 ? targetCeiling : current
+    );
+  }, [max, targetCeiling]);
   const x = (at: number) => ((at - start) / rangeMs) * WIDTH;
   const y = (value: number) => HEIGHT - (value / ceiling) * (HEIGHT - TOP_PADDING);
 
