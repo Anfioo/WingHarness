@@ -176,7 +176,9 @@ A `{key}` that no config field fills leaves the plugin with no page rather than 
 
 The page is shown in a **native webview**, not an `<iframe>`. That is not a preference — it is the only thing that works. Almost every real web app sends `X-Frame-Options: DENY` and a CSP `frame-ancestors 'none'` to stop clickjacking (the reference plugin does), and a browser refuses to render such a page inside a frame at all. An iframe is also cross-origin, so the app could never read its address, and there would be no address bar or history.
 
-So a `ui` plugin gets a webview of its own with a small browser chrome above it: **back / forward / reload / a editable address bar / open in the system browser**. The address follows the page — including a client-side router's route changes, which is why it stays correct inside an SPA.
+So a `ui` plugin gets a webview of its own with a small browser chrome above it: **back / forward / reload / a editable address bar / open in the system browser**, plus, in a dev build, a **developer tools** button. The address follows the page — including a client-side router's route changes, which is why it stays correct inside an SPA.
+
+The inspector is the only window into the page the app cannot see into: the page is a native view, so its cookies, local storage, session storage and IndexedDB are reachable only through the browser runtime's own *Application* panel. That button is therefore absent from a release build unless it was packaged with `BUILD_DEV=1` (`scripts/build.ps1 -DevBuild`), which is what turns on the `devtools` feature.
 
 Two consequences worth knowing:
 

@@ -383,6 +383,7 @@
     "allow-plugins-browser-back",
     "allow-plugins-browser-close",
     "allow-plugins-browser-close-all",
+    "allow-plugins-browser-devtools",
     "allow-plugins-browser-forward",
     "allow-plugins-browser-navigate",
     "allow-plugins-browser-open",

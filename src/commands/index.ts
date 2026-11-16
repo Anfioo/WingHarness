@@ -238,6 +238,7 @@ export {
   pluginsBrowserBack,
   pluginsBrowserClose,
   pluginsBrowserCloseAll,
+  pluginsBrowserDevtools,
   pluginsBrowserForward,
   pluginsBrowserNavigate,
   pluginsBrowserOpen,

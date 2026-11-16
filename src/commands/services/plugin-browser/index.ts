@@ -68,6 +68,17 @@ export function pluginsBrowserReload(host: string, id: string): Promise<void> {
 }
 
 /**
+ * Opens the page's own inspector.
+ *
+ * The page is an OS-level view with no DOM the app can read, so this is the only
+ * way to see what the browser holds for it: the inspector's Application panel
+ * lists the page's cookies, local storage, session storage and IndexedDB.
+ */
+export function pluginsBrowserDevtools(host: string, id: string): Promise<void> {
+  return invokeCommand("plugins_browser_devtools", { host, id });
+}
+
+/**
  * The address the page is on right now.
  *
  * Polled rather than pushed: a client-side route change (`pushState`) is not a

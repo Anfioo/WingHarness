@@ -475,6 +475,7 @@
     "start": "Start",
     "retry": "Retry",
     "reload": "Reload page",
+    "devtools": "Developer tools",
     "openExternal": "Open in browser",
     "stop": "Stop",
     "stopped": "Stopped: {{name}}",

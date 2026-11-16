@@ -474,6 +474,7 @@
     "start": "启动",
     "retry": "重试",
     "reload": "刷新页面",
+    "devtools": "开发者工具",
     "openExternal": "在浏览器中打开",
     "stop": "停止",
     "stopped": "已停止：{{name}}",

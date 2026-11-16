@@ -339,6 +339,7 @@ const COMMANDS: &[&str] = &[
     "plugins_browser_back",
     "plugins_browser_close",
     "plugins_browser_close_all",
+    "plugins_browser_devtools",
     "plugins_browser_forward",
     "plugins_browser_navigate",
     "plugins_browser_open",

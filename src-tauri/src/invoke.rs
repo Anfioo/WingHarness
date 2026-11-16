@@ -361,6 +361,7 @@ macro_rules! all_commands {
             crate::commands::plugin_browser::plugins_browser_back,
             crate::commands::plugin_browser::plugins_browser_close,
             crate::commands::plugin_browser::plugins_browser_close_all,
+            crate::commands::plugin_browser::plugins_browser_devtools,
             crate::commands::plugin_browser::plugins_browser_forward,
             crate::commands::plugin_browser::plugins_browser_navigate,
             crate::commands::plugin_browser::plugins_browser_open,
