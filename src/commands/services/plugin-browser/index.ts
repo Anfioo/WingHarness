@@ -9,24 +9,37 @@ import type { PluginPageBounds } from "./types";
  * unreadable across origins. That webview is an OS-level view, not a DOM node,
  * so the frontend drives it through these commands instead of `<iframe>` props.
  *
- * Every command names a `host` window and a `document`: the same plugin page can
- * be embedded in the main window and in a plugin's own window at once, so which
- * window a page belongs to is part of its identity; and a window's page can be
- * replaced by a navigation, so which page *load* opened it is part of the
- * identity too. `host` is the label of the window whose DOM asked for the page —
- * `getCurrentWebviewWindow().label` — and `document` is that window's current
- * page load, {@link DOCUMENT_ID}.
+ * Every command that opens or closes a page names a `host` window, a `document`
+ * and a `run`. The same plugin page can be embedded in the main window and in a
+ * plugin's own window at once, so which window a page belongs to is part of its
+ * identity; a window's page can be replaced by a navigation, so which page
+ * *load* opened it is part of the identity too; and React re-runs effects (a
+ * remount, the double-invoke of a development build), so which *run* of the
+ * effect opened it is part of it as well — without that, the close of a
+ * superseded run takes down the page the live run is showing. `host` is the
+ * label of the window whose DOM asked for the page —
+ * `getCurrentWebviewWindow().label` — `document` is that window's current page
+ * load ({@link DOCUMENT_ID}), and `run` is a fresh {@link newRunId} per effect
+ * run.
  */
 
 /** Opens a plugin's page over `bounds`. Omitting `url` uses the manifest's `ui`. */
 export function pluginsBrowserOpen(
   host: string,
   document: string,
+  run: string,
   id: string,
   bounds: PluginPageBounds,
   url?: string
 ): Promise<void> {
-  return invokeCommand("plugins_browser_open", { host, document, id, url: url ?? null, bounds });
+  return invokeCommand("plugins_browser_open", {
+    host,
+    document,
+    run,
+    id,
+    url: url ?? null,
+    bounds,
+  });
 }
 
 /** Moves and resizes the page to match its placeholder. */
@@ -88,9 +101,20 @@ export function pluginsBrowserUrl(host: string, id: string): Promise<string> {
   return invokeCommand("plugins_browser_url", { host, id });
 }
 
-/** Closes one plugin's page, if the calling document owns it. */
-export function pluginsBrowserClose(host: string, document: string, id: string): Promise<void> {
-  return invokeCommand("plugins_browser_close", { host, document, id });
+/**
+ * Closes one plugin's page, if the calling effect run still owns it.
+ *
+ * The `run` is what makes this safe to call from a cleanup: a run that has been
+ * superseded by a re-run of the same effect no longer owns the page, so its
+ * close does nothing instead of blanking the page the live run is showing.
+ */
+export function pluginsBrowserClose(
+  host: string,
+  document: string,
+  run: string,
+  id: string
+): Promise<void> {
+  return invokeCommand("plugins_browser_close", { host, document, run, id });
 }
 
 /**

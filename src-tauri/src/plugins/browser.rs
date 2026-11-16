@@ -90,25 +90,50 @@ fn belongs_to_host(host: &str, label: &str) -> bool {
     ))
 }
 
-/// Every plugin page this app has open, keyed by its full webview label, with
-/// the id of the **document** that opened it.
+/// Who asked for a plugin page: the document (page load) it belongs to, and the
+/// effect run inside that document that opened it.
 ///
-/// Kept so [`close_all`] can find them: a child webview belongs to the window,
-/// not to the page that asked for it, so it does **not** go away when the
-/// frontend navigates elsewhere or reloads. Without this sweep a plugin's page
-/// would stay on screen, floating over whatever the app showed next.
+/// Kept so [`close_all`] can find the pages of a document that is going away: a
+/// child webview belongs to the window, not to the page that asked for it, so it
+/// does **not** disappear when the frontend navigates elsewhere or reloads.
+/// Without this sweep a plugin's page would stay on screen, floating over
+/// whatever the app showed next.
 ///
 /// The full label is the key, not the plugin id, because the same plugin id can
 /// be open in two hosts at once and the two must not collide.
 ///
-/// The owner document is what makes closing safe across a navigation. The page
-/// being left closes its own pages on `pagehide`, and the page arriving opens
-/// its own — two async calls that can land in either order. Scoping the close to
-/// the document that issued it means a late close from the old document cannot
-/// take down the new document's pages, which is exactly the race that used to
-/// leave a stale page showing or report it as "not open".
-fn open_pages() -> &'static Mutex<HashMap<String, String>> {
-    static OPEN: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+/// The two halves answer two different races, and both are load-bearing:
+///
+/// * **The document** makes closing safe across a navigation. The page being
+///   left closes its own pages on `pagehide` while the page arriving opens its
+///   own — two async calls that can land in either order. Scoping the sweep to
+///   the document means a late close from the old document cannot take down the
+///   new document's pages.
+/// * **The run** does the same job *inside* one document, which the document
+///   alone cannot do. React re-runs an effect on a remount and double-invokes it
+///   in a development build, and each run opens the page and closes it on the
+///   way out; the window system applies a close after the call returns, so the
+///   superseded run's close could land after the live run had reused the page
+///   and destroy it underneath. The pane then stays "open" in the frontend
+///   against a webview that no longer exists: a blank panel and an address poll
+///   answering "not open". Comparing the run makes that close a no-op.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PageOwner {
+    document: String,
+    run: String,
+}
+
+impl PageOwner {
+    fn new(document: &str, run: &str) -> Self {
+        Self {
+            document: document.to_string(),
+            run: run.to_string(),
+        }
+    }
+}
+
+fn open_pages() -> &'static Mutex<HashMap<String, PageOwner>> {
+    static OPEN: OnceLock<Mutex<HashMap<String, PageOwner>>> = OnceLock::new();
     OPEN.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
@@ -130,14 +155,14 @@ fn webview_of(app: &AppHandle, host: &str, id: &str) -> Result<Webview, String> 
         .ok_or_else(|| format!("The page for plugin '{id}' is not open in '{host}'."))
 }
 
-/// Records that `document` owns the page under `label`.
+/// Records that `owner` owns the page under `label`.
 ///
-/// Overwrites any previous owner: when a page is reused across a navigation,
-/// the document now showing it is the one that owns it, and the one whose
-/// `close_all` may take it down.
-fn insert_page(label: &str, document: &str) {
+/// Overwrites any previous owner: when a page is reused across a navigation or a
+/// remount, the run now showing it is the one that owns it, and the one whose
+/// `close` may take it down.
+fn insert_page(label: &str, owner: &PageOwner) {
     if let Ok(mut pages) = open_pages().lock() {
-        pages.insert(label.to_string(), document.to_string());
+        pages.insert(label.to_string(), owner.clone());
     }
 }
 
@@ -178,7 +203,7 @@ fn sweep_other_documents(app: &AppHandle, host: &str, document: &str, keep: &str
                 .filter(|(label, owner)| {
                     label.as_str() != keep
                         && belongs_to_host(host, label)
-                        && owner.as_str() != document
+                        && owner.document != document
                 })
                 .map(|(label, _)| label.clone())
                 .collect()
@@ -215,13 +240,15 @@ pub fn same_origin(allowed: &Url, candidate: &Url) -> bool {
         && candidate.port_or_known_default() == allowed.port_or_known_default()
 }
 
-/// Opens a plugin's page in a child webview of `host`, owned by `document`.
+/// Opens a plugin's page in a child webview of `host`, owned by `document` and,
+/// within it, by the effect `run` that asked.
 ///
 /// Reuses the webview when one is already open for that plugin in that host, so
 /// pressing around the UI never stacks duplicates. `document` identifies the
-/// page load that asked for it (see [`open_pages`]); the first page a document
-/// opens sweeps away the previous document's pages, so a replaced page cannot
-/// outlive the navigation that replaced it.
+/// page load that asked for it and `run` the effect run inside it (see
+/// [`PageOwner`]); the first page a document opens sweeps away the previous
+/// document's pages, so a replaced page cannot outlive the navigation that
+/// replaced it.
 ///
 /// A failure is written to the plugin's log as well as returned: the page is an
 /// OS-level view with no DOM to inspect, so when nothing shows up, the log is
@@ -230,11 +257,12 @@ pub fn open(
     app: &AppHandle,
     host: &str,
     document: &str,
+    run: &str,
     id: &str,
     url: &str,
     bounds: Bounds,
 ) -> Result<(), String> {
-    match open_webview(app, host, document, id, url, bounds) {
+    match open_webview(app, host, document, run, id, url, bounds) {
         Ok(()) => Ok(()),
         Err(error) => {
             log::failed(id, &error);
@@ -247,6 +275,7 @@ fn open_webview(
     app: &AppHandle,
     host: &str,
     document: &str,
+    run: &str,
     id: &str,
     url: &str,
     bounds: Bounds,
@@ -259,6 +288,7 @@ fn open_webview(
         .map_err(|_| "Browser lock poisoned.".to_string())?;
 
     let label = label_of(host, id);
+    let owner = PageOwner::new(document, run);
 
     // The label matches the previous document's page for this same plugin, so a
     // webview already under it may belong to the page we just replaced. Sweeping
@@ -267,7 +297,7 @@ fn open_webview(
     sweep_other_documents(app, host, document, &label);
 
     if app.get_webview(&label).is_some() {
-        insert_page(&label, document);
+        insert_page(&label, &owner);
         set_bounds(app, host, id, bounds)?;
         return set_visible(app, host, id, true);
     }
@@ -309,7 +339,7 @@ fn open_webview(
     let webview = match webview {
         Ok(webview) => webview,
         Err(_) if app.get_webview(&label).is_some() => {
-            insert_page(&label, document);
+            insert_page(&label, &owner);
             set_bounds(app, host, id, bounds)?;
             set_visible(app, host, id, true)?;
             return Ok(());
@@ -317,7 +347,7 @@ fn open_webview(
         Err(error) => return Err(error),
     };
 
-    insert_page(&label, document);
+    insert_page(&label, &owner);
     // The measured rectangle and the window it has to fit in, both logged: the
     // page is an OS-level view, so when it covers something it should not, this
     // line is what says whether the placement or the measurement was wrong.
@@ -478,16 +508,16 @@ fn seen_urls() -> &'static Mutex<HashMap<String, String>> {
     SEEN.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Closes a plugin's page, if `document` owns it.
+/// Closes a plugin's page, if the calling effect run still owns it.
 ///
-/// Ownership is checked so a close issued by a document on its way out cannot
-/// take down a page a newer document has already claimed — the race described
-/// on [`open_pages`].
-pub fn close(app: &AppHandle, host: &str, document: &str, id: &str) {
+/// Ownership is checked so a close issued by a run on its way out cannot take
+/// down a page a newer run has already claimed — the race described on
+/// [`PageOwner`], and the one that blanked the pane.
+pub fn close(app: &AppHandle, host: &str, document: &str, run: &str, id: &str) {
     let _guard = ops_lock().lock();
 
     let label = label_of(host, id);
-    if !is_owned_by(&label, document) {
+    if !is_owned_by(&label, &PageOwner::new(document, run)) {
         return;
     }
     if let Some(webview) = app.get_webview(&label) {
@@ -496,11 +526,11 @@ pub fn close(app: &AppHandle, host: &str, document: &str, id: &str) {
     forget_page(&label);
 }
 
-/// Whether `document` is the registered owner of `label`.
-fn is_owned_by(label: &str, document: &str) -> bool {
+/// Whether `owner` is the registered owner of `label`.
+fn is_owned_by(label: &str, owner: &PageOwner) -> bool {
     open_pages()
         .lock()
-        .map(|pages| pages.get(label).map(String::as_str) == Some(document))
+        .map(|pages| pages.get(label) == Some(owner))
         .unwrap_or(false)
 }
 
@@ -517,11 +547,31 @@ fn is_owned_by(label: &str, document: &str) -> bool {
 pub fn close_all(app: &AppHandle, host: &str, document: &str) {
     for label in labels_owned_by(host, document) {
         let _guard = ops_lock().lock();
+        // Re-checked under the lock, because the list above was collected before
+        // it: an `open` may have claimed this label in between, handing the page
+        // to another document. Closing it there would be the same blank pane the
+        // per-run check in [`close`] exists to prevent.
+        if !is_owned_by_document(&label, document) {
+            continue;
+        }
         if let Some(webview) = app.get_webview(&label) {
             let _ = webview.close();
         }
         forget_page(&label);
     }
+}
+
+/// Whether any owner with this document holds `label`.
+fn is_owned_by_document(label: &str, document: &str) -> bool {
+    open_pages()
+        .lock()
+        .map(|pages| {
+            pages
+                .get(label)
+                .map(|owner| owner.document == document)
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
 }
 
 /// The labels currently owned by `document`, within `host`.
@@ -531,7 +581,7 @@ fn labels_owned_by(host: &str, document: &str) -> Vec<String> {
         .map(|pages| {
             pages
                 .iter()
-                .filter(|(label, owner)| owner.as_str() == document && belongs_to_host(host, label))
+                .filter(|(label, owner)| owner.document == document && belongs_to_host(host, label))
                 .map(|(label, _)| label.clone())
                 .collect()
         })
@@ -650,30 +700,58 @@ mod tests {
     }
 
     #[test]
-    fn an_open_registry_tracks_the_owning_document() {
+    fn an_open_registry_tracks_the_owning_document_and_run() {
         // A fresh label, so this does not depend on other tests.
         let host = "unit-host";
         let id = format!("unit-browser-{}", std::process::id());
         let label = label_of(host, &id);
+        let first = PageOwner::new("doc-a", "run-1");
+        let second = PageOwner::new("doc-b", "run-1");
 
         assert!(labels_owned_by(host, "doc-a").is_empty());
 
-        insert_page(&label, "doc-a");
+        insert_page(&label, &first);
         assert!(labels_owned_by(host, "doc-a").contains(&label));
-        assert!(is_owned_by(&label, "doc-a"));
-        assert!(!is_owned_by(&label, "doc-b"));
+        assert!(is_owned_by(&label, &first));
+        assert!(!is_owned_by(&label, &second));
 
         // A page for another host is not swept up by this host's view.
         assert!(labels_owned_by("other-host", "doc-a").is_empty());
 
         // Reusing the label on a new page load hands ownership to the new
-        // document, so the old document's close can no longer reach it — this is
-        // the race that used to blank the pane.
-        insert_page(&label, "doc-b");
+        // document, so the old document's close can no longer reach it.
+        insert_page(&label, &second);
         assert!(labels_owned_by(host, "doc-a").is_empty());
-        assert!(is_owned_by(&label, "doc-b"));
+        assert!(is_owned_by(&label, &second));
 
         forget_page(&label);
         assert!(labels_owned_by(host, "doc-b").is_empty());
+    }
+
+    /// The bug that blanked a plugin pane: React re-ran the effect, so one
+    /// document opened the same page twice. The first run's close must not take
+    /// down the page the second run had already claimed.
+    #[test]
+    fn a_superseded_run_cannot_close_the_page_a_newer_run_opened() {
+        let host = "unit-host-run";
+        let id = format!("unit-run-{}", std::process::id());
+        let label = label_of(host, &id);
+        let old_run = PageOwner::new("doc", "run-1");
+        let new_run = PageOwner::new("doc", "run-2");
+
+        insert_page(&label, &old_run);
+        // The remount reuses the page and takes ownership of it.
+        insert_page(&label, &new_run);
+
+        // The old run's close finds itself no longer the owner; the new run's
+        // close does. Same document, different run — the document alone could
+        // not tell these apart.
+        assert!(!is_owned_by(&label, &old_run));
+        assert!(is_owned_by(&label, &new_run));
+        assert!(is_owned_by_document(&label, "doc"));
+
+        // A document-level close still reaches it, which is what `pagehide`
+        // relies on.
+        assert_eq!(labels_owned_by(host, "doc"), vec![label.clone()]);
     }
 }
