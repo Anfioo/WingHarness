@@ -269,7 +269,7 @@ Before a run, every `startmust: true` source must exist **in the persist folder*
 
 Start and stop are one button everywhere, and the manifest names both halves: `entry` starts the plugin, `stopScript` stops it.
 
-**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's `current` folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
+**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's `current` folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` / `PLUGIN_PERSIST` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
 
 The app deliberately does **not** also kill the process tree when there is a script. The script is the plugin's own shutdown — it knows what to end, including daemons the app never started — and a second, cruder mechanism running behind its back can only cut a shutdown short.
 

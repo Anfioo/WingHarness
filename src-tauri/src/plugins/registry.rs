@@ -263,6 +263,7 @@ pub fn uninstall(id: &str, on_event: &mut dyn FnMut(OutputEvent)) -> Result<(), 
         let _ = runner::stop(
             id,
             &installed.dir,
+            &installed.persist,
             installed.manifest.stop_script.as_deref(),
             EXIT_TIMEOUT,
         );
@@ -438,12 +439,13 @@ pub fn stop_all_running() {
                 let _ = runner::stop(
                     &id,
                     &installed.dir,
+                    &installed.persist,
                     installed.manifest.stop_script.as_deref(),
                     EXIT_TIMEOUT,
                 );
             }
             Err(_) => {
-                let _ = runner::stop(&id, Path::new("."), None, EXIT_TIMEOUT);
+                let _ = runner::stop(&id, Path::new("."), Path::new("."), None, EXIT_TIMEOUT);
             }
         }
     }
