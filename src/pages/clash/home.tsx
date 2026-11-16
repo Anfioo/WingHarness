@@ -28,7 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 import { displayNode, protocolLabel, toneClass, useObservedNode } from "./nodes";
-import { Segmented, formatBytes } from "./shared";
+import { Segmented, formatBytes, smoothRate } from "./shared";
 import { TrafficChart, type TrafficPoint } from "./traffic-chart";
 
 /** The controller answers this fast enough to gauge speed by differencing it. */
@@ -82,6 +82,8 @@ export function HomeTab({
 
   /** The previous sample's totals, the base every rate is measured against. */
   const baseline = useRef<{ at: number; up: number; down: number } | null>(null);
+  /** The rates last shown; a raw one-second delta is too jumpy to draw. */
+  const smoothed = useRef<{ up: number; down: number } | null>(null);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -105,8 +107,12 @@ export function HomeTab({
 
         const seconds = (now - previous.at) / 1000;
         if (seconds <= 0) return;
-        const up = Math.max(0, next.uploadTotal - previous.up) / seconds;
-        const down = Math.max(0, next.downloadTotal - previous.down) / seconds;
+        const rawUp = Math.max(0, next.uploadTotal - previous.up) / seconds;
+        const rawDown = Math.max(0, next.downloadTotal - previous.down) / seconds;
+        const prior = smoothed.current;
+        const up = prior ? smoothRate(prior.up, rawUp, seconds) : rawUp;
+        const down = prior ? smoothRate(prior.down, rawDown, seconds) : rawDown;
+        smoothed.current = { up, down };
         setSpeeds({ up, down });
         setSamples((current) => {
           const trimmed = current.length >= MAX_SAMPLES ? current.slice(1) : current;
@@ -117,6 +123,7 @@ export function HomeTab({
         // A stopped core resets its counters; keeping the old baseline would
         // report a huge burst the moment it comes back.
         baseline.current = null;
+        smoothed.current = null;
         setSpeeds({ up: 0, down: 0 });
         setSamples([]);
         setConnections(null);
