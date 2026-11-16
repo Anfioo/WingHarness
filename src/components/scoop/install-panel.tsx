@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import type { ScoopPageController } from "@/hooks/use-scoop-page";
 import { chosenPath, proxySummary, samePath } from "@/lib/scoop/page";
@@ -45,6 +47,24 @@ export function ScoopInstallPanel({ page }: { page: ScoopPageController }) {
             <p className="text-muted-foreground mt-1 text-xs">{t("scoop.install.proxyHint")}</p>
           </div>
           <ProxyPicker page={page} disabled={busy} />
+
+          <div className="border-border space-y-3 border-t pt-4">
+            <div>
+              <h2 className="text-sm font-semibold">{t("scoop.install.adminTitle")}</h2>
+              <p className="text-muted-foreground mt-1 text-xs">{t("scoop.install.adminHint")}</p>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="scoop-install-run-as-admin" className="text-sm font-normal">
+                {t("scoop.install.adminLabel")}
+              </Label>
+              <Switch
+                id="scoop-install-run-as-admin"
+                checked={page.prefs.runAsAdmin}
+                disabled={busy}
+                onCheckedChange={(checked) => page.setPrefs({ runAsAdmin: checked })}
+              />
+            </div>
+          </div>
         </section>
       </div>
 
@@ -65,6 +85,10 @@ export function ScoopInstallPanel({ page }: { page: ScoopPageController }) {
             value={envValue(globalRoot, globalTarget)}
           />
           <InfoRow label={t("scoop.install.proxy")} value={proxyText} />
+          <InfoRow
+            label={t("scoop.install.adminMode")}
+            value={page.prefs.runAsAdmin ? t("scoop.install.adminOn") : t("scoop.install.adminOff")}
+          />
         </div>
 
         <p className="text-muted-foreground text-xs">{t("scoop.install.linkNote")}</p>

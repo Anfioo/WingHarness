@@ -89,6 +89,18 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 
 运行时不下载安装脚本。`get.scoop.sh` 只是这份文件的来源地址。
 
+### 以管理员身份运行
+
+安装脚本检测到管理员令牌时会直接退出，输出
+`Running the installer as administrator is disabled by default`。它和“管理员**账户**”
+不是一回事：从管理员账户启动的普通进程拿的是受限令牌，可以正常安装。真正触发的
+是整个会话本身已经提权——关掉了 UAC，或以管理员身份启动了 WingHarness。
+
+所以安装界面多了一个开关**以管理员身份运行安装脚本**，默认关闭。打开后只是给
+PowerShell 调用加上 `-RunAsAdmin`，别的不变：Scoop 仍然装进上面选的两个目录，开关
+和其它页面偏好一起记住。这次到底怎么跑的也会写进运行日志（`Installer runs as: …`），
+终端里能直接看到。
+
 ## 生成的脚本
 
 `<数据目录>/scoop-page/` 存放一次运行需要的文件：

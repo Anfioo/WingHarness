@@ -205,6 +205,7 @@ export function useScoopPage(): ScoopPageController {
         scoopGlobal: prefs.global,
         proxyMode: prefs.proxyMode,
         proxyUrl: prefs.proxyUrl,
+        runAsAdmin: prefs.runAsAdmin,
       });
       startPlan(next, "install");
     } catch (error) {

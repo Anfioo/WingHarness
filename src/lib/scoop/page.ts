@@ -14,6 +14,12 @@ export interface ScoopPrefs {
   global: ScoopPathPrefs;
   proxyMode: ScoopProxyMode;
   proxyUrl: string;
+  /**
+   * Run `install.ps1` with `-RunAsAdmin`. Off by default, because Scoop is
+   * meant to be installed unelevated; on only when the elevated account leaves
+   * the installer no choice.
+   */
+  runAsAdmin: boolean;
 }
 
 /** Which of the two roots a path belongs to. */
@@ -38,6 +44,7 @@ export const DEFAULT_SCOOP_PREFS: ScoopPrefs = {
   global: { location: "data", customPath: "" },
   proxyMode: "inherit",
   proxyUrl: "",
+  runAsAdmin: false,
 };
 
 const LOCATIONS: ScoopLocation[] = ["data", "user", "custom"];
@@ -85,6 +92,8 @@ export function loadScoopPrefs(): ScoopPrefs {
         : DEFAULT_SCOOP_PREFS.proxyMode,
       proxyUrl:
         typeof parsed.proxyUrl === "string" ? parsed.proxyUrl : DEFAULT_SCOOP_PREFS.proxyUrl,
+      runAsAdmin:
+        typeof parsed.runAsAdmin === "boolean" ? parsed.runAsAdmin : DEFAULT_SCOOP_PREFS.runAsAdmin,
     };
   } catch {
     return DEFAULT_SCOOP_PREFS;

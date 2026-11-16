@@ -186,6 +186,11 @@ pub struct ScoopInstallRequest {
     pub proxy_mode: String,
     #[serde(default)]
     pub proxy_url: Option<String>,
+    /// Pass `-RunAsAdmin` to the installer. The official installer aborts when
+    /// it sees an elevated token unless this flag is given, which is the case
+    /// for an account running with UAC off or an app started as administrator.
+    #[serde(default)]
+    pub run_as_admin: bool,
 }
 
 #[derive(Deserialize)]
@@ -1212,7 +1217,7 @@ fn write_script(name: &str, text: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn install_script_text(proxy: &EffectiveProxy) -> String {
+fn install_script_text(proxy: &EffectiveProxy, run_as_admin: bool) -> String {
     let mut script = String::new();
     script.push_str("@echo off\r\n");
     script.push_str("chcp 65001 >nul\r\n");
@@ -1226,6 +1231,12 @@ fn install_script_text(proxy: &EffectiveProxy) -> String {
         "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%SCOOP_INSTALL_PS1%\" \
          -ScoopDir \"%SCOOP%\" -ScoopGlobalDir \"%SCOOP_GLOBAL%\"",
     );
+    // The vendor installer aborts under an elevated token unless it is told to
+    // go ahead; that is what the install screen's switch is for. A bare flag
+    // carries no variable, so it cannot upset the ASCII-only script.
+    if run_as_admin {
+        script.push_str(" -RunAsAdmin");
+    }
     match proxy.mode {
         EffectiveMode::Custom => script.push_str(" -Proxy \"%HTTP_PROXY%\""),
         EffectiveMode::None => script.push_str(" -NoProxy"),
@@ -1589,10 +1600,18 @@ pub fn scoop_prepare_install(request: ScoopInstallRequest) -> Result<ScoopPlanVi
     let mut applied = apply_location(&request.scoop, &request.scoop_global)?;
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
 
-    let script = install_script_text(&proxy);
+    let script = install_script_text(&proxy, request.run_as_admin);
     let env = environment(&applied, &proxy);
     let mut log = std::mem::take(&mut applied.log);
     log.push(format!("Installer: {}", install_script_path().display()));
+    log.push(format!(
+        "Installer runs as: {}",
+        if request.run_as_admin {
+            "administrator (-RunAsAdmin)"
+        } else {
+            "the current user"
+        }
+    ));
     log.extend(proxy_warnings(&proxy));
 
     // Refresh the bundled copy every time: a newer app build carries a newer
@@ -1747,9 +1766,10 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_uninstall_targets, flag_field, is_inside, parse_bucket_name, parse_bucket_spec,
-        parse_spec, parse_version, read_app_json, same_path, strip_verbatim, PathKind,
-        APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        check_uninstall_targets, flag_field, install_script_text, is_inside, parse_bucket_name,
+        parse_bucket_spec, parse_spec, parse_version, read_app_json, same_path, strip_verbatim,
+        EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
+        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1820,6 +1840,17 @@ mod tests {
         let text = "Current Scoop version:\nv0.5.2 - Released at 2024-06-01\n";
         assert_eq!(parse_version(text).as_deref(), Some("v0.5.2"));
         assert_eq!(parse_version("nothing here").as_deref(), None);
+    }
+
+    #[test]
+    fn the_installer_runs_elevated_only_when_asked() {
+        let proxy = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: None,
+            source: "settings",
+        };
+        assert!(!install_script_text(&proxy, false).contains("-RunAsAdmin"));
+        assert!(install_script_text(&proxy, true).contains("-RunAsAdmin"));
     }
 
     #[test]

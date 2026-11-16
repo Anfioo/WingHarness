@@ -48,6 +48,13 @@ const scoop = {
     locationTitle: "安装目录",
     proxyTitle: "下载代理",
     proxyHint: "安装脚本、scoop 命令与后续下载都使用这里的代理；默认跟随应用设置。",
+    adminTitle: "管理员权限",
+    adminHint:
+      "Scoop 的安装脚本检测到进程带管理员权限时会拒绝安装（关闭了 UAC 的账户，或以管理员身份启动的 WingHarness），并停在“Running the installer as administrator is disabled by default”。只有这种情况才需要打开。",
+    adminLabel: "以管理员身份运行安装脚本",
+    adminMode: "安装脚本身份",
+    adminOn: "管理员（-RunAsAdmin）",
+    adminOff: "当前用户",
     summaryTitle: "将要创建",
     scoopFolder: "安装目录 · scoop（真实文件）",
     globalFolder: "安装目录 · scoopg（真实文件）",

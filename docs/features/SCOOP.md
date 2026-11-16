@@ -106,6 +106,20 @@ newer app build never keeps an older copy.
 Nothing downloads the installer at run time. `get.scoop.sh` is only the
 upstream location the file was taken from.
 
+### Running it elevated
+
+The installer aborts when it sees an elevated token, with
+`Running the installer as administrator is disabled by default`. That is not the
+same as an administrator *account*: a normal process started from such an account
+carries a filtered token and installs fine. It bites when the whole session is
+elevated — UAC switched off, or WingHarness itself started as administrator.
+
+The install screen therefore carries one switch, **Run the installer as
+administrator**, off by default. It appends `-RunAsAdmin` to the PowerShell call
+and changes nothing else: Scoop still installs into the folders chosen above, and
+the choice is remembered with the other page preferences. Which way the run went
+is also a line in the run log (`Installer runs as: …`), so the terminal shows it.
+
 ## Generated scripts
 
 `<data dir>/scoop-page/` holds the files a run needs:

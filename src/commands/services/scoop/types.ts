@@ -114,6 +114,12 @@ export interface ScoopLocationRequest {
 export interface ScoopInstallRequest extends ScoopLocationRequest {
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
+  /**
+   * Pass `-RunAsAdmin` to the installer. The official installer aborts when it
+   * sees an elevated token unless this flag is given, which is the case for an
+   * account running with UAC off or an app started as administrator.
+   */
+  runAsAdmin?: boolean;
 }
 
 export interface ScoopRunRequest {

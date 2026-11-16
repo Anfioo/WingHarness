@@ -51,6 +51,13 @@ const scoop = {
     proxyTitle: "Download proxy",
     proxyHint:
       "The installer, the scoop command and later downloads use this proxy. It follows the app settings by default.",
+    adminTitle: "Administrator",
+    adminHint:
+      'Scoop refuses to install while its process is elevated — an account running with UAC off, or WingHarness itself started as administrator — and stops with "Running the installer as administrator is disabled by default". Turn this on only in that case.',
+    adminLabel: "Run the installer as administrator",
+    adminMode: "Installer runs as",
+    adminOn: "Administrator (-RunAsAdmin)",
+    adminOff: "Current user",
     summaryTitle: "What will be created",
     scoopFolder: "Folder · scoop (real files)",
     globalFolder: "Folder · scoopg (real files)",
