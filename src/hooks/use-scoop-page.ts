@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { ScoopPlan, ScoopStatus } from "@/commands";
-import { scoopApplyLocation, scoopPlanRun, scoopPrepareInstall, scoopStatus } from "@/commands";
+import {
+  scoopApplyLocation,
+  scoopInstalled,
+  scoopPlanRun,
+  scoopPrepareInstall,
+  scoopStatus,
+} from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   envRecord,
@@ -22,6 +28,8 @@ export interface ScoopLogEntry {
 
 export interface ScoopPageController {
   status: ScoopStatus | null;
+  /** Whether the install folder is there, known before `status` is. */
+  quickInstalled: boolean | null;
   loading: boolean;
   statusError: string | null;
   prefs: ScoopPrefs;
@@ -63,6 +71,7 @@ function messageOf(error: unknown): string {
 export function useScoopPage(): ScoopPageController {
   const { t } = useAppTranslation();
   const [status, setStatus] = useState<ScoopStatus | null>(null);
+  const [quickInstalled, setQuickInstalled] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [prefs, setPrefsState] = useState<ScoopPrefs>(loadScoopPrefs);
@@ -112,6 +121,13 @@ export function useScoopPage(): ScoopPageController {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // The install folder answers "installed" in a few milliseconds; the full
+  // status walks the catalog and asks the CLI for its version, so the page
+  // starts from this and corrects itself when `status` lands.
+  useEffect(() => {
+    void scoopInstalled().then(setQuickInstalled, () => setQuickInstalled(null));
+  }, []);
 
   const setPrefs = useCallback((patch: Partial<ScoopPrefs>) => {
     setPrefsState((current) => {
@@ -271,6 +287,7 @@ export function useScoopPage(): ScoopPageController {
 
   return {
     status,
+    quickInstalled,
     loading,
     statusError,
     prefs,

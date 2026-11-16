@@ -13,6 +13,14 @@ export function scoopStatus(): Promise<ScoopStatus> {
   return invokeCommand<Record<string, never>, ScoopStatus>("scoop_status", {});
 }
 
+/**
+ * Whether a Scoop install is on disk, read from the fixed folder alone — the
+ * answer `scoopStatus` spends its time on the catalog to reach.
+ */
+export function scoopInstalled(): Promise<boolean> {
+  return invokeCommand<Record<string, never>, boolean>("scoop_installed", {});
+}
+
 /** Local bucket-manifest search. Empty queries return nothing. */
 export function scoopSearch(query: string): Promise<ScoopSearchHit[]> {
   return invokeCommand<{ query: string }, ScoopSearchHit[]>("scoop_search", { query });

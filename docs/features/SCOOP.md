@@ -133,6 +133,14 @@ same xterm surface the Terminal page uses. There is exactly one run at a time:
 
 ## Reading the catalog
 
+No `scoop list` process is needed for the overview. The page opens from two
+reads: `scoop_installed` looks at the fixed folder and answers "installed" in
+milliseconds, so the badge and the tab row are right from the first frame, and
+`scoop_status` — which walks every bucket, every installed manifest and the
+CLI's version — replaces that guess when it lands. The loading screen is drawn
+in the page's own shape (tab row, the three counters, the paths and apps cards)
+rather than as one block.
+
 No `scoop list` process is needed for the overview:
 
 - **apps** — `apps/*/current/scoop-manifest.json` (version, description,
@@ -188,6 +196,7 @@ no input path.
 
 | Command | Parameters | Returns |
 | --- | --- | --- |
+| `scoop_installed` | — | whether the install folder holds a Scoop, from the fixed link alone |
 | `scoop_status` | — | install state, version, paths, user environment, proxy, apps, buckets |
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |

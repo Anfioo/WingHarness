@@ -566,6 +566,17 @@ pub fn scoop_status() -> ScoopStatusView {
     status()
 }
 
+/// Whether a Scoop install is on disk, answered from the fixed link alone.
+///
+/// The page asks this first so it can show the overview instead of the install
+/// screen while the full status is still being read: [`status`] walks every
+/// bucket and every installed manifest and asks the CLI for its version, which
+/// a badge cannot wait for.
+#[tauri::command(async)]
+pub fn scoop_installed() -> bool {
+    is_scoop_dir(&root_view(PathKind::Scoop).target)
+}
+
 fn status() -> ScoopStatusView {
     let scoop = root_view(PathKind::Scoop);
     let global = root_view(PathKind::Global);

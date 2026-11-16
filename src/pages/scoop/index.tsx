@@ -14,13 +14,57 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useScoopPage } from "@/hooks/use-scoop-page";
 
 /**
+ * The page's own shape, drawn while the status is read: the tab row, then the
+ * three counters and the two cards of the overview.
+ */
+function ScoopLoadingScreen() {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 items-center gap-1">
+        {[0, 1, 2, 3].map((tab) => (
+          <Skeleton key={tab} className="h-8 w-24 rounded-md" />
+        ))}
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-hidden">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((card) => (
+            <div key={card} className="border-border space-y-2 rounded-xl border p-4">
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-5 w-24" />
+            </div>
+          ))}
+        </div>
+
+        <div className="border-border space-y-3 rounded-xl border p-4">
+          <Skeleton className="h-4 w-28" />
+          {[0, 1, 2, 3].map((row) => (
+            <Skeleton key={row} className="h-3 w-full" />
+          ))}
+        </div>
+
+        <div className="border-border space-y-3 rounded-xl border p-4">
+          <Skeleton className="h-4 w-32" />
+          {[0, 1, 2].map((row) => (
+            <Skeleton key={row} className="h-9 w-full rounded-md" />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Scoop, in two states: the install screen until there is an install on disk,
  * then the version/overview with search, buckets and settings tabs.
  */
 export default function ScoopPage() {
   const { t } = useAppTranslation();
   const page = useScoopPage();
-  const installed = page.status?.installed ?? false;
+  // The install folder says "installed" long before the catalog is read, so the
+  // badge and the loading screen never claim "not installed" about an install
+  // that is there. `status` overrules it as soon as it arrives.
+  const installed = page.status?.installed ?? page.quickInstalled ?? false;
   const [tab, setTab] = useState("overview");
 
   // The install tab only exists while there is nothing installed; the tab list
@@ -70,7 +114,7 @@ export default function ScoopPage() {
         )}
 
         {page.loading && !page.status ? (
-          <Skeleton className="min-h-64 flex-1 rounded-xl" />
+          <ScoopLoadingScreen />
         ) : !installed ? (
           <div className="min-h-0 flex-1 overflow-auto">
             <ScoopInstallPanel page={page} />

@@ -114,7 +114,10 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 
 ## 读取清单
 
-概览不需要启动 `scoop list` 进程：
+概览不需要启动 `scoop list` 进程。页面靠两次读取打开：`scoop_installed` 只看固定目录，
+毫秒级回答“已安装”，所以徽标和页签行第一帧就是对的；`scoop_status` 要遍历每个桶、
+每个已装清单再问一次 CLI 版本，等它回来后再覆盖那个预判。加载屏按页面本身的形状画
+（页签行、三个计数卡、路径卡与软件卡），而不是一整块。
 
 - **已装软件** —— `apps/*/current/scoop-manifest.json`（版本、描述、主页）加上
   `scoop-install.json`（桶），从 `scoop` 与 `scoopg` 两处读取；来自全局目录的软件带
@@ -159,6 +162,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 
 | 命令 | 参数 | 返回 |
 | --- | --- | --- |
+| `scoop_installed` | — | 固定目录里是否有 Scoop，只看该路径 |
 | `scoop_status` | — | 安装状态、版本、路径、用户环境变量、代理、软件与桶 |
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
