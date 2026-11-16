@@ -110,6 +110,13 @@ const scoop = {
     heldBadge: "Pinned",
     globalBadge: "Global",
     pluginBadge: "WingHarness plugin",
+    uninstallTitle: "Uninstall {{app}}",
+    uninstallDialogTitle: "Uninstall {{app}}?",
+    uninstallDialogBody:
+      "Scoop removes the installed versions of {{app}}. Its persist folder, which holds your settings, is kept unless you ask for it to be deleted as well.",
+    uninstallPurge: "Delete the persist folder too",
+    uninstallConfirm: "Uninstall",
+    uninstallCancel: "Cancel",
   },
   search: {
     placeholder: "7zip, extras/7zip or scoop install extras/7zip",

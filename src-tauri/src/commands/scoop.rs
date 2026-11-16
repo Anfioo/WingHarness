@@ -192,7 +192,7 @@ pub struct ScoopInstallRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
     /// `install`, `search`, `config`, `bucket`, `update`, `apps-update`,
-    /// `app-update`, `hold` or `unhold`.
+    /// `app-update`, `hold`, `unhold` or `uninstall`.
     pub kind: String,
     /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; `update` and
     /// `apps-update` take nothing.
@@ -200,6 +200,9 @@ pub struct ScoopRunRequest {
     /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
     #[serde(default)]
     pub global: bool,
+    /// `uninstall` also removes the app's `persist` folder (`-p`).
+    #[serde(default)]
+    pub purge: bool,
     #[serde(default = "default_proxy_mode")]
     pub proxy_mode: String,
     #[serde(default)]
@@ -1302,6 +1305,15 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
         script.push_str(&format!(
             "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
         ));
+    } else if kind == "uninstall" {
+        // Scoop keeps the app's `persist` folder unless it is given `-p`, which
+        // is what a reinstall needs to find the user's settings again.
+        script.push_str(
+            "echo [scoop] command: scoop uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        );
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        );
     } else {
         let subcommand = if kind == "search" { "search" } else { "install" };
         script.push_str(&format!(
@@ -1400,7 +1412,7 @@ fn parse_spec(spec: &str) -> Result<String, String> {
     // The verb is optional and either one: a line typed in a terminal reads as
     // `scoop update 7zip`, a line typed into a box on this page as `7zip`.
     if let Some(first) = tokens.first() {
-        if ["install", "search", "update", "hold", "unhold"]
+        if ["install", "search", "update", "hold", "unhold", "uninstall"]
             .iter()
             .any(|verb| first.eq_ignore_ascii_case(verb))
         {
@@ -1616,6 +1628,32 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             format!("Scoop command: scoop {subcommand} {global_flag} {args}"),
             folder_line,
         ]
+    } else if request.kind == "uninstall" {
+        let args = parse_spec(&request.spec)?;
+        check_uninstall_targets(&args)?;
+        let purge_flag = if request.purge { "-p" } else { "" };
+        env.push(ScoopEnvVar {
+            name: "SCOOP_APP_ARGS".to_string(),
+            value: args.clone(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_GLOBAL_FLAG".to_string(),
+            value: global_flag.to_string(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_PURGE_FLAG".to_string(),
+            value: purge_flag.to_string(),
+        });
+        let persist = if request.purge {
+            "The app's persist folder is deleted too."
+        } else {
+            "The app's persist folder is kept for a later reinstall."
+        };
+        vec![
+            format!("Scoop command: scoop uninstall {global_flag} {purge_flag} {args}"),
+            folder_line,
+            persist.to_string(),
+        ]
     } else {
         let args = parse_spec(&request.spec)?;
         env.push(ScoopEnvVar {
@@ -1642,12 +1680,24 @@ fn has_global_apps(applied: &AppliedLocation) -> bool {
         && !read_apps(&applied.global.target, true).is_empty()
 }
 
+/// `scoop uninstall scoop` removes Scoop and every app it installed, so this
+/// page refuses it rather than letting one click wipe the whole installation.
+fn check_uninstall_targets(args: &str) -> Result<(), String> {
+    if args
+        .split_whitespace()
+        .any(|token| token.eq_ignore_ascii_case("scoop"))
+    {
+        return Err("Scoop itself cannot be uninstalled from this page.".to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        flag_field, is_inside, parse_bucket_spec, parse_spec, parse_version, read_app_json,
-        same_path, strip_verbatim, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
-        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        check_uninstall_targets, flag_field, is_inside, parse_bucket_spec, parse_spec,
+        parse_version, read_app_json, same_path, strip_verbatim, PathKind, APP_INSTALL_FILE,
+        APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1738,6 +1788,14 @@ mod tests {
         assert!(parse_spec("7zip & del x").is_err());
         assert!(parse_spec("").is_err());
         assert!(parse_spec("-g").is_err());
+    }
+
+    #[test]
+    fn uninstalling_scoop_itself_is_refused() {
+        assert!(check_uninstall_targets("7zip extras/vscode").is_ok());
+        assert!(check_uninstall_targets("scoop").is_err());
+        // The whole list is checked, not just the first name.
+        assert!(check_uninstall_targets("7zip Scoop").is_err());
     }
 
     #[test]

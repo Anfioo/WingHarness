@@ -126,7 +126,8 @@ export interface ScoopRunRequest {
     | "apps-update"
     | "app-update"
     | "hold"
-    | "unhold";
+    | "unhold"
+    | "uninstall";
   /**
    * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
    * for `bucket`, `<name> <url>`; `update` and `apps-update` take nothing.
@@ -134,6 +135,8 @@ export interface ScoopRunRequest {
   spec: string;
   /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
   global?: boolean;
+  /** `uninstall` also removes the app's `persist` folder (`-p`). */
+  purge?: boolean;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
 }

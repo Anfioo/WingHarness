@@ -92,7 +92,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold`，或一次代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
 （`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`）传递，而不是
@@ -187,6 +187,22 @@ Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-instal
 页面直接读那个文件里的标记，不启动 `scoop` 进程，所以状态一到徽标就是准的；固定
 任务以 0 退出时会刷新状态，徽标随之翻转。
 
+## 卸载软件
+
+已安装软件行上的垃圾桶按钮先要求确认，然后执行 `scoop uninstall <app>`，全局软件
+再带上 `-g`。一次运行卸载一个软件，WingHarness 插件也走同一条路 —— 插件本身就是
+普通的 Scoop 软件。
+
+Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那里，重装时还能接上。
+确认对话框里的**同时删除 persist 目录**会追加 `-p`，做一次彻底删除。这个选项只对
+本次运行有效，每次打开对话框都会重置，所以危险的选项不会被默认勾着。
+
+对话框正文写明 persist 的去向，运行日志里也再写一遍，所以一次运行做什么，在开始前
+和开始后都看得见。
+
+`scoop uninstall scoop` 会连 Scoop 本体和它装的所有软件一起删掉，所以
+`scoop_plan_run` 直接拒绝这个名字，而不是把它当作可选目标。
+
 ## 命令
 
 | 命令 | 参数 | 返回 |
@@ -196,7 +212,7 @@ Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-instal
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶、代理同步、`scoop update`、`scoop update *`、单个软件更新或固定/取消固定写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -204,8 +220,8 @@ Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-instal
 ## 限制
 
 - **仅限 Windows。** `SCOOP` 是 Windows 包管理器，其它平台会直接返回错误。
-- **没有卸载与删除桶。** 页面负责安装、搜索、克隆与更新桶、更新与固定软件版本，以及
-  查看。`scoop uninstall` 与 `scoop bucket rm` 只需再增加一种 `scoop_plan_run` 类型即可支持。
+- **没有删除桶。** 页面负责安装、搜索、克隆与更新桶、更新、固定与卸载软件，以及
+  查看。`scoop bucket rm` 只需再增加一种 `scoop_plan_run` 类型即可支持。
 - **安装完成后不能在本页重指链接。** 在已有安装下改动 `SCOOP` 或 `SCOOP_GLOBAL`
   会让软件消失；设置页只读显示路径，并提示先迁移或卸载。
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时

@@ -26,6 +26,7 @@ export type ScoopRunKind =
   | "apps-update"
   | "app-update"
   | "hold"
+  | "uninstall"
   | "config";
 export type ScoopLogTone = "info" | "error" | "done";
 
@@ -68,6 +69,8 @@ export interface ScoopPageController {
   updateApp: (app: { name: string; global: boolean }) => Promise<void>;
   /** Pins an app at its version (`scoop hold`), or releases it. */
   setAppHold: (app: { name: string; global: boolean }, hold: boolean) => Promise<void>;
+  /** Uninstalls one app (`scoop uninstall [-g] [-p] <app>`). */
+  uninstallApp: (app: { name: string; global: boolean }, purge: boolean) => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
   syncProxy: () => Promise<void>;
   clearRun: () => void;
@@ -231,7 +234,10 @@ export function useScoopPage(): ScoopPageController {
   }, [appendLog, beginPreparation, endPreparation, running, status, t]);
 
   const runPlan = useCallback(
-    async (request: Pick<ScoopRunRequest, "kind" | "spec" | "global">, kind: ScoopRunKind) => {
+    async (
+      request: Pick<ScoopRunRequest, "kind" | "spec" | "global" | "purge">,
+      kind: ScoopRunKind
+    ) => {
       if (running || !beginPreparation()) return;
       try {
         const next = await scoopPlanRun({
@@ -293,6 +299,14 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
+  /** `scoop uninstall [-g] [-p] <app>`: Scoop keeps the app's persist folder
+   * unless `-p` is passed, which is the choice the confirmation offers. */
+  const uninstallApp = useCallback(
+    (app: { name: string; global: boolean }, purge: boolean) =>
+      runPlan({ kind: "uninstall", spec: app.name, global: app.global, purge }, "uninstall"),
+    [runPlan]
+  );
+
   const syncProxy = useCallback(() => runPlan({ kind: "config", spec: "" }, "config"), [runPlan]);
 
   const clearRun = useCallback(() => {
@@ -330,6 +344,7 @@ export function useScoopPage(): ScoopPageController {
     updateApps,
     updateApp,
     setAppHold,
+    uninstallApp,
     searchOnline,
     syncProxy,
     clearRun,

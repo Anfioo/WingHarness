@@ -1,9 +1,24 @@
 import { useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import type { ScoopPageController } from "@/hooks/use-scoop-page";
+import type { ScoopApp } from "@/commands/services/scoop/types";
 import { InfoRow } from "./info-row";
 import { ScoopPathRows } from "./path-rows";
 
@@ -152,6 +167,12 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
                   >
                     {app.hold ? t("scoop.overview.unpin") : t("scoop.overview.pin")}
                   </Button>
+                  {/* Scoop lists itself as an app, and uninstalling it would
+                      take every other app with it. The backend refuses the
+                      name; the row simply offers no button for it. */}
+                  {app.name.toLowerCase() !== "scoop" && (
+                    <UninstallButton page={page} app={app} disabled={busy} />
+                  )}
                 </div>
               </li>
             ))}
@@ -159,5 +180,76 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * `scoop uninstall [-p] <app>`. The confirmation asks whether the app's
+ * `persist` folder goes too, because Scoop keeps it by default and that is the
+ * data a reinstall would otherwise pick up again.
+ */
+function UninstallButton({
+  page,
+  app,
+  disabled,
+}: {
+  page: ScoopPageController;
+  app: ScoopApp;
+  disabled: boolean;
+}) {
+  const { t } = useAppTranslation();
+  const [purge, setPurge] = useState(false);
+
+  return (
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) setPurge(false);
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={disabled}
+          title={t("scoop.overview.uninstallTitle", { app: app.name })}
+          aria-label={t("scoop.overview.uninstallTitle", { app: app.name })}
+          className="hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {t("scoop.overview.uninstallDialogTitle", { app: app.name })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("scoop.overview.uninstallDialogBody", { app: app.name })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="flex items-center gap-2">
+          <Switch
+            id={`scoop-uninstall-purge-${app.global ? "g" : "u"}-${app.name}`}
+            checked={purge}
+            onCheckedChange={setPurge}
+          />
+          <Label
+            htmlFor={`scoop-uninstall-purge-${app.global ? "g" : "u"}-${app.name}`}
+            className="text-xs font-normal"
+          >
+            {t("scoop.overview.uninstallPurge")}
+          </Label>
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("scoop.overview.uninstallCancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive hover:bg-destructive/90 text-white"
+            onClick={() => void page.uninstallApp(app, purge)}
+          >
+            {t("scoop.overview.uninstallConfirm")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

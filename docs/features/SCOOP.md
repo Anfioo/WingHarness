@@ -107,7 +107,7 @@ upstream location the file was taken from.
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold`, or the proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
@@ -226,6 +226,25 @@ The page reads the flag from that file rather than from a `scoop` process, so
 the badge is right the moment the status lands, and it flips when the hold run
 exits with 0 (the run refreshes the status).
 
+## Uninstalling an app
+
+The trash button on an installed app's row asks for confirmation and then runs
+`scoop uninstall <app>`, with `-g` for a global app. One app per run, and a
+WingHarness plugin uninstalls the same way, because a plugin is an ordinary Scoop
+app.
+
+Scoop keeps the app's `<scoop>/persist/<app>` folder by default — that is where
+the app's own settings live, and a reinstall finds them again. The confirmation
+dialog offers **Delete the persist folder too**, which appends `-p` for a clean
+removal. The choice is per run and resets every time the dialog opens, so the
+destructive option is never the one left checked.
+
+The dialog lists the persist behaviour in its body, and the run log repeats it,
+so what a run does is visible before and after it starts.
+
+`scoop uninstall scoop` would remove Scoop itself and every app with it, so
+`scoop_plan_run` refuses that name outright instead of offering it as a target.
+
 ## Commands
 
 | Command | Parameters | Returns |
@@ -235,7 +254,7 @@ exits with 0 (the run refreshes the status).
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone, a proxy sync, `scoop update`, `scoop update *`, one app's update, or a hold / unhold |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -244,9 +263,9 @@ a line and exits instead of opening an interactive shell.
 
 - **Windows only.** `SCOOP` is a Windows package manager; the commands return an
   error elsewhere.
-- **No uninstall and no bucket removal.** The page installs, searches, clones and
-  updates buckets, updates and pins apps, and reports. `scoop uninstall` and
-  `scoop bucket rm` would be easy to add as more `scoop_plan_run` kinds.
+- **No bucket removal.** The page installs, searches, clones and updates
+  buckets, updates, pins and uninstalls apps, and reports. `scoop bucket rm`
+  would be easy to add as another `scoop_plan_run` kind.
 - **The links cannot be re-pointed after install from this page.** Changing
   `SCOOP` or `SCOOP_GLOBAL` underneath an existing install hides its apps; the
   Settings tab shows the paths read-only and says to migrate or uninstall first.

@@ -105,6 +105,13 @@ const scoop = {
     heldBadge: "已固定",
     globalBadge: "全局",
     pluginBadge: "WingHarness 插件",
+    uninstallTitle: "卸载 {{app}}",
+    uninstallDialogTitle: "卸载 {{app}}？",
+    uninstallDialogBody:
+      "Scoop 会删除 {{app}} 已安装的版本。存放设置的 persist 目录默认保留，除非你同时勾选删除。",
+    uninstallPurge: "同时删除 persist 目录",
+    uninstallConfirm: "卸载",
+    uninstallCancel: "取消",
   },
   search: {
     placeholder: "7zip、extras/7zip 或 scoop install extras/7zip",
