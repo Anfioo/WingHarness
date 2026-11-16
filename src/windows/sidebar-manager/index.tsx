@@ -772,7 +772,9 @@ function ManagerBody({ config }: { config: SidebarConfig }) {
                 {unplacedRoutes.map((route) => (
                   <DraggableRow
                     key={routeItemId(route.id)}
-                    id={routeItemId(route.id)}
+                    // The `itm:` prefix is what makes `onDragEnd` treat the row as
+                    // an entry at all; the id behind it stays the layout id.
+                    id={sortItemId(routeItemId(route.id))}
                     label={route.navLabel}
                     icon={route.icon}
                   />
@@ -788,7 +790,7 @@ function ManagerBody({ config }: { config: SidebarConfig }) {
                 {tabPlugins.map((plugin) => (
                   <DraggableRow
                     key={pluginItemId(plugin.id)}
-                    id={pluginItemId(plugin.id)}
+                    id={sortItemId(pluginItemId(plugin.id))}
                     label={plugin.name}
                     icon={Package}
                   />
