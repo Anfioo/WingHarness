@@ -401,6 +401,7 @@ macro_rules! all_commands {
             crate::commands::runtime::runtime_target,
             crate::commands::runtime::runtime_write_file,
             crate::commands::scoop::scoop_apply_location,
+            crate::commands::scoop::scoop_installed,
             crate::commands::scoop::scoop_plan_run,
             crate::commands::scoop::scoop_prepare_install,
             crate::commands::scoop::scoop_search,

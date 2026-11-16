@@ -15,6 +15,19 @@ use crate::config::strip_bom;
 /// Manifest file expected at the root of every plugin folder.
 pub const MANIFEST_FILE: &str = "plugin.json";
 
+/// Every WingHarness plugin is a Scoop app whose name starts with this.
+///
+/// The name is the only identity a plugin has — its folder, its persist folder
+/// and its state key all follow it — so the prefix is also the one marker that
+/// tells this app's plugins apart from every other Scoop app installed beside
+/// them.
+pub const PLUGIN_PREFIX: &str = "wingharness-";
+
+/// Whether an app name is one of this app's plugins.
+pub fn is_plugin_app(app: &str) -> bool {
+    app.starts_with(PLUGIN_PREFIX)
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginManifest {
@@ -588,6 +601,31 @@ mod tests {
         for id in ["sync-docs", "a_b.c", "Plugin2"] {
             validate_id(id).unwrap_or_else(|error| panic!("{id} should be allowed: {error}"));
         }
+    }
+
+    #[test]
+    fn only_prefixed_app_names_are_plugins() {
+        for app in ["wingharness-cursor-proxy", "wingharness-a"] {
+            assert!(is_plugin_app(app), "{app} should be a plugin");
+        }
+        // The prefix has to be the whole marker, so a bare name and a name that
+        // merely contains it are both someone else's app.
+        for app in ["cursor-proxy", "my-wingharness-plugin", "WingHarness-x", ""] {
+            assert!(!is_plugin_app(app), "{app} should not be a plugin");
+        }
+    }
+
+    #[test]
+    fn a_key_the_loader_does_not_know_is_ignored() {
+        // The plugin's own `wingharness` block — the app version it was written
+        // against, its category — is metadata for people and bucket tooling.
+        // Reading it would only make an older app refuse a newer plugin.
+        let parsed: PluginManifest = serde_json::from_str(
+            r#"{"id":"wingharness-a","name":"a","entry":"run.cmd",
+                "wingharness":{"minAppVersion":"0.0.12","category":"proxy"}}"#,
+        )
+        .unwrap();
+        validate(&parsed).unwrap();
     }
 
     #[test]

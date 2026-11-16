@@ -48,6 +48,11 @@ Scoop 有两个根目录，各自由一个固定链接指代：
 概览与设置页会把两个真实目录、两个 `链接 → 目录` 以及每个 `变量（真实路径 …）`
 分开显示，不会再出现几行看起来一模一样的路径。
 
+在概览页，只要两个变量都指向各自的固定链接（也就是安装正常的状态），这张卡片就折叠
+成一行：打开这个页面要看的是已安装的软件列表。这一行带**已就绪**徽标，箭头点开即可；
+一旦某个变量缺失或指向别处，它会自己展开，因为那时它才是该看的东西。手动开关在页面
+打开期间优先于这个默认。
+
 ## 代理
 
 代理有一个页面级模式——**跟随设置、直连、自定义**——默认跟随“设置 → 代理”。解析
@@ -92,7 +97,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / 代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
 （`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`）传递，而不是
@@ -114,29 +119,114 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 
 ## 读取清单
 
-概览不需要启动 `scoop list` 进程：
+概览不需要启动 `scoop list` 进程。页面靠两次读取打开：`scoop_installed` 只看固定目录，
+毫秒级回答“已安装”，所以徽标和页签行第一帧就是对的；`scoop_status` 要遍历每个桶、
+每个已装清单再问一次 CLI 版本，等它回来后再覆盖那个预判。加载屏按页面本身的形状画
+（页签行、三个计数卡、路径卡与软件卡），而不是一整块。
 
-- **已装软件** —— `apps/*/current/manifest.json`（版本、描述、主页）加上
-  `install.json`（桶），从 `scoop` 与 `scoopg` 两处读取；来自全局目录的软件带
-  “全局”标记。`current` 是一个联接，会被透明地跟随。
+- **已装软件** —— `apps/*/current/scoop-manifest.json`（版本、描述、主页）加上
+  `scoop-install.json`（桶），从 `scoop` 与 `scoopg` 两处读取；来自全局目录的软件带
+  “全局”标记。`current` 是一个联接，会被透明地跟随。这两个是当前 Scoop 写下的文件名；
+  旧版 Scoop 装的软件仍带着 `manifest.json` 与 `install.json`，所以每处读取都会回退到
+  旧名字，两种安装都能显示出各自的版本号。名字以 `wingharness-` 开头的软件旁边会多一个
+  **WingHarness 插件**徽标——名字是插件唯一的标记（见
+  [PLUGINS.zh-CN.md](./PLUGINS.zh-CN.md#1a-名字wingharness-name)）。
 - **桶** —— `scoop` 下的 `buckets/*/bucket/*.json`，按桶计数。
 - **本地搜索** —— 在同一批桶目录里按文件名匹配，命中的清单再解析版本与描述。只
-  搜索已克隆的桶，因此空状态会说明这一点。
+  搜索已克隆的桶，因此空状态会说明这一点。命中的名字带插件前缀时同样带徽标，所以
+  还没安装就能认出这是插件。
 - **联网搜索** —— 正常执行一次 `scoop search <词>`，输出流进终端。
 
 安装输入接受 `7zip`、`scoop install 7zip`、`scoop install extras/vscode git`，
 搜索输入也接受相同形式。词元只允许 `A-Z a-z 0-9 . - _ + / @`：结果会被
 `cmd.exe` 展开，出现 shell 元字符就是命令注入。
 
+## 克隆桶
+
+**桶**页用 `scoop bucket add` 克隆桶；下面这一行输入接受这些写法，开头的单词都可
+省略：
+
+| 输入 | 结果 |
+| --- | --- |
+| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` —— 使用内置的官方桶表 |
+| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `https://github.com/ScoopInstaller/Extras` | 桶名取仓库名并转小写 |
+| `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | 同上，按终端里的写法原样识别 |
+| `extras/7zip` | `scoop install extras/7zip`，从已克隆的桶安装 |
+| `scoop install extras/7zip` | 同上 |
+
+裸的 `owner/repo` 一律按安装处理，而不是克隆：`scoop install` 就是这么读的，而不
+写名字时用地址形式克隆桶。前端解析这一行，后端在写 `run.cmd` 之前再解析一次
+—— 桶名与地址通过子进程环境变量传入并加引号，两者都限定在桶名与 git 地址允许的
+字符内。
+
+克隆任务以 0 退出时会刷新桶列表。从不存在的桶安装 `<桶名>/<清单名>` 时会直接拦下
+并提示：Scoop 会询问是否添加该桶，而终端没有输入通道。
+
+### 删除桶
+
+桶行上的垃圾桶按钮先要求确认，然后执行 `scoop bucket rm <桶名>`，删掉
+`<scoop>/buckets/<桶名>` 这个克隆。Scoop 只删目录和它的缓存条目，别的都不动：从该
+桶安装的软件仍然是安装状态、仍然列在页面上，但那个桶的清单没了，本地搜索也就不再
+提供它里面的新软件。确认对话框把这句写清楚，因为这一点最出乎意料。
+
+一次运行删一个桶，任何桶都能删，包括 `main` —— Scoop 本身允许，页面就跟着允许。
+
+## 更新清单与软件
+
+更新由两个按钮覆盖，各在一个页签里，各自就是一条 Scoop 命令：
+
+| 按钮 | 位置 | 命令 | 更新什么 |
+| --- | --- | --- | --- |
+| **更新全部桶** | 桶页签表头 | `scoop update` | Scoop 本体与所有已克隆的桶 |
+| **全部更新** | 概览页软件表头 | `scoop update *` | 所有用户级（非全局）软件 |
+| **更新**（行内） | 概览页的软件行 | `scoop update <app>` | 这一个软件 |
+
+桶是 `<scoop>/buckets/<桶名>` 下的 git 克隆，而 Scoop 没有“只更新一个桶”的命令，
+所以不提供单桶更新 —— 命令既然只有 `scoop update`，就一次更新全部。
+
+全局目录里有软件时，“全部更新”会在同一个脚本末尾补一条 `scoop update -g *`，
+并在用户级那一遍失败时停下、不再执行它。Scoop 要求这一遍在管理员窗口里运行，
+所以在普通窗口里启动的运行会在终端里显示它的拒绝，全局软件保持原样。全局软件的
+行内更新同样带 `-g`。
+
+### 固定版本
+
+行内的**固定版本**执行 `scoop hold <app>`，**取消固定**执行 `scoop unhold <app>`。
+Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-install.json`，旧安装是
+`install.json`），此后每次 `scoop update *` 都会跳过它 —— 跳过是 Scoop 自己做的，
+页面不做任何过滤。该行随后显示**已固定**徽标，**更新**按钮变为不可用：Scoop 拒绝
+更新被固定的软件，所以要更新得先取消固定，而那只有一次点击。
+
+页面直接读那个文件里的标记，不启动 `scoop` 进程，所以状态一到徽标就是准的；固定
+任务以 0 退出时会刷新状态，徽标随之翻转。
+
+## 卸载软件
+
+已安装软件行上的垃圾桶按钮先要求确认，然后执行 `scoop uninstall <app>`，全局软件
+再带上 `-g`。一次运行卸载一个软件，WingHarness 插件也走同一条路 —— 插件本身就是
+普通的 Scoop 软件。
+
+Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那里，重装时还能接上。
+确认对话框里的**同时删除 persist 目录**会追加 `-p`，做一次彻底删除。这个选项只对
+本次运行有效，每次打开对话框都会重置，所以危险的选项不会被默认勾着。
+
+对话框正文写明 persist 的去向，运行日志里也再写一遍，所以一次运行做什么，在开始前
+和开始后都看得见。
+
+`scoop uninstall scoop` 会连 Scoop 本体和它装的所有软件一起删掉，所以
+`scoop_plan_run` 直接拒绝这个名字，而不是把它当作可选目标。
+
 ## 命令
 
 | 命令 | 参数 | 返回 |
 | --- | --- | --- |
+| `scoop_installed` | — | 固定目录里是否有 Scoop，只看该路径 |
 | `scoop_status` | — | 安装状态、版本、路径、用户环境变量、代理、软件与桶 |
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索或代理同步写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、克隆或删除桶、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -144,8 +234,6 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 ## 限制
 
 - **仅限 Windows。** `SCOOP` 是 Windows 包管理器，其它平台会直接返回错误。
-- **没有卸载、更新与桶管理。** 页面负责安装、搜索与查看。`scoop uninstall` 与
-  `scoop update` 只需再增加一种 `scoop_plan_run` 类型即可支持。
 - **安装完成后不能在本页重指链接。** 在已有安装下改动 `SCOOP` 或 `SCOOP_GLOBAL`
   会让软件消失；设置页只读显示路径，并提示先迁移或卸载。
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时

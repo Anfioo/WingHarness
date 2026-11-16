@@ -238,10 +238,19 @@ fn ensure_config_present(id: &str) -> Result<(), String> {
 #[tauri::command]
 pub async fn plugins_stop(id: String) -> Result<bool, String> {
     let Installed {
-        manifest, dir, ..
+        manifest,
+        dir,
+        persist,
+        ..
     } = registry::resolve(&id)?;
     tauri::async_runtime::spawn_blocking(move || {
-        runner::stop(&id, &dir, manifest.stop_script.as_deref(), STOP_TIMEOUT)
+        runner::stop(
+            &id,
+            &dir,
+            &persist,
+            manifest.stop_script.as_deref(),
+            STOP_TIMEOUT,
+        )
     })
     .await
     .map_err(|error| format!("Stop task failed: {error}"))?

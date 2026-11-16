@@ -133,6 +133,7 @@ pub fn start(id: &str, dir: &Path, persist: &Path, entry: &str) -> Result<Starte
 pub fn stop(
     id: &str,
     dir: &Path,
+    persist: &Path,
     stop_script: Option<&str>,
     timeout: Duration,
 ) -> Result<bool, String> {
@@ -145,7 +146,7 @@ pub fn stop(
         .map(str::trim)
         .filter(|script| !script.is_empty())
     {
-        return match run_stop_script(id, dir, script, timeout) {
+        return match run_stop_script(id, dir, persist, script, timeout) {
             Ok(()) => {
                 log::note(id, "stopped");
                 Ok(true)
@@ -308,7 +309,13 @@ fn launch(
 /// stdin is the null device for the same reason the entry script's is: a script
 /// ending in `pause` — as the portable bundles' own stop scripts do — would
 /// otherwise wait forever for a keypress nobody can give.
-fn run_stop_script(id: &str, dir: &Path, script: &str, timeout: Duration) -> Result<(), String> {
+fn run_stop_script(
+    id: &str,
+    dir: &Path,
+    persist: &Path,
+    script: &str,
+    timeout: Duration,
+) -> Result<(), String> {
     let path = dir.join(script);
     if !path.is_file() {
         return Err(format!("Stop script not found: {}", path.display()));
@@ -323,6 +330,9 @@ fn run_stop_script(id: &str, dir: &Path, script: &str, timeout: Duration) -> Res
         .creation_flags_no_window()
         .env("PLUGIN_ID", id)
         .env("PLUGIN_DIR", dir)
+        // The settings a stop script acts on live here, not in the install
+        // folder, so it needs the same variable the entry script gets.
+        .env("PLUGIN_PERSIST", persist)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -429,7 +439,9 @@ mod tests {
         // No process of ours and nothing declared to run, so there is nothing
         // to do — and it must not reach taskkill.
         let dir = Path::new(".");
-        assert!(!stop("unit-nothing-runs-under-this", dir, None, STOP_TIMEOUT).unwrap());
+        assert!(
+            !stop("unit-nothing-runs-under-this", dir, dir, None, STOP_TIMEOUT).unwrap()
+        );
     }
 
     /// The point of the manifest-supplied stop script: a plugin can be serving
@@ -444,7 +456,14 @@ mod tests {
 
         // Nothing registered under this id.
         assert!(!is_running("unit-stop-orphan"));
-        let done = stop("unit-stop-orphan", &dir, Some("stop.cmd"), STOP_TIMEOUT).unwrap();
+        let done = stop(
+            "unit-stop-orphan",
+            &dir,
+            &dir,
+            Some("stop.cmd"),
+            STOP_TIMEOUT,
+        )
+        .unwrap();
         assert!(
             done,
             "the declared stop script should count as doing something"
@@ -468,7 +487,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let error =
-            run_stop_script("unit-stop-missing", &dir, "stop.cmd", STOP_TIMEOUT).unwrap_err();
+            run_stop_script("unit-stop-missing", &dir, &dir, "stop.cmd", STOP_TIMEOUT).unwrap_err();
         assert!(error.contains("not found"), "{error}");
     }
 
@@ -489,6 +508,7 @@ mod tests {
         let started = Instant::now();
         let error = run_stop_script(
             "unit-stop-hang",
+            &dir,
             &dir,
             "hang.cmd",
             Duration::from_millis(300),
@@ -514,6 +534,30 @@ mod tests {
         )
         .unwrap();
 
-        run_stop_script("unit-stop-ok", &dir, "stop.cmd", STOP_TIMEOUT).unwrap();
+        run_stop_script("unit-stop-ok", &dir, &dir, "stop.cmd", STOP_TIMEOUT).unwrap();
+    }
+
+    /// A stop script reads the plugin's settings, which live in the persist
+    /// folder — so it gets the same path variable the entry script does.
+    #[test]
+    fn a_stop_script_sees_the_persist_folder() {
+        let tag = std::process::id();
+        let dir = std::env::temp_dir().join(format!("plugin-stop-env-{tag}"));
+        let persist = std::env::temp_dir().join(format!("plugin-stop-persist-{tag}"));
+        for path in [&dir, &persist] {
+            let _ = std::fs::remove_dir_all(path);
+            std::fs::create_dir_all(path).unwrap();
+        }
+        std::fs::write(
+            dir.join("stop.cmd"),
+            "@echo off\r\nbreak>\"%PLUGIN_PERSIST%\\seen.txt\"\r\nexit /b 0\r\n",
+        )
+        .unwrap();
+
+        run_stop_script("unit-stop-env", &dir, &persist, "stop.cmd", STOP_TIMEOUT).unwrap();
+        assert!(
+            persist.join("seen.txt").is_file(),
+            "the stop script should have written into PLUGIN_PERSIST"
+        );
     }
 }

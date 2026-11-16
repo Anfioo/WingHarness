@@ -427,6 +427,7 @@ const COMMANDS: &[&str] = &[
     "runtime_target",
     "runtime_write_file",
     "scoop_apply_location",
+    "scoop_installed",
     "scoop_plan_run",
     "scoop_prepare_install",
     "scoop_search",

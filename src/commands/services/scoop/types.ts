@@ -32,6 +32,10 @@ export interface ScoopApp {
   bucket: string | null;
   /** Installed under `SCOOP_GLOBAL` instead of `SCOOP`. */
   global: boolean;
+  /** `scoop hold`: pinned at this version, so `scoop update *` skips it. */
+  hold: boolean;
+  /** A WingHarness plugin: the app name carries the plugin prefix. */
+  plugin: boolean;
 }
 
 export interface ScoopSearchHit {
@@ -41,6 +45,8 @@ export interface ScoopSearchHit {
   description: string | null;
   homepage: string | null;
   installed: boolean;
+  /** A WingHarness plugin: the app name carries the plugin prefix. */
+  plugin: boolean;
 }
 
 export interface ScoopStatus {
@@ -111,8 +117,28 @@ export interface ScoopInstallRequest extends ScoopLocationRequest {
 }
 
 export interface ScoopRunRequest {
-  kind: "install" | "search" | "config";
+  kind:
+    | "install"
+    | "search"
+    | "config"
+    | "bucket"
+    | "bucket-rm"
+    | "update"
+    | "apps-update"
+    | "app-update"
+    | "hold"
+    | "unhold"
+    | "uninstall";
+  /**
+   * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
+   * for `bucket`, `<name> <url>`; for `bucket-rm`, `<name>`; `update` and
+   * `apps-update` take nothing.
+   */
   spec: string;
+  /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
+  global?: boolean;
+  /** `uninstall` also removes the app's `persist` folder (`-p`). */
+  purge?: boolean;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
 }

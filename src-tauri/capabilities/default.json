@@ -473,6 +473,7 @@
     "allow-save-config",
     "allow-save-text-file",
     "allow-scoop-apply-location",
+    "allow-scoop-installed",
     "allow-scoop-plan-run",
     "allow-scoop-prepare-install",
     "allow-scoop-search",

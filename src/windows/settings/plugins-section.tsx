@@ -44,6 +44,12 @@ import { usePluginsUp } from "@/hooks/use-plugins-up";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 
+/**
+ * The one marker that tells this app's plugins apart from every other Scoop
+ * app, mirroring `manifest::PLUGIN_PREFIX` in the backend.
+ */
+const PLUGIN_PREFIX = "wingharness-";
+
 export function PluginsSection() {
   const { t } = useAppTranslation();
   const [plugins, setPlugins] = useState<PluginView[] | null>(null);
@@ -227,6 +233,14 @@ export function PluginsSection() {
   const install = useCallback(() => {
     const app = (installApp ?? "").trim();
     if (!app) return;
+
+    // The backend refuses an unprefixed name too; this only turns that refusal
+    // into a sentence the dialog can say before closing itself.
+    if (!app.startsWith(PLUGIN_PREFIX)) {
+      toast.error(t("plugins.prefixRequired", { prefix: PLUGIN_PREFIX }));
+      return;
+    }
+
     setInstallApp(null);
 
     lifecycleStep(app, t("plugins.installed", { name: app }), (handle) =>

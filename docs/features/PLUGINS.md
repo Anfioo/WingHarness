@@ -6,27 +6,29 @@ A plugin is an ordinary **Scoop app** that carries a `plugin.json` at its root. 
 
 The app knows nothing about any particular plugin — **installing a new one requires no frontend change and no Rust change**, only a manifest in a bucket.
 
+The one thing a plugin must carry is the name: **a plugin's Scoop app name starts with `wingharness-`**, and that prefix is the only marker there is (§1a).
+
 ## 1. Package layout and the bucket
 
 The app is the zip's contents, with `plugin.json` at the root:
 
 ```
-hello-plugin.zip
+wingharness-hello-plugin.zip
 ├── plugin.json
 ├── run.cmd
 └── (anything else)
 ```
 
-`scoop install hello-plugin` unpacks that into `<scoop>/apps/hello-plugin/<version>/` and points `<scoop>/apps/hello-plugin/current` at it. The app only ever looks at `current`, so if the archive wraps everything in one folder, name it in the bucket manifest's `extract_dir`.
+`scoop install wingharness-hello-plugin` unpacks that into `<scoop>/apps/wingharness-hello-plugin/<version>/` and points `<scoop>/apps/wingharness-hello-plugin/current` at it. The app only ever looks at `current`, so if the archive wraps everything in one folder, name it in the bucket manifest's `extract_dir`.
 
 The bucket manifest holds **standard Scoop fields only** — the plugin's own metadata stays in the package, where the app reads it:
 
 ```json
 {
   "version": "1.0.0",
-  "description": "Hello plugin: prints the values its config files hold.",
+  "description": "WingHarness plugin: hello plugin, prints the values its config files hold.",
   "homepage": "https://github.com/you/scoop-bucket",
-  "url": "https://github.com/you/scoop-bucket/releases/download/hello-plugin-1.0.0/hello-plugin-1.0.0.zip",
+  "url": "https://github.com/you/scoop-bucket/releases/download/wingharness-hello-plugin-1.0.0/wingharness-hello-plugin-1.0.0.zip",
   "hash": "sha256:…"
 }
 ```
@@ -47,6 +49,24 @@ They also show the one thing a plugin's manifest usually wants beyond the standa
 ]
 ```
 
+### 1a. The name: `wingharness-<name>`
+
+A plugin is named by its **bucket manifest file**, because Scoop names the app after it: `bucket/wingharness-cursor-proxy.json` installs as the app `wingharness-cursor-proxy`, which is its folder under `apps/`, its persist folder, and its id in the app. The prefix is therefore not decoration — **it is the only thing that says "this app is a WingHarness plugin"**, and three things rely on it:
+
+- **The install gate (§3)** — Settings → Plugins refuses any name that does not start with it, so an ordinary Scoop app is never registered as a plugin by mistake. The error reads `'<app>' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.`
+- **The badge** — the Scoop page's overview and search mark apps with the prefix as "WingHarness plugin", so a plugin is recognisable among the other Scoop apps on the machine.
+- **The bucket's own convention** — see below.
+
+A plugin's bucket manifest also says where it came from, in the standard fields a user sees in `scoop info` and on the app's card:
+
+| Field | Convention |
+| --- | --- |
+| file name | `wingharness-<name>.json` |
+| `description` | starts with `WingHarness plugin: ` |
+| `notes` | includes `Installed from WingHarness (Settings > Plugins).` |
+
+Structured metadata does **not** go in the manifest. Scoop's `schema.json` is `additionalProperties: false`, so a custom top-level key there would install fine but turn the bucket's CI red. It belongs in the package's own `plugin.json`, which nothing validates but the app (§2).
+
 ## 2. plugin.json
 
 ```jsonc
@@ -57,11 +77,17 @@ They also show the one thing a plugin's manifest usually wants beyond the standa
   "entry": "run.cmd",               // required; the script that starts the plugin
   "stopScript": "stop.cmd",         // optional; the script that stops it, see §5a
   "ui": "http://127.0.0.1:{PORT}/", // optional; the page this plugin serves, see §4
+  "wingharness": {                  // optional; metadata for the app and its bucket
+    "minAppVersion": "0.0.12",
+    "category": "proxy"
+  },
   "configFiles": [ /* sources, see below */ ]
 }
 ```
 
 > The block above is **jsonc** for the sake of comments; a real `plugin.json` must not contain any.
+
+`wingharness` is the one place a plugin declares something that is neither a Scoop field nor a script: `minAppVersion` is the app version the plugin was written against, `category` groups it in a listing. Nothing reads either today — the block is descriptive, and unknown keys are ignored by the loader, so a plugin carrying it works on any app build. Keep it out of the bucket manifest, where Scoop's schema would refuse it (§1a).
 
 There is no `id`. **A plugin is named by its Scoop app**, which is also its folder name and the key the app stores its enabled flag under, so the two can never disagree. A `plugin.json` that was written for an older version and still carries an `id` is read fine — the key is ignored, not an error.
 
@@ -180,7 +206,7 @@ The same, fully commented and with a runnable script beside it, is [`examples/pl
 
 The settings page drives Scoop; it does not reimplement it.
 
-1. **Install** — press **Install plugin** and type the app's name. It must come from a bucket you have already added on the **Scoop** page. The app runs `scoop install <app>`, streams Scoop's output into the panel, and the plugin arrives **disabled**.
+1. **Install** — press **Install plugin** and type the app's name, **including its `wingharness-` prefix**. It must come from a bucket you have already added on the **Scoop** page. The app runs `scoop install <app>`, streams Scoop's output into the panel, and the plugin arrives **disabled**.
 2. **Enable** — in Settings → Plugins, flip its "Disabled" button to "Enabled".
 3. **Configure** — press the card's "Configure" button to open the config window (§4a).
 4. **Run** — press the plugin's "Run", or "Run all" at the top to run every enabled plugin in turn. Output streams into the panel below.
@@ -188,6 +214,27 @@ The settings page drives Scoop; it does not reimplement it.
 6. **Uninstall** — the bin icon runs `scoop uninstall <app>`. The plugin's **settings survive**: they live in the persist folder, which Scoop keeps (§6).
 
 Why a name and not a file: a drag-and-dropped zip was an install step the app had to own — unpack it, check where it landed, keep a record of it. Scoop already owns all of that for every app on the machine, so a plugin is simply one that brought a `plugin.json`.
+
+**The prefix is a gate, not advice.** `install` refuses a name that does not start with `wingharness-` before Scoop is ever started, and the settings page refuses it once more before sending the request, so the dialog can say why without an empty run panel:
+
+```
+'cursor-proxy' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.
+```
+
+The same sentence closes the "installed, but it is not a plugin" error (§9): an app that installed fine and brought no `plugin.json` is reported as a wrong name rather than as a broken plugin.
+
+### 3a. Renaming a plugin, and the install migration
+
+**A rename is a new app.** Because the name is the identity (§1a, §6), changing a plugin's name in its bucket manifest creates a different app: the old install stays where it is under its old name, with its own persist folder and its own card in Settings.
+
+Renaming one of your own plugins therefore means moving the user, not the files. To migrate the `cursor-proxy` install to `wingharness-cursor-proxy`:
+
+1. `scoop uninstall cursor-proxy` — this keeps `ScoopCurrent\persist\cursor-proxy`.
+2. Copy that folder to the new name:
+   `ScoopCurrent\persist\cursor-proxy` → `ScoopCurrent\persist\wingharness-cursor-proxy`.
+3. `scoop install wingharness-cursor-proxy` (or install it from Settings → Plugins), then enable it there again.
+
+Nothing else needs doing. The old `plugins.json` key and any `plugin:cursor-proxy` entry in the sidebar layout are **left behind and ignored**: an id that names no installed app is dropped instead of shown, so once step 1 is done those two entries are dead weight rather than errors. Delete them if you like; nothing reads them.
 
 The other controls: "Open plugins folder" opens `<scoop>/apps` in File Explorer, the folder icon on a card opens that plugin's own `current` folder, and the file icon opens its run log (§5b).
 
@@ -269,7 +316,7 @@ Before a run, every `startmust: true` source must exist **in the persist folder*
 
 Start and stop are one button everywhere, and the manifest names both halves: `entry` starts the plugin, `stopScript` stops it.
 
-**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's `current` folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
+**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's `current` folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` / `PLUGIN_PERSIST` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
 
 The app deliberately does **not** also kill the process tree when there is a script. The script is the plugin's own shutdown — it knows what to end, including daemons the app never started — and a second, cruder mechanism running behind its back can only cut a shutdown short.
 
@@ -344,7 +391,7 @@ A plugin's page (§4) is still arbitrary web content, now rendered by a real web
 
 ## 8. Examples
 
-Both live under [`examples/`](../../examples/) in this repo, with their own `plugin.json`, scripts and config files, plus a bucket manifest for each in [`examples/bucket/`](../../examples/bucket/).
+Both live under [`examples/`](../../examples/) in this repo, with their own `plugin.json`, scripts and config files, plus a bucket manifest for each in [`examples/bucket/`](../../examples/bucket/) — named `wingharness-hello-plugin.json` and `wingharness-plugin-showcase.json`, following the prefix rule (§1a).
 
 ### Full showcase: `examples/plugin-showcase/`
 
@@ -366,7 +413,7 @@ Its page renders every file back, so a change in the config window is visible on
 To try either one:
 
 1. Copy its bucket manifest into a bucket on the Scoop page, and point `url` at a zip of the folder (with `plugin.json` at the zip's root) — or install the app straight from a local source.
-2. Press **Install plugin** on the Plugins page and type the app name.
+2. Press **Install plugin** on the Plugins page and type the app name, prefix included.
 3. Press "Configure" and change the fields. Watch the file in `<scoop>/persist/<app>` change on disk — comments intact.
 4. Press "Run" (or open the plugin's tab) to see what the script read back.
 
@@ -375,7 +422,10 @@ Both scripts fall back to their own folder when `PLUGIN_PERSIST` is unset, so th
 ## 9. Troubleshooting
 
 **"…is installed, but it is not a plugin: …"**
-The app installed, but its `current` folder has no readable `plugin.json` at the root. Either the zip wraps everything in one folder (set `extract_dir` in the bucket manifest) or the manifest is invalid — the rest of the message says which.
+The app installed, but its `current` folder has no readable `plugin.json` at the root. Either the zip wraps everything in one folder (set `extract_dir` in the bucket manifest) or the manifest is invalid — the rest of the message says which. If the app is not one of this app's plugins at all, the message's last sentence says so: a plugin is a Scoop app named `wingharness-<name>`.
+
+**"'xxx' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'."**
+The name typed into **Install plugin** has no `wingharness-` prefix, and nothing was installed. Add the prefix — the app name is the name of the bucket manifest, so the manifest file itself has to be `wingharness-<name>.json` (§1a).
 
 **"'xxx' is already installed."**
 The app is already there. Press **Update** on its card instead; to reinstall from scratch, uninstall it first.

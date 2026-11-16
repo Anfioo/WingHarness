@@ -112,6 +112,11 @@ export function ScoopSearchPanel({ page }: { page: ScoopPageController }) {
                     {hit.version && (
                       <span className="text-muted-foreground font-mono text-xs">{hit.version}</span>
                     )}
+                    {hit.plugin && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {t("scoop.search.pluginBadge")}
+                      </Badge>
+                    )}
                     {hit.bucket && (
                       <Badge variant="secondary" className="text-[10px]">
                         {hit.bucket}
