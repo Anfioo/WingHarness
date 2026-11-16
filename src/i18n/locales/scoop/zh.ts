@@ -94,6 +94,7 @@ const scoop = {
     noApps: "还没有安装任何软件。",
     noMatches: "没有匹配的软件。",
     globalBadge: "全局",
+    pluginBadge: "WingHarness 插件",
   },
   search: {
     placeholder: "7zip、extras/7zip 或 scoop install extras/7zip",
@@ -106,6 +107,7 @@ const scoop = {
     idle: "输入名称开始搜索。",
     installed: "已安装",
     installOne: "安装",
+    pluginBadge: "WingHarness 插件",
   },
   buckets: {
     addTitle: "添加桶或从桶安装",

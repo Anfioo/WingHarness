@@ -221,6 +221,12 @@ pub fn enabled() -> Vec<Installed> {
 /// The plugin arrives **disabled**: installing must not run code.
 pub fn install(app: &str, on_event: &mut dyn FnMut(OutputEvent)) -> Result<PluginView, String> {
     manifest::validate_id(app)?;
+    if !manifest::is_plugin_app(app) {
+        return Err(format!(
+            "'{app}' is not a WingHarness plugin: plugins are Scoop apps named '{}<name>'.",
+            manifest::PLUGIN_PREFIX
+        ));
+    }
     let dir = dir_of(app)?;
     if dir.join(manifest::MANIFEST_FILE).is_file() {
         return Err(format!("'{app}' is already installed."));
@@ -228,7 +234,12 @@ pub fn install(app: &str, on_event: &mut dyn FnMut(OutputEvent)) -> Result<Plugi
 
     run_scoop("install", app, on_event)?;
 
-    manifest::read(&dir, app).map_err(|error| format!("'{app}' is installed, but it is not a plugin: {error}"))?;
+    manifest::read(&dir, app).map_err(|error| {
+        format!(
+            "'{app}' is installed, but it is not a plugin: {error} Plugins are Scoop apps named '{}<name>' with a plugin.json at the root.",
+            manifest::PLUGIN_PREFIX
+        )
+    })?;
 
     let persist = persist_of(app)?;
     fs::create_dir_all(&persist)

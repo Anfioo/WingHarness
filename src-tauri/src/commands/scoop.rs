@@ -102,6 +102,9 @@ pub struct ScoopAppView {
     pub bucket: Option<String>,
     /// Installed under `SCOOP_GLOBAL` instead of `SCOOP`.
     pub global: bool,
+    /// A WingHarness plugin: the app name carries the plugin prefix, see
+    /// [`crate::plugins::manifest::PLUGIN_PREFIX`].
+    pub plugin: bool,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -124,6 +127,8 @@ pub struct ScoopSearchHit {
     pub description: Option<String>,
     pub homepage: Option<String>,
     pub installed: bool,
+    /// A WingHarness plugin, by the same name test the overview uses.
+    pub plugin: bool,
 }
 
 /// A prepared terminal run: the script, its path, and the environment it needs.
@@ -341,6 +346,25 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+/// Scoop's own record of an installed app, which it writes into `current`:
+/// the manifest it installed from, and the bucket that manifest came from.
+const APP_MANIFEST_FILE: &str = "scoop-manifest.json";
+const APP_INSTALL_FILE: &str = "scoop-install.json";
+/// The names those two files carried before Scoop qualified them. Only an app
+/// installed by an older Scoop still has them.
+const LEGACY_MANIFEST_FILE: &str = "manifest.json";
+const LEGACY_INSTALL_FILE: &str = "install.json";
+
+/// One of the two metadata files of an installed app, under either name.
+///
+/// The current name wins and the old one is the fallback, so an install made by
+/// this Scoop and one made by an older Scoop are both read. Getting this wrong
+/// is silent — every field simply comes back empty — so the two candidates are
+/// tried in one place.
+fn read_app_json(current: &Path, primary: &str, legacy: &str) -> Option<serde_json::Value> {
+    read_json(&current.join(primary)).or_else(|| read_json(&current.join(legacy)))
+}
+
 fn text_field(value: &Option<serde_json::Value>, key: &str) -> Option<String> {
     value
         .as_ref()?
@@ -361,10 +385,12 @@ fn read_apps(target: &Path, global: bool) -> Vec<ScoopAppView> {
         .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
         .map(|entry| {
             let current = entry.path().join("current");
-            let manifest = read_json(&current.join("manifest.json"));
-            let install = read_json(&current.join("install.json"));
+            let manifest = read_app_json(&current, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE);
+            let install = read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE);
+            let name = entry.file_name().to_string_lossy().to_string();
             ScoopAppView {
-                name: entry.file_name().to_string_lossy().to_string(),
+                plugin: crate::plugins::manifest::is_plugin_app(&name),
+                name,
                 version: text_field(&manifest, "version"),
                 description: text_field(&manifest, "description"),
                 homepage: text_field(&manifest, "homepage"),
@@ -632,6 +658,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
                     description: text_field(&manifest, "description"),
                     homepage: text_field(&manifest, "homepage"),
                     version: text_field(&manifest, "version"),
+                    plugin: crate::plugins::manifest::is_plugin_app(&name),
                     name,
                     bucket: bucket_name.clone(),
                 });
@@ -658,6 +685,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
                 description: app.description,
                 homepage: app.homepage,
                 installed: true,
+                plugin: app.plugin,
             });
         }
     }
@@ -1509,8 +1537,74 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
 
 #[cfg(test)]
 mod tests {
-    use super::{is_inside, parse_bucket_spec, parse_spec, parse_version, same_path, strip_verbatim, PathKind};
+    use super::{
+        is_inside, parse_bucket_spec, parse_spec, parse_version, read_app_json, same_path,
+        strip_verbatim, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE,
+        LEGACY_MANIFEST_FILE,
+    };
+    use std::fs;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn app_metadata_is_read_under_either_name() {
+        let root = std::env::temp_dir().join(format!("wingharness-app-json-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+
+        let write = |dir: &str, file: &str, text: &str| {
+            let path = root.join(dir);
+            fs::create_dir_all(&path).unwrap();
+            fs::write(path.join(file), text).unwrap();
+            path
+        };
+
+        // An install made by a current Scoop: both qualified names.
+        let current = write(
+            "current",
+            APP_MANIFEST_FILE,
+            r#"{"version":"1.2.3"}"#,
+        );
+        write("current", APP_INSTALL_FILE, r#"{"bucket":"main"}"#);
+        assert_eq!(
+            read_app_json(&current, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("1.2.3"))
+        );
+        assert_eq!(
+            read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE)
+                .and_then(|value| value.get("bucket").cloned()),
+            Some(serde_json::json!("main"))
+        );
+
+        // An install made by an older Scoop: only the bare names, which is the
+        // case the fallback exists for.
+        let legacy = write("legacy", LEGACY_MANIFEST_FILE, r#"{"version":"0.1.0"}"#);
+        write("legacy", LEGACY_INSTALL_FILE, r#"{"bucket":"extras"}"#);
+        assert_eq!(
+            read_app_json(&legacy, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("0.1.0"))
+        );
+        assert_eq!(
+            read_app_json(&legacy, APP_INSTALL_FILE, LEGACY_INSTALL_FILE)
+                .and_then(|value| value.get("bucket").cloned()),
+            Some(serde_json::json!("extras"))
+        );
+
+        // Both present: the qualified name is Scoop's own record and wins.
+        let both = write("both", APP_MANIFEST_FILE, r#"{"version":"2.0.0"}"#);
+        write("both", LEGACY_MANIFEST_FILE, r#"{"version":"1.0.0"}"#);
+        assert_eq!(
+            read_app_json(&both, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("2.0.0"))
+        );
+
+        // Nothing there: no metadata, not a crash.
+        let empty = write("empty", "unrelated.txt", "");
+        assert!(read_app_json(&empty, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE).is_none());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn versions_are_read_from_the_reported_line() {

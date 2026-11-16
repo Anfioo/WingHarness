@@ -32,6 +32,8 @@ export interface ScoopApp {
   bucket: string | null;
   /** Installed under `SCOOP_GLOBAL` instead of `SCOOP`. */
   global: boolean;
+  /** A WingHarness plugin: the app name carries the plugin prefix. */
+  plugin: boolean;
 }
 
 export interface ScoopSearchHit {
@@ -41,6 +43,8 @@ export interface ScoopSearchHit {
   description: string | null;
   homepage: string | null;
   installed: boolean;
+  /** A WingHarness plugin: the app name carries the plugin prefix. */
+  plugin: boolean;
 }
 
 export interface ScoopStatus {

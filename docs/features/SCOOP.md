@@ -135,14 +135,21 @@ same xterm surface the Terminal page uses. There is exactly one run at a time:
 
 No `scoop list` process is needed for the overview:
 
-- **apps** — `apps/*/current/manifest.json` (version, description, homepage)
-  plus `install.json` (bucket), read from both `scoop` and `scoopg`; apps from
-  the global folder carry a global badge. `current` is a junction, which is
-  followed transparently.
+- **apps** — `apps/*/current/scoop-manifest.json` (version, description,
+  homepage) plus `scoop-install.json` (bucket), read from both `scoop` and
+  `scoopg`; apps from the global folder carry a global badge. `current` is a
+  junction, which is followed transparently. Those are the names a current Scoop
+  writes; an install made by an older one still carries `manifest.json` and
+  `install.json`, so each read falls back to the bare name and both vintages show
+  their version. An app whose name starts with `wingharness-` gets a
+  **WingHarness plugin** badge beside it — the name is the only marker a plugin
+  has (see [PLUGINS.md](./PLUGINS.md#1a-the-name-wingharness-name)).
 - **buckets** — `buckets/*/bucket/*.json` under `scoop`, counted per bucket.
 - **local search** — file names under the same bucket folders, with the matched
   manifest parsed for version and description. Only cloned buckets are searched,
-  which is why the empty state explains it.
+  which is why the empty state explains it. A hit whose name carries the plugin
+  prefix is badged the same way, so a plugin is recognisable before it is
+  installed.
 - **online search** — a normal run of `scoop search <term>`, streamed into the
   terminal.
 

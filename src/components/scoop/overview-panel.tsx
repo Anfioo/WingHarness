@@ -83,6 +83,11 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
                     {app.version && (
                       <span className="text-muted-foreground font-mono text-xs">{app.version}</span>
                     )}
+                    {app.plugin && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {t("scoop.overview.pluginBadge")}
+                      </Badge>
+                    )}
                     {app.bucket && (
                       <Badge variant="secondary" className="text-[10px]">
                         {app.bucket}

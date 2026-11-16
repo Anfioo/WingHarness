@@ -1,8 +1,8 @@
 {
   "version": "1.0.0",
-  "description": "Config showcase: a local page rendered from env, JSON and YAML settings.",
+  "description": "WingHarness plugin: config showcase, a local page rendered from env, JSON and YAML settings.",
   "homepage": "https://github.com/Anfioo/scoop-bucket",
-  "url": "https://github.com/Anfioo/scoop-bucket/releases/download/plugin-showcase-1.0.0/plugin-showcase-1.0.0.zip",
+  "url": "https://github.com/Anfioo/scoop-bucket/releases/download/wingharness-plugin-showcase-1.0.0/wingharness-plugin-showcase-1.0.0.zip",
   "hash": "0000000000000000000000000000000000000000000000000000000000000000",
   "pre_install": [
     "New-Item -ItemType Directory -Force -Path $persist_dir | Out-Null",

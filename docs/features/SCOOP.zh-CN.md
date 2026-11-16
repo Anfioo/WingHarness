@@ -116,12 +116,17 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 
 概览不需要启动 `scoop list` 进程：
 
-- **已装软件** —— `apps/*/current/manifest.json`（版本、描述、主页）加上
-  `install.json`（桶），从 `scoop` 与 `scoopg` 两处读取；来自全局目录的软件带
-  “全局”标记。`current` 是一个联接，会被透明地跟随。
+- **已装软件** —— `apps/*/current/scoop-manifest.json`（版本、描述、主页）加上
+  `scoop-install.json`（桶），从 `scoop` 与 `scoopg` 两处读取；来自全局目录的软件带
+  “全局”标记。`current` 是一个联接，会被透明地跟随。这两个是当前 Scoop 写下的文件名；
+  旧版 Scoop 装的软件仍带着 `manifest.json` 与 `install.json`，所以每处读取都会回退到
+  旧名字，两种安装都能显示出各自的版本号。名字以 `wingharness-` 开头的软件旁边会多一个
+  **WingHarness 插件**徽标——名字是插件唯一的标记（见
+  [PLUGINS.zh-CN.md](./PLUGINS.zh-CN.md#1a-名字wingharness-name)）。
 - **桶** —— `scoop` 下的 `buckets/*/bucket/*.json`，按桶计数。
 - **本地搜索** —— 在同一批桶目录里按文件名匹配，命中的清单再解析版本与描述。只
-  搜索已克隆的桶，因此空状态会说明这一点。
+  搜索已克隆的桶，因此空状态会说明这一点。命中的名字带插件前缀时同样带徽标，所以
+  还没安装就能认出这是插件。
 - **联网搜索** —— 正常执行一次 `scoop search <词>`，输出流进终端。
 
 安装输入接受 `7zip`、`scoop install 7zip`、`scoop install extras/vscode git`，

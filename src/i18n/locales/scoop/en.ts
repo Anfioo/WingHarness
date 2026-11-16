@@ -99,6 +99,7 @@ const scoop = {
     noApps: "No apps are installed yet.",
     noMatches: "No apps match the filter.",
     globalBadge: "Global",
+    pluginBadge: "WingHarness plugin",
   },
   search: {
     placeholder: "7zip, extras/7zip or scoop install extras/7zip",
@@ -111,6 +112,7 @@ const scoop = {
     idle: "Type a name to search.",
     installed: "Installed",
     installOne: "Install",
+    pluginBadge: "WingHarness plugin",
   },
   buckets: {
     addTitle: "Add a bucket or install from one",
