@@ -1,14 +1,16 @@
 //! Plugin management, driven by Settings → 插件.
 //!
-//! Installing and uninstalling touch the filesystem, so they hop to a blocking
-//! thread; running a plugin spawns its script and streams the output back.
+//! A plugin's lifecycle is Scoop's: installing, updating and uninstalling all
+//! run `scoop` and stream what it prints back to the settings page. Config
+//! writes and runs hop to a blocking thread; running a plugin spawns its script
+//! and streams the output back.
 
 use serde_json::{Map, Value};
 use tauri::ipc::Channel;
 
 use crate::plugins::log;
 use crate::plugins::probe;
-use crate::plugins::registry::{self, PluginView};
+use crate::plugins::registry::{self, Installed, PluginView};
 use crate::plugins::runner::{self, OutputEvent, Started, STOP_TIMEOUT};
 
 /// Every installed plugin, including folders whose manifest will not parse.
@@ -17,47 +19,68 @@ pub fn plugins_list() -> Vec<PluginView> {
     registry::list()
 }
 
-/// Unpacks a dropped zip and registers the plugin inside it.
+/// Installs `app` from the added Scoop buckets and registers it as a plugin.
 ///
-/// The plugin arrives disabled, so a stray drop cannot run anything. Progress
-/// is streamed on `on_progress` as the archive is unpacked, so a large plugin
-/// shows a moving bar instead of a frozen window.
+/// `scoop install` prints while it runs, so its output streams into the same
+/// panel a run uses. The plugin arrives disabled: installing must not run code.
 #[tauri::command]
 pub async fn plugins_install(
-    zip: String,
-    on_progress: Channel<registry::InstallProgress>,
+    app: String,
+    on_event: Channel<OutputEvent>,
 ) -> Result<PluginView, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        // The channel is throttled here rather than inside the unpack loop: a
-        // plugin of many small files would otherwise spend more time sending
-        // events than writing files. The final value is let through regardless,
-        // so the bar always lands on 100%.
-        let mut last = std::time::Instant::now();
-        let mut on_progress = |progress: registry::InstallProgress| {
-            let finished = progress.written >= progress.total;
-            if finished || last.elapsed() >= PROGRESS_INTERVAL {
-                last = std::time::Instant::now();
-                let _ = on_progress.send(progress);
-            }
+        let sender = on_event.clone();
+        let mut stream = move |event: OutputEvent| {
+            let _ = sender.send(event);
         };
-        registry::install(&zip, &mut on_progress)
+        let result = registry::install(&app, &mut stream);
+        report(&on_event, &result);
+        result
     })
     .await
     .map_err(|error| format!("Install task failed: {error}"))?
 }
 
-/// Minimum gap between install-progress events.
-///
-/// The unpack loop can report far faster than the UI needs; capping the rate
-/// keeps the channel from becoming the bottleneck. The loop also reports the
-/// final value unconditionally, so the bar still lands on 100%.
-const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(50);
-
+/// Updates a plugin to the version its bucket now names.
 #[tauri::command]
-pub async fn plugins_uninstall(id: String) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || registry::uninstall(&id))
-        .await
-        .map_err(|error| format!("Uninstall task failed: {error}"))?
+pub async fn plugins_update(id: String, on_event: Channel<OutputEvent>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let sender = on_event.clone();
+        let mut stream = move |event: OutputEvent| {
+            let _ = sender.send(event);
+        };
+        let result = registry::update(&id, &mut stream);
+        report(&on_event, &result);
+        result
+    })
+    .await
+    .map_err(|error| format!("Update task failed: {error}"))?
+}
+
+/// Uninstalls a plugin through Scoop.
+#[tauri::command]
+pub async fn plugins_uninstall(id: String, on_event: Channel<OutputEvent>) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let sender = on_event.clone();
+        let mut stream = move |event: OutputEvent| {
+            let _ = sender.send(event);
+        };
+        let result = registry::uninstall(&id, &mut stream);
+        report(&on_event, &result);
+        result
+    })
+    .await
+    .map_err(|error| format!("Uninstall task failed: {error}"))?
+}
+
+/// Closes a lifecycle step's stream, so the panel stops showing it as running.
+fn report<T>(on_event: &Channel<OutputEvent>, result: &Result<T, String>) {
+    let _ = on_event.send(match result {
+        Ok(_) => OutputEvent::Done { code: 0 },
+        Err(message) => OutputEvent::Failed {
+            message: message.clone(),
+        },
+    });
 }
 
 #[tauri::command]
@@ -83,9 +106,9 @@ pub async fn plugins_save_file_config(
 /// Opens one of a plugin's config files in its default editor.
 ///
 /// A relative source the plugin has not generated yet gets an empty file: the
-/// folder is the plugin's own, and an empty starting point beats "not found".
-/// An absolute one is only opened — the plugin creates it on its first run, and
-/// an empty stand-in would be a file that run could not overwrite.
+/// persist folder is the app's own, and an empty starting point beats "not
+/// found". An absolute one is only opened — the plugin creates it on its first
+/// run, and an empty stand-in would be a file that run could not overwrite.
 #[tauri::command]
 pub async fn plugins_open_file(id: String, path: String) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || registry::open_file_config(&id, &path))
@@ -116,7 +139,8 @@ pub async fn plugins_open_log(id: String) -> Result<(), String> {
     .map_err(|error| format!("Open task failed: {error}"))?
 }
 
-/// Opens a plugin's folder — or the plugins folder itself — in File Explorer.
+/// Opens a plugin's folder — or the Scoop apps folder itself when `id` is
+/// omitted — in File Explorer.
 ///
 /// The folder is created first: the button is usually pressed to put something
 /// there, and Explorer refuses a path that does not exist yet.
@@ -125,7 +149,7 @@ pub async fn plugins_open_dir(id: Option<String>) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let dir = match id.as_deref() {
             Some(id) => registry::dir_of(id)?,
-            None => registry::root(),
+            None => registry::root()?,
         };
 
         std::fs::create_dir_all(&dir)
@@ -149,9 +173,15 @@ pub async fn plugins_open_dir(id: Option<String>) -> Result<(), String> {
 /// always ends with either `done` or `failed`.
 #[tauri::command]
 pub fn plugins_run(id: String, on_event: Channel<OutputEvent>) -> Result<(), String> {
-    let (manifest, dir) = registry::resolve(&id)?;
+    let installed = registry::resolve(&id)?;
     ensure_config_present(&id)?;
-    runner::spawn(id, dir, manifest.entry, on_event);
+    runner::spawn(
+        id,
+        installed.dir,
+        installed.persist,
+        installed.manifest.entry,
+        on_event,
+    );
     Ok(())
 }
 
@@ -170,10 +200,15 @@ pub fn plugins_start(id: String) -> Result<bool, String> {
         return Err(format!("Plugin '{id}' is turned off."));
     }
 
-    let (manifest, dir) = registry::resolve(&id)?;
+    let installed = registry::resolve(&id)?;
     ensure_config_present(&id)?;
 
-    match runner::start(&id, &dir, &manifest.entry)? {
+    match runner::start(
+        &id,
+        &installed.dir,
+        &installed.persist,
+        &installed.manifest.entry,
+    )? {
         Started::Now => Ok(true),
         Started::AlreadyRunning => Ok(false),
     }
@@ -202,7 +237,9 @@ fn ensure_config_present(id: &str) -> Result<(), String> {
 /// script failing, reported after the process has been killed either way.
 #[tauri::command]
 pub async fn plugins_stop(id: String) -> Result<bool, String> {
-    let (manifest, dir) = registry::resolve(&id)?;
+    let Installed {
+        manifest, dir, ..
+    } = registry::resolve(&id)?;
     tauri::async_runtime::spawn_blocking(move || {
         runner::stop(&id, &dir, manifest.stop_script.as_deref(), STOP_TIMEOUT)
     })
@@ -241,7 +278,8 @@ pub fn plugins_run_all(on_event: Channel<OutputEvent>) -> Result<(), String> {
     std::thread::spawn(move || {
         let mut failed = 0;
 
-        for (manifest, dir) in plugins {
+        for installed in plugins {
+            let manifest = &installed.manifest;
             let _ = on_event.send(OutputEvent::Line {
                 stream: "stdout".to_string(),
                 text: format!("=== {} ===", manifest.display_name()),
@@ -255,7 +293,13 @@ pub fn plugins_run_all(on_event: Channel<OutputEvent>) -> Result<(), String> {
                 failed += 1;
                 continue;
             }
-            if let Err(message) = runner::run(&manifest.id, &dir, &manifest.entry, &on_event) {
+            if let Err(message) = runner::run(
+                &manifest.id,
+                &installed.dir,
+                &installed.persist,
+                &manifest.entry,
+                &on_event,
+            ) {
                 let _ = on_event.send(OutputEvent::Line {
                     stream: "stderr".to_string(),
                     text: message,

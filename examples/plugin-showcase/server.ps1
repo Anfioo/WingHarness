@@ -1,9 +1,9 @@
 # Serves one small page on a local port, PowerShell 5.1 only (no dependencies).
 #
-# The app sets only two variables: PLUGIN_ID and PLUGIN_DIR. Every setting lives
-# in a file this script reads itself, from PLUGIN_DIR -- the same files the
-# config window edits. This page renders them back, so a change in the config
-# window shows up on reload.
+# The app sets PLUGIN_ID, PLUGIN_DIR and PLUGIN_PERSIST. Every setting lives in a
+# file this script reads itself, from PLUGIN_PERSIST -- the same files the config
+# window edits, and the folder `scoop update` leaves alone. This page renders
+# them back, so a change in the config window shows up on reload.
 #
 # It runs in the foreground on purpose: the app streams a script's output until
 # it exits, so a detached server would be unkillable from the settings page.
@@ -17,7 +17,7 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Web
 
-$root = if ($env:PLUGIN_DIR) { $env:PLUGIN_DIR } else { $PSScriptRoot }
+$root = if ($env:PLUGIN_PERSIST) { $env:PLUGIN_PERSIST } elseif ($env:PLUGIN_DIR) { $env:PLUGIN_DIR } else { $PSScriptRoot }
 $generatedExisted = $false
 
 function Write-Log($message) {
@@ -230,8 +230,9 @@ try { $listener.Start() } catch {
     exit 1
 }
 
-Write-Log "plugin id : $($env:PLUGIN_ID)"
-Write-Log "plugin dir: $root"
+Write-Log "plugin id     : $($env:PLUGIN_ID)"
+Write-Log "plugin dir    : $($env:PLUGIN_DIR)"
+Write-Log "plugin persist: $root"
 Write-Log "serving   : http://$hostAddr`:$port/"
 Write-Log 'stop with : the button on the page, or Ctrl+C'
 

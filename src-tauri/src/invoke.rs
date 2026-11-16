@@ -383,6 +383,7 @@ macro_rules! all_commands {
             crate::commands::plugins::plugins_start,
             crate::commands::plugins::plugins_stop,
             crate::commands::plugins::plugins_uninstall,
+            crate::commands::plugins::plugins_update,
             crate::commands::progress::run_progress_demo,
             crate::commands::project_fs::project_delete,
             crate::commands::project_fs::project_info,

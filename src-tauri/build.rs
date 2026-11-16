@@ -361,6 +361,7 @@ const COMMANDS: &[&str] = &[
     "plugins_start",
     "plugins_stop",
     "plugins_uninstall",
+    "plugins_update",
     "ports_detail",
     "ports_kill",
     "ports_kill_elevated",

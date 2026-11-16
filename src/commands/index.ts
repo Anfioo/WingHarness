@@ -263,6 +263,7 @@ export {
   pluginsStart,
   pluginsStop,
   pluginsUninstall,
+  pluginsUpdate,
 } from "./services/plugins";
 export type {
   PluginConfigField,
@@ -270,7 +271,6 @@ export type {
   PluginConfigFileType,
   PluginConfigFileView,
   PluginFieldType,
-  PluginInstallProgress,
   PluginOutputEvent,
   PluginSelectOption,
   PluginView,

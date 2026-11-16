@@ -405,6 +405,7 @@
     "allow-plugins-start",
     "allow-plugins-stop",
     "allow-plugins-uninstall",
+    "allow-plugins-update",
     "allow-ports-detail",
     "allow-ports-kill",
     "allow-ports-kill-elevated",

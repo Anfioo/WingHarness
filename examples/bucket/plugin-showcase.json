@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "description": "Config showcase: a local page rendered from env, JSON and YAML settings.",
+  "homepage": "https://github.com/Anfioo/scoop-bucket",
+  "url": "https://github.com/Anfioo/scoop-bucket/releases/download/plugin-showcase-1.0.0/plugin-showcase-1.0.0.zip",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "pre_install": [
+    "New-Item -ItemType Directory -Force -Path $persist_dir | Out-Null",
+    "$files = @('.env', 'cfg.json', 'cfg.yaml')",
+    "foreach ($name in $files) {",
+    "  $source = Join-Path $dir $name;",
+    "  $target = Join-Path $persist_dir $name;",
+    "  if ((Test-Path $source) -and -not (Test-Path $target)) { Copy-Item $source $target }",
+    "}"
+  ],
+  "notes": [
+    "Install it from the app's Plugins page, not from the Scoop page.",
+    "It serves http://127.0.0.1:8123/ while it runs; enable it, then Run."
+  ]
+}
