@@ -128,6 +128,28 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 搜索输入也接受相同形式。词元只允许 `A-Z a-z 0-9 . - _ + / @`：结果会被
 `cmd.exe` 展开，出现 shell 元字符就是命令注入。
 
+## 克隆桶
+
+**桶**页用 `scoop bucket add` 克隆桶；下面这一行输入接受这些写法，开头的单词都可
+省略：
+
+| 输入 | 结果 |
+| --- | --- |
+| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` —— 使用内置的官方桶表 |
+| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `https://github.com/ScoopInstaller/Extras` | 桶名取仓库名并转小写 |
+| `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | 同上，按终端里的写法原样识别 |
+| `extras/7zip` | `scoop install extras/7zip`，从已克隆的桶安装 |
+| `scoop install extras/7zip` | 同上 |
+
+裸的 `owner/repo` 一律按安装处理，而不是克隆：`scoop install` 就是这么读的，而不
+写名字时用地址形式克隆桶。前端解析这一行，后端在写 `bucket.cmd` 之前再解析一次
+—— 桶名与地址通过子进程环境变量传入并加引号，两者都限定在桶名与 git 地址允许的
+字符内。
+
+克隆任务以 0 退出时会刷新桶列表。从不存在的桶安装 `<桶名>/<清单名>` 时会直接拦下
+并提示：Scoop 会询问是否添加该桶，而终端没有输入通道。
+
 ## 命令
 
 | 命令 | 参数 | 返回 |
@@ -136,7 +158,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索或代理同步写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶或代理同步写入 `run.cmd` |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -144,8 +166,9 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 ## 限制
 
 - **仅限 Windows。** `SCOOP` 是 Windows 包管理器，其它平台会直接返回错误。
-- **没有卸载、更新与桶管理。** 页面负责安装、搜索与查看。`scoop uninstall` 与
-  `scoop update` 只需再增加一种 `scoop_plan_run` 类型即可支持。
+- **没有卸载、更新与删除桶。** 页面负责安装、搜索、克隆桶与查看。
+  `scoop uninstall`、`scoop update` 与 `scoop bucket rm` 只需再增加一种
+  `scoop_plan_run` 类型即可支持。
 - **安装完成后不能在本页重指链接。** 在已有安装下改动 `SCOOP` 或 `SCOOP_GLOBAL`
   会让软件消失；设置页只读显示路径，并提示先迁移或卸载。
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时

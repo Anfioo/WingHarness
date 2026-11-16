@@ -11,7 +11,7 @@ import {
   type ScoopRun,
 } from "@/lib/scoop/page";
 
-export type ScoopRunKind = "install" | "app" | "search" | "config";
+export type ScoopRunKind = "install" | "app" | "search" | "bucket" | "config";
 export type ScoopLogTone = "info" | "error" | "done";
 
 export interface ScoopLogEntry {
@@ -41,6 +41,8 @@ export interface ScoopPageController {
    * the default global folder. Nothing is reinstalled. */
   adopt: () => Promise<void>;
   installApp: (spec: string) => Promise<void>;
+  /** Clones a bucket with the given name and repository address. */
+  addBucket: (name: string, url: string) => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
   syncProxy: () => Promise<void>;
   clearRun: () => void;
@@ -148,7 +150,7 @@ export function useScoopPage(): ScoopPageController {
       } else {
         appendLog(t("scoop.run.exitedFail", { code: code ?? "?" }), "error");
       }
-      if (code === 0 && (kind === "install" || kind === "app")) {
+      if (code === 0 && (kind === "install" || kind === "app" || kind === "bucket")) {
         if (kind === "install") setRestartNeeded(true);
         void refresh(true);
       }
@@ -218,6 +220,27 @@ export function useScoopPage(): ScoopPageController {
   const installApp = useCallback((spec: string) => runScoop("install", spec), [runScoop]);
   const searchOnline = useCallback((spec: string) => runScoop("search", spec), [runScoop]);
 
+  /** `scoop bucket add <name> <url>`; the bucket list refreshes on success. */
+  const addBucket = useCallback(
+    async (name: string, url: string) => {
+      if (running || !beginPreparation()) return;
+      try {
+        const next = await scoopPlanRun({
+          kind: "bucket",
+          spec: `${name} ${url}`,
+          proxyMode: prefs.proxyMode,
+          proxyUrl: prefs.proxyUrl,
+        });
+        startPlan(next, "bucket");
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+      } finally {
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]
+  );
+
   const syncProxy = useCallback(async () => {
     if (running || !beginPreparation()) return;
     try {
@@ -264,6 +287,7 @@ export function useScoopPage(): ScoopPageController {
     prepareInstall,
     adopt,
     installApp,
+    addBucket,
     searchOnline,
     syncProxy,
     clearRun,

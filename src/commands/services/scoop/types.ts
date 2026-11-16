@@ -111,7 +111,8 @@ export interface ScoopInstallRequest extends ScoopLocationRequest {
 }
 
 export interface ScoopRunRequest {
-  kind: "install" | "search" | "config";
+  kind: "install" | "search" | "config" | "bucket";
+  /** An app spec (`7zip`, `scoop install extras/vscode`); for `bucket`, `<name> <url>`. */
   spec: string;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;

@@ -151,6 +151,32 @@ extras/vscode git`, and the same forms for search. Tokens are restricted to
 `A-Z a-z 0-9 . - _ + / @`, because the result is expanded by `cmd.exe` and a
 shell metacharacter would be an injection.
 
+## Cloning a bucket
+
+The **Buckets** tab clones a bucket with `scoop bucket add`; the one input line
+takes any of these, and the leading words are optional:
+
+| Input | Result |
+| --- | --- |
+| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
+| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `https://github.com/ScoopInstaller/Extras` | the name is the repository name, lowercased |
+| `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | the same, read the way it is typed in a terminal |
+| `extras/7zip` | `scoop install extras/7zip`, from a bucket that is already cloned |
+| `scoop install extras/7zip` | the same |
+
+A bare `owner/repo` is deliberately an install, not a clone: that is how
+`scoop install` reads it, and the URL form is how a bucket is cloned without
+naming it. The frontend parses the line, and the backend parses it again before
+writing `bucket.cmd` — the name and the address travel in the child's
+environment, quoted, and both are restricted to what a bucket name and a git URL
+can contain.
+
+The bucket list is refreshed when a clone exits with code 0. Installing
+`<bucket>/<manifest>` from a bucket that is not cloned yet is refused with a
+message instead of run: Scoop would ask whether to add it, and the terminal has
+no input path.
+
 ## Commands
 
 | Command | Parameters | Returns |
@@ -159,7 +185,7 @@ shell metacharacter would be an injection.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search or a proxy sync |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or a proxy sync |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -168,9 +194,9 @@ a line and exits instead of opening an interactive shell.
 
 - **Windows only.** `SCOOP` is a Windows package manager; the commands return an
   error elsewhere.
-- **No uninstall, update or bucket management.** The page installs, searches and
-  reports. `scoop uninstall` and `scoop update` would be easy to add as more
-  `scoop_plan_run` kinds.
+- **No uninstall, update or bucket removal.** The page installs, searches,
+  clones buckets and reports. `scoop uninstall`, `scoop update` and
+  `scoop bucket rm` would be easy to add as more `scoop_plan_run` kinds.
 - **The links cannot be re-pointed after install from this page.** Changing
   `SCOOP` or `SCOOP_GLOBAL` underneath an existing install hides its apps; the
   Settings tab shows the paths read-only and says to migrate or uninstall first.

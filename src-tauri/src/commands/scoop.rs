@@ -183,9 +183,9 @@ pub struct ScoopInstallRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
-    /// `install` or `search`.
+    /// `install`, `search`, `config` or `bucket`.
     pub kind: String,
-    /// `7zip` or `scoop install 7zip`.
+    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`.
     pub spec: String,
     #[serde(default = "default_proxy_mode")]
     pub proxy_mode: String,
@@ -1204,6 +1204,17 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy) -> String {
             "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
             proxy.config_command()
         ));
+    } else if kind == "bucket" {
+        script.push_str(
+            "echo [scoop] command: scoop bucket add %SCOOP_BUCKET_NAME% %SCOOP_BUCKET_URL%\r\n",
+        );
+        script.push_str(&format!(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
+            proxy.config_command()
+        ));
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"\r\n",
+        );
     } else {
         let subcommand = if kind == "search" { "search" } else { "install" };
         script.push_str(&format!(
@@ -1333,6 +1344,98 @@ fn parse_spec(spec: &str, kind: &str) -> Result<String, String> {
     Ok(tokens.join(" "))
 }
 
+/// Parses `<name> <url>`, `bucket add <name> <url>` or a bare repository URL
+/// into the name and the git address `scoop bucket add` takes.
+///
+/// Both values reach the generated script through quoted variables; they are
+/// still restricted, because neither a bucket name nor a clone address has any
+/// business carrying a shell metacharacter.
+fn parse_bucket_spec(spec: &str) -> Result<(String, String), String> {
+    let mut tokens: Vec<&str> = spec.split_whitespace().collect();
+    for prefix in ["scoop", "bucket", "add"] {
+        if tokens
+            .first()
+            .map(|token| token.eq_ignore_ascii_case(prefix))
+            .unwrap_or(false)
+        {
+            tokens.remove(0);
+        }
+    }
+
+    let (name, url) = match tokens.as_slice() {
+        [url] => (bucket_name_from_url(url)?, (*url).to_string()),
+        [name, url] => ((*name).to_string(), (*url).to_string()),
+        [] => {
+            return Err(
+                "Enter a bucket name and its repository, for example extras https://github.com/ScoopInstaller/Extras."
+                    .to_string(),
+            )
+        }
+        _ => {
+            return Err(
+                "Enter one bucket at a time: a name and its repository, for example extras https://github.com/ScoopInstaller/Extras."
+                    .to_string(),
+            )
+        }
+    };
+
+    if !is_bucket_name(&name) {
+        return Err(format!(
+            "'{name}' is not a bucket name. Use letters, digits, dots, dashes and underscores, as in extras."
+        ));
+    }
+    if !is_bucket_url(&url) {
+        return Err(format!(
+            "'{url}' is not a repository address. Use a git URL, for example https://github.com/ScoopInstaller/Extras."
+        ));
+    }
+
+    Ok((name.to_ascii_lowercase(), url))
+}
+
+/// The repository name of a clone URL, lowercased the way Scoop names buckets.
+fn bucket_name_from_url(url: &str) -> Result<String, String> {
+    let repo = url
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(".git");
+    if !is_bucket_name(repo) {
+        return Err(format!(
+            "Cannot read a bucket name from '{url}'. Enter the name first, as in extras {url}."
+        ));
+    }
+    Ok(repo.to_ascii_lowercase())
+}
+
+fn is_bucket_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('-')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+}
+
+/// An http(s) address with a host, restricted to the characters a git URL uses.
+fn is_bucket_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    let host = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .and_then(|rest| rest.split('/').next());
+    let host_ok = host
+        .map(|host| (host.contains('.') || host == "localhost") && !host.starts_with('.'))
+        .unwrap_or(false);
+
+    host_ok
+        && url.len() <= 200
+        && url
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".:/_-~".contains(c))
+}
+
 #[tauri::command(async)]
 pub fn scoop_apply_location(request: ScoopLocationRequest) -> Result<ScoopStatusView, String> {
     apply_location(&request.scoop, &request.scoop_global)?;
@@ -1372,6 +1475,20 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             "Scoop command: scoop config (proxy only)".to_string(),
             folder_line,
         ]
+    } else if request.kind == "bucket" {
+        let (name, url) = parse_bucket_spec(&request.spec)?;
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_NAME".to_string(),
+            value: name.clone(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_URL".to_string(),
+            value: url.clone(),
+        });
+        vec![
+            format!("Scoop command: scoop bucket add {name} {url}"),
+            folder_line,
+        ]
     } else {
         let args = parse_spec(&request.spec, &request.kind)?;
         env.push(ScoopEnvVar {
@@ -1392,7 +1509,7 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
 
 #[cfg(test)]
 mod tests {
-    use super::{is_inside, parse_spec, parse_version, same_path, strip_verbatim, PathKind};
+    use super::{is_inside, parse_bucket_spec, parse_spec, parse_version, same_path, strip_verbatim, PathKind};
     use std::path::{Path, PathBuf};
 
     #[test]
@@ -1418,6 +1535,51 @@ mod tests {
         assert!(parse_spec("7zip & del x", "install").is_err());
         assert!(parse_spec("", "install").is_err());
         assert!(parse_spec("-g", "install").is_err());
+    }
+
+    #[test]
+    fn bucket_specs_accept_the_documented_forms() {
+        let expected = (
+            "extras".to_string(),
+            "https://github.com/ScoopInstaller/Extras".to_string(),
+        );
+        assert_eq!(
+            parse_bucket_spec("extras https://github.com/ScoopInstaller/Extras").unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("scoop bucket add extras https://github.com/ScoopInstaller/Extras")
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("https://github.com/ScoopInstaller/Extras").unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("https://github.com/ScoopInstaller/Extras.git/").unwrap(),
+            (
+                "extras".to_string(),
+                "https://github.com/ScoopInstaller/Extras.git/".to_string()
+            )
+        );
+        assert_eq!(
+            parse_bucket_spec("Extras https://gitlab.com/someone/Extras").unwrap(),
+            (
+                "extras".to_string(),
+                "https://gitlab.com/someone/Extras".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn bucket_specs_reject_shell_metacharacters() {
+        assert!(parse_bucket_spec("extras & del x").is_err());
+        assert!(parse_bucket_spec("ex\"tras https://github.com/a/b").is_err());
+        assert!(parse_bucket_spec("extras ftp://example.com/x").is_err());
+        assert!(parse_bucket_spec("extras https://github.com/a/b & del x").is_err());
+        assert!(parse_bucket_spec("").is_err());
+        assert!(parse_bucket_spec("a b c").is_err());
     }
 
     #[test]

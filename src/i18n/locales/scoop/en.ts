@@ -101,10 +101,10 @@ const scoop = {
     globalBadge: "Global",
   },
   search: {
-    placeholder: "7zip or scoop install 7zip",
+    placeholder: "7zip, extras/7zip or scoop install extras/7zip",
     install: "Install",
     online: "Search online",
-    hint: "Typing a name searches the manifests of the cloned buckets locally. Search online runs scoop search and streams its output into the terminal below.",
+    hint: "Typing a name searches the manifests of the cloned buckets locally. A name may carry its bucket (extras/7zip), so the install comes from that clone. Search online runs scoop search and streams its output into the terminal below.",
     localTitle: "Local results",
     searching: "Searching…",
     empty: "No app matches.",
@@ -113,6 +113,21 @@ const scoop = {
     installOne: "Install",
   },
   buckets: {
+    addTitle: "Add a bucket or install from one",
+    placeholder: "extras · https://github.com/ScoopInstaller/Extras · extras/7zip",
+    hint: "Known buckets: {{buckets}}. A name with a repository URL, a URL alone, or the full `scoop bucket add` line clones a bucket; `<bucket>/<manifest>` installs one app from a bucket that is already cloned.",
+    submit: "Add bucket",
+    install: "Install",
+    notAdded: "The bucket '{{bucket}}' is not cloned yet. Add it first, then install from it.",
+    error: {
+      empty: "Enter a bucket name, a repository URL or <bucket>/<manifest>.",
+      unknown:
+        "'{{value}}' is not a known bucket ({{buckets}}). Enter its repository URL after the name, or <bucket>/<manifest> to install from a cloned bucket.",
+      name: "'{{value}}' is not a bucket name. Use letters, digits, dots, dashes and underscores.",
+      url: "'{{value}}' is not a repository address. Use a git URL, for example https://github.com/ScoopInstaller/Extras.",
+      tooMany:
+        "One bucket per line: a name and a repository URL. To install several apps, start the line with scoop install.",
+    },
     title: "Buckets",
     count: "{{count}} in total",
     empty: "No bucket has been cloned yet.",
