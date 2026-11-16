@@ -164,7 +164,7 @@ pnpm dlx shadcn@latest add button
 | [MOIN.zh-CN.md](./docs/features/MOIN.zh-CN.md) | HTTP/HTTPS 下载、分段续传、队列、分类与 aria2 |
 | [MOIN_EXTENSION.zh-CN.md](./docs/features/MOIN_EXTENSION.zh-CN.md) | 浏览器下载捕获、配对、权限与隐私说明 |
 | [NOTES.zh-CN.md](./docs/features/NOTES.zh-CN.md) | 存放在数据目录中的 Markdown 笔记 |
-| [PLUGINS.zh-CN.md](./docs/features/PLUGINS.zh-CN.md) | 插件格式、清单文件，以及自动生成设置界面 |
+| [PLUGINS.zh-CN.md](./docs/features/PLUGINS.zh-CN.md) | 插件即 Scoop 应用：清单文件、持久化目录，以及自动生成的设置界面 |
 | [PORTS.zh-CN.md](./docs/features/PORTS.zh-CN.md) | 本机监听的 TCP 端口、固定端口，以及结束占用端口的进程 |
 | [PROJECT.zh-CN.md](./docs/features/PROJECT.zh-CN.md) | 项目文件浏览与编辑 |
 | [RUNTIME.zh-CN.md](./docs/features/RUNTIME.zh-CN.md) | 下载并安装 mihomo 与 frpc 运行时 |

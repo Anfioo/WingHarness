@@ -238,6 +238,7 @@ export {
   pluginsBrowserBack,
   pluginsBrowserClose,
   pluginsBrowserCloseAll,
+  pluginsBrowserDevtools,
   pluginsBrowserForward,
   pluginsBrowserNavigate,
   pluginsBrowserOpen,
@@ -262,6 +263,7 @@ export {
   pluginsStart,
   pluginsStop,
   pluginsUninstall,
+  pluginsUpdate,
 } from "./services/plugins";
 export type {
   PluginConfigField,
@@ -269,7 +271,6 @@ export type {
   PluginConfigFileType,
   PluginConfigFileView,
   PluginFieldType,
-  PluginInstallProgress,
   PluginOutputEvent,
   PluginSelectOption,
   PluginView,
@@ -1094,6 +1095,7 @@ export type {
 } from "./services/moin/types";
 export {
   scoopApplyLocation,
+  scoopInstalled,
   scoopPlanRun,
   scoopPrepareInstall,
   scoopSearch,

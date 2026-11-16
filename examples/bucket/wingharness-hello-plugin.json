@@ -1,0 +1,20 @@
+{
+  "version": "1.0.0",
+  "description": "WingHarness plugin: hello plugin, prints the values its config files hold.",
+  "homepage": "https://github.com/Anfioo/scoop-bucket",
+  "url": "https://github.com/Anfioo/scoop-bucket/releases/download/wingharness-hello-plugin-1.0.0/wingharness-hello-plugin-1.0.0.zip",
+  "hash": "0000000000000000000000000000000000000000000000000000000000000000",
+  "pre_install": [
+    "New-Item -ItemType Directory -Force -Path $persist_dir | Out-Null",
+    "$files = @('.env', 'cfg.json')",
+    "foreach ($name in $files) {",
+    "  $source = Join-Path $dir $name;",
+    "  $target = Join-Path $persist_dir $name;",
+    "  if ((Test-Path $source) -and -not (Test-Path $target)) { Copy-Item $source $target }",
+    "}"
+  ],
+  "notes": [
+    "Install it from the app's Plugins page, not from the Scoop page.",
+    "The zip must carry plugin.json at its root and nothing above it."
+  ]
+}

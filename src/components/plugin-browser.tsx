@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { ArrowLeft, ArrowRight, ExternalLink, RotateCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Code2, ExternalLink, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import {
   pluginsBrowserBack,
   pluginsBrowserClose,
+  pluginsBrowserDevtools,
   pluginsBrowserForward,
   pluginsBrowserNavigate,
   pluginsBrowserOpen,
@@ -16,7 +17,8 @@ import {
 } from "@/commands";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DOCUMENT_ID } from "@/lib/document-id";
+import { DEV_BUILD } from "@/lib/dev-flag";
+import { DOCUMENT_ID, newRunId } from "@/lib/document-id";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 
 /** How often to ask the page where it is. */
@@ -76,7 +78,10 @@ export function PluginBrowser({
   /** Sends the placeholder's current rectangle to the webview. */
   const syncBounds = useCallback(() => {
     const element = slot.current;
-    if (!element) return;
+    // Nothing is placed before the page exists: the open call already put it at
+    // the rectangle measured there, and asking sooner only colours the console
+    // with an error about a webview that is still being built.
+    if (!element || !opened) return;
 
     const rect = element.getBoundingClientRect();
     void pluginsBrowserSetBounds(hostLabel, id, {
@@ -85,14 +90,22 @@ export function PluginBrowser({
       width: rect.width,
       height: rect.height,
     }).catch((error: unknown) => console.error("Failed to place a plugin page:", error));
-  }, [hostLabel, id]);
+  }, [hostLabel, id, opened]);
 
   // Create the page once, and take it down when this pane goes away.
   useEffect(() => {
     let cancelled = false;
     const rect = slot.current?.getBoundingClientRect();
+    // Identifies this run of the effect, and with it this page's ownership on
+    // the backend. React can run the effect again without unmounting the pane —
+    // a remount, or the double-invoke of a development build — and that second
+    // run reopens the page and claims it. The close below is scoped to this
+    // run, so a cleanup that lands after the newer run has claimed the page does
+    // nothing: without it the pane showed an address bar above a webview that
+    // had just been closed underneath, and every call answered "not open".
+    const run = newRunId();
 
-    pluginsBrowserOpen(hostLabel, DOCUMENT_ID, id, {
+    pluginsBrowserOpen(hostLabel, DOCUMENT_ID, run, id, {
       x: rect?.left ?? 0,
       y: rect?.top ?? 0,
       width: rect?.width ?? 1,
@@ -110,7 +123,7 @@ export function PluginBrowser({
     return () => {
       cancelled = true;
       setOpened(false);
-      void pluginsBrowserClose(hostLabel, DOCUMENT_ID, id).catch((error: unknown) =>
+      void pluginsBrowserClose(hostLabel, DOCUMENT_ID, run, id).catch((error: unknown) =>
         console.error("Failed to close a plugin page:", error)
       );
     };
@@ -142,15 +155,20 @@ export function PluginBrowser({
     };
   }, [syncBounds]);
 
-  // Show and move only while this pane is the one on screen.
+  // Show and move only while this pane is the one on screen. Runs again once
+  // the page exists, because until the open call has answered there is nothing
+  // to show or hide — and a tab that is not the selected one has to stay hidden
+  // rather than rely on the open call, which cannot know how the pane is placed.
   useEffect(() => {
+    if (!opened) return;
+
     void pluginsBrowserSetVisible(hostLabel, id, visible).catch((error: unknown) =>
       console.error("Failed to show or hide a plugin page:", error)
     );
     if (visible) {
       syncBounds();
     }
-  }, [hostLabel, id, visible, syncBounds]);
+  }, [hostLabel, id, visible, opened, syncBounds]);
 
   // Follow the page's address. A client-side router moving between routes is
   // not something the host is told about, so this is a poll rather than an
@@ -243,6 +261,28 @@ export function PluginBrowser({
         >
           <RotateCw className="size-3.5" />
         </Button>
+
+        {/* Dev-only, like the window menu's entry: the inspector is not in a
+            release build unless it was packaged with BUILD_DEV=1. It is the
+            only way to see the page's cookies and web storage, because the
+            page is a native view with no DOM the app can read. */}
+        {DEV_BUILD && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-1.5"
+            title={t("pluginPanel.devtools")}
+            disabled={!visible}
+            onClick={() =>
+              void pluginsBrowserDevtools(hostLabel, id).catch((error: unknown) =>
+                toast.error(String(error))
+              )
+            }
+          >
+            <Code2 className="size-3.5" />
+          </Button>
+        )}
 
         <Input
           value={draft}

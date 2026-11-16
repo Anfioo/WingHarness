@@ -2,74 +2,127 @@
 
 > English version: [PLUGINS.md](./PLUGINS.md)
 
-插件是用户自己放进应用里的小工具包：一个 zip，里面一个 `plugin.json`（说明自己要什么配置）加一个脚本。装好之后，设置页会按 `plugin.json` 自动渲染出配置界面，点一下就能跑。
+插件就是一个普通的 **Scoop 应用**，根目录带一份 `plugin.json`。安装、更新、卸载这条生命周期由 Scoop 从桶里完成；应用补上 Scoop 没有意见的那部分：设置页读清单，按清单渲染配置，再跑脚本。
 
-应用本身不认识任何具体插件——**装新插件不需要改前端、也不需要改 Rust**。
+应用本身不认识任何具体插件——**装新插件不需要改前端、也不需要改 Rust**，只要桶里多一份清单。
 
-## 1. 插件包结构
+唯一必须遵守的是名字：**插件的 Scoop 应用名以 `wingharness-` 开头**，这个前缀就是唯一的标记（第 1a 节）。
 
-zip 里只要有一个 `plugin.json` 就够了，位置允许两种（Explorer 的「压缩到 zip 文件」会自套一层目录，所以两种都得支持）：
+## 1. 包结构与桶
+
+应用就是 zip 里面的内容，`plugin.json` 在根目录：
 
 ```
-hello-plugin.zip
-└── hello-plugin/            ← 这层可有可无
-    ├── plugin.json
-    ├── run.cmd
-    └── （其余文件随意）
+wingharness-hello-plugin.zip
+├── plugin.json
+├── run.cmd
+└── （其余文件随意）
 ```
 
-解压时那一层多余目录会被自动剥掉。
+`scoop install wingharness-hello-plugin` 会把它解到 `<scoop>/apps/wingharness-hello-plugin/<版本>/`，并让 `<scoop>/apps/wingharness-hello-plugin/current` 指向那一层。应用只看 `current`，所以如果压缩包外面还套了一层目录，就在桶清单里用 `extract_dir` 指出来。
+
+桶清单**只用 Scoop 的标准字段**——插件自己的元数据留在包内，由应用去读：
+
+```json
+{
+  "version": "1.0.0",
+  "description": "WingHarness plugin: hello plugin, prints the values its config files hold.",
+  "homepage": "https://github.com/you/scoop-bucket",
+  "url": "https://github.com/you/scoop-bucket/releases/download/wingharness-hello-plugin-1.0.0/wingharness-hello-plugin-1.0.0.zip",
+  "hash": "sha256:…"
+}
+```
+
+[`examples/bucket/`](../../examples/bucket/) 里有两份可直接改的清单。复制一份到你桶里其他清单旁边，把 `url` 指到 release 的 zip，`hash` 用 `scoop hash <文件>` 填（或者像别的应用一样交给 `scoop checkver` / `autoupdate` 维护）。
+
+这两份清单还演示了插件清单在标准字段之外通常要的那一样东西：包里的配置文件是**模板**，`pre_install` 在首次安装时把它们复制到 `$persist_dir`，这样插件第一次运行就能在应用会去找的地方读到配置（第 6 节）。少了它，文件会留在 `current` 里——那个目录下次更新就被替换，配置窗口也不会去读它。
+
+```json
+"pre_install": [
+  "New-Item -ItemType Directory -Force -Path $persist_dir | Out-Null",
+  "$files = @('.env', 'cfg.json')",
+  "foreach ($name in $files) {",
+  "  $source = Join-Path $dir $name;",
+  "  $target = Join-Path $persist_dir $name;",
+  "  if ((Test-Path $source) -and -not (Test-Path $target)) { Copy-Item $source $target }",
+  "}"
+]
+```
+
+### 1a. 名字：`wingharness-<name>`
+
+插件的名字来自**桶清单的文件名**，因为 Scoop 就是按文件名给应用命名：`bucket/wingharness-cursor-proxy.json` 装出来就是应用 `wingharness-cursor-proxy`，它同时是 `apps/` 下的目录、持久化目录，也是应用里的插件 id。所以前缀不是装饰——**它是「这个应用是 WingHarness 插件」的唯一标记**，有三处依赖它：
+
+- **安装闸门（第 3 节）**——设置 → 插件拒绝任何不带它的名字，普通 Scoop 应用不会被误认成插件。报错是 `'<app>' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.`
+- **徽标**——Scoop 页的概览和搜索结果会给带前缀的应用打上「WingHarness 插件」，这样在机器上一堆 Scoop 应用里也能认出来。
+- **桶自己的约定**——见下。
+
+插件的桶清单还要在标准字段里说清它从哪来，用户在 `scoop info` 和应用卡片上都能看到：
+
+| 字段 | 约定 |
+| --- | --- |
+| 文件名 | `wingharness-<name>.json` |
+| `description` | 以 `WingHarness plugin: ` 开头 |
+| `notes` | 含一条 `Installed from WingHarness (Settings > Plugins).` |
+
+结构化元数据**不**写进桶清单。Scoop 的 `schema.json` 是 `additionalProperties: false`，自定义顶级键能装上，但会让桶的 CI 变红。它属于包内的 `plugin.json`——那份文件没有外部 schema 约束，只由应用读（第 2 节）。
 
 ## 2. plugin.json
 
 ```jsonc
 {
-  "id": "hello-plugin",        // 必填。只能用字母、数字、- _ .，不能以 . 开头
-  "name": "示例插件",           // 显示名，留空则用 id
+  "name": "示例插件",           // 显示名，留空则用应用名
   "version": "1.0.0",          // 可选，显示在名字旁边的徽章里
   "description": "一句话说明",   // 可选
   "entry": "run.cmd",          // 必填。启动插件用的脚本，相对插件根目录且必须落在插件目录内
   "stopScript": "stop.cmd",    // 可选。停止插件用的脚本，见第 5a 节
   "ui": "http://127.0.0.1:{PORT}/", // 可选。插件自己提供的页面地址，见第 4 节
+  "wingharness": {             // 可选。给应用和桶看的元数据
+    "minAppVersion": "0.0.12",
+    "category": "proxy"
+  },
   "configFiles": [ /* 配置源，见下 */ ]
 }
 ```
 
 > 注意上面是 **jsonc** 写法，加注释只是为了讲解；真正写 `plugin.json` 时不能带注释。
 
-`id` 同时是插件在 `plugins/` 下的目录名。含 `..`、`/`、`\` 或以此类字符开头的 id 会被直接拒绝，而不是被悄悄改名——静默改名会让插件再也找不回来。
+`wingharness` 是插件声明「既不是 Scoop 字段、也不是脚本」那类信息的地方：`minAppVersion` 是写这个插件时的应用版本，`category` 用于归类。眼下没有代码读它们——这个块是描述性的，而且加载器会忽略不认识的键，所以带着它的插件在任何应用版本上都能用。别把它挪进桶清单，Scoop 的 schema 会拒绝（第 1a 节）。
 
-`ui` 是插件自己提供的页面地址。里面的 `{key}` 会替换成对应配置项的当前值，所以端口是配置项的插件也能指向自己的页面。只接受 `http://` 和 `https://`。不写 `ui` 是很正常的情况，只是说明这个插件没有自己的页面。详见第 4 节。
+这里没有 `id`。**插件的身份就是它的 Scoop 应用名**，它同时是目录名，也是应用记录启用状态时用的键，所以两者不可能对不上。旧版本留下的、仍带 `id` 的 `plugin.json` 照常能读——那个键会被忽略，不算错误。
+
+`ui` 是插件自己提供的页面地址。里面的 `{key}` 表示某个配置键的当前值，所以「端口是一项配置」的插件也能指向自己的页面。只接受 `http://` 与 `https://`。不写 `ui` 很正常：这个插件就是没有自己的页面。见第 4 节。
 
 ### 配置文件
 
-插件的配置**就是真实的文件**，在 `configFiles` 里声明。每一项是一个**配置源**：磁盘上一个文件，配置窗口里一个块。
+插件把配置**当成真实文件**来带，并在 `configFiles` 里声明它们。每一项是一个**配置源**：磁盘上的一个文件，对应配置窗口里的一块。
 
-| 字段 | 说明 |
+| 字段 | 含义 |
 | --- | --- |
-| `type` | `env` / `json` / `yaml`，决定用哪个格式适配器读写 |
-| `path` | 相对插件根目录；校验和 `entry` 一样，出不了插件目录 |
-| `startmust` | 布尔。`true` = 这个文件不存在就拒绝启动 |
-| `fields` | 应用允许编辑的键，按声明顺序展示 |
+| `type` | `env`、`json` 或 `yaml`——由哪个适配器读写这个文件 |
+| `path` | 相对**持久化目录** `<scoop>/persist/<app>`，不是插件目录，见第 6 节。安全检查与 `entry` 相同，`..` 和绝对路径都走不出去 |
+| `absolute` | 可选。`true` 表示 `path` 按原样使用，用于插件放在自己数据之外的文件（应用不会创建它） |
+| `startmust` | 布尔。`true` 表示文件缺失时拒绝运行 |
+| `fields` | 应用可编辑的键，按声明顺序排列 |
 
-`fields[]` 的形状和以前的 `config` 完全一样，渲染逻辑也一并复用：
+`fields[]` 与原来的 `config` 字段形状完全一致，渲染逻辑没变：
 
-| 字段 | 说明 |
+| 字段 | 含义 |
 | --- | --- |
-| `key` | 必填。**含义由 `type` 决定**，见下 |
-| `label` | 显示在输入框上方；留空则显示 `key` |
-| `type` | `string`（默认）/ `number` / `boolean` / `select` / `textarea` |
-| `default` | 文件里还没有值时的初始值。**插件自带的默认值就写在这里** |
+| `key` | 必填。**它指什么取决于 `type`**——见下 |
+| `label` | 输入框上方的标签；留空则用 `key` |
+| `type` | `string`（默认）、`number`、`boolean`、`select` 或 `textarea` |
+| `default` | 文件里还没有值时的取值——**插件就是在这里给出默认值** |
 | `hint` | 可选，标签下方的小字说明 |
-| `options` | 取值列表，每项是 `{ value, label }` 对象——见下 |
-| `trueValue` | 仅带 options 的 `boolean` 用：哪一个选项的 `value` 代表「开」 |
-| `min` / `max` | 仅 `number` 用，限制输入范围 |
+| `options` | 字段的可选值，形如 `{ value, label }` 的对象数组——见下 |
+| `trueValue` | 仅用于带 options 的 `boolean`：哪个选项的 `value` 代表「开」 |
+| `min` / `max` | 仅用于 `number` |
 
-各类型渲染成：`string` → 单行输入框，`number` → 数字输入框，`boolean` → 开/关按钮，`select` → 下拉，`textarea` → 多行输入框。
+渲染方式：`string` → 单行输入框，`number` → 数字输入框，`boolean` → 开关按钮，`select` → 下拉框，`textarea` → 多行输入框。
 
 #### `options` 与 `trueValue`——选项字段
 
-`options` 用来固定一个字段允许的取值，是一个对象列表，每项有 `value`（写回文件的值）和 `label`（界面显示什么，留空则回退成 `value`）：
+`options` 把字段的可选值固定成一个对象数组，每个对象一个 `value`（文件里存的）与一个 `label`（界面上显示的，留空则退回 `value`）：
 
 ```json
 "options": [
@@ -78,11 +131,11 @@ hello-plugin.zip
 ]
 ```
 
-它允许出现在 `select` 和 `boolean` 上；放在其它类型上会被静默忽略，所以这种清单会被拒绝。选了列表外的值，保存会被拒绝。
+只允许用在 `select` 和 `boolean` 上；用在别的类型上会被静默忽略，所以带着它的清单会被拒绝。不在列表里的值保存时会被拒绝。
 
-**`select`——N 选一的下拉框。** 这就是 `options` 原本的用法，项数不限。没有 `options` 的 `select` 是自由文本输入。
+**`select`——N 选一的下拉框。** 这就是 `options` 一直以来的含义；条目数量不限。不带 `options` 的 `select` 就是自由文本输入框。
 
-**`boolean`——两态开关。** 带 options 时，选项要**正好两个**（给第三个会被拒绝：两态开关没地方渲染它），并且要用 **`trueValue`** 指定哪一个的 `value` 代表「开」——它必须等于某个选项的 `value`，缺了它这个 boolean 就是错误。按钮显示当前状态的 `label`，是 `trueValue` 那个时高亮填充，写回文件的是该选项的 `value`；所以文件里用自己的写法（比如 `1` / `0`）就原样保留，不会被翻译成布尔值。
+**`boolean`——两态开关。** 带 options 时，它必须**正好两个**（多一个会被拒绝：两态开关没有地方渲染第三种），并且必须有一个 **`trueValue`** 指出哪个代表「开」——它的值必须与某个选项一致，缺了它，带 options 的 boolean 就是错误。按钮显示当前状态的 `label`，处于 `trueValue` 时按钮填充，写回文件的是那个选项的 `value`；所以一个把状态写成 `1`/`0` 的文件会原样保留 `1`/`0`，而不是被换成翻译过的 bool。
 
 ```json
 {
@@ -91,27 +144,26 @@ hello-plugin.zip
 }
 ```
 
-`trueValue` 放在其它类型上一律被拒绝（在那儿没有意义，写了就是笔误）。**不带** `options` 的 `boolean` 是普通的开/关按钮：json/yaml 里存真正的布尔值，`.env` 里存 `true`/`false`。
+其他类型一律禁止 `trueValue`（在那里没有意义，写上去就是值得抓出来的笔误）。**不带** `options` 的 `boolean` 就是普通的开关按钮，在 json/yaml 里存真正的布尔值（`.env` 里存 `true`/`false`）。
 
-没有 `default` 的选项字段：`boolean` 回落到**不是** `trueValue` 的那个状态（开关总得是二者之一），`select` 则读回「未设置」，下拉框显示占位。
+选项字段没写 `default` 时：`boolean` 落到**不是** `trueValue` 的那个状态（开关总得是其中一种），而 `select` 视为未设置，显示下拉框的占位符。
 
-**`key` 指的是什么：**
+**`key` 的寻址方式：**
 
-- `env` —— **平铺键**。`WEB_PORT` 对应 `WEB_PORT=` 那一行；键名里带点就是字面点号，不按路径拆。
-- `json` / `yaml` —— **点路径** `a.b.c`。纯数字的一段表示数组下标：`schedule.checkin_hours.0` 是第一个元素。
+- `env`——**扁平键**。`WEB_PORT` 匹配 `WEB_PORT=` 那一行；名字里的点是字面意义的点，不是路径。
+- `json` / `yaml`——**点路径**，`a.b.c`。纯数字的一段是数组下标：`schedule.checkin_hours.0` 是第一个元素。
 
-`fields` 为空数组是合法的，表示这个文件没有可编辑的键。整个 `configFiles` 不写也没问题——插件就是没有可配置的文件，它的页面（如果有）照常工作。
+`configFiles` 里 `fields` 为空数组是合法的，只是没有什么可编辑的。完全没有 `configFiles` 的插件没有配置项，它的页面（如果有）照常工作。
 
 #### 一份完整清单
 
-所有键集中在一处，可以整块复制、删掉用不到的。下面声明了一个 `env` 源和一个 `json` 源，覆盖全部五种字段类型、一个 `select`、一个 `boolean` 开关：
+把所有键放进一块，复制之后删掉不需要的即可。下面声明了一个 `env` 文件和一个 `json` 文件，覆盖五种字段类型、一个 `select`，以及一个 `boolean` 开关：
 
 ```json
 {
-  "id": "my-plugin",
   "name": "My Plugin",
   "version": "1.0.0",
-  "description": "设置卡片上显示的一行说明。",
+  "description": "One line shown on the settings card.",
   "entry": "run.cmd",
   "stopScript": "stop.cmd",
   "ui": "http://127.0.0.1:{MY_PORT}/",
@@ -121,133 +173,173 @@ hello-plugin.zip
       "path": ".env",
       "startmust": true,
       "fields": [
-        { "key": "MY_HOST", "label": "监听地址", "type": "string", "default": "127.0.0.1" },
-        { "key": "MY_PORT", "label": "端口", "type": "number", "default": 8080, "min": 1024, "max": 65535 },
-        { "key": "MY_THEME", "label": "配色", "type": "select", "default": "auto",
-          "options": [ { "value": "auto", "label": "跟随系统" },
-                       { "value": "light", "label": "浅色" },
-                       { "value": "dark", "label": "深色" } ] },
-        { "key": "MY_PROXY", "label": "系统代理", "type": "boolean", "default": "0",
+        { "key": "MY_HOST", "label": "Listen address", "type": "string", "default": "127.0.0.1" },
+        { "key": "MY_PORT", "label": "Port", "type": "number", "default": 8080, "min": 1024, "max": 65535 },
+        { "key": "MY_THEME", "label": "Color scheme", "type": "select", "default": "auto",
+          "options": [ { "value": "auto", "label": "Auto" },
+                       { "value": "light", "label": "Light" },
+                       { "value": "dark", "label": "Dark" } ] },
+        { "key": "MY_PROXY", "label": "System proxy", "type": "boolean", "default": "0",
           "trueValue": "1",
-          "options": [ { "value": "1", "label": "开启" }, { "value": "0", "label": "关闭" } ] }
+          "options": [ { "value": "1", "label": "On" }, { "value": "0", "label": "Off" } ] }
       ]
     },
     {
       "type": "json",
       "path": "cfg.json",
       "fields": [
-        { "key": "app.accent", "label": "主题色", "type": "select", "default": "blue",
-          "options": [{ "value": "blue", "label": "蓝" }, { "value": "green", "label": "绿" }] },
-        { "key": "app.note", "label": "备注", "type": "textarea", "default": "" },
-        { "key": "app.retries", "label": "重试次数", "type": "number", "default": 3 },
-        { "key": "features.enabled", "label": "启用特性", "type": "boolean", "default": true },
-        { "key": "features.weights.0", "label": "首个权重", "type": "number", "default": 100 }
+        { "key": "app.accent", "label": "Accent", "type": "select", "default": "blue",
+          "options": [{ "value": "blue", "label": "Blue" }, { "value": "green", "label": "Green" }] },
+        { "key": "app.note", "label": "Note", "type": "textarea", "default": "" },
+        { "key": "app.retries", "label": "Retries", "type": "number", "default": 3 },
+        { "key": "features.enabled", "label": "Enable feature", "type": "boolean", "default": true },
+        { "key": "features.weights.0", "label": "First weight", "type": "number", "default": 100 }
       ]
     }
   ]
 }
 ```
 
-同样的内容，带完整注释、旁边还有能跑的脚本，见 [`examples/plugin-showcase/`](../../examples/plugin-showcase/)。
+同样的内容、带完整注释、旁边还有能跑的脚本，就在 [`examples/plugin-showcase/`](../../examples/plugin-showcase/)。
 
-## 3. 安装 / 启用 / 运行
+## 3. 安装、更新、卸载、运行
 
-1. **安装**：把 zip **拖到设置窗口任意位置**，松开即装。装完插件是**停用**状态。
-2. **启用**：设置 →「插件」里点它的「已停用」按钮切成「已启用」。
-3. **配置**：点卡片上的「配置」按钮，打开配置窗口（见第 4a 节）。
-4. **运行**：点该插件的「运行」，或点顶部的「运行全部」按顺序跑完所有已启用的插件。输出实时回显在下面的输出面板里。
+设置页驱动 Scoop，而不重新实现它。
 
-其余按钮：「打开插件目录」直接开资源管理器（没有插件时也会把目录建出来），每个插件右上角的文件夹图标开它自己的目录，垃圾桶图标卸载。
+1. **安装**——点 **Install plugin**，填应用名，**要带 `wingharness-` 前缀**。这个应用必须来自你已经在 **Scoop** 页添加过的桶。应用会执行 `scoop install <app>`，把 Scoop 的输出实时显示在面板里，插件装好后是**停用**状态。
+2. **启用**——在 设置 → 插件 里，把「已停用」按钮点成「已启用」。
+3. **配置**——点卡片上的「配置」，打开配置窗口（第 4a 节）。
+4. **运行**——点插件的「运行」，或点顶部的「运行全部」按顺序跑所有已启用的插件。输出实时进入下面的面板。
+5. **更新**——卡片上的 **更新** 按钮执行 `scoop update <app>`，输出同样进面板。
+6. **卸载**——垃圾桶图标执行 `scoop uninstall <app>`。插件的**配置会保留**：它们在持久化目录里，Scoop 卸载时不动它（第 6 节）。
+
+为什么填应用名而不是拖一个文件：拖 zip 安装意味着这一整步得由应用自己负责——解压、判断落在哪、再记一笔。这些事 Scoop 对机器上每个应用都已经做了，所以插件不过是「带了 `plugin.json` 的那个应用」。
+
+**前缀是闸门，不是建议。** `install` 在启动 Scoop 之前就拒绝不带 `wingharness-` 的名字，设置页在发请求之前又拦一次，这样对话框就能直接说清原因，不用等一个空跑的输出面板：
+
+```
+'cursor-proxy' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.
+```
+
+「装上了，但不是插件」那条报错（第 9 节）结尾也是同一句：装成功却没读到 `plugin.json` 的应用，被报成名字不对，而不是报成插件坏了。
+
+### 3a. 插件改名与旧安装的迁移
+
+**改名就是换一个新应用。** 名字就是身份（第 1a 节、第 6 节），所以把桶清单里的名字一改，就变成了另一个应用：旧安装还留在旧名字下，带着它自己的持久化目录和它自己在设置里的卡片。
+
+因此给自己的插件改名，要搬的是用户的数据，不是文件。把 `cursor-proxy` 迁移成 `wingharness-cursor-proxy`：
+
+1. `scoop uninstall cursor-proxy`——`ScoopCurrent\persist\cursor-proxy` 会保留。
+2. 把那个目录按新名字复制一份：`ScoopCurrent\persist\cursor-proxy` → `ScoopCurrent\persist\wingharness-cursor-proxy`。
+3. `scoop install wingharness-cursor-proxy`（或在 设置 → 插件 里安装），然后在那里重新启用。
+
+其余都不用管。`plugins.json` 里的旧键和侧栏布局里的 `plugin:cursor-proxy` 会被**留下并忽略**：指向不到已安装应用的 id 会被丢掉而不是显示出来，所以做完第 1 步之后这两处只是占地方，不会报错。想删也行，没有代码读它们。
+
+其余控件：「打开插件目录」在资源管理器里打开 `<scoop>/apps`，卡片上的目录图标打开该插件的 `current` 目录，文件图标打开它的运行日志（第 5b 节）。
+
+清单读不出来的插件也会列出来，原因写在卡片上，所以失败是看得见的，而不是插件悄悄消失。
+
+**旧 zip 安装器留下的副本**同样会列出，标着「由旧版 zip 安装器安装」。它们不会被迁移——Scoop 从没装过它们，`scoop update` 和 `scoop uninstall` 都会失败。先从桶里装好应用，再点旧卡片的垃圾桶图标删掉残留目录。
 
 ## 4. 插件页面
 
-插件如果自己起了个网页，用 `ui` 声明地址，应用就会把那个页面嵌进侧边栏的「插件」里——不用开浏览器，也不用切窗口。
+插件如果自己提供网页，可以用 `ui` 声明，应用会把这个页面嵌进侧栏的**插件**区——不用浏览器，也不用切窗口。
 
-对每个「已启用且声明了 `ui`」的插件，这个页面会：
+对每个已启用且声明了 `ui` 的插件，页面会：
 
-- **每个插件一个页签**，打开时自动选中第一个。没写 `ui` 的插件不会占页签，所以一堆纯脚本插件不会把这个页面弄乱。
-- **不会自己启动**。打开页签不起任何东西，必须点「启动」，然后页面会等到那个地址真的有人应答才显示出来。起一个插件服务、占住一个端口，是用户的决定，不该是「看了一眼页签」的副作用。
-- **「在运行」的标准是那个地址通不通**，不是「这个应用起没起它」。插件由应用之外的实例在服务（上一次运行留下的、或你手动起的）时，应用同样认为它在运行，面板会直接显示那个活着的页面，而不是谎称它没启动。所以关掉应用再打开，正在服务的插件也不会被显示成「未启动」——不需要记任何东西，问一下那个地址就知道。反过来，地址活着时也绝不会再点一次「启动」，不会多起一个必然 bind 失败的副本。
-- **页面一旦打开就保持存活**。切页签不会重新加载，页面上的内容不会丢。
-- **一个按钮管启动和停止**。插件没跑时工具栏按钮是「启动」，跑起来后变成「停止」，再点一下就停——声明了 `stopScript` 就跑它，没声明才杀应用启动的进程树（见第 5a 节）。关闭应用时，应用启动过的插件也会一起停掉，不会留下占着端口的进程。
-- **两个界面读同一份真相**。设置页卡片的「运行/停止」和插件面板的「启动/停止」都来自同一个可达性检查，所以在一边启动、另一边就显示为运行中，停止也会同步反映回来。设置页卡片的「运行」会把输出回显到下面的面板；而插件是个常驻服务时输出流是不结束的——所以判断卡片是否忙碌**不是**看这个流。别的插件跑起来或停下来，都不会锁住这张卡片。
+- **每个插件一个标签页。** 只有已启用且声明了 `ui` 的插件才有标签页，打开时选中第一个。没有 `ui` 的插件一个页都不占，所以一批纯脚本插件不会把界面堆满。
+- **不会自己启动。** 打开标签页不会启动任何东西：按 **Start**，面板会等到那个地址有人应答之后再显示页面。启动插件服务器、占住它的端口，是用户自己的决定，不是看一眼标签页的副作用。
+- **「在运行」意味着页面能应答**，而不是「应用启动过它」。一个由本应用之外启动的实例（上一次运行留下的，或者手动起的）在应用看来同样是运行中，面板会显示它实时页面，而不是声称它已停止。所以关掉再打开应用，也不会让正在运行的插件看起来像停了：不需要记住任何东西，直接问地址就行。同理，页面还活着的时候不会按 Start，也就不会起第二份去撞已经占用的端口。
+- **打开之后页面一直活着。** 切换标签页不会重新加载，页面上的东西都留着。
+- **启动和停止是同一个按钮。** 插件没起来时工具栏显示 **Start**，起来之后显示 **Stop**；再按一次就停止插件——有 `stopScript` 就执行它，否则杀掉应用启动的进程树（见第 5a 节）。关闭应用会停掉它启动过的所有插件，不会有插件服务器继续占着端口。
+- **两处读的是同一份真相。** 设置卡片的「运行 / 停止」与面板的「Start / Stop」都来自同一个可达性检查，所以在一处启动，另一处就显示运行中；在那里停止，这边也会跟着变。设置卡片上的「运行」把插件输出实时放进下面的面板；一个提供页面的插件会一直输出到它退出为止，所以**这段输出不决定**卡片是否繁忙。别的卡片上的插件启动、退出，都不会把这个卡片锁住。
 
-如果 `ui` 里的 `{key}` 找不到对应的配置项，这个插件不会被塞一个坏地址，而是干脆没有页面——设置页的插件卡片上会写清楚是哪个 key。
+如果 `{key}` 没有被任何配置字段填上，插件就是没有页面，而不是得到一个坏地址；它在设置页的卡片会说清楚缺的是哪个键。
 
-页面是用**原生 webview** 显示的，不是 `<iframe>`。这不是偏好问题，而是只有这条路能走通：几乎所有正经的 Web 应用都会发 `X-Frame-Options: DENY` 和 CSP `frame-ancestors 'none'` 来防点击劫持（参考项目就是），而浏览器会直接拒绝把这种页面渲染进框架里。另外 iframe 是跨源的，应用根本读不到它的地址，也就谈不上地址栏和历史记录。
+页面用**原生 webview** 显示，不是 `<iframe>`。这不是偏好问题——这是唯一可行的做法。几乎所有真实的 Web 应用都会发 `X-Frame-Options: DENY` 和 CSP 的 `frame-ancestors 'none'` 来防点击劫持（参考插件就是这样），浏览器根本不会在框里渲染这种页面。iframe 还是跨源的，应用永远读不到它的地址，也没有地址栏和前进后退。
 
-所以声明了 `ui` 的插件会拿到自己的 webview，上面带一层浏览器外壳：**后退 / 前进 / 刷新 / 可编辑的地址栏 / 用系统浏览器打开**。地址会跟着页面走，包括单页应用里客户端路由的跳转 —— 所以它在 SPA 里也是准的。
+所以带 `ui` 的插件会拿到一个自己的 webview，上方是一条小浏览器栏：**后退 / 前进 / 刷新 / 可编辑的地址栏 / 用系统浏览器打开**，另外在开发构建里还有**开发者工具**按钮。地址栏跟着页面走——包括前端路由的路径变化，所以在 SPA 里也一直是对的。
 
-有两点值得知道：
+浏览器的检查器是唯一能看进这个页面的窗口：页面是原生视图，它的 cookie、local storage、session storage、IndexedDB 只有通过浏览器运行时的 *Application* 面板才看得到。所以那个按钮在 release 构建里默认不在，除非打包时带 `BUILD_DEV=1`（`scripts/build.ps1 -DevBuild`），也就是打开 `devtools` 特性。
 
-- 这个页面是浮在应用之上的系统级视图。它的页签没被选中时会被隐藏，离开插件页时会被关闭，所以它不会残留在别的界面上。
-- 插件页面加载什么仍然是它自己的事，但地址栏只接受插件本站的地址，应用也只放行这些 —— 插件没法借它跳到应用自身。
+两个值得知道的后果：
+
+- 页面是画在应用上面的一层操作系统级视图。它所在的标签页没被选中时会被隐藏，离开插件页时会被关闭，所以它不会留在别的界面上。
+- 插件页面加载什么仍然是它自己的事——但地址栏只接受插件自己源上的地址，应用也一样。插件没法借它摸到应用本身。
 
 ### 4a. 配置窗口
 
-插件卡片本身不再显示任何字段，只留一个「配置」按钮，点开一个**独立窗口**，里面**一个配置源一个块**：显示源的类型、相对路径、`startmust` 为真时的「启动必需」徽标，以及一个「打开文件」按钮（交给系统默认程序打开）。
+卡片本身不放字段。它的**配置**按钮打开一个独立窗口，**每个配置源一块**，各自显示 `type`、`path`（相对持久化目录）、`startmust` 时的「启动必需」徽章，以及一个交给系统打开的「打开文件」按钮。
 
-- 改一个字段就是**直接改那个文件**。应用不缓存任何值：文件就是真相，所以你在外部编辑器里改的内容下次打开就是新的，两边不会打架。
-- 只动声明过的键。`.env` 里的注释行、空行、其他键、行内 ` # 注释`、以及文件原本的换行风格都逐字节保留。
-- 文件还不存在时，块内显示「文件尚未生成」；保存任意一个字段会**创建**它，其余键用声明的 `default` 填。插件首启才自己生成 `.env` 的情况下，配置窗口在首启前就可用。
-- 保存是自动的：停止输入一小会儿后就写盘，失败会弹提示。超出 `min`/`max`、`select` 选了列表外的值、或数字解析不了，都会拒绝写入并报错，文件保持原样。
-- `json` / `yaml` 是整文件重写，所以原来的排版（以及 **yaml 里的注释**）不会保留。json 本来没有注释，`.env` 则什么都留得住。
+- 改一个字段就**直接写进那个文件**。应用里什么都不缓存：文件就是真相，所以在文本编辑器里改的东西下次打开就能看到，两边永远不会不一致。
+- 只动声明过的键。在 `.env` 里，注释行、空行、其他键、行尾的 ` # 注释` 以及文件自己的换行风格都逐字节保留。
+- 还不存在的文件显示「文件尚未落盘」；保存任一字段会**创建**它，其他键用声明的默认值。插件首次启动才生成自己的 `.env` 时，在那之前照样有可编辑的设置，就是靠这个。
+- 保存是自动的，停止输入一小会后触发，失败会弹提示。超出 `min`/`max` 的值、不在 `select` 列表里的值、解析不了的数字都会被拒绝并报告——文件不动。
+- `json` 和 `yaml` 是整份重写，所以原文件里特殊的格式（缩进，以及 **yaml 里的注释**）不会保留。JSON 本来没有注释，`.env` 则全部保留。
 
 ## 5. 脚本怎么拿到配置
 
-**应用什么都不注入了。** 只设置两个变量：
+**什么都不注入。** 应用只设三个变量：
 
 | 变量 | 值 |
 | --- | --- |
-| `PLUGIN_ID` | 插件的 id |
-| `PLUGIN_DIR` | 插件在磁盘上的目录 |
+| `PLUGIN_ID` | 插件的 id——也就是它的 Scoop 应用名 |
+| `PLUGIN_DIR` | 插件在磁盘上的 `current` 目录 |
+| `PLUGIN_PERSIST` | 插件的持久化目录 `<scoop>/persist/<app>` |
 
-其余全部由脚本自己从 `%PLUGIN_DIR%` 下的文件读取。那就是配置窗口编辑的同一批文件，所以用户看到的和脚本拿到的完全一致——没有合并步骤，没有 `.runtime/config.json`，也没有 `PLUGIN_<KEY>` 变量。
+其余全是脚本自己从 `%PLUGIN_PERSIST%` 读的文件。那就是配置窗口编辑的同一个文件，所以用户看到的就是脚本拿到的——没有合并步骤，没有 `.runtime/config.json`，也没有 `PLUGIN_<KEY>` 这类变量。
+
+要避开的坑是只读 `%PLUGIN_DIR%`：那个目录下次 `scoop update` 会被整份替换，用户写进去的东西就没了。Scoop 会留下的是持久化目录。
 
 ```bat
 @echo off
-rem cmd 脚本没有 env/JSON/yaml 解析器，用到什么读什么。
-rem `chcp 65001` 不是可选项：cmd 按控制台代码页（中文 Windows 上是 GBK）读文件，
-rem 而配置窗口写的是 UTF-8。带非 ASCII 的注释行否则会吞掉后面的换行，把下一个键
-rem 粘进注释里，于是那个键被跳过。`eol=#` 用来跳过注释行。
+rem A .cmd script has no env/JSON/yaml parser, so it reads what it needs.
+rem `chcp 65001` is not optional: cmd reads the file in the console code page
+rem (GBK on a Chinese Windows) while the config window writes UTF-8, and a
+rem non-ASCII comment would otherwise swallow the newline after it and glue the
+rem next key onto the comment. `eol=#` skips the comments.
 chcp 65001 >nul
-for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%PLUGIN_DIR%\.env") do (
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%PLUGIN_PERSIST%\.env") do (
   if /i "%%a"=="GREETING" set "GREETING=%%b"
 )
-echo 问候语是 %GREETING%
+echo Greeting is %GREETING%
 ```
 
-想要结构化读取的脚本，自己解析 `cfg.json` 即可（Python 的 `json`、PowerShell 的 `ConvertFrom-Json`、`jq` 都行）。应用不规定插件怎么读自己的文件——那是插件自己的事。
+想要更丰富的读取方式，脚本可以自己解析 `cfg.json`（Python 的 `json`、PowerShell 的 `ConvertFrom-Json`、`jq`……）。应用不规定插件怎么读自己的文件——那是插件自己的事。
 
-脚本的工作目录就是插件目录，所以 `run.cmd` 里直接用相对路径即可。stdin 被接到空设备，脚本不能等待输入。退出码会显示在设置页上；退出码非 0 会在「运行全部」的收尾统计里记为失败，但**不会中断后面插件的执行**。
+工作目录是插件的 `current` 目录，所以脚本里指向自身资源的相对路径直接可用。stdin 接的是空设备，脚本不会卡在等待输入上。退出码显示在设置页；非零会在「运行全部」的汇总里算作失败，但**不会中断后面的插件**。
 
-启动前会检查所有 `startmust: true` 的源：文件不存在就拒绝启动，错误信息里带上文件名——这是插件在告诉用户「我需要一个你还没建的文件」。`startmust: false` 的源不管：首启自己生成配置是正常做法，不算配置缺失。
+运行之前，每个 `startmust: true` 的源都必须在**持久化目录**里存在。缺一个就拒绝运行，错误里带着文件名：这是插件在告诉用户，它需要一个用户还没创建的文件。`startmust: false` 的源不管——首次启动时生成自己的配置是正常做法，不是错误。
 
 ### 5a. 启动与停止
 
-界面上启动和停止是同一个按钮，清单里则由两个键分别指定：`entry` 负责启动，`stopScript` 负责停止。
+各处都是同一个启动/停止按钮，清单里把两半都点明了：`entry` 启动插件，`stopScript` 停止它。
 
-**插件声明了 `stopScript`，那停止就只有这一件事：应用运行它，别的什么都不做。** 它的工作目录是插件目录，`PLUGIN_ID` / `PLUGIN_DIR` 和 `entry` 一样会设好，输出同样写进运行日志。它最多有 60 秒；超时会被杀掉，并如实报告为停止失败。
+**插件声明了 `stopScript`，停止就完全交给它。** 应用执行它，别的什么都不做。它和 `entry` 一样，以插件的 `current` 目录为工作目录运行，带 `PLUGIN_ID` / `PLUGIN_DIR` / `PLUGIN_PERSIST`，输出进同一份运行日志。它有 60 秒；超时还在跑的会被杀掉，停止操作报告为失败。
 
-有脚本时应用**不会**再去杀进程树。脚本是插件自己的关闭流程——它知道该结束什么，包括应用根本没起过的守护进程——而在它背后再跑一套更粗的机制，只会把一次正常关闭打断。
+有停止脚本时，应用**故意不**再顺手杀进程树。那个脚本是插件自己的收尾——它知道要结束什么，包括应用根本看不到的守护进程——在背后再叠一套粗糙的机制，只会把收尾砍断。
 
-**没有 `stopScript` 时，应用杀掉自己启动的那棵进程树。** 这种情况下没有别的东西能结束它。
+**没有 `stopScript` 时，应用杀掉自己启动的那棵进程树。** 这已经是结束这类插件的全部手段，也覆盖了「脚本把所有东西都放在自己进程里」这个常见情形。
 
-两种情况之后界面显示什么，取决于那个页面是否还应答（见第 4 节）：没停成功就会继续显示为运行中，而不是假装成功。
+不论哪种，界面上最终显示的是页面还能不能应答（第 4 节）：没停干净的会继续显示为运行中，而不会被报告成成功。
 
-**不是应用起的插件，停止时同样会跑停止脚本。** 既然「在运行」是按地址是否可达判断的，那 Stop 就必须能结束一个进程表里根本没有的实例——而声明出来的停止脚本是唯一能做到这件事的东西。这正是「某个旧副本还占着 7864」那种情况：按 Stop，由插件自己的脚本把它结束掉，怎么做是插件自己的事（参考项目那个是按端口找面板——那是插件的做法，不是应用去扫端口）。没有声明停止脚本的插件，只有在应用自己起过它的情况下才停得掉；否则 Stop 会如实报告什么都没做。
+这两半对 `workbuddy-manager` 这种包是必须的：它的 `start-all.cmd` 除了面板还会拉起一个上游守护进程。`entry` 是 `start-all.cmd`，`stopScript` 是 `stop-all.cmd`，后者按端口找到面板，再把上游停掉。
 
-写停止脚本时要注意：
+**停止脚本在应用没有启动过这个插件时也会执行。** 既然「运行中」由地址是否应答决定，Stop 就必须能结束一个进程表完全不知道的实例——而声明过的停止脚本是唯一能做到的东西。这正是「某个旧副本还占着 7864 端口」的情形：按 Stop，脚本把它结束掉，至于脚本自己怎么找（参考插件按端口找面板——那是插件的选择，不是应用做的）。没声明停止脚本的插件，只有在应用启动过它的时候才停得掉；否则 Stop 会报告什么都没做。
 
-- **不要等待输入。** stdin 接的是空设备，所以结尾带 `pause` 的脚本（手写便携包很常见）会立刻返回而不是卡住。也别让它因为自己的逻辑卡住——60 秒后会被强杀。
-- 成功退出 `0`。非 0 会被当成停止脚本失败报给用户。
-- 它不该试图去停**应用自己**，并且要能安全地重复执行。
+写一个在应用里调用也能正常工作的停止脚本：
 
-关闭应用时对每个运行中的插件做和 Stop 按钮一样的事——有停止脚本就跑脚本，没有就杀进程树——只是预算更短（10 秒），这样退出时不会留下插件自己起的守护进程。因为应用正要退出，这一步的失败只记日志、不弹提示。
+- **不要等待输入。** stdin 是空设备，所以结尾带 `pause` 的脚本（手写包里常见）会立刻返回而不是挂住。保持这样——因为自身逻辑阻塞的脚本会在 60 秒时被杀。
+- 成功退出 `0`。非零退出会被当作停止脚本失败报告给用户。
+- 不要试图停止*本应用*，并且必须能被重复执行：如果脚本抢先把活干完了，应用再去杀自己的子进程也无害。
+
+`更新` 和 `卸载` 都会先停掉插件，因为 Scoop 马上要替换或删除它正在用的文件。
+
+关闭应用会按 Stop 按钮同样的方式停掉每个运行中的插件——有停止脚本就用它，否则杀进程树——预算缩短到 10 秒，免得退出时把插件的守护进程留下。因为应用马上要退出了，那里的失败只记进日志，不弹提示。
 
 ### 5b. 运行日志
 
-每次运行都会写一份**持久化日志**，它和输出面板是两回事——面板活在窗口里，应用一关就没了。日志逐行记录脚本输出（标出来自哪个流），以及前后的事件标记：
+每次运行都会写进一份持久日志，与输出面板分开——面板在窗口里，关掉应用就没了。日志把脚本输出的每一行连同来源流一起记下，前后还有标记：
 
 ```
 2026-09-29 18:20:31 === start run.cmd ===
@@ -257,112 +349,145 @@ echo 问候语是 %GREETING%
 2026-09-29 18:21:02 === stopped ===
 ```
 
-它是纯文本，用任何编辑器都能看、用终端 `type` 也能看，不需要应用在跑、甚至不需要装应用。文件在应用配置目录的 `logs/plugins/` 下（见第 6 节），每个插件一个、以 id 命名，超过 4 MB 轮换，保留五份（`<id>.log`、`<id>.1.log`……）。
+它是纯文本，任何编辑器都能读，终端里也行，应用没装也没跑都能看。文件在应用配置目录的 `logs/plugins/` 下（见第 6 节），一个插件一份，按 id 命名，4 MB 轮转，保留五份归档（`<id>.log`、`<id>.1.log`……）。
 
-设置页每张卡片都有「打开运行日志」按钮（文件图标），会在资源管理器里定位到该文件；插件页工具栏上也有同样的按钮。文件不存在时会先建出来，所以按钮永远能打开东西。
+设置页每张卡片有**打开运行日志**按钮（文件图标），在文件夹里选中该文件；插件页工具栏上也有同样的按钮。文件按需创建，所以这个按钮总能打开点什么。
 
 ## 6. 文件位置
 
-插件的**一切都在它自己的目录里**：脚本，以及配置窗口写的那些配置文件。它们跟着插件走，所以整个目录搬走配置也还在。
-
-应用配置目录（`%APPDATA%\com.anfioo.mabangprojectsworkflows\`）下，和 `config.json` 平级：
+三个目录，各自归各自的主人：
 
 ```
-plugins/            每个插件一个目录，内容就是 zip 解压出来的样子
-plugins.json        每个插件的启用状态
-logs/plugins/       每个插件一份持久化运行日志，见第 5b 节
+<scoop>/apps/<app>/<版本>/     插件自己的文件，Scoop 解开在这里
+<scoop>/apps/<app>/current/    指向已安装版本的 junction，更新时被替换
+<scoop>/persist/<app>/         插件的配置——更新和卸载都会保留
 ```
 
-`plugins.json` 只存**插件是否启用**，不存任何配置值：配置值住在插件自己的文件里。所以重装插件替换目录时，写进那些文件的配置不会被丢掉，应用这边也没有一份会跟文件不同步的数据。
+`current` 是应用运行、也是读取 `plugin.json` 的目录。它活不过一次更新，所以**用户编辑的配置文件放在持久化目录里**：`configFiles[].path` 按 `<scoop>/persist/<app>` 解析，`PLUGIN_PERSIST` 把脚本指到同一个地方。`absolute` 的源是例外——它按原样使用，属于那个路径真正的所有者。
+
+Scoop 自己的 `scoop uninstall` 会保留持久化目录，所以重装同一个应用，用户的配置就回来了。应用不需要记住它们，也就没有会不一致的副本。
+
+在应用配置目录（`%APPDATA%\com.anfioo.mabangprojectsworkflows\`）里，与 `config.json` 并列：
+
+```
+plugins.json       每个已安装插件的启用状态
+logs/plugins/      每个插件一份运行日志，见第 5b 节
+plugins/           旧 zip 安装器留下的目录，删掉之前会一直列出
+```
+
+`plugins.json` **只记每个插件开没开**。它不存配置值，也不存安装记录：装了什么就是 `scoop list` 会说的那些，所以在 Scoop 里卸载掉，卡片自然就没了。
 
 ## 7. 安全
 
-**插件脚本就是以你的身份运行的任意代码，没有沙箱。** 它能读写你的文件、联网、跑任何命令。所以：
+**插件脚本是以你的身份运行的任意代码，没有沙箱。** 它能读写你的文件、访问网络、执行任何命令。因此：
 
-- 插件安装后默认**停用**，启用前不会有任何脚本被执行。
-- 只装你自己写的或能看懂源码的插件。zip 里就是纯文本脚本，先解开看一眼再拖进来。
-- 解压带路径穿越防护（拒绝 `..` 和绝对路径），且只接受路径合法的 `id`，所以插件写不到 `plugins/` 目录之外。
-- 配置窗口只会写 `configFiles` 里**声明过**的路径（写入前再校验一次仍在插件目录内），且每个文件里只动声明过的键。
+- 插件装好后是**停用**状态；启用之前不会执行任何东西。
+- 只从你信任的桶安装。桶清单也是代码：Scoop 会执行它的 `install` / `post_install` 步骤，`url` / `hash` 决定解什么包。
+- 插件是纯文本——启用之前，先读一遍已安装目录里的 `plugin.json` 和 `run.cmd`。
+- 配置窗口只会写**声明过的** `configFiles` 路径，每个都按持久化目录解析并检查；写入的也只是清单声明的键。唯一的出口是插件自己声明的 `absolute` 源。
 
-插件页面（第 4 节）依然是任意网页内容，只是改由真正的 webview 渲染、不再放在受限 iframe 里。它被限制在插件自己的 origin 内 —— 无论是插件页面还是地址栏都到不了应用自身 —— 应用的命令也够不到。但插件给的页面，可信度终究只取决于插件本身。
+插件页面（第 4 节）仍然是有任意网页内容的，只是改用真正的 webview 渲染，而不是带沙箱的 frame。它被限制在自己的源里——页面和地址栏都摸不到应用自己的地址——应用的命令也够不着。但插件提供的页面，可靠程度就等于插件本身。
 
 ## 8. 示例
 
-两个都在本仓库的 [`examples/`](../../examples/) 下，各自带 `plugin.json`、脚本和配置文件——把文件夹压成 zip 拖到设置窗口即可运行。
+两个都在本仓库的 [`examples/`](../../examples/) 下，各自带 `plugin.json`、脚本和配置文件，桶清单在 [`examples/bucket/`](../../examples/bucket/) 里——文件名分别是 `wingharness-hello-plugin.json` 和 `wingharness-plugin-showcase.json`，遵循前缀规则（第 1a 节）。
 
 ### 全示例：`examples/plugin-showcase/`
 
-**完整的**参考：一个清单同时用上了全部能力。写自己的 `plugin.json` 时从头到尾读一遍。
+**完整**参考：一份清单把所有能力都用上。写自己的插件时从头读一遍。
 
-- **三种格式**——`env`，加上 `json`、`yaml`。
-- **五种字段类型**——`string`、`number`（带 `min`/`max`）、`boolean`、`select`、`textarea`。
-- **下拉与开关各一个**——一个三选一的 `select`，和一个带 `options` + `trueValue` 的 `boolean`（两个状态写成 `1`/`0`），旁边再放一个普通开/关 `boolean`，差别一眼可见。
-- **点路径与数组下标键**——`app.name`、`features.weights.0`。
-- **`startmust` 的两种取值**——三个必需文件，一个（`generated.yml`）由脚本首启生成。
+- **三种格式**——`env`，加上 `json` 与 `yaml`。
+- **五种字段类型**——`string`、`number`（带 `min`/`max`）、`boolean`、`select` 和 `textarea`。
+- **下拉框与开关**——一个三选一的 `select`，一个带 `options` + `trueValue` 的 `boolean`（两个状态写成 `1`/`0`），旁边放一个普通的开关 `boolean`，两者差别一眼可见。
+- **点路径与数组下标**——`app.name`、`features.weights.0`。
+- **`startmust` 的两种取值**——三个必带文件，一个（`generated.yml`）由脚本首次启动时生成。
 - **带占位符的 `ui`**——`http://{SHOWCASE_HOST}:{SHOWCASE_PORT}/`。
 
-它的页面会把每个文件都渲染回页面，所以配置窗口里的改动刷新即可看到。页面由 `server.ps1`（PowerShell 5.1，无依赖）提供，读的就是配置窗口写的那些文件。
+它的页面把每个文件都渲染回来，所以在配置窗口里改完，刷新就能看到。页面由 `server.ps1`（PowerShell 5.1，无依赖）提供，它读的是配置窗口写的同一批文件，位置是持久化目录。
 
 ### 最小示例：`examples/hello-plugin/`
 
-[`examples/hello-plugin/`](../../examples/hello-plugin/) 是一个能直接用的最小插件。它声明了两个源——一个 `.env` 放标量配置，一个 `cfg.json` 放自由文本备注——并把读到的内容打印出来。
+[`examples/hello-plugin/`](../../examples/hello-plugin/) 是一个能跑的最小插件。它声明两个源——一个 `.env` 放标量设置，一个 `cfg.json` 放一段自由文本——然后把读到的内容打印出来。
 
-两个示例的试法都一样：
+试其中一个的步骤：
 
-1. 把文件夹压成 zip（右键 → 压缩到 zip 文件，或者 `Compress-Archive -Path .\examples\plugin-showcase -DestinationPath plugin-showcase.zip`）。
-2. 拖到设置窗口里，启用。
-3. 点「配置」改字段，顺便看看该文件夹里的 `.env` 在磁盘上跟着变——注释原样还在。
-4. 点「运行」（或打开插件页签），看脚本读回来的内容。
+1. 把它的桶清单复制到 Scoop 页上已添加的桶里，`url` 指到该目录打成的 zip（`plugin.json` 必须在 zip 根目录）——或者直接从本地源安装。
+2. 在插件页点 **Install plugin**，填应用名（带前缀）。
+3. 点「配置」改字段。看 `<scoop>/persist/<app>` 里的文件跟着变——注释都还在。
+4. 点「运行」（或打开插件的标签页），看脚本读回了什么。
+
+两个脚本在 `PLUGIN_PERSIST` 没设时会退回自己所在的目录，所以脱离应用手动跑也能用。
 
 ## 9. 常见问题
 
-**插件列表里出现「插件清单无法读取」**
-`plugin.json` 缺失、不是合法 JSON、`entry` 写成了绝对路径 / 含 `..`，或某个 `configFiles` 的 `path` 是这类非法路径。括号里是具体原因。修好之后重新拖一次 zip 覆盖即可。
+**「…is installed, but it is not a plugin: …」**
+应用装上了，但它的 `current` 目录根下没有可读的 `plugin.json`。要么 zip 外面多套了一层目录（在桶清单里设 `extract_dir`），要么清单本身无效——后半句话会说是哪种。如果它压根不是本应用的插件，消息最后一句会说明：插件是名为 `wingharness-<name>` 的 Scoop 应用。
+
+**「'xxx' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.」**
+在 **Install plugin** 里填的名字没有 `wingharness-` 前缀，什么都没装。补上前缀——应用名就是桶清单的文件名，所以清单文件本身得叫 `wingharness-<name>.json`（第 1a 节）。
+
+**「'xxx' is already installed.」**
+这个应用已经在了。点卡片上的**更新**；要从头重装，先卸载。
+
+**「scoop install xxx exited with code 1.」**
+Scoop 自己的消息就在输出面板里紧挨着上面一行——通常是应用名不存在（没有桶提供它，或桶列表过期了：去 Scoop 页刷新），也可能是下载失败或 hash 不匹配。
+
+**「scoop … stopped responding and was killed.」**
+Scoop 五分钟没有输出。某个环节在等永远不会来的输入，或者卡住的下载；在终端里跑一次就能看到停在哪。
+
+**卡片说清单读不出来**
+`plugin.json` 缺失、不是合法 JSON、`entry` 是绝对路径或含 `..`，或者某个 `configFiles` 的 `path` 如此。括号里是具体原因。修好应用，发一个新版本，再更新。
 
 **「declares options, but its type is 'xxx'」**
-`options` 被写在了 `boolean` / `select` 以外的类型上。把选项挪到 `select`，或去掉 `options` 让它按 `type` 渲染。
+`options` 被放在了类型不是 `boolean` 或 `select` 的字段上。要么把选项挪到 `select` 上，要么去掉 `options` 按 `type` 渲染。
 
 **「is a boolean with options, so it must set trueValue…」/「trueValue '…' is not one of its option values」**
-带 `options` 的 `boolean` 需要用 `trueValue` 指明哪个选项代表「开」。补上它，并确保值等于某个选项的 `value`。带 options 却没有 `trueValue`、或 `trueValue` 匹配不上任何选项，都会被拒绝。
+带 `options` 的 `boolean` 需要一个 `trueValue` 指出哪个选项代表「开」。补上它，并确认它的值和某个选项一致。带 options 却没有 `trueValue` 的 boolean 会被拒绝，`trueValue` 与任何选项都对不上也一样。
 
 **「declares trueValue, but only a boolean with options uses it」**
-`trueValue` 被写在了 `select`、不带 options 的普通 `boolean`，或非选项字段上。它只对「带 options 的 `boolean`」有意义，其余地方请删掉。
+`trueValue` 被放在了 `select`、没有 options 的普通 `boolean`，或者非选项字段上。它只在带 `options` 的 `boolean` 上有意义；别处删掉。
 
-**「the zip does not contain the declared entry 'xxx'」**
-`entry` 写的文件名和 zip 里的实际文件名对不上（注意大小写和扩展名）。确认 zip 解开后 `plugin.json` 旁边确实有那个文件。
-
-**运行没反应 / 立刻失败**
-先看输出面板。若是「Entry script not found」，说明 `entry` 路径写错了。脚本里可以用 `echo` 打印 `%PLUGIN_DIR%` 来确认工作目录。
+**什么都没发生，或者立刻失败**
+看输出面板。「Entry script not found」表示 `entry` 路径不对。脚本里加一句 `echo %PLUGIN_DIR%` 可以确认工作目录。
 
 **「Missing config: xxx does not exist」**
-某个 `startmust: true` 的源没有对应文件。要么把文件打进 zip，要么如果插件本就打算首启自己生成它，就把它改成 `startmust: false`。在配置窗口里保存该源的任意一个字段也会创建它。
+声明了 `startmust: true` 的源在**持久化目录**里没有文件。在配置窗口保存它的任一字段就会创建，或者插件本来就打算自己生成的话，把 `startmust` 设成 `false`。
 
-**停止时报「Stop script not found: …」**
-`stopScript` 指向的文件不在 zip 里。插件**仍然会被停掉**——进程树无论如何都会杀——但要把路径改对，或者干脆去掉这个键。
+**更新之后设置没了**
+插件读写配置时用的是 `%PLUGIN_DIR%` 而不是 `%PLUGIN_PERSIST%`。`current` 每次更新都会被替换，能活下来的是持久化目录。
 
-**停止时报「Stop script '…' timed out」**
-脚本跑了超过 60 秒，已被强杀，进程树也一起杀了。通常是脚本在等一个永远等不到的输入（见第 5a 节），或者卡在一个不肯退出的进程上。
+**停止时报告「Stop script not found: …」**
+`stopScript` 指的文件不在应用里。插件照样会被停下（无论如何都会杀进程树），但请修正路径或者去掉这个键。
 
-**停止时报「Stop script '…' exited with code N」**
-脚本执行了但失败了。它自己的输出就在报错上面几行，原因一般在那里。
+**停止时报告「Stop script '…' timed out」**
+脚本跑了超过 60 秒。它被杀掉了，进程树也跟着被杀。通常是脚本在等永远不会来的输入（见第 5a 节），或者在等一个不肯退出的进程。
 
-**「插件」页面里没有这个插件的页签**
-只有同时满足「已启用」和「`plugin.json` 里写了 `ui`」的插件才会出页签。两个都确认一下；如果地址里有 `{key}`，而没有任何配置项能填它，设置页的卡片上会写明这一点。
+**停止时报告「Stop script '…' exited with code N」**
+脚本跑了并且失败了。它自己的输出就在日志里紧挨着错误的上方，原因一般在那儿。
 
-**「插件」页面一直等不到响应**
-脚本起来了，但声明的地址上没人监听——通常是端口没绑上，或者脚本只打印了地址却没有真的起服务。去设置页点该插件的「运行」，脚本自己的输出会说明原因。
+**卡片显示「Installed by the old zip installer」**
+这份副本早于迁移到 Scoop 的版本，没法通过 Scoop 更新或卸载。先从桶里装好应用，再点旧卡片的垃圾桶图标删掉残留目录。
 
-**配置窗口里显示的是旧值**
-关掉重开即可。窗口只在打开时读一次文件；之后在别的编辑器里改的内容，下次打开才会反映出来。
+**卸载后留下一个目录**
+`<scoop>/persist/<app>` 是故意保留的：里面是用户的配置，重装同一个应用就能找回来。想彻底清干净，手动删除该目录。
 
-**yaml 文件里的注释丢了**
-这是当前版本的既定行为。yaml 适配器会重新序列化整份文档，而保留注释需要一套大得多的解析器。注释确实重要的话，把它放进 `.env`（逐字节保留），或者放在配置窗口不碰的文件里。
+**插件在插件页没有标签页**
+只有**已启用**且清单声明了 `ui` 的插件才有标签页。两个都检查一下；如果地址里带 `{key}` 而没有任何字段填它，设置页卡片会说明。
 
-**中文乱码**
-cmd 默认代码页是 GBK。脚本开头加一行 `chcp 65001 >nul` 切到 UTF-8 即可。
+**插件页一直在等一个永远不应答的页面**
+脚本起来了，但声明的地址上没人在听——通常是插件没能绑定端口，或者服务器只打印 URL 并不真的提供服务。在设置里点该插件的「运行」，看脚本自己的输出，原因写在那里。
 
-**`.cmd` 读 `.env` 时，中文注释后面那个键读不出来**
-同一个根因：cmd 按 GBK 读文件，而配置窗口写的是 UTF-8。带中文的注释行会被解码成吞掉换行的字节序列，把下一个键粘进注释里，于是被 `eol=#` 跳过。在 `for /f` 之前加 `chcp 65001 >nul` 即可，见第 5 节的示例。
+**配置窗口显示的是旧值**
+关掉再打开。窗口只在打开时读一次文件；之后在别的编辑器里的修改，下次打开时才生效。
 
-**脚本在 `tauri dev` 下正常、打包后黑色窗口一闪**
-插件脚本走的是和应用内其他 shell 一样的「不创建控制台窗口」路径，正常不该闪窗。若确实出现，检查脚本里是否 `start` 了别的 GUI 程序。
+**yaml 文件丢了注释**
+这一版就是这样。yaml 适配器会整份重新序列化，而保留注释需要一个大得多的解析器。注释要紧的话，就放在 `.env` 里（逐字节保留），或者放在配置窗口不碰的文件里。
+
+**输出乱码**
+控制台代码页默认是 GBK。在脚本开头加一句 `chcp 65001 >nul` 切到 UTF-8。
+
+**`.env` 里中文注释后面的键在 `.cmd` 输出里不见了**
+同一个根因：cmd 按 GBK 代码页读文件，而配置窗口写的是 UTF-8，于是非 ASCII 的注释行解出来的字节会吃掉后面的换行，把下一个键粘到注释上——而 `eol=#` 又把这行跳过。在 `for /f` 之前加 `chcp 65001 >nul` 即可。见第 5 节的代码片段。
+
+**`tauri dev` 下正常，打包后闪一个黑窗口**
+插件脚本和应用其他 shell 走同一条「不创建控制台窗口」的路径，不该闪。如果闪了，检查脚本自己是不是 `start` 了另一个控制台程序。

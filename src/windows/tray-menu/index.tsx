@@ -56,7 +56,7 @@ import { isActiveProcessState } from "@/components/frp/state-badge";
 import { ThemeProvider } from "@/components/theme-provider";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { groupsForMode, isSelectable, toneClass } from "@/pages/clash/nodes";
-import { formatBytes } from "@/pages/clash/shared";
+import { formatBytes, niceCeiling, smoothRate } from "@/pages/clash/shared";
 import type { TrafficPoint } from "@/pages/clash/traffic-chart";
 import { cn } from "@/lib/utils";
 import { createWindow, showWindow } from "@/lib/window";
@@ -111,6 +111,8 @@ export default function TrayMenuPage() {
   const requestId = useRef(0);
   /** The previous counters every rate is measured against. */
   const baseline = useRef<{ at: number; up: number; down: number } | null>(null);
+  /** The rates last shown; a raw one-second delta is too jumpy to draw. */
+  const smoothed = useRef<{ up: number; down: number } | null>(null);
 
   const load = useCallback(async () => {
     const id = ++requestId.current;
@@ -320,6 +322,7 @@ export default function TrayMenuPage() {
   // samples. Sampling stops with the flyout — nothing draws it while closed.
   useEffect(() => {
     baseline.current = null;
+    smoothed.current = null;
     setConnections(null);
     setSamples([]);
     setSpeeds({ up: 0, down: 0 });
@@ -343,14 +346,21 @@ export default function TrayMenuPage() {
 
         const seconds = (now - previous.at) / 1000;
         if (seconds <= 0) return;
-        const up = Math.max(0, next.uploadTotal - previous.up) / seconds;
-        const down = Math.max(0, next.downloadTotal - previous.down) / seconds;
+        const rawUp = Math.max(0, next.uploadTotal - previous.up) / seconds;
+        const rawDown = Math.max(0, next.downloadTotal - previous.down) / seconds;
+        const prior = smoothed.current;
+        const up = prior ? smoothRate(prior.up, rawUp, seconds) : rawUp;
+        const down = prior ? smoothRate(prior.down, rawDown, seconds) : rawDown;
+        smoothed.current = { up, down };
         setSpeeds({ up, down });
         setSamples((current) => [...current.slice(-(TRAFFIC_SAMPLES - 1)), { at: now, up, down }]);
       } catch {
         // A stopped core resets its counters; keeping the old baseline would
         // report a burst the moment it comes back.
-        if (!cancelled) baseline.current = null;
+        if (!cancelled) {
+          baseline.current = null;
+          smoothed.current = null;
+        }
       } finally {
         sampling = false;
       }
@@ -998,7 +1008,9 @@ function GroupRow({ group, onOpen }: { group: ClashProxyGroup; onOpen: () => voi
 function TrafficSparkline({ points }: { points: TrafficPoint[] }) {
   const width = 320;
   const height = 36;
-  const ceiling = points.reduce((max, point) => Math.max(max, point.up, point.down), 1);
+  const ceiling = niceCeiling(
+    points.reduce((max, point) => Math.max(max, point.up, point.down), 0)
+  );
   const x = (index: number) => (points.length <= 1 ? 0 : (index / (points.length - 1)) * width);
   const y = (value: number) => height - (value / ceiling) * height;
   const trace = (key: "up" | "down") =>

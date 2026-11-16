@@ -40,7 +40,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/project_fs.rs` | `project_delete`, `project_info`, `project_mkdir`, `project_move`, `project_read`, `project_tree`, `project_write` — each takes the project `root` as its first argument | 7 |
 | `commands/projects.rs` | `project_active`, `project_forget`, `project_recent_list`, `project_remember`, `project_set_active` | 5 |
 | `commands/runtime.rs` | `runtime_read_archive`, `runtime_target`, `runtime_write_file` — the runtime installer's file bridge (fetching and unpacking happen in the frontend) | 3 |
-| `commands/scoop.rs` | `scoop_apply_location`, `scoop_plan_run`, `scoop_prepare_install`, `scoop_search`, `scoop_status` — the fixed link, user environment variables and generated `.cmd` scripts behind the Scoop page | 5 |
+| `commands/scoop.rs` | `scoop_apply_location`, `scoop_installed`, `scoop_plan_run`, `scoop_prepare_install`, `scoop_search`, `scoop_status` — the fixed link, user environment variables and generated `.cmd` scripts behind the Scoop page | 6 |
 | `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
 | `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |

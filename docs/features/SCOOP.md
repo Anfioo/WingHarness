@@ -58,6 +58,13 @@ The overview and the settings tab show the two real folders, the two links as
 `link → folder`, and each variable as `link (real path …)`, so nothing looks
 like the same path repeated.
 
+On the overview that card is folded into one line while both variables point at
+their fixed link, which is the state a working install is in: what the page is
+opened for is the list of installed apps. The line carries an **In place** badge
+and the arrows open it; it opens by itself as soon as a variable is missing or
+points somewhere else, because then it is the thing to look at. Its own toggle
+wins over that default for as long as the page is open.
+
 ## Proxy
 
 The proxy has a page-level mode — **follow settings, direct, custom** — and
@@ -107,7 +114,7 @@ upstream location the file was taken from.
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
@@ -133,16 +140,31 @@ same xterm surface the Terminal page uses. There is exactly one run at a time:
 
 ## Reading the catalog
 
+No `scoop list` process is needed for the overview. The page opens from two
+reads: `scoop_installed` looks at the fixed folder and answers "installed" in
+milliseconds, so the badge and the tab row are right from the first frame, and
+`scoop_status` — which walks every bucket, every installed manifest and the
+CLI's version — replaces that guess when it lands. The loading screen is drawn
+in the page's own shape (tab row, the three counters, the paths and apps cards)
+rather than as one block.
+
 No `scoop list` process is needed for the overview:
 
-- **apps** — `apps/*/current/manifest.json` (version, description, homepage)
-  plus `install.json` (bucket), read from both `scoop` and `scoopg`; apps from
-  the global folder carry a global badge. `current` is a junction, which is
-  followed transparently.
+- **apps** — `apps/*/current/scoop-manifest.json` (version, description,
+  homepage) plus `scoop-install.json` (bucket), read from both `scoop` and
+  `scoopg`; apps from the global folder carry a global badge. `current` is a
+  junction, which is followed transparently. Those are the names a current Scoop
+  writes; an install made by an older one still carries `manifest.json` and
+  `install.json`, so each read falls back to the bare name and both vintages show
+  their version. An app whose name starts with `wingharness-` gets a
+  **WingHarness plugin** badge beside it — the name is the only marker a plugin
+  has (see [PLUGINS.md](./PLUGINS.md#1a-the-name-wingharness-name)).
 - **buckets** — `buckets/*/bucket/*.json` under `scoop`, counted per bucket.
 - **local search** — file names under the same bucket folders, with the matched
   manifest parsed for version and description. Only cloned buckets are searched,
-  which is why the empty state explains it.
+  which is why the empty state explains it. A hit whose name carries the plugin
+  prefix is badged the same way, so a plugin is recognisable before it is
+  installed.
 - **online search** — a normal run of `scoop search <term>`, streamed into the
   terminal.
 
@@ -151,15 +173,107 @@ extras/vscode git`, and the same forms for search. Tokens are restricted to
 `A-Z a-z 0-9 . - _ + / @`, because the result is expanded by `cmd.exe` and a
 shell metacharacter would be an injection.
 
+## Cloning a bucket
+
+The **Buckets** tab clones a bucket with `scoop bucket add`; the one input line
+takes any of these, and the leading words are optional:
+
+| Input | Result |
+| --- | --- |
+| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
+| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `https://github.com/ScoopInstaller/Extras` | the name is the repository name, lowercased |
+| `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | the same, read the way it is typed in a terminal |
+| `extras/7zip` | `scoop install extras/7zip`, from a bucket that is already cloned |
+| `scoop install extras/7zip` | the same |
+
+A bare `owner/repo` is deliberately an install, not a clone: that is how
+`scoop install` reads it, and the URL form is how a bucket is cloned without
+naming it. The frontend parses the line, and the backend parses it again before
+writing `run.cmd` — the name and the address travel in the child's
+environment, quoted, and both are restricted to what a bucket name and a git URL
+can contain.
+
+The bucket list is refreshed when a clone exits with code 0. Installing
+`<bucket>/<manifest>` from a bucket that is not cloned yet is refused with a
+message instead of run: Scoop would ask whether to add it, and the terminal has
+no input path.
+
+### Removing a bucket
+
+The trash button on a bucket's row asks for confirmation and then runs
+`scoop bucket rm <name>`, which deletes the clone under
+`<scoop>/buckets/<name>`. Scoop removes the folder and its cache entry and
+nothing else: apps installed from that bucket stay installed and stay listed,
+but the bucket's manifests are gone, so a local search no longer offers new apps
+from it. The confirmation says so, because that is the part that surprises.
+
+One bucket per run, and any bucket can go, `main` included — Scoop itself allows
+that, and the page follows it.
+
+## Updating the catalog and the apps
+
+Two buttons cover updating, one per tab, and each is one Scoop command:
+
+| Button | Where | Command | What it refreshes |
+| --- | --- | --- | --- |
+| **Update all buckets** | Buckets tab header | `scoop update` | Scoop itself and every cloned bucket |
+| **Update all apps** | Overview, installed apps header | `scoop update *` | every user-scope app |
+| **Update**, on a row | Overview, installed apps | `scoop update <app>` | that one app |
+
+A bucket is a git clone under `<scoop>/buckets/<name>`, and Scoop has no
+per-bucket update, so a single bucket is not offered — `scoop update` is the
+command, and it takes all of them.
+
+When the global root holds an app, the update-all run appends
+`scoop update -g *` to the same script and stops before it if the user-scope
+pass failed. Scoop requires an elevated window for that pass, so a run started
+from an ordinary window reports its refusal in the terminal and leaves the
+global apps alone. A global app's row carries `-g` too.
+
+### Pinning a version
+
+**Pin** on a row runs `scoop hold <app>`; **Unpin** runs `scoop unhold <app>`.
+Scoop records the pin as `hold: true` in the app's own install info
+(`scoop-install.json`, or `install.json` on an older install), and every later
+`scoop update *` skips it — the skip is Scoop's own, so the page does not filter
+anything itself. The row then shows a **Pinned** badge and its **Update** button
+is disabled: Scoop refuses to update a held app, so the way through is to unpin
+it first, which is one click away.
+
+The page reads the flag from that file rather than from a `scoop` process, so
+the badge is right the moment the status lands, and it flips when the hold run
+exits with 0 (the run refreshes the status).
+
+## Uninstalling an app
+
+The trash button on an installed app's row asks for confirmation and then runs
+`scoop uninstall <app>`, with `-g` for a global app. One app per run, and a
+WingHarness plugin uninstalls the same way, because a plugin is an ordinary Scoop
+app.
+
+Scoop keeps the app's `<scoop>/persist/<app>` folder by default — that is where
+the app's own settings live, and a reinstall finds them again. The confirmation
+dialog offers **Delete the persist folder too**, which appends `-p` for a clean
+removal. The choice is per run and resets every time the dialog opens, so the
+destructive option is never the one left checked.
+
+The dialog lists the persist behaviour in its body, and the run log repeats it,
+so what a run does is visible before and after it starts.
+
+`scoop uninstall scoop` would remove Scoop itself and every app with it, so
+`scoop_plan_run` refuses that name outright instead of offering it as a target.
+
 ## Commands
 
 | Command | Parameters | Returns |
 | --- | --- | --- |
+| `scoop_installed` | — | whether the install folder holds a Scoop, from the fixed link alone |
 | `scoop_status` | — | install state, version, paths, user environment, proxy, apps, buckets |
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search or a proxy sync |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or removal, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -168,9 +282,6 @@ a line and exits instead of opening an interactive shell.
 
 - **Windows only.** `SCOOP` is a Windows package manager; the commands return an
   error elsewhere.
-- **No uninstall, update or bucket management.** The page installs, searches and
-  reports. `scoop uninstall` and `scoop update` would be easy to add as more
-  `scoop_plan_run` kinds.
 - **The links cannot be re-pointed after install from this page.** Changing
   `SCOOP` or `SCOOP_GLOBAL` underneath an existing install hides its apps; the
   Settings tab shows the paths read-only and says to migrate or uninstall first.

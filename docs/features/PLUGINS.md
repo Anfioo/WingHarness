@@ -2,42 +2,94 @@
 
 > 中文版：[PLUGINS.zh-CN.md](./PLUGINS.zh-CN.md)
 
-A plugin is a small tool the user drops into the app: a zip holding a `plugin.json` (which says what it wants to be configured with) and a script. Once installed, the settings page renders the configuration the manifest asks for, and one click runs it.
+A plugin is an ordinary **Scoop app** that carries a `plugin.json` at its root. Scoop owns the lifecycle — install, update, uninstall — from a bucket, and the app adds the part Scoop has no opinion about: the settings page reads the manifest, renders the configuration it asks for, and runs the script.
 
-The app knows nothing about any particular plugin — **installing a new one requires no frontend change and no Rust change.**
+The app knows nothing about any particular plugin — **installing a new one requires no frontend change and no Rust change**, only a manifest in a bucket.
 
-## 1. Package layout
+The one thing a plugin must carry is the name: **a plugin's Scoop app name starts with `wingharness-`**, and that prefix is the only marker there is (§1a).
 
-All a zip needs is a `plugin.json`, and it may sit in either of two places, because Explorer's "Compressed (zipped) folder" wraps everything in a folder of its own:
+## 1. Package layout and the bucket
+
+The app is the zip's contents, with `plugin.json` at the root:
 
 ```
-hello-plugin.zip
-└── hello-plugin/            ← optional
-    ├── plugin.json
-    ├── run.cmd
-    └── (anything else)
+wingharness-hello-plugin.zip
+├── plugin.json
+├── run.cmd
+└── (anything else)
 ```
 
-That extra folder is stripped while unpacking.
+`scoop install wingharness-hello-plugin` unpacks that into `<scoop>/apps/wingharness-hello-plugin/<version>/` and points `<scoop>/apps/wingharness-hello-plugin/current` at it. The app only ever looks at `current`, so if the archive wraps everything in one folder, name it in the bucket manifest's `extract_dir`.
+
+The bucket manifest holds **standard Scoop fields only** — the plugin's own metadata stays in the package, where the app reads it:
+
+```json
+{
+  "version": "1.0.0",
+  "description": "WingHarness plugin: hello plugin, prints the values its config files hold.",
+  "homepage": "https://github.com/you/scoop-bucket",
+  "url": "https://github.com/you/scoop-bucket/releases/download/wingharness-hello-plugin-1.0.0/wingharness-hello-plugin-1.0.0.zip",
+  "hash": "sha256:…"
+}
+```
+
+Two ready-to-edit manifests live in [`examples/bucket/`](../../examples/bucket/). Copy one next to the others in your bucket, point `url` at the release zip, and fill in `hash` from `scoop hash <file>` (or let `scoop checkver`/`autoupdate` maintain the manifest for you, as for any other app).
+
+They also show the one thing a plugin's manifest usually wants beyond the standard fields: the package ships its config files as **templates**, and a `pre_install` copies them into `$persist_dir` on the first install, so the plugin's first run finds settings where the app looks for them (§6). Without it, the files sit in `current` — which the next update replaces, and which the config window never reads.
+
+```json
+"pre_install": [
+  "New-Item -ItemType Directory -Force -Path $persist_dir | Out-Null",
+  "$files = @('.env', 'cfg.json')",
+  "foreach ($name in $files) {",
+  "  $source = Join-Path $dir $name;",
+  "  $target = Join-Path $persist_dir $name;",
+  "  if ((Test-Path $source) -and -not (Test-Path $target)) { Copy-Item $source $target }",
+  "}"
+]
+```
+
+### 1a. The name: `wingharness-<name>`
+
+A plugin is named by its **bucket manifest file**, because Scoop names the app after it: `bucket/wingharness-cursor-proxy.json` installs as the app `wingharness-cursor-proxy`, which is its folder under `apps/`, its persist folder, and its id in the app. The prefix is therefore not decoration — **it is the only thing that says "this app is a WingHarness plugin"**, and three things rely on it:
+
+- **The install gate (§3)** — Settings → Plugins refuses any name that does not start with it, so an ordinary Scoop app is never registered as a plugin by mistake. The error reads `'<app>' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.`
+- **The badge** — the Scoop page's overview and search mark apps with the prefix as "WingHarness plugin", so a plugin is recognisable among the other Scoop apps on the machine.
+- **The bucket's own convention** — see below.
+
+A plugin's bucket manifest also says where it came from, in the standard fields a user sees in `scoop info` and on the app's card:
+
+| Field | Convention |
+| --- | --- |
+| file name | `wingharness-<name>.json` |
+| `description` | starts with `WingHarness plugin: ` |
+| `notes` | includes `Installed from WingHarness (Settings > Plugins).` |
+
+Structured metadata does **not** go in the manifest. Scoop's `schema.json` is `additionalProperties: false`, so a custom top-level key there would install fine but turn the bucket's CI red. It belongs in the package's own `plugin.json`, which nothing validates but the app (§2).
 
 ## 2. plugin.json
 
 ```jsonc
 {
-  "id": "hello-plugin",        // required; letters, digits, - _ . only, no leading dot
-  "name": "Hello Plugin",      // display name; falls back to the id
-  "version": "1.0.0",          // optional, shown as a badge next to the name
-  "description": "One line",   // optional
-  "entry": "run.cmd",          // required; the script that starts the plugin
-  "stopScript": "stop.cmd",    // optional; the script that stops it, see §5a
+  "name": "Hello Plugin",           // display name; falls back to the app name
+  "version": "1.0.0",               // optional, shown as a badge next to the name
+  "description": "One line",        // optional
+  "entry": "run.cmd",               // required; the script that starts the plugin
+  "stopScript": "stop.cmd",         // optional; the script that stops it, see §5a
   "ui": "http://127.0.0.1:{PORT}/", // optional; the page this plugin serves, see §4
+  "wingharness": {                  // optional; metadata for the app and its bucket
+    "minAppVersion": "0.0.12",
+    "category": "proxy"
+  },
   "configFiles": [ /* sources, see below */ ]
 }
 ```
 
 > The block above is **jsonc** for the sake of comments; a real `plugin.json` must not contain any.
 
-`id` is also the folder name under `plugins/`. An id containing `..`, `/` or `\` is rejected outright rather than rewritten — silently renaming one would make the plugin impossible to find again.
+`wingharness` is the one place a plugin declares something that is neither a Scoop field nor a script: `minAppVersion` is the app version the plugin was written against, `category` groups it in a listing. Nothing reads either today — the block is descriptive, and unknown keys are ignored by the loader, so a plugin carrying it works on any app build. Keep it out of the bucket manifest, where Scoop's schema would refuse it (§1a).
+
+There is no `id`. **A plugin is named by its Scoop app**, which is also its folder name and the key the app stores its enabled flag under, so the two can never disagree. A `plugin.json` that was written for an older version and still carries an `id` is read fine — the key is ignored, not an error.
 
 `ui` is the address of the page the plugin serves itself. A `{key}` inside it stands for the current value of that config key, so a plugin whose port is a setting can still point at its own page. Only `http://` and `https://` are accepted. Leaving `ui` out is normal: the plugin simply has no page of its own. See §4.
 
@@ -48,7 +100,8 @@ A plugin ships its settings **as real files**, and declares them in `configFiles
 | Field | Meaning |
 | --- | --- |
 | `type` | `env`, `json` or `yaml` — which adapter reads and writes the file |
-| `path` | Relative to the plugin root; same safety checks as `entry`, so it cannot leave the folder |
+| `path` | Relative to the app's **persist folder**, `<scoop>/persist/<app>` — not to the plugin folder, see §6. Same safety checks as `entry`, so it cannot walk out with `..` or an absolute path |
+| `absolute` | Optional. `true` = `path` is used as written, for a file the plugin keeps outside its own data (never created by the app) |
 | `startmust` | Boolean. `true` = a run is refused while the file is missing |
 | `fields` | The keys the app may edit, in declaration order |
 
@@ -108,7 +161,6 @@ Every key in one block, so you can copy it and delete what you do not need. This
 
 ```json
 {
-  "id": "my-plugin",
   "name": "My Plugin",
   "version": "1.0.0",
   "description": "One line shown on the settings card.",
@@ -150,14 +202,45 @@ Every key in one block, so you can copy it and delete what you do not need. This
 
 The same, fully commented and with a runnable script beside it, is [`examples/plugin-showcase/`](../../examples/plugin-showcase/).
 
-## 3. Install, enable, run
+## 3. Install, update, uninstall, run
 
-1. **Install** — drag the zip **anywhere onto the settings window**. It arrives **disabled**.
+The settings page drives Scoop; it does not reimplement it.
+
+1. **Install** — press **Install plugin** and type the app's name, **including its `wingharness-` prefix**. It must come from a bucket you have already added on the **Scoop** page. The app runs `scoop install <app>`, streams Scoop's output into the panel, and the plugin arrives **disabled**.
 2. **Enable** — in Settings → Plugins, flip its "Disabled" button to "Enabled".
 3. **Configure** — press the card's "Configure" button to open the config window (§4a).
 4. **Run** — press the plugin's "Run", or "Run all" at the top to run every enabled plugin in turn. Output streams into the panel below.
+5. **Update** — the card's **Update** button runs `scoop update <app>` and streams it the same way.
+6. **Uninstall** — the bin icon runs `scoop uninstall <app>`. The plugin's **settings survive**: they live in the persist folder, which Scoop keeps (§6).
 
-The other controls: "Open plugins folder" opens File Explorer (creating the folder if it does not exist yet), the folder icon on a card opens that plugin's own folder, and the bin icon uninstalls.
+Why a name and not a file: a drag-and-dropped zip was an install step the app had to own — unpack it, check where it landed, keep a record of it. Scoop already owns all of that for every app on the machine, so a plugin is simply one that brought a `plugin.json`.
+
+**The prefix is a gate, not advice.** `install` refuses a name that does not start with `wingharness-` before Scoop is ever started, and the settings page refuses it once more before sending the request, so the dialog can say why without an empty run panel:
+
+```
+'cursor-proxy' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.
+```
+
+The same sentence closes the "installed, but it is not a plugin" error (§9): an app that installed fine and brought no `plugin.json` is reported as a wrong name rather than as a broken plugin.
+
+### 3a. Renaming a plugin, and the install migration
+
+**A rename is a new app.** Because the name is the identity (§1a, §6), changing a plugin's name in its bucket manifest creates a different app: the old install stays where it is under its old name, with its own persist folder and its own card in Settings.
+
+Renaming one of your own plugins therefore means moving the user, not the files. To migrate the `cursor-proxy` install to `wingharness-cursor-proxy`:
+
+1. `scoop uninstall cursor-proxy` — this keeps `ScoopCurrent\persist\cursor-proxy`.
+2. Copy that folder to the new name:
+   `ScoopCurrent\persist\cursor-proxy` → `ScoopCurrent\persist\wingharness-cursor-proxy`.
+3. `scoop install wingharness-cursor-proxy` (or install it from Settings → Plugins), then enable it there again.
+
+Nothing else needs doing. The old `plugins.json` key and any `plugin:cursor-proxy` entry in the sidebar layout are **left behind and ignored**: an id that names no installed app is dropped instead of shown, so once step 1 is done those two entries are dead weight rather than errors. Delete them if you like; nothing reads them.
+
+The other controls: "Open plugins folder" opens `<scoop>/apps` in File Explorer, the folder icon on a card opens that plugin's own `current` folder, and the file icon opens its run log (§5b).
+
+A plugin whose manifest will not parse is still listed, with the reason on its card, so the failure is visible rather than the plugin silently missing.
+
+**Copies from the old zip installer** are listed too, marked "Installed by the old zip installer". They are not migrated — Scoop never installed them, so `scoop update` and `scoop uninstall` would both fail on them. Install the app from the bucket, then press the old card's bin icon to delete the leftover folder.
 
 ## 4. The plugin page
 
@@ -176,7 +259,9 @@ A `{key}` that no config field fills leaves the plugin with no page rather than 
 
 The page is shown in a **native webview**, not an `<iframe>`. That is not a preference — it is the only thing that works. Almost every real web app sends `X-Frame-Options: DENY` and a CSP `frame-ancestors 'none'` to stop clickjacking (the reference plugin does), and a browser refuses to render such a page inside a frame at all. An iframe is also cross-origin, so the app could never read its address, and there would be no address bar or history.
 
-So a `ui` plugin gets a webview of its own with a small browser chrome above it: **back / forward / reload / a editable address bar / open in the system browser**. The address follows the page — including a client-side router's route changes, which is why it stays correct inside an SPA.
+So a `ui` plugin gets a webview of its own with a small browser chrome above it: **back / forward / reload / a editable address bar / open in the system browser**, plus, in a dev build, a **developer tools** button. The address follows the page — including a client-side router's route changes, which is why it stays correct inside an SPA.
+
+The inspector is the only window into the page the app cannot see into: the page is a native view, so its cookies, local storage, session storage and IndexedDB are reachable only through the browser runtime's own *Application* panel. That button is therefore absent from a release build unless it was packaged with `BUILD_DEV=1` (`scripts/build.ps1 -DevBuild`), which is what turns on the `devtools` feature.
 
 Two consequences worth knowing:
 
@@ -185,7 +270,7 @@ Two consequences worth knowing:
 
 ### 4a. The config window
 
-The card carries no fields of its own. Its **Configure** button opens a dedicated window showing **one block per source**, each with the source's `type`, its `path`, a "required at start" badge when `startmust` is set, and an "Open file" button that hands the file to the OS.
+The card carries no fields of its own. Its **Configure** button opens a dedicated window showing **one block per source**, each with the source's `type`, its `path` (relative to the persist folder), a "required at start" badge when `startmust` is set, and an "Open file" button that hands the file to the OS.
 
 - Editing a field writes **straight into that file**. Nothing is cached in the app: the file is the truth, so an edit made in a text editor shows up on the next open, and the two never disagree.
 - Only declared keys are touched. In an `.env`, comment lines, blank lines, other keys, inline ` # comments` and the file's own line endings all survive byte-for-byte.
@@ -195,14 +280,17 @@ The card carries no fields of its own. Its **Configure** button opens a dedicate
 
 ## 5. How a script receives its configuration
 
-**Nothing is injected.** The app sets only two variables:
+**Nothing is injected.** The app sets three variables:
 
 | Variable | Value |
 | --- | --- |
-| `PLUGIN_ID` | the plugin's id |
-| `PLUGIN_DIR` | the plugin's folder on disk |
+| `PLUGIN_ID` | the plugin's id — its Scoop app name |
+| `PLUGIN_DIR` | the plugin's `current` folder on disk |
+| `PLUGIN_PERSIST` | the plugin's persist folder, `<scoop>/persist/<app>` |
 
-Everything else is a file the script reads itself, from `%PLUGIN_DIR%`. That is the same file the config window edits, so what the user sees is what the script gets — no merge step, no `.runtime/config.json`, no `PLUGIN_<KEY>` variables.
+Everything else is a file the script reads itself, from `%PLUGIN_PERSIST%`. That is the same file the config window edits, so what the user sees is what the script gets — no merge step, no `.runtime/config.json`, no `PLUGIN_<KEY>` variables.
+
+Reading only `%PLUGIN_DIR%` is the trap to avoid: that folder is replaced wholesale on the next `scoop update`, so anything the user wrote into it is gone. The persist folder is the one Scoop keeps.
 
 ```bat
 @echo off
@@ -212,7 +300,7 @@ rem (GBK on a Chinese Windows) while the config window writes UTF-8, and a
 rem non-ASCII comment would otherwise swallow the newline after it and glue the
 rem next key onto the comment. `eol=#` skips the comments.
 chcp 65001 >nul
-for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%PLUGIN_DIR%\.env") do (
+for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%PLUGIN_PERSIST%\.env") do (
   if /i "%%a"=="GREETING" set "GREETING=%%b"
 )
 echo Greeting is %GREETING%
@@ -220,15 +308,15 @@ echo Greeting is %GREETING%
 
 A script that wants the values in a richer form is free to parse its own `cfg.json` (Python's `json`, PowerShell's `ConvertFrom-Json`, `jq`, …). The app takes no position on how a plugin reads its files — that is the plugin's business.
 
-The working directory is the plugin folder, so relative paths in `run.cmd` just work. stdin is connected to the null device, so a script cannot block on a prompt. The exit code is shown on the settings page; a non-zero one counts as a failure in the "Run all" summary but **does not stop the plugins after it**.
+The working directory is the plugin's `current` folder, so relative paths to the script's own resources just work. stdin is connected to the null device, so a script cannot block on a prompt. The exit code is shown on the settings page; a non-zero one counts as a failure in the "Run all" summary but **does not stop the plugins after it**.
 
-Before a run, every `startmust: true` source must exist. If one is missing the run is refused with the file's name in the error: the plugin is telling the user it needs a file the user has not created. Sources with `startmust: false` are left alone — generating your own config on first boot is a normal pattern, not an error.
+Before a run, every `startmust: true` source must exist **in the persist folder**. If one is missing the run is refused with the file's name in the error: the plugin is telling the user it needs a file the user has not created. Sources with `startmust: false` are left alone — generating your own config on first boot is a normal pattern, not an error.
 
 ### 5a. Starting and stopping
 
 Start and stop are one button everywhere, and the manifest names both halves: `entry` starts the plugin, `stopScript` stops it.
 
-**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
+**If the plugin declares a `stopScript`, that is the whole of stopping.** The app runs it and does nothing else. It runs with the plugin's `current` folder as its working directory and `PLUGIN_ID` / `PLUGIN_DIR` / `PLUGIN_PERSIST` set, exactly like `entry`, and its output goes into the same run log. It gets 60 seconds; a script still running after that is killed, and the stop is reported as failed.
 
 The app deliberately does **not** also kill the process tree when there is a script. The script is the plugin's own shutdown — it knows what to end, including daemons the app never started — and a second, cruder mechanism running behind its back can only cut a shutdown short.
 
@@ -245,6 +333,8 @@ Writing a stop script that works when the app runs it:
 - **Do not wait for input.** stdin is the null device, so a script ending in `pause` (as hand-written bundles often do) returns immediately instead of hanging. Keep it that way — a script that blocks on its own logic will be killed at the 60-second mark.
 - Exit `0` for success. A non-zero exit is reported to the user as the stop script failing.
 - It must not try to stop *this* app, and it must be safe to run twice: the app will already have killed its own child if the script finished the job first.
+
+`Update` and `Uninstall` stop the plugin first, because Scoop is about to replace or remove the files it is running from.
 
 Closing the app stops each running plugin the same way the Stop button does — its stop script if it has one, otherwise the process tree — with a shorter 10-second budget, so quitting does not leave a plugin's own daemons behind. Because the app is on its way out, failures there are recorded in the log and not shown.
 
@@ -266,32 +356,42 @@ Each card in Settings has an **Open run log** button (the file icon) that highli
 
 ## 6. Where the files live
 
-A plugin's **own folder** holds everything: its script, and the config files the config window writes. They travel with the plugin, so moving the folder keeps the settings.
+Three folders, each owned by whoever needs it:
+
+```
+<scoop>/apps/<app>/<version>/     the plugin's own files, unpacked by Scoop
+<scoop>/apps/<app>/current/       a junction to the installed version, replaced on update
+<scoop>/persist/<app>/            the plugin's settings — kept by update and uninstall
+```
+
+`current` is the folder the app runs and reads `plugin.json` from. It does not survive an update, which is why **the config files the user edits live in the persist folder**: `configFiles[].path` is resolved against `<scoop>/persist/<app>`, and `PLUGIN_PERSIST` points a script at the same place. An `absolute` source is the exception — it is used as written, and it belongs to whichever program owns that path.
+
+Scoop's own `scoop uninstall` keeps the persist folder, so reinstalling the same app brings the user's settings back. Nothing in the app has to remember them, and there is nothing to drift.
 
 In the app config directory (`%APPDATA%\com.anfioo.mabangprojectsworkflows\`), next to `config.json`:
 
 ```
-plugins/            one folder per plugin, exactly as the zip unpacked
 plugins.json        the enabled flag of each installed plugin
 logs/plugins/       one durable run log per plugin, see §5b
+plugins/            leftover folders from the old zip installer, listed until removed
 ```
 
-`plugins.json` holds **only whether each plugin is on**. It stores no configuration values: those live in the plugin's own files, so reinstalling a plugin replaces the folder without discarding settings written into those files, and there is nothing in the app to drift out of sync.
+`plugins.json` holds **only whether each plugin is on**. It stores no configuration values and no install record: what is installed is whatever `scoop list` would say, so uninstalling from Scoop itself simply makes the card disappear.
 
 ## 7. Security
 
 **A plugin script is arbitrary code running as you, with no sandbox.** It can read and write your files, reach the network, and run any command. Therefore:
 
 - Plugins install **disabled**; nothing is executed until you enable one.
-- Only install plugins you wrote or whose source you have read. A plugin is plain text — open the zip and look before dragging it in.
-- Unpacking is protected against path traversal (no `..`, no absolute paths) and only accepts a safe `id`, so a plugin cannot write outside `plugins/`.
-- The config window only ever writes the **declared** `configFiles` paths, each checked again to stay inside the plugin folder, and only the keys the manifest declares within them.
+- Only install apps from buckets you trust. The bucket manifest is code too: Scoop runs its `install`/`post_install` steps, and its `url`/`hash` decide what gets unpacked.
+- A plugin is plain text — read `plugin.json` and `run.cmd` in the installed folder before enabling it.
+- The config window only ever writes the **declared** `configFiles` paths, each resolved and checked to stay inside the persist folder, and only the keys the manifest declares within them. The one way out is an `absolute` source the plugin itself declared.
 
 A plugin's page (§4) is still arbitrary web content, now rendered by a real webview rather than a sandboxed frame. It is confined to its own origin — neither the plugin's page nor the address bar can reach the app's own address — and the app's commands are not reachable from it. But a page a plugin serves is only as trustworthy as the plugin.
 
 ## 8. Examples
 
-Both live under [`examples/`](../../examples/) in this repo, with their own `plugin.json`, scripts and config files — zip a folder and drop it on the settings window to run it.
+Both live under [`examples/`](../../examples/) in this repo, with their own `plugin.json`, scripts and config files, plus a bucket manifest for each in [`examples/bucket/`](../../examples/bucket/) — named `wingharness-hello-plugin.json` and `wingharness-plugin-showcase.json`, following the prefix rule (§1a).
 
 ### Full showcase: `examples/plugin-showcase/`
 
@@ -304,7 +404,7 @@ The **complete** reference: one manifest exercising every capability at once. Re
 - **Both `startmust` values** — three required files and one (`generated.yml`) the script creates on first boot.
 - **A `ui` with placeholders** — `http://{SHOWCASE_HOST}:{SHOWCASE_PORT}/`.
 
-Its page renders every file back, so a change in the config window is visible on reload. It is served by `server.ps1` (PowerShell 5.1, no dependencies) which reads the same files the config window writes.
+Its page renders every file back, so a change in the config window is visible on reload. It is served by `server.ps1` (PowerShell 5.1, no dependencies) which reads the same files the config window writes, from the persist folder.
 
 ### Minimal: `examples/hello-plugin/`
 
@@ -312,15 +412,32 @@ Its page renders every file back, so a change in the config window is visible on
 
 To try either one:
 
-1. Zip the folder (right-click → Compressed (zipped) folder, or `Compress-Archive -Path .\examples\plugin-showcase -DestinationPath plugin-showcase.zip`).
-2. Drag it onto the settings window and enable it.
-3. Press "Configure" and change the fields. Watch the folder's `.env` change on disk — comments intact.
+1. Copy its bucket manifest into a bucket on the Scoop page, and point `url` at a zip of the folder (with `plugin.json` at the zip's root) — or install the app straight from a local source.
+2. Press **Install plugin** on the Plugins page and type the app name, prefix included.
+3. Press "Configure" and change the fields. Watch the file in `<scoop>/persist/<app>` change on disk — comments intact.
 4. Press "Run" (or open the plugin's tab) to see what the script read back.
+
+Both scripts fall back to their own folder when `PLUGIN_PERSIST` is unset, so they can also be run by hand outside the app.
 
 ## 9. Troubleshooting
 
+**"…is installed, but it is not a plugin: …"**
+The app installed, but its `current` folder has no readable `plugin.json` at the root. Either the zip wraps everything in one folder (set `extract_dir` in the bucket manifest) or the manifest is invalid — the rest of the message says which. If the app is not one of this app's plugins at all, the message's last sentence says so: a plugin is a Scoop app named `wingharness-<name>`.
+
+**"'xxx' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'."**
+The name typed into **Install plugin** has no `wingharness-` prefix, and nothing was installed. Add the prefix — the app name is the name of the bucket manifest, so the manifest file itself has to be `wingharness-<name>.json` (§1a).
+
+**"'xxx' is already installed."**
+The app is already there. Press **Update** on its card instead; to reinstall from scratch, uninstall it first.
+
+**"scoop install xxx exited with code 1."**
+Scoop's own message is in the output panel right above it — usually an unknown app (no bucket provides it, or the bucket list is stale: refresh it on the Scoop page), a download failure, or a hash mismatch.
+
+**"scoop … stopped responding and was killed."**
+Scoop printed nothing for five minutes. Something is waiting on input it will never get, or on a hung download; run it once from a terminal to see where it stops.
+
 **A card says the manifest could not be read**
-`plugin.json` is missing, is not valid JSON, its `entry` is an absolute path or contains `..`, or a `configFiles` entry has a `path` like that. The parenthesised part is the specific reason. Fix it and drop the zip again — it overwrites.
+`plugin.json` is missing, is not valid JSON, its `entry` is an absolute path or contains `..`, or a `configFiles` entry has a `path` like that. The parenthesised part is the specific reason. Fix the app, publish a new version, and update it.
 
 **"declares options, but its type is 'xxx'"**
 `options` was put on a field whose type is not `boolean` or `select`. Move the choices to a `select`, or drop `options` and render by `type`.
@@ -331,23 +448,29 @@ A `boolean` with `options` needs `trueValue` naming which option means "on". Add
 **"declares trueValue, but only a boolean with options uses it"**
 `trueValue` was put on a `select`, a plain `boolean` with no options, or a non-choice field. It only means something on a `boolean` that has `options`; remove it elsewhere.
 
-**"the zip does not contain the declared entry 'xxx'"**
-`entry` does not match the real file name in the zip (watch case and extension). Check that the file sits next to `plugin.json` once the zip is unpacked.
-
 **Nothing happens, or it fails immediately**
 Read the output panel. "Entry script not found" means the `entry` path is wrong. An `echo %PLUGIN_DIR%` in the script confirms the working directory.
 
 **"Missing config: xxx does not exist"**
-A source declared `startmust: true` has no file. Either ship the file in the zip, or set `startmust` to `false` if the plugin is meant to generate it. Saving any of its fields in the config window creates it.
+A source declared `startmust: true` has no file **in the persist folder**. Saving any of its fields in the config window creates it, or set `startmust` to `false` if the plugin is meant to generate it on first boot.
+
+**The settings vanished after an update**
+The plugin is reading or writing its config from `%PLUGIN_DIR%` instead of `%PLUGIN_PERSIST%`. `current` is replaced on every update; the persist folder is the one that survives.
 
 **Stop reports "Stop script not found: …"**
-`stopScript` names a file the zip does not contain. The plugin is still stopped — the process tree is killed either way — but fix the path or drop the key.
+`stopScript` names a file the app does not contain. The plugin is still stopped — the process tree is killed either way — but fix the path or drop the key.
 
 **Stop reports "Stop script '…' timed out"**
 The script ran longer than 60 seconds. It was killed and the process tree was killed with it. Usually the script is waiting for input it will never get (see §5a), or waiting on a process that is not shutting down.
 
 **Stop reports "Stop script '…' exited with code N"**
 The script ran and failed. Its own output is in the run log right above the error, which is normally where the reason is.
+
+**A card says "Installed by the old zip installer"**
+That copy predates the move to Scoop and cannot be updated or uninstalled through it. Install the app from your bucket, then press the old card's bin icon to remove the leftover folder.
+
+**Uninstalling left a folder behind**
+`<scoop>/persist/<app>` is kept on purpose: it holds the user's settings, so reinstalling the same app brings them back. Delete the folder by hand to start clean.
 
 **A plugin has no tab on the 插件 page**
 A plugin gets a tab only when it is **enabled** and its manifest declares a `ui`. Check both; if the address contains a `{key}`, the Settings card says so when no field fills it.

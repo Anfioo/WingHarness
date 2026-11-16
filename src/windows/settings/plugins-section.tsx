@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
   Boxes,
@@ -8,6 +6,8 @@ import {
   FolderOpen,
   Play,
   PlayCircle,
+  Plus,
+  RefreshCw,
   SlidersHorizontal,
   Square,
   Trash2,
@@ -23,6 +23,7 @@ import {
   pluginsSetEnabled,
   pluginsStop,
   pluginsUninstall,
+  pluginsUpdate,
   type PluginOutputEvent,
   type PluginView,
 } from "@/commands";
@@ -35,30 +36,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { OutputPanel, type OutputLine, type RunStatus } from "@/components/output-panel";
-import { Progress } from "@/components/ui/progress";
 import { createWindow } from "@/lib/window";
 import { encodeLabelId } from "@/lib/plugin-label";
 import { usePluginsUp } from "@/hooks/use-plugins-up";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 
+/**
+ * The one marker that tells this app's plugins apart from every other Scoop
+ * app, mirroring `manifest::PLUGIN_PREFIX` in the backend.
+ */
+const PLUGIN_PREFIX = "wingharness-";
+
 export function PluginsSection() {
   const { t } = useAppTranslation();
   const [plugins, setPlugins] = useState<PluginView[] | null>(null);
-  const [dragging, setDragging] = useState(false);
   // The plugin whose output the panel is showing, if any. This is **not** a
   // lock: a plugin that serves a page streams for as long as it runs, so
   // treating it as "busy" would freeze every other card for hours.
   const [streaming, setStreaming] = useState<string | null>(null);
+  // A Scoop lifecycle step (install, update, uninstall) is in flight: the app
+  // id it is working on. It owns the output panel for its duration, and the
+  // cards stay out of its way.
+  const [busyId, setBusyId] = useState<string | null>(null);
   // Which stream owns the panel. A run started later takes it over, and the
   // older run's late lines are dropped rather than interleaved.
   const streamSeq = useRef(0);
   const [pendingRemove, setPendingRemove] = useState<PluginView | null>(null);
-  const [removing, setRemoving] = useState(false);
-  // The install in flight, if any: the zip being unpacked and how far it has
-  // got. `null` when nothing is installing.
-  const [installing, setInstalling] = useState<InstallState | null>(null);
+  // The install dialog's app name. `null` while the dialog is closed.
+  const [installApp, setInstallApp] = useState<string | null>(null);
 
   const [lines, setLines] = useState<OutputLine[]>([]);
   const [status, setStatus] = useState<RunStatus>({ kind: "idle" });
@@ -144,6 +152,51 @@ export function PluginsSection() {
     });
   }, []);
 
+  /**
+   * Runs one Scoop lifecycle step, streaming its output into the panel.
+   *
+   * The step reports success through its promise rather than through the
+   * stream's closing event: the command sends `done` and then resolves, so one
+   * toast per step is enough.
+   */
+  const lifecycleStep = useCallback(
+    (
+      label: string,
+      success: string,
+      run: (handle: (event: PluginOutputEvent) => void) => Promise<unknown>
+    ) => {
+      const mine = (streamSeq.current += 1);
+      setLines([]);
+      setStatus({ kind: "running" });
+      setBusyId(label);
+
+      const handle = (event: PluginOutputEvent) => {
+        if (mine !== streamSeq.current) return;
+        if (event.kind === "line") append(event.stream, event.text);
+        else if (event.kind === "failed") append("stderr", event.message);
+      };
+
+      run(handle)
+        .then(() => {
+          if (mine !== streamSeq.current) return;
+          toast.success(success);
+          setStatus({ kind: "done", code: 0 });
+        })
+        .catch((error: unknown) => {
+          if (mine !== streamSeq.current) return;
+          console.error(`Failed to run the plugin step "${label}":`, error);
+          toast.error(String(error));
+          setStatus({ kind: "done", code: -1 });
+        })
+        .finally(() => {
+          if (mine !== streamSeq.current) return;
+          setBusyId(null);
+          void reload();
+        });
+    },
+    [append, reload]
+  );
+
   const runOne = useCallback(
     (plugin: PluginView) => {
       stopping.current = false;
@@ -177,74 +230,32 @@ export function PluginsSection() {
     start("all", (mine) => pluginsRunAll((event) => handleEvent(event, mine)));
   }, [handleEvent, start]);
 
-  const install = useCallback(
-    async (paths: string[]) => {
-      for (const [index, path] of paths.entries()) {
-        setInstalling({
-          name: fileName(path),
-          index: index + 1,
-          count: paths.length,
-          written: 0,
-          total: 0,
-          // Timing is kept here, not in the backend: the event carries a
-          // cumulative byte count, and rate is the change between two of them.
-          startedAt: performance.now(),
-        });
+  const install = useCallback(() => {
+    const app = (installApp ?? "").trim();
+    if (!app) return;
 
-        try {
-          const plugin = await pluginsInstall(path, (progress) => {
-            setInstalling((current) =>
-              current ? { ...current, written: progress.written, total: progress.total } : current
-            );
-          });
-          toast.success(t("plugins.installed", { name: plugin.name }));
-        } catch (error) {
-          console.error("Failed to install plugin:", error);
-          toast.error(t("plugins.installFailed", { name: fileName(path), message: String(error) }));
-        }
-      }
+    // The backend refuses an unprefixed name too; this only turns that refusal
+    // into a sentence the dialog can say before closing itself.
+    if (!app.startsWith(PLUGIN_PREFIX)) {
+      toast.error(t("plugins.prefixRequired", { prefix: PLUGIN_PREFIX }));
+      return;
+    }
 
-      setInstalling(null);
-      await reload();
+    setInstallApp(null);
+
+    lifecycleStep(app, t("plugins.installed", { name: app }), (handle) =>
+      pluginsInstall(app, handle)
+    );
+  }, [installApp, lifecycleStep, t]);
+
+  const update = useCallback(
+    (plugin: PluginView) => {
+      lifecycleStep(plugin.id, t("plugins.updated", { name: plugin.name }), (handle) =>
+        pluginsUpdate(plugin.id, handle)
+      );
     },
-    [reload, t]
+    [lifecycleStep, t]
   );
-
-  // Drops arrive on the webview, not on a DOM element, so the listener is
-  // registered once for the whole settings window.
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-    let cancelled = false;
-
-    getCurrentWebview()
-      .onDragDropEvent((event) => {
-        if (event.payload.type !== "drop") {
-          setDragging(event.payload.type !== "leave");
-          return;
-        }
-
-        setDragging(false);
-        const zips = event.payload.paths.filter((path) => path.toLowerCase().endsWith(".zip"));
-        if (zips.length === 0) {
-          toast.error(t("plugins.dropNotZip"));
-          return;
-        }
-        void install(zips);
-      })
-      .then((stop) => {
-        if (cancelled) {
-          stop();
-        } else {
-          unlisten = stop;
-        }
-      })
-      .catch((error: unknown) => console.error("Failed to watch for dropped zips:", error));
-
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, [install, t]);
 
   const toggleEnabled = useCallback(async (plugin: PluginView) => {
     try {
@@ -283,25 +294,19 @@ export function PluginsSection() {
     [t]
   );
 
-  const confirmRemove = useCallback(async () => {
+  const confirmRemove = useCallback(() => {
     if (!pendingRemove) return;
+    const plugin = pendingRemove;
+    setPendingRemove(null);
 
-    setRemoving(true);
-    try {
-      await pluginsUninstall(pendingRemove.id);
-      toast.success(t("plugins.uninstalled", { name: pendingRemove.name }));
-      setPendingRemove(null);
-      await reload();
-    } catch (error) {
-      console.error("Failed to uninstall plugin:", error);
-      toast.error(String(error));
-    } finally {
-      setRemoving(false);
-    }
-  }, [pendingRemove, reload, t]);
+    lifecycleStep(plugin.id, t("plugins.uninstalled", { name: plugin.name }), (handle) =>
+      pluginsUninstall(plugin.id, handle)
+    );
+  }, [pendingRemove, lifecycleStep, t]);
 
   const installed = plugins ?? [];
   const enabledCount = installed.filter((plugin) => plugin.enabled).length;
+  const panelRunning = streaming !== null || busyId !== null;
 
   return (
     <div className="space-y-4">
@@ -311,13 +316,18 @@ export function PluginsSection() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          onClick={runEverything}
-          disabled={streaming !== null || enabledCount === 0}
-        >
+        <Button size="sm" onClick={runEverything} disabled={panelRunning || enabledCount === 0}>
           <PlayCircle className="size-4" />
           {t("plugins.runAll")}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setInstallApp("")}
+          disabled={busyId !== null}
+        >
+          <Plus className="size-4" />
+          {t("plugins.install")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => void pluginsOpenDir()}>
           <FolderOpen className="size-4" />
@@ -330,20 +340,7 @@ export function PluginsSection() {
         )}
       </div>
 
-      <div
-        className={cn(
-          "rounded-lg border border-dashed p-3 text-center transition-colors",
-          dragging ? "border-primary bg-primary/5" : "border-border",
-          streaming !== null && "opacity-60"
-        )}
-      >
-        <p className="text-sm font-medium">
-          {dragging ? t("plugins.dropTitle") : t("plugins.dropHint")}
-        </p>
-        <p className="text-muted-foreground mt-0.5 text-xs">{t("plugins.dropNote")}</p>
-      </div>
-
-      {installing && <InstallProgressRow state={installing} />}
+      {busyId !== null && <p className="text-muted-foreground text-xs">{t("plugins.working")}</p>}
 
       {installed.length === 0 && (
         <p className="text-muted-foreground text-sm">{t("plugins.empty")}</p>
@@ -356,10 +353,12 @@ export function PluginsSection() {
             plugin={plugin}
             up={up?.has(plugin.id) ?? false}
             streaming={streaming === plugin.id}
+            busyId={busyId}
             onRun={() => runOne(plugin)}
             onStop={() => void stopOne(plugin)}
             onToggle={() => void toggleEnabled(plugin)}
             onConfigure={() => void openConfig(plugin)}
+            onUpdate={() => update(plugin)}
             onOpenFolder={() => void pluginsOpenDir(plugin.id)}
             onOpenLog={() => void pluginsOpenLog(plugin.id)}
             onRemove={() => setPendingRemove(plugin)}
@@ -372,13 +371,48 @@ export function PluginsSection() {
         icon={Boxes}
         lines={lines}
         status={status}
-        running={streaming !== null}
+        running={panelRunning}
         onClear={() => {
           setLines([]);
           setStatus({ kind: "idle" });
         }}
         placeholder={t("plugins.outputPlaceholder")}
       />
+
+      <Dialog
+        open={installApp !== null}
+        onOpenChange={(open) => !open && busyId === null && setInstallApp(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("plugins.installTitle")}</DialogTitle>
+            <DialogDescription>{t("plugins.installHint")}</DialogDescription>
+          </DialogHeader>
+
+          <Input
+            autoFocus
+            value={installApp ?? ""}
+            placeholder={t("plugins.appNamePlaceholder")}
+            onChange={(event) => setInstallApp(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") install();
+            }}
+          />
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setInstallApp(null)}
+              disabled={busyId !== null}
+            >
+              {t("plugins.cancel")}
+            </Button>
+            <Button onClick={install} disabled={busyId !== null || !(installApp ?? "").trim()}>
+              {t("plugins.install")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={pendingRemove !== null}
@@ -392,10 +426,10 @@ export function PluginsSection() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPendingRemove(null)} disabled={removing}>
+            <Button variant="outline" onClick={() => setPendingRemove(null)}>
               {t("plugins.cancel")}
             </Button>
-            <Button variant="destructive" onClick={() => void confirmRemove()} disabled={removing}>
+            <Button variant="destructive" onClick={confirmRemove}>
               {t("plugins.uninstall")}
             </Button>
           </DialogFooter>
@@ -405,71 +439,16 @@ export function PluginsSection() {
   );
 }
 
-/**
- * The install currently running: a bar, a percentage, the rate, and how many
- * zips are left.
- *
- * The rate is derived from the cumulative bytes the backend reports and a clock
- * read here, because the events are throttled and would otherwise read as
- * bursts. Ticking on an interval keeps the rate moving during a long copy even
- * when no event has arrived recently.
- */
-function InstallProgressRow({ state }: { state: InstallState }) {
-  const { t } = useAppTranslation();
-  // Milliseconds since this zip started, kept in state so the clock is read in
-  // the effect rather than during render. It drives the rate, which would
-  // otherwise only move when a (throttled) progress event arrives.
-  const [elapsedMs, setElapsedMs] = useState(0);
-
-  useEffect(() => {
-    const read = () => setElapsedMs(performance.now() - state.startedAt);
-    read();
-    const timer = setInterval(read, 200);
-    return () => clearInterval(timer);
-    // Restart the clock when a new zip begins.
-  }, [state.startedAt]);
-
-  const { written, total } = state;
-  const percent = total > 0 ? Math.min(100, (written / total) * 100) : 0;
-  const seconds = elapsedMs / 1000;
-  const rate = seconds > 0 ? written / seconds : 0;
-
-  return (
-    <div className="rounded-lg border p-3">
-      <div className="flex items-center gap-2 text-xs">
-        <span className="truncate font-medium">{state.name}</span>
-        {state.count > 1 && (
-          <span className="text-muted-foreground">
-            {t("plugins.installingCount", { index: state.index, count: state.count })}
-          </span>
-        )}
-        <span className="text-muted-foreground ml-auto shrink-0">
-          {t("plugins.installingRate", { rate: formatBytes(rate) })}
-        </span>
-      </div>
-
-      <Progress value={percent} className="mt-2" />
-
-      <div className="text-muted-foreground mt-1 flex items-center justify-between text-xs">
-        <span>{t("plugins.installing")}</span>
-        <span>
-          {total > 0
-            ? `${Math.round(percent)}% · ${formatBytes(written)} / ${formatBytes(total)}`
-            : formatBytes(written)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function PluginCard({
   plugin,
   up,
   streaming,
+  busyId,
   onRun,
   onStop,
   onToggle,
   onConfigure,
+  onUpdate,
   onOpenFolder,
   onOpenLog,
   onRemove,
@@ -479,10 +458,16 @@ function PluginCard({
   up: boolean;
   /** This plugin is the one whose output the panel is showing. */
   streaming: boolean;
+  /**
+   * The Scoop step in flight, by app id. Any step blocks every card's actions;
+   * only this card's own step spins its update icon.
+   */
+  busyId: string | null;
   onRun: () => void;
   onStop: () => void;
   onToggle: () => void;
   onConfigure: () => void;
+  onUpdate: () => void;
   onOpenFolder: () => void;
   onOpenLog: () => void;
   onRemove: () => void;
@@ -492,6 +477,8 @@ function PluginCard({
   // Either the page answers, or this window is watching one start. Neither is a
   // reason to touch any other card.
   const running = up || streaming;
+  const busy = busyId !== null;
+  const updating = busyId === plugin.id;
 
   return (
     <div className="rounded-lg border p-3">
@@ -517,7 +504,13 @@ function PluginCard({
           <Button variant="ghost" size="sm" onClick={onOpenFolder} title={t("plugins.openFolder")}>
             <FolderOpen className="size-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={onRemove} title={t("plugins.uninstall")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRemove}
+            disabled={busy}
+            title={t("plugins.uninstall")}
+          >
             <Trash2 className="size-4" />
           </Button>
         </div>
@@ -535,22 +528,27 @@ function PluginCard({
               variant={plugin.enabled ? "default" : "outline"}
               size="sm"
               onClick={onToggle}
-              disabled={running}
+              disabled={running || busy}
             >
               {plugin.enabled ? t("plugins.enabled") : t("plugins.disabled")}
             </Button>
 
             {/* One button, two jobs: it runs the plugin, and pressing it again
-                stops it. Driven by the backend's running set, so a plugin
-                started from the 插件 page shows as running here too — and a
+                stops it. Driven by whether the address answers, so a plugin
+                started on the Plugins page shows as running here too — and a
                 server that runs for hours does not lock this card. */}
             {running ? (
-              <Button variant="outline" size="sm" onClick={onStop}>
+              <Button variant="outline" size="sm" onClick={onStop} disabled={busy}>
                 <Square className="size-4" />
                 {t("plugins.stop")}
               </Button>
             ) : (
-              <Button variant="outline" size="sm" onClick={onRun} disabled={!plugin.enabled}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onRun}
+                disabled={!plugin.enabled || busy}
+              >
                 <Play className="size-4" />
                 {t("plugins.run")}
               </Button>
@@ -559,6 +557,11 @@ function PluginCard({
             <Button variant="outline" size="sm" onClick={onConfigure}>
               <SlidersHorizontal className="size-4" />
               {t("plugins.configure")}
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={onUpdate} disabled={busy || running}>
+              <RefreshCw className={cn("size-4", updating && "animate-spin")} />
+              {t("plugins.update")}
             </Button>
           </div>
 
@@ -571,39 +574,4 @@ function PluginCard({
       )}
     </div>
   );
-}
-
-/** Last path segment, used to name a zip in an error message. */
-function fileName(path: string): string {
-  const parts = path.split(/[\\/]/);
-  return parts[parts.length - 1] || path;
-}
-
-/** The install currently running, as the progress row renders it. */
-type InstallState = {
-  /** File name of the zip being unpacked. */
-  name: string;
-  /** 1-based index of this zip among the dropped ones. */
-  index: number;
-  /** How many zips were dropped together. */
-  count: number;
-  /** Unpacked bytes written so far. */
-  written: number;
-  /** Total unpacked bytes; 0 until the first event settles it. */
-  total: number;
-  /** `performance.now()` when this zip started, for the rate. */
-  startedAt: number;
-};
-
-/** Human-readable size, e.g. `12.3 MB`. */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let value = bytes / 1024;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(1)} ${units[unit]}`;
 }

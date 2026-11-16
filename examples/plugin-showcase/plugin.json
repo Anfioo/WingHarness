@@ -1,5 +1,4 @@
 {
-  "id": "plugin-showcase",
   "name": "配置能力全示例",
   "version": "1.0.0",
   "description": "一个清单用上全部配置能力：三种文件格式、五种字段类型、选项的两种写法、带选项的 boolean 与普通 boolean、点路径与数组下标键、startmust 的两种取值，以及带占位符的 ui。照着它写自己的 plugin.json 就不会漏。",

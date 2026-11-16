@@ -6,7 +6,8 @@
 //!
 //! Nothing is injected into the run: a plugin reads its own config files, which
 //! the config window edits directly. The only things the app sets are the paths
-//! a script cannot work out for itself — `PLUGIN_ID` and `PLUGIN_DIR`.
+//! a script cannot work out for itself — `PLUGIN_ID`, `PLUGIN_DIR` and
+//! `PLUGIN_PERSIST`.
 //!
 //! Every line the app sees is also written to a durable per-plugin log (see
 //! [`super::log`]), so the run stays readable after the window is closed.
@@ -106,11 +107,11 @@ pub enum Started {
 ///
 /// There is no stop script here: stopping reads it from the manifest, because a
 /// plugin can be up without this app having started it (see [`stop`]).
-pub fn start(id: &str, dir: &Path, entry: &str) -> Result<Started, String> {
+pub fn start(id: &str, dir: &Path, persist: &Path, entry: &str) -> Result<Started, String> {
     if is_running(id) {
         return Ok(Started::AlreadyRunning);
     }
-    launch(id, dir, entry, None).map(|()| Started::Now)
+    launch(id, dir, persist, entry, None).map(|()| Started::Now)
 }
 
 /// Stops a plugin.
@@ -132,6 +133,7 @@ pub fn start(id: &str, dir: &Path, entry: &str) -> Result<Started, String> {
 pub fn stop(
     id: &str,
     dir: &Path,
+    persist: &Path,
     stop_script: Option<&str>,
     timeout: Duration,
 ) -> Result<bool, String> {
@@ -144,7 +146,7 @@ pub fn stop(
         .map(str::trim)
         .filter(|script| !script.is_empty())
     {
-        return match run_stop_script(id, dir, script, timeout) {
+        return match run_stop_script(id, dir, persist, script, timeout) {
             Ok(()) => {
                 log::note(id, "stopped");
                 Ok(true)
@@ -169,13 +171,25 @@ pub fn stop(
 /// Runs one plugin on its own thread, so the caller returns immediately.
 ///
 /// The stream always ends with `done` or `failed`.
-pub fn spawn(id: String, dir: PathBuf, entry: String, on_event: Channel<OutputEvent>) {
-    std::thread::spawn(move || run_one(&id, &dir, &entry, &on_event));
+pub fn spawn(
+    id: String,
+    dir: PathBuf,
+    persist: PathBuf,
+    entry: String,
+    on_event: Channel<OutputEvent>,
+) {
+    std::thread::spawn(move || run_one(&id, &dir, &persist, &entry, &on_event));
 }
 
 /// [`run`], reporting a failure as an event instead of returning it.
-pub fn run_one(id: &str, dir: &Path, entry: &str, on_event: &Channel<OutputEvent>) {
-    if let Err(message) = run(id, dir, entry, on_event) {
+pub fn run_one(
+    id: &str,
+    dir: &Path,
+    persist: &Path,
+    entry: &str,
+    on_event: &Channel<OutputEvent>,
+) {
+    if let Err(message) = run(id, dir, persist, entry, on_event) {
         log::failed(id, &message);
         let _ = on_event.send(OutputEvent::Failed { message });
     }
@@ -185,6 +199,7 @@ pub fn run_one(id: &str, dir: &Path, entry: &str, on_event: &Channel<OutputEvent
 pub fn run(
     id: &str,
     dir: &Path,
+    persist: &Path,
     entry: &str,
     on_event: &Channel<OutputEvent>,
 ) -> Result<(), String> {
@@ -195,7 +210,7 @@ pub fn run(
         return Err(format!("Plugin '{id}' is already running."));
     }
 
-    launch(id, dir, entry, Some(on_event.clone()))
+    launch(id, dir, persist, entry, Some(on_event.clone()))
 }
 
 /// Starts the script and streams it on a thread of its own.
@@ -205,6 +220,7 @@ pub fn run(
 fn launch(
     id: &str,
     dir: &Path,
+    persist: &Path,
     entry: &str,
     on_event: Option<Channel<OutputEvent>>,
 ) -> Result<(), String> {
@@ -230,6 +246,10 @@ fn launch(
         .creation_flags_no_window()
         .env("PLUGIN_ID", id)
         .env("PLUGIN_DIR", dir)
+        // The app's `current` folder is replaced on every update, so the config
+        // files the user edits live outside it. A plugin reading only
+        // `%PLUGIN_DIR%` would lose them on the next `scoop update`.
+        .env("PLUGIN_PERSIST", persist)
         // Nothing reads stdin, and inheriting it would let the script sit on a
         // prompt nobody can answer.
         .stdin(Stdio::null())
@@ -289,7 +309,13 @@ fn launch(
 /// stdin is the null device for the same reason the entry script's is: a script
 /// ending in `pause` — as the portable bundles' own stop scripts do — would
 /// otherwise wait forever for a keypress nobody can give.
-fn run_stop_script(id: &str, dir: &Path, script: &str, timeout: Duration) -> Result<(), String> {
+fn run_stop_script(
+    id: &str,
+    dir: &Path,
+    persist: &Path,
+    script: &str,
+    timeout: Duration,
+) -> Result<(), String> {
     let path = dir.join(script);
     if !path.is_file() {
         return Err(format!("Stop script not found: {}", path.display()));
@@ -304,6 +330,9 @@ fn run_stop_script(id: &str, dir: &Path, script: &str, timeout: Duration) -> Res
         .creation_flags_no_window()
         .env("PLUGIN_ID", id)
         .env("PLUGIN_DIR", dir)
+        // The settings a stop script acts on live here, not in the install
+        // folder, so it needs the same variable the entry script gets.
+        .env("PLUGIN_PERSIST", persist)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -410,7 +439,9 @@ mod tests {
         // No process of ours and nothing declared to run, so there is nothing
         // to do — and it must not reach taskkill.
         let dir = Path::new(".");
-        assert!(!stop("unit-nothing-runs-under-this", dir, None, STOP_TIMEOUT).unwrap());
+        assert!(
+            !stop("unit-nothing-runs-under-this", dir, dir, None, STOP_TIMEOUT).unwrap()
+        );
     }
 
     /// The point of the manifest-supplied stop script: a plugin can be serving
@@ -425,7 +456,14 @@ mod tests {
 
         // Nothing registered under this id.
         assert!(!is_running("unit-stop-orphan"));
-        let done = stop("unit-stop-orphan", &dir, Some("stop.cmd"), STOP_TIMEOUT).unwrap();
+        let done = stop(
+            "unit-stop-orphan",
+            &dir,
+            &dir,
+            Some("stop.cmd"),
+            STOP_TIMEOUT,
+        )
+        .unwrap();
         assert!(
             done,
             "the declared stop script should count as doing something"
@@ -449,7 +487,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let error =
-            run_stop_script("unit-stop-missing", &dir, "stop.cmd", STOP_TIMEOUT).unwrap_err();
+            run_stop_script("unit-stop-missing", &dir, &dir, "stop.cmd", STOP_TIMEOUT).unwrap_err();
         assert!(error.contains("not found"), "{error}");
     }
 
@@ -470,6 +508,7 @@ mod tests {
         let started = Instant::now();
         let error = run_stop_script(
             "unit-stop-hang",
+            &dir,
             &dir,
             "hang.cmd",
             Duration::from_millis(300),
@@ -495,6 +534,30 @@ mod tests {
         )
         .unwrap();
 
-        run_stop_script("unit-stop-ok", &dir, "stop.cmd", STOP_TIMEOUT).unwrap();
+        run_stop_script("unit-stop-ok", &dir, &dir, "stop.cmd", STOP_TIMEOUT).unwrap();
+    }
+
+    /// A stop script reads the plugin's settings, which live in the persist
+    /// folder — so it gets the same path variable the entry script does.
+    #[test]
+    fn a_stop_script_sees_the_persist_folder() {
+        let tag = std::process::id();
+        let dir = std::env::temp_dir().join(format!("plugin-stop-env-{tag}"));
+        let persist = std::env::temp_dir().join(format!("plugin-stop-persist-{tag}"));
+        for path in [&dir, &persist] {
+            let _ = std::fs::remove_dir_all(path);
+            std::fs::create_dir_all(path).unwrap();
+        }
+        std::fs::write(
+            dir.join("stop.cmd"),
+            "@echo off\r\nbreak>\"%PLUGIN_PERSIST%\\seen.txt\"\r\nexit /b 0\r\n",
+        )
+        .unwrap();
+
+        run_stop_script("unit-stop-env", &dir, &persist, "stop.cmd", STOP_TIMEOUT).unwrap();
+        assert!(
+            persist.join("seen.txt").is_file(),
+            "the stop script should have written into PLUGIN_PERSIST"
+        );
     }
 }
