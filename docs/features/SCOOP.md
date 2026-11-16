@@ -58,6 +58,13 @@ The overview and the settings tab show the two real folders, the two links as
 `link → folder`, and each variable as `link (real path …)`, so nothing looks
 like the same path repeated.
 
+On the overview that card is folded into one line while both variables point at
+their fixed link, which is the state a working install is in: what the page is
+opened for is the list of installed apps. The line carries an **In place** badge
+and the arrows open it; it opens by itself as soon as a variable is missing or
+points somewhere else, because then it is the thing to look at. Its own toggle
+wins over that default for as long as the page is open.
+
 ## Proxy
 
 The proxy has a page-level mode — **follow settings, direct, custom** — and

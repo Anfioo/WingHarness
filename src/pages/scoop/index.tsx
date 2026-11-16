@@ -15,7 +15,7 @@ import { useScoopPage } from "@/hooks/use-scoop-page";
 
 /**
  * The page's own shape, drawn while the status is read: the tab row, then the
- * three counters and the two cards of the overview.
+ * three counters, the folded paths line and the apps card of the overview.
  */
 function ScoopLoadingScreen() {
   return (
@@ -36,11 +36,9 @@ function ScoopLoadingScreen() {
           ))}
         </div>
 
-        <div className="border-border space-y-3 rounded-xl border p-4">
-          <Skeleton className="h-4 w-28" />
-          {[0, 1, 2, 3].map((row) => (
-            <Skeleton key={row} className="h-3 w-full" />
-          ))}
+        <div className="border-border flex items-center justify-between gap-2 rounded-xl border px-4 py-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-6 w-16" />
         </div>
 
         <div className="border-border space-y-3 rounded-xl border p-4">
