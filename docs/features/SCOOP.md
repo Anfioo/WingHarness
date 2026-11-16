@@ -107,7 +107,7 @@ upstream location the file was taken from.
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
@@ -192,6 +192,18 @@ The bucket list is refreshed when a clone exits with code 0. Installing
 message instead of run: Scoop would ask whether to add it, and the terminal has
 no input path.
 
+### Removing a bucket
+
+The trash button on a bucket's row asks for confirmation and then runs
+`scoop bucket rm <name>`, which deletes the clone under
+`<scoop>/buckets/<name>`. Scoop removes the folder and its cache entry and
+nothing else: apps installed from that bucket stay installed and stay listed,
+but the bucket's manifests are gone, so a local search no longer offers new apps
+from it. The confirmation says so, because that is the part that surprises.
+
+One bucket per run, and any bucket can go, `main` included — Scoop itself allows
+that, and the page follows it.
+
 ## Updating the catalog and the apps
 
 Two buttons cover updating, one per tab, and each is one Scoop command:
@@ -254,7 +266,7 @@ so what a run does is visible before and after it starts.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or removal, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -263,9 +275,6 @@ a line and exits instead of opening an interactive shell.
 
 - **Windows only.** `SCOOP` is a Windows package manager; the commands return an
   error elsewhere.
-- **No bucket removal.** The page installs, searches, clones and updates
-  buckets, updates, pins and uninstalls apps, and reports. `scoop bucket rm`
-  would be easy to add as another `scoop_plan_run` kind.
 - **The links cannot be re-pointed after install from this page.** Changing
   `SCOOP` or `SCOOP_GLOBAL` underneath an existing install hides its apps; the
   Settings tab shows the paths read-only and says to migrate or uninstall first.

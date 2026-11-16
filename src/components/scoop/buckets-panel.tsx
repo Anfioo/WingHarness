@@ -1,4 +1,16 @@
 import { useMemo, useState } from "react";
+import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -131,6 +143,7 @@ export function ScoopBucketsPanel({ page }: { page: ScoopPageController }) {
                       {bucket.path}
                     </p>
                   </div>
+                  <RemoveBucketButton page={page} bucket={bucket.name} disabled={busy} />
                 </li>
               ))}
             </ul>
@@ -138,5 +151,55 @@ export function ScoopBucketsPanel({ page }: { page: ScoopPageController }) {
         )}
       </section>
     </div>
+  );
+}
+
+/**
+ * `scoop bucket rm <name>`. The clone goes and the apps installed from it stay,
+ * which the confirmation says, because that is the part that surprises.
+ */
+function RemoveBucketButton({
+  page,
+  bucket,
+  disabled,
+}: {
+  page: ScoopPageController;
+  bucket: string;
+  disabled: boolean;
+}) {
+  const { t } = useAppTranslation();
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={disabled}
+          title={t("scoop.buckets.removeTitle", { bucket })}
+          aria-label={t("scoop.buckets.removeTitle", { bucket })}
+          className="hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("scoop.buckets.removeDialogTitle", { bucket })}</AlertDialogTitle>
+          <AlertDialogDescription>
+            {t("scoop.buckets.removeDialogBody", { bucket })}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>{t("scoop.buckets.removeCancel")}</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive hover:bg-destructive/90 text-white"
+            onClick={() => void page.removeBucket(bucket)}
+          >
+            {t("scoop.buckets.removeConfirm")}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

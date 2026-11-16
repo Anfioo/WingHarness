@@ -92,7 +92,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
 （`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`）传递，而不是
@@ -158,6 +158,15 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 克隆任务以 0 退出时会刷新桶列表。从不存在的桶安装 `<桶名>/<清单名>` 时会直接拦下
 并提示：Scoop 会询问是否添加该桶，而终端没有输入通道。
 
+### 删除桶
+
+桶行上的垃圾桶按钮先要求确认，然后执行 `scoop bucket rm <桶名>`，删掉
+`<scoop>/buckets/<桶名>` 这个克隆。Scoop 只删目录和它的缓存条目，别的都不动：从该
+桶安装的软件仍然是安装状态、仍然列在页面上，但那个桶的清单没了，本地搜索也就不再
+提供它里面的新软件。确认对话框把这句写清楚，因为这一点最出乎意料。
+
+一次运行删一个桶，任何桶都能删，包括 `main` —— Scoop 本身允许，页面就跟着允许。
+
 ## 更新清单与软件
 
 更新由两个按钮覆盖，各在一个页签里，各自就是一条 Scoop 命令：
@@ -212,7 +221,7 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、克隆或删除桶、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -220,8 +229,6 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 ## 限制
 
 - **仅限 Windows。** `SCOOP` 是 Windows 包管理器，其它平台会直接返回错误。
-- **没有删除桶。** 页面负责安装、搜索、克隆与更新桶、更新、固定与卸载软件，以及
-  查看。`scoop bucket rm` 只需再增加一种 `scoop_plan_run` 类型即可支持。
 - **安装完成后不能在本页重指链接。** 在已有安装下改动 `SCOOP` 或 `SCOOP_GLOBAL`
   会让软件消失；设置页只读显示路径，并提示先迁移或卸载。
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时

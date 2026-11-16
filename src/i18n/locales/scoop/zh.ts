@@ -148,6 +148,12 @@ const scoop = {
     updateAllTitle: "执行 scoop update：同时更新 Scoop 本体与所有桶。",
     updateHint:
       "「更新全部桶」执行 scoop update，会连同 Scoop 本体一起更新所有已克隆的桶。不提供单个桶的更新：Scoop 没有只更新一个桶的命令。",
+    removeTitle: "删除桶「{{bucket}}」",
+    removeDialogTitle: "删除桶「{{bucket}}」？",
+    removeDialogBody:
+      "Scoop 会删除安装目录里「{{bucket}}」的克隆。从该桶安装的软件仍保持安装状态，但它的清单没了，本地搜索不再能找到这个桶里新的软件。",
+    removeConfirm: "删除桶",
+    removeCancel: "取消",
   },
   settings: {
     locationTitle: "安装位置",

@@ -155,6 +155,12 @@ const scoop = {
     updateAllTitle: "Run scoop update: refreshes Scoop itself and every bucket.",
     updateHint:
       "Update all buckets runs scoop update, which refreshes Scoop itself and every cloned bucket. One bucket on its own is not offered: Scoop has no per-bucket update.",
+    removeTitle: "Delete the {{bucket}} bucket",
+    removeDialogTitle: "Delete the {{bucket}} bucket?",
+    removeDialogBody:
+      "Scoop deletes the {{bucket}} clone from the install folder. Apps installed from it stay installed, but its manifests are gone, so local search no longer finds new apps from this bucket.",
+    removeConfirm: "Delete bucket",
+    removeCancel: "Cancel",
   },
   settings: {
     locationTitle: "Install location",

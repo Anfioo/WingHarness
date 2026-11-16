@@ -122,6 +122,7 @@ export interface ScoopRunRequest {
     | "search"
     | "config"
     | "bucket"
+    | "bucket-rm"
     | "update"
     | "apps-update"
     | "app-update"
@@ -130,7 +131,8 @@ export interface ScoopRunRequest {
     | "uninstall";
   /**
    * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
-   * for `bucket`, `<name> <url>`; `update` and `apps-update` take nothing.
+   * for `bucket`, `<name> <url>`; for `bucket-rm`, `<name>`; `update` and
+   * `apps-update` take nothing.
    */
   spec: string;
   /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */

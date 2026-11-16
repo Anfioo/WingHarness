@@ -191,11 +191,11 @@ pub struct ScoopInstallRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
-    /// `install`, `search`, `config`, `bucket`, `update`, `apps-update`,
-    /// `app-update`, `hold`, `unhold` or `uninstall`.
+    /// `install`, `search`, `config`, `bucket`, `bucket-rm`, `update`,
+    /// `apps-update`, `app-update`, `hold`, `unhold` or `uninstall`.
     pub kind: String,
-    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; `update` and
-    /// `apps-update` take nothing.
+    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; for
+    /// `bucket-rm`, `<name>`; `update` and `apps-update` take nothing.
     pub spec: String,
     /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
     #[serde(default)]
@@ -1275,6 +1275,13 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
         script.push_str(
             "call \"%SCOOP%\\shims\\scoop.cmd\" bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"\r\n",
         );
+    } else if kind == "bucket-rm" {
+        // Removing a bucket deletes its clone only: the apps installed from it
+        // stay where they are, so this needs no proxy either.
+        script.push_str("echo [scoop] command: scoop bucket rm %SCOOP_BUCKET_NAME%\r\n");
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket rm \"%SCOOP_BUCKET_NAME%\"\r\n",
+        );
     } else if kind == "update" {
         // No app argument: Scoop updates itself and every cloned bucket.
         script.push_str("echo [scoop] command: scoop update\r\n");
@@ -1494,9 +1501,43 @@ fn parse_bucket_spec(spec: &str) -> Result<(String, String), String> {
     Ok((name.to_ascii_lowercase(), url))
 }
 
+/// Parses `<name>`, `bucket rm <name>` or `scoop bucket rm <name>` into the
+/// bucket name `scoop bucket rm` takes. One bucket per run, since the command
+/// takes one name.
+fn parse_bucket_name(spec: &str) -> Result<String, String> {
+    let mut tokens: Vec<&str> = spec.split_whitespace().collect();
+    for prefix in ["scoop", "bucket"] {
+        if tokens
+            .first()
+            .map(|token| token.eq_ignore_ascii_case(prefix))
+            .unwrap_or(false)
+        {
+            tokens.remove(0);
+        }
+    }
+    if tokens
+        .first()
+        .map(|token| token.eq_ignore_ascii_case("rm") || token.eq_ignore_ascii_case("remove"))
+        .unwrap_or(false)
+    {
+        tokens.remove(0);
+    }
+
+    let name = match tokens.as_slice() {
+        [name] => *name,
+        [] => return Err("Enter the name of the bucket to remove, for example extras.".to_string()),
+        _ => return Err("Enter one bucket at a time, for example extras.".to_string()),
+    };
+    if !is_bucket_name(name) {
+        return Err(format!(
+            "'{name}' is not a bucket name. Use letters, digits, dots, dashes and underscores, as in extras."
+        ));
+    }
+    Ok(name.to_string())
+}
+
 /// The repository name of a clone URL, lowercased the way Scoop names buckets.
-fn bucket_name_from_url(url: &str) -> Result<String, String> {
-    let repo = url
+fn bucket_name_from_url(url: &str) -> Result<String, String> {    let repo = url
         .trim_end_matches('/')
         .rsplit('/')
         .next()
@@ -1591,6 +1632,17 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
         vec![
             format!("Scoop command: scoop bucket add {name} {url}"),
             folder_line,
+        ]
+    } else if request.kind == "bucket-rm" {
+        let name = parse_bucket_name(&request.spec)?;
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_NAME".to_string(),
+            value: name.clone(),
+        });
+        vec![
+            format!("Scoop command: scoop bucket rm {name}"),
+            folder_line,
+            "Apps installed from this bucket stay installed.".to_string(),
         ]
     } else if request.kind == "update" {
         vec![
@@ -1695,9 +1747,9 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_uninstall_targets, flag_field, is_inside, parse_bucket_spec, parse_spec,
-        parse_version, read_app_json, same_path, strip_verbatim, PathKind, APP_INSTALL_FILE,
-        APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        check_uninstall_targets, flag_field, is_inside, parse_bucket_name, parse_bucket_spec,
+        parse_spec, parse_version, read_app_json, same_path, strip_verbatim, PathKind,
+        APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1788,6 +1840,19 @@ mod tests {
         assert!(parse_spec("7zip & del x").is_err());
         assert!(parse_spec("").is_err());
         assert!(parse_spec("-g").is_err());
+    }
+
+    #[test]
+    fn bucket_names_are_parsed_for_removal() {
+        assert_eq!(parse_bucket_name("extras").unwrap(), "extras");
+        assert_eq!(parse_bucket_name("scoop bucket rm extras").unwrap(), "extras");
+        assert_eq!(parse_bucket_name("bucket remove extras").unwrap(), "extras");
+        assert!(parse_bucket_name("").is_err());
+        assert!(parse_bucket_name("extras git@github.com:a/b").is_err());
+        // A name that could be read as a flag, or carry a metacharacter, would
+        // reach `cmd.exe` through a quoted variable.
+        assert!(parse_bucket_name("-rf").is_err());
+        assert!(parse_bucket_name("extras & del x").is_err());
     }
 
     #[test]

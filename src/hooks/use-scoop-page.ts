@@ -22,6 +22,7 @@ export type ScoopRunKind =
   | "app"
   | "search"
   | "bucket"
+  | "bucket-rm"
   | "update"
   | "apps-update"
   | "app-update"
@@ -61,6 +62,8 @@ export interface ScoopPageController {
   installApp: (spec: string) => Promise<void>;
   /** Clones a bucket with the given name and repository address. */
   addBucket: (name: string, url: string) => Promise<void>;
+  /** Deletes a bucket's clone (`scoop bucket rm`); its apps stay installed. */
+  removeBucket: (name: string) => Promise<void>;
   /** Runs `scoop update`: Scoop itself and every cloned bucket. */
   updateBuckets: () => Promise<void>;
   /** Runs `scoop update *`: every app, with the held ones skipped by Scoop. */
@@ -270,6 +273,12 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
+  /** `scoop bucket rm <name>`: the clone goes, the apps stay. */
+  const removeBucket = useCallback(
+    (name: string) => runPlan({ kind: "bucket-rm", spec: name }, "bucket-rm"),
+    [runPlan]
+  );
+
   /** `scoop update`: Scoop itself and every cloned bucket. */
   const updateBuckets = useCallback(
     () => runPlan({ kind: "update", spec: "" }, "update"),
@@ -340,6 +349,7 @@ export function useScoopPage(): ScoopPageController {
     adopt,
     installApp,
     addBucket,
+    removeBucket,
     updateBuckets,
     updateApps,
     updateApp,
