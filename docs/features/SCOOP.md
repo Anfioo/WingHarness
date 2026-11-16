@@ -107,7 +107,7 @@ upstream location the file was taken from.
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold`, or the proxy sync |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
@@ -183,7 +183,7 @@ takes any of these, and the leading words are optional:
 A bare `owner/repo` is deliberately an install, not a clone: that is how
 `scoop install` reads it, and the URL form is how a bucket is cloned without
 naming it. The frontend parses the line, and the backend parses it again before
-writing `bucket.cmd` — the name and the address travel in the child's
+writing `run.cmd` — the name and the address travel in the child's
 environment, quoted, and both are restricted to what a bucket name and a git URL
 can contain.
 
@@ -191,6 +191,40 @@ The bucket list is refreshed when a clone exits with code 0. Installing
 `<bucket>/<manifest>` from a bucket that is not cloned yet is refused with a
 message instead of run: Scoop would ask whether to add it, and the terminal has
 no input path.
+
+## Updating the catalog and the apps
+
+Two buttons cover updating, one per tab, and each is one Scoop command:
+
+| Button | Where | Command | What it refreshes |
+| --- | --- | --- | --- |
+| **Update all buckets** | Buckets tab header | `scoop update` | Scoop itself and every cloned bucket |
+| **Update all apps** | Overview, installed apps header | `scoop update *` | every user-scope app |
+| **Update**, on a row | Overview, installed apps | `scoop update <app>` | that one app |
+
+A bucket is a git clone under `<scoop>/buckets/<name>`, and Scoop has no
+per-bucket update, so a single bucket is not offered — `scoop update` is the
+command, and it takes all of them.
+
+When the global root holds an app, the update-all run appends
+`scoop update -g *` to the same script and stops before it if the user-scope
+pass failed. Scoop requires an elevated window for that pass, so a run started
+from an ordinary window reports its refusal in the terminal and leaves the
+global apps alone. A global app's row carries `-g` too.
+
+### Pinning a version
+
+**Pin** on a row runs `scoop hold <app>`; **Unpin** runs `scoop unhold <app>`.
+Scoop records the pin as `hold: true` in the app's own install info
+(`scoop-install.json`, or `install.json` on an older install), and every later
+`scoop update *` skips it — the skip is Scoop's own, so the page does not filter
+anything itself. The row then shows a **Pinned** badge and its **Update** button
+is disabled: Scoop refuses to update a held app, so the way through is to unpin
+it first, which is one click away.
+
+The page reads the flag from that file rather than from a `scoop` process, so
+the badge is right the moment the status lands, and it flips when the hold run
+exits with 0 (the run refreshes the status).
 
 ## Commands
 
@@ -201,7 +235,7 @@ no input path.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or a proxy sync |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone, a proxy sync, `scoop update`, `scoop update *`, one app's update, or a hold / unhold |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -210,8 +244,8 @@ a line and exits instead of opening an interactive shell.
 
 - **Windows only.** `SCOOP` is a Windows package manager; the commands return an
   error elsewhere.
-- **No uninstall, update or bucket removal.** The page installs, searches,
-  clones buckets and reports. `scoop uninstall`, `scoop update` and
+- **No uninstall and no bucket removal.** The page installs, searches, clones and
+  updates buckets, updates and pins apps, and reports. `scoop uninstall` and
   `scoop bucket rm` would be easy to add as more `scoop_plan_run` kinds.
 - **The links cannot be re-pointed after install from this page.** Changing
   `SCOOP` or `SCOOP_GLOBAL` underneath an existing install hides its apps; the

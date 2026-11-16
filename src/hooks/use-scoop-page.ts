@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { relaunch } from "@tauri-apps/plugin-process";
-import type { ScoopPlan, ScoopStatus } from "@/commands";
+import type { ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
 import {
   scoopApplyLocation,
   scoopInstalled,
@@ -17,7 +17,16 @@ import {
   type ScoopRun,
 } from "@/lib/scoop/page";
 
-export type ScoopRunKind = "install" | "app" | "search" | "bucket" | "config";
+export type ScoopRunKind =
+  | "install"
+  | "app"
+  | "search"
+  | "bucket"
+  | "update"
+  | "apps-update"
+  | "app-update"
+  | "hold"
+  | "config";
 export type ScoopLogTone = "info" | "error" | "done";
 
 export interface ScoopLogEntry {
@@ -51,6 +60,14 @@ export interface ScoopPageController {
   installApp: (spec: string) => Promise<void>;
   /** Clones a bucket with the given name and repository address. */
   addBucket: (name: string, url: string) => Promise<void>;
+  /** Runs `scoop update`: Scoop itself and every cloned bucket. */
+  updateBuckets: () => Promise<void>;
+  /** Runs `scoop update *`: every app, with the held ones skipped by Scoop. */
+  updateApps: () => Promise<void>;
+  /** Updates one app (`scoop update <app>`), global apps included. */
+  updateApp: (app: { name: string; global: boolean }) => Promise<void>;
+  /** Pins an app at its version (`scoop hold`), or releases it. */
+  setAppHold: (app: { name: string; global: boolean }, hold: boolean) => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
   syncProxy: () => Promise<void>;
   clearRun: () => void;
@@ -166,7 +183,7 @@ export function useScoopPage(): ScoopPageController {
       } else {
         appendLog(t("scoop.run.exitedFail", { code: code ?? "?" }), "error");
       }
-      if (code === 0 && (kind === "install" || kind === "app" || kind === "bucket")) {
+      if (code === 0 && kind !== "search" && kind !== "config") {
         if (kind === "install") setRestartNeeded(true);
         void refresh(true);
       }
@@ -213,17 +230,16 @@ export function useScoopPage(): ScoopPageController {
     }
   }, [appendLog, beginPreparation, endPreparation, running, status, t]);
 
-  const runScoop = useCallback(
-    async (kind: "install" | "search", spec: string) => {
+  const runPlan = useCallback(
+    async (request: Pick<ScoopRunRequest, "kind" | "spec" | "global">, kind: ScoopRunKind) => {
       if (running || !beginPreparation()) return;
       try {
         const next = await scoopPlanRun({
-          kind,
-          spec,
+          ...request,
           proxyMode: prefs.proxyMode,
           proxyUrl: prefs.proxyUrl,
         });
-        startPlan(next, kind === "search" ? "search" : "app");
+        startPlan(next, kind);
       } catch (error) {
         appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
       } finally {
@@ -233,46 +249,51 @@ export function useScoopPage(): ScoopPageController {
     [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]
   );
 
-  const installApp = useCallback((spec: string) => runScoop("install", spec), [runScoop]);
-  const searchOnline = useCallback((spec: string) => runScoop("search", spec), [runScoop]);
+  const installApp = useCallback(
+    (spec: string) => runPlan({ kind: "install", spec }, "app"),
+    [runPlan]
+  );
+  const searchOnline = useCallback(
+    (spec: string) => runPlan({ kind: "search", spec }, "search"),
+    [runPlan]
+  );
 
   /** `scoop bucket add <name> <url>`; the bucket list refreshes on success. */
   const addBucket = useCallback(
-    async (name: string, url: string) => {
-      if (running || !beginPreparation()) return;
-      try {
-        const next = await scoopPlanRun({
-          kind: "bucket",
-          spec: `${name} ${url}`,
-          proxyMode: prefs.proxyMode,
-          proxyUrl: prefs.proxyUrl,
-        });
-        startPlan(next, "bucket");
-      } catch (error) {
-        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
-      } finally {
-        endPreparation();
-      }
-    },
-    [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]
+    (name: string, url: string) => runPlan({ kind: "bucket", spec: `${name} ${url}` }, "bucket"),
+    [runPlan]
   );
 
-  const syncProxy = useCallback(async () => {
-    if (running || !beginPreparation()) return;
-    try {
-      const next = await scoopPlanRun({
-        kind: "config",
-        spec: "",
-        proxyMode: prefs.proxyMode,
-        proxyUrl: prefs.proxyUrl,
-      });
-      startPlan(next, "config");
-    } catch (error) {
-      appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
-    } finally {
-      endPreparation();
-    }
-  }, [appendLog, beginPreparation, endPreparation, prefs, running, startPlan, t]);
+  /** `scoop update`: Scoop itself and every cloned bucket. */
+  const updateBuckets = useCallback(
+    () => runPlan({ kind: "update", spec: "" }, "update"),
+    [runPlan]
+  );
+
+  /** `scoop update *`: Scoop skips the held apps itself, which is what a pin
+   * is for. Global apps follow in the same script when there are any. */
+  const updateApps = useCallback(
+    () => runPlan({ kind: "apps-update", spec: "" }, "apps-update"),
+    [runPlan]
+  );
+
+  /** `scoop update [-g] <app>`; a held app is refused by Scoop, so the row
+   * asks for an unhold first instead of offering this. */
+  const updateApp = useCallback(
+    (app: { name: string; global: boolean }) =>
+      runPlan({ kind: "app-update", spec: app.name, global: app.global }, "app-update"),
+    [runPlan]
+  );
+
+  /** `scoop hold` / `scoop unhold`: Scoop records the pin in the app's own
+   * install info, which is the same flag `scoop update *` reads. */
+  const setAppHold = useCallback(
+    (app: { name: string; global: boolean }, hold: boolean) =>
+      runPlan({ kind: hold ? "hold" : "unhold", spec: app.name, global: app.global }, "hold"),
+    [runPlan]
+  );
+
+  const syncProxy = useCallback(() => runPlan({ kind: "config", spec: "" }, "config"), [runPlan]);
 
   const clearRun = useCallback(() => {
     setPlan(null);
@@ -305,6 +326,10 @@ export function useScoopPage(): ScoopPageController {
     adopt,
     installApp,
     addBucket,
+    updateBuckets,
+    updateApps,
+    updateApp,
+    setAppHold,
     searchOnline,
     syncProxy,
     clearRun,

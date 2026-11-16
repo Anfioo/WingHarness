@@ -12,6 +12,7 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
   const { t } = useAppTranslation();
   const status = page.status;
   const [filter, setFilter] = useState("");
+  const busy = page.running !== null || page.preparing;
 
   const apps = useMemo(() => {
     if (!status) return [];
@@ -61,12 +62,23 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
       <section className="border-border space-y-3 rounded-xl border p-4">
         <header className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm font-semibold">{t("scoop.overview.installedTitle")}</h2>
-          <Input
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            placeholder={t("scoop.overview.filterPlaceholder")}
-            className="h-8 w-56 text-xs"
-          />
+          <div className="flex items-center gap-2">
+            <Input
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder={t("scoop.overview.filterPlaceholder")}
+              className="h-8 w-56 text-xs"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={busy || status.apps.length === 0}
+              title={t("scoop.overview.updateAllTitle")}
+              onClick={() => void page.updateApps()}
+            >
+              {t("scoop.overview.updateAll")}
+            </Button>
+          </div>
         </header>
 
         {apps.length === 0 ? (
@@ -76,12 +88,20 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
         ) : (
           <ul className="divide-border divide-y">
             {apps.map((app) => (
-              <li key={app.name} className="flex items-start gap-3 py-2">
+              <li
+                key={`${app.global ? "g" : "u"}-${app.name}`}
+                className="flex items-start gap-3 py-2"
+              >
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{app.name}</span>
                     {app.version && (
                       <span className="text-muted-foreground font-mono text-xs">{app.version}</span>
+                    )}
+                    {app.hold && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {t("scoop.overview.heldBadge")}
+                      </Badge>
                     )}
                     {app.plugin && (
                       <Badge variant="outline" className="text-[10px]">
@@ -104,6 +124,34 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
                       {app.description}
                     </p>
                   )}
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy || app.hold}
+                    title={
+                      app.hold
+                        ? t("scoop.overview.updateHeldTitle", { app: app.name })
+                        : t("scoop.overview.updateTitle", { app: app.name })
+                    }
+                    onClick={() => void page.updateApp(app)}
+                  >
+                    {t("scoop.overview.update")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    title={
+                      app.hold
+                        ? t("scoop.overview.unpinTitle", { app: app.name })
+                        : t("scoop.overview.pinTitle", { app: app.name })
+                    }
+                    onClick={() => void page.setAppHold(app, !app.hold)}
+                  >
+                    {app.hold ? t("scoop.overview.unpin") : t("scoop.overview.pin")}
+                  </Button>
                 </div>
               </li>
             ))}

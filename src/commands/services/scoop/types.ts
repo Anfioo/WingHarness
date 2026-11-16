@@ -32,6 +32,8 @@ export interface ScoopApp {
   bucket: string | null;
   /** Installed under `SCOOP_GLOBAL` instead of `SCOOP`. */
   global: boolean;
+  /** `scoop hold`: pinned at this version, so `scoop update *` skips it. */
+  hold: boolean;
   /** A WingHarness plugin: the app name carries the plugin prefix. */
   plugin: boolean;
 }
@@ -115,9 +117,23 @@ export interface ScoopInstallRequest extends ScoopLocationRequest {
 }
 
 export interface ScoopRunRequest {
-  kind: "install" | "search" | "config" | "bucket";
-  /** An app spec (`7zip`, `scoop install extras/vscode`); for `bucket`, `<name> <url>`. */
+  kind:
+    | "install"
+    | "search"
+    | "config"
+    | "bucket"
+    | "update"
+    | "apps-update"
+    | "app-update"
+    | "hold"
+    | "unhold";
+  /**
+   * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
+   * for `bucket`, `<name> <url>`; `update` and `apps-update` take nothing.
+   */
   spec: string;
+  /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
+  global?: boolean;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
 }

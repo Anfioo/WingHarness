@@ -92,7 +92,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / 代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop update` / `scoop update *` / `scoop hold`，或一次代理同步 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
 （`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`）传递，而不是
@@ -151,12 +151,41 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | `scoop install extras/7zip` | 同上 |
 
 裸的 `owner/repo` 一律按安装处理，而不是克隆：`scoop install` 就是这么读的，而不
-写名字时用地址形式克隆桶。前端解析这一行，后端在写 `bucket.cmd` 之前再解析一次
+写名字时用地址形式克隆桶。前端解析这一行，后端在写 `run.cmd` 之前再解析一次
 —— 桶名与地址通过子进程环境变量传入并加引号，两者都限定在桶名与 git 地址允许的
 字符内。
 
 克隆任务以 0 退出时会刷新桶列表。从不存在的桶安装 `<桶名>/<清单名>` 时会直接拦下
 并提示：Scoop 会询问是否添加该桶，而终端没有输入通道。
+
+## 更新清单与软件
+
+更新由两个按钮覆盖，各在一个页签里，各自就是一条 Scoop 命令：
+
+| 按钮 | 位置 | 命令 | 更新什么 |
+| --- | --- | --- | --- |
+| **更新全部桶** | 桶页签表头 | `scoop update` | Scoop 本体与所有已克隆的桶 |
+| **全部更新** | 概览页软件表头 | `scoop update *` | 所有用户级（非全局）软件 |
+| **更新**（行内） | 概览页的软件行 | `scoop update <app>` | 这一个软件 |
+
+桶是 `<scoop>/buckets/<桶名>` 下的 git 克隆，而 Scoop 没有“只更新一个桶”的命令，
+所以不提供单桶更新 —— 命令既然只有 `scoop update`，就一次更新全部。
+
+全局目录里有软件时，“全部更新”会在同一个脚本末尾补一条 `scoop update -g *`，
+并在用户级那一遍失败时停下、不再执行它。Scoop 要求这一遍在管理员窗口里运行，
+所以在普通窗口里启动的运行会在终端里显示它的拒绝，全局软件保持原样。全局软件的
+行内更新同样带 `-g`。
+
+### 固定版本
+
+行内的**固定版本**执行 `scoop hold <app>`，**取消固定**执行 `scoop unhold <app>`。
+Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-install.json`，旧安装是
+`install.json`），此后每次 `scoop update *` 都会跳过它 —— 跳过是 Scoop 自己做的，
+页面不做任何过滤。该行随后显示**已固定**徽标，**更新**按钮变为不可用：Scoop 拒绝
+更新被固定的软件，所以要更新得先取消固定，而那只有一次点击。
+
+页面直接读那个文件里的标记，不启动 `scoop` 进程，所以状态一到徽标就是准的；固定
+任务以 0 退出时会刷新状态，徽标随之翻转。
 
 ## 命令
 
@@ -167,7 +196,7 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶或代理同步写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、克隆桶、代理同步、`scoop update`、`scoop update *`、单个软件更新或固定/取消固定写入 `run.cmd` |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -175,9 +204,8 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 ## 限制
 
 - **仅限 Windows。** `SCOOP` 是 Windows 包管理器，其它平台会直接返回错误。
-- **没有卸载、更新与删除桶。** 页面负责安装、搜索、克隆桶与查看。
-  `scoop uninstall`、`scoop update` 与 `scoop bucket rm` 只需再增加一种
-  `scoop_plan_run` 类型即可支持。
+- **没有卸载与删除桶。** 页面负责安装、搜索、克隆与更新桶、更新与固定软件版本，以及
+  查看。`scoop uninstall` 与 `scoop bucket rm` 只需再增加一种 `scoop_plan_run` 类型即可支持。
 - **安装完成后不能在本页重指链接。** 在已有安装下改动 `SCOOP` 或 `SCOOP_GLOBAL`
   会让软件消失；设置页只读显示路径，并提示先迁移或卸载。
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时
