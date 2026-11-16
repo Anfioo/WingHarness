@@ -35,12 +35,15 @@ where
 /// and the plugin has to be enabled — the same gate as starting it. `host` names
 /// the window the page is embedded in; `document` identifies the page load that
 /// asked for it, so a page replaced by a navigation cannot take the new one's
-/// pages down with it (see [`crate::plugins::browser`]).
+/// pages down with it; and `run` identifies the effect run inside that load, so
+/// that re-running the effect cannot have one run's close take down the page
+/// another run is showing (see [`crate::plugins::browser`]).
 #[tauri::command]
 pub async fn plugins_browser_open(
     app: AppHandle,
     host: String,
     document: String,
+    run: String,
     id: String,
     url: Option<String>,
     bounds: Bounds,
@@ -58,7 +61,7 @@ pub async fn plugins_browser_open(
     }
     .ok_or_else(|| format!("Plugin '{id}' has no page to open."))?;
 
-    off_thread(move || browser::open(&app, &host, &document, &id, &address, bounds)).await
+    off_thread(move || browser::open(&app, &host, &document, &run, &id, &address, bounds)).await
 }
 
 /// Moves and resizes a plugin's page to the caller's placeholder.
@@ -149,11 +152,17 @@ pub async fn plugins_browser_url(
         .map_err(|error| format!("Browser task failed: {error}"))?
 }
 
-/// Closes one plugin's page, if the calling document owns it.
+/// Closes one plugin's page, if the calling effect run still owns it.
 #[tauri::command]
-pub async fn plugins_browser_close(app: AppHandle, host: String, document: String, id: String) {
+pub async fn plugins_browser_close(
+    app: AppHandle,
+    host: String,
+    document: String,
+    run: String,
+    id: String,
+) {
     let _ = off_thread(move || {
-        browser::close(&app, &host, &document, &id);
+        browser::close(&app, &host, &document, &run, &id);
         Ok(())
     })
     .await;

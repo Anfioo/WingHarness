@@ -102,6 +102,12 @@ pub struct ScoopAppView {
     pub bucket: Option<String>,
     /// Installed under `SCOOP_GLOBAL` instead of `SCOOP`.
     pub global: bool,
+    /// `scoop hold`: the app is pinned at its version and `scoop update *`
+    /// skips it.
+    pub hold: bool,
+    /// A WingHarness plugin: the app name carries the plugin prefix, see
+    /// [`crate::plugins::manifest::PLUGIN_PREFIX`].
+    pub plugin: bool,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq)]
@@ -124,6 +130,8 @@ pub struct ScoopSearchHit {
     pub description: Option<String>,
     pub homepage: Option<String>,
     pub installed: bool,
+    /// A WingHarness plugin, by the same name test the overview uses.
+    pub plugin: bool,
 }
 
 /// A prepared terminal run: the script, its path, and the environment it needs.
@@ -183,10 +191,18 @@ pub struct ScoopInstallRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
-    /// `install` or `search`.
+    /// `install`, `search`, `config`, `bucket`, `bucket-rm`, `update`,
+    /// `apps-update`, `app-update`, `hold`, `unhold` or `uninstall`.
     pub kind: String,
-    /// `7zip` or `scoop install 7zip`.
+    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; for
+    /// `bucket-rm`, `<name>`; `update` and `apps-update` take nothing.
     pub spec: String,
+    /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
+    #[serde(default)]
+    pub global: bool,
+    /// `uninstall` also removes the app's `persist` folder (`-p`).
+    #[serde(default)]
+    pub purge: bool,
     #[serde(default = "default_proxy_mode")]
     pub proxy_mode: String,
     #[serde(default)]
@@ -341,6 +357,25 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+/// Scoop's own record of an installed app, which it writes into `current`:
+/// the manifest it installed from, and the bucket that manifest came from.
+const APP_MANIFEST_FILE: &str = "scoop-manifest.json";
+const APP_INSTALL_FILE: &str = "scoop-install.json";
+/// The names those two files carried before Scoop qualified them. Only an app
+/// installed by an older Scoop still has them.
+const LEGACY_MANIFEST_FILE: &str = "manifest.json";
+const LEGACY_INSTALL_FILE: &str = "install.json";
+
+/// One of the two metadata files of an installed app, under either name.
+///
+/// The current name wins and the old one is the fallback, so an install made by
+/// this Scoop and one made by an older Scoop are both read. Getting this wrong
+/// is silent — every field simply comes back empty — so the two candidates are
+/// tried in one place.
+fn read_app_json(current: &Path, primary: &str, legacy: &str) -> Option<serde_json::Value> {
+    read_json(&current.join(primary)).or_else(|| read_json(&current.join(legacy)))
+}
+
 fn text_field(value: &Option<serde_json::Value>, key: &str) -> Option<String> {
     value
         .as_ref()?
@@ -349,6 +384,16 @@ fn text_field(value: &Option<serde_json::Value>, key: &str) -> Option<String> {
         .map(str::trim)
         .filter(|text| !text.is_empty())
         .map(str::to_string)
+}
+
+/// A flag Scoop wrote as `true`. `scoop unhold` saves the key as `null` rather
+/// than removing it, so anything but `true` counts as "not set".
+fn flag_field(value: &Option<serde_json::Value>, key: &str) -> bool {
+    value
+        .as_ref()
+        .and_then(|value| value.get(key))
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
 }
 
 fn read_apps(target: &Path, global: bool) -> Vec<ScoopAppView> {
@@ -361,14 +406,17 @@ fn read_apps(target: &Path, global: bool) -> Vec<ScoopAppView> {
         .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
         .map(|entry| {
             let current = entry.path().join("current");
-            let manifest = read_json(&current.join("manifest.json"));
-            let install = read_json(&current.join("install.json"));
+            let manifest = read_app_json(&current, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE);
+            let install = read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE);
+            let name = entry.file_name().to_string_lossy().to_string();
             ScoopAppView {
-                name: entry.file_name().to_string_lossy().to_string(),
+                plugin: crate::plugins::manifest::is_plugin_app(&name),
+                name,
                 version: text_field(&manifest, "version"),
                 description: text_field(&manifest, "description"),
                 homepage: text_field(&manifest, "homepage"),
                 bucket: text_field(&install, "bucket"),
+                hold: flag_field(&install, "hold"),
                 global,
             }
         })
@@ -540,6 +588,17 @@ pub fn scoop_status() -> ScoopStatusView {
     status()
 }
 
+/// Whether a Scoop install is on disk, answered from the fixed link alone.
+///
+/// The page asks this first so it can show the overview instead of the install
+/// screen while the full status is still being read: [`status`] walks every
+/// bucket and every installed manifest and asks the CLI for its version, which
+/// a badge cannot wait for.
+#[tauri::command(async)]
+pub fn scoop_installed() -> bool {
+    is_scoop_dir(&root_view(PathKind::Scoop).target)
+}
+
 fn status() -> ScoopStatusView {
     let scoop = root_view(PathKind::Scoop);
     let global = root_view(PathKind::Global);
@@ -632,6 +691,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
                     description: text_field(&manifest, "description"),
                     homepage: text_field(&manifest, "homepage"),
                     version: text_field(&manifest, "version"),
+                    plugin: crate::plugins::manifest::is_plugin_app(&name),
                     name,
                     bucket: bucket_name.clone(),
                 });
@@ -658,6 +718,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
                 description: app.description,
                 homepage: app.homepage,
                 installed: true,
+                plugin: app.plugin,
             });
         }
     }
@@ -1186,7 +1247,7 @@ fn install_script_text(proxy: &EffectiveProxy) -> String {
     script
 }
 
-fn run_script_text(kind: &str, proxy: &EffectiveProxy) -> String {
+fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> String {
     let mut script = String::new();
     script.push_str("@echo off\r\n");
     script.push_str("chcp 65001 >nul\r\n");
@@ -1196,28 +1257,82 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy) -> String {
     script.push_str("echo [scoop] SCOOP_GLOBAL link : %SCOOP_GLOBAL%\r\n");
     script.push_str("echo [scoop] SCOOP_GLOBAL real : %SCOOP_GLOBAL_TARGET%\r\n");
 
+    let config = format!(
+        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
+        proxy.config_command()
+    );
+
     // `call` is required: invoking a batch file without it transfers control
     // and `exit /b` inside scoop.cmd would end this script before the next line.
     if kind == "config" {
         script.push_str("echo [scoop] applying the proxy to Scoop\r\n");
+        script.push_str(&config);
+    } else if kind == "bucket" {
+        script.push_str(
+            "echo [scoop] command: scoop bucket add %SCOOP_BUCKET_NAME% %SCOOP_BUCKET_URL%\r\n",
+        );
+        script.push_str(&config);
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"\r\n",
+        );
+    } else if kind == "bucket-rm" {
+        // Removing a bucket deletes its clone only: the apps installed from it
+        // stay where they are, so this needs no proxy either.
+        script.push_str("echo [scoop] command: scoop bucket rm %SCOOP_BUCKET_NAME%\r\n");
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket rm \"%SCOOP_BUCKET_NAME%\"\r\n",
+        );
+    } else if kind == "update" {
+        // No app argument: Scoop updates itself and every cloned bucket.
+        script.push_str("echo [scoop] command: scoop update\r\n");
+        script.push_str(&config);
+        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update\r\n");
+    } else if kind == "apps-update" {
+        // `*` is every app in one root, and Scoop skips the held ones itself,
+        // which is the whole point of holding: a pinned version stays put.
+        script.push_str("echo [scoop] command: scoop update *\r\n");
+        script.push_str(&config);
+        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update *\r\n");
+        if update_globals {
+            script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
+            script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_run_done\r\n");
+            script.push_str("echo [scoop] command: scoop update -g *\r\n");
+            script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update -g *\r\n");
+        }
+    } else if kind == "app-update" || kind == "hold" || kind == "unhold" {
+        let subcommand = if kind == "app-update" { "update" } else { kind };
         script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-            proxy.config_command()
+            "echo [scoop] command: scoop {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
         ));
+        // Holding is a metadata write: it downloads nothing, so the proxy is
+        // irrelevant to it.
+        if kind == "app-update" {
+            script.push_str(&config);
+        }
+        script.push_str(&format!(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
+        ));
+    } else if kind == "uninstall" {
+        // Scoop keeps the app's `persist` folder unless it is given `-p`, which
+        // is what a reinstall needs to find the user's settings again.
+        script.push_str(
+            "echo [scoop] command: scoop uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        );
+        script.push_str(
+            "call \"%SCOOP%\\shims\\scoop.cmd\" uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        );
     } else {
         let subcommand = if kind == "search" { "search" } else { "install" };
         script.push_str(&format!(
             "echo [scoop] command: scoop {subcommand} %SCOOP_APP_ARGS%\r\n"
         ));
-        script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-            proxy.config_command()
-        ));
+        script.push_str(&config);
         script.push_str(&format!(
             "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_APP_ARGS%\r\n"
         ));
     }
 
+    script.push_str(":scoop_run_done\r\n");
     script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
     script.push_str("echo [scoop] scoop exited with code %SCOOP_EXIT%\r\n");
     script.push_str("exit /b %SCOOP_EXIT%\r\n");
@@ -1287,11 +1402,12 @@ fn current_location() -> Result<AppliedLocation, String> {
     })
 }
 
-/// Parses `7zip`, `scoop install 7zip` and `scoop search 7zip` into arguments.
+/// Parses `7zip`, `scoop install 7zip`, `scoop update 7zip` and the same forms
+/// for search into the arguments the subcommand takes.
 ///
 /// Only app names are accepted: the result is expanded by `cmd.exe`, so a
 /// token containing a shell metacharacter would be a command injection.
-fn parse_spec(spec: &str, kind: &str) -> Result<String, String> {
+fn parse_spec(spec: &str) -> Result<String, String> {
     let mut tokens: Vec<String> = spec.split_whitespace().map(str::to_string).collect();
     if tokens
         .first()
@@ -1300,10 +1416,13 @@ fn parse_spec(spec: &str, kind: &str) -> Result<String, String> {
     {
         tokens.remove(0);
     }
+    // The verb is optional and either one: a line typed in a terminal reads as
+    // `scoop update 7zip`, a line typed into a box on this page as `7zip`.
     if let Some(first) = tokens.first() {
-        let expected = if kind == "search" { "search" } else { "install" };
-        let also_ok = if kind == "search" { "install" } else { "search" };
-        if first.eq_ignore_ascii_case(expected) || first.eq_ignore_ascii_case(also_ok) {
+        if ["install", "search", "update", "hold", "unhold", "uninstall"]
+            .iter()
+            .any(|verb| first.eq_ignore_ascii_case(verb))
+        {
             tokens.remove(0);
         }
     }
@@ -1331,6 +1450,132 @@ fn parse_spec(spec: &str, kind: &str) -> Result<String, String> {
     }
 
     Ok(tokens.join(" "))
+}
+
+/// Parses `<name> <url>`, `bucket add <name> <url>` or a bare repository URL
+/// into the name and the git address `scoop bucket add` takes.
+///
+/// Both values reach the generated script through quoted variables; they are
+/// still restricted, because neither a bucket name nor a clone address has any
+/// business carrying a shell metacharacter.
+fn parse_bucket_spec(spec: &str) -> Result<(String, String), String> {
+    let mut tokens: Vec<&str> = spec.split_whitespace().collect();
+    for prefix in ["scoop", "bucket", "add"] {
+        if tokens
+            .first()
+            .map(|token| token.eq_ignore_ascii_case(prefix))
+            .unwrap_or(false)
+        {
+            tokens.remove(0);
+        }
+    }
+
+    let (name, url) = match tokens.as_slice() {
+        [url] => (bucket_name_from_url(url)?, (*url).to_string()),
+        [name, url] => ((*name).to_string(), (*url).to_string()),
+        [] => {
+            return Err(
+                "Enter a bucket name and its repository, for example extras https://github.com/ScoopInstaller/Extras."
+                    .to_string(),
+            )
+        }
+        _ => {
+            return Err(
+                "Enter one bucket at a time: a name and its repository, for example extras https://github.com/ScoopInstaller/Extras."
+                    .to_string(),
+            )
+        }
+    };
+
+    if !is_bucket_name(&name) {
+        return Err(format!(
+            "'{name}' is not a bucket name. Use letters, digits, dots, dashes and underscores, as in extras."
+        ));
+    }
+    if !is_bucket_url(&url) {
+        return Err(format!(
+            "'{url}' is not a repository address. Use a git URL, for example https://github.com/ScoopInstaller/Extras."
+        ));
+    }
+
+    Ok((name.to_ascii_lowercase(), url))
+}
+
+/// Parses `<name>`, `bucket rm <name>` or `scoop bucket rm <name>` into the
+/// bucket name `scoop bucket rm` takes. One bucket per run, since the command
+/// takes one name.
+fn parse_bucket_name(spec: &str) -> Result<String, String> {
+    let mut tokens: Vec<&str> = spec.split_whitespace().collect();
+    for prefix in ["scoop", "bucket"] {
+        if tokens
+            .first()
+            .map(|token| token.eq_ignore_ascii_case(prefix))
+            .unwrap_or(false)
+        {
+            tokens.remove(0);
+        }
+    }
+    if tokens
+        .first()
+        .map(|token| token.eq_ignore_ascii_case("rm") || token.eq_ignore_ascii_case("remove"))
+        .unwrap_or(false)
+    {
+        tokens.remove(0);
+    }
+
+    let name = match tokens.as_slice() {
+        [name] => *name,
+        [] => return Err("Enter the name of the bucket to remove, for example extras.".to_string()),
+        _ => return Err("Enter one bucket at a time, for example extras.".to_string()),
+    };
+    if !is_bucket_name(name) {
+        return Err(format!(
+            "'{name}' is not a bucket name. Use letters, digits, dots, dashes and underscores, as in extras."
+        ));
+    }
+    Ok(name.to_string())
+}
+
+/// The repository name of a clone URL, lowercased the way Scoop names buckets.
+fn bucket_name_from_url(url: &str) -> Result<String, String> {    let repo = url
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .trim_end_matches(".git");
+    if !is_bucket_name(repo) {
+        return Err(format!(
+            "Cannot read a bucket name from '{url}'. Enter the name first, as in extras {url}."
+        ));
+    }
+    Ok(repo.to_ascii_lowercase())
+}
+
+fn is_bucket_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('-')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-".contains(c))
+}
+
+/// An http(s) address with a host, restricted to the characters a git URL uses.
+fn is_bucket_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    let host = lower
+        .strip_prefix("https://")
+        .or_else(|| lower.strip_prefix("http://"))
+        .and_then(|rest| rest.split('/').next());
+    let host_ok = host
+        .map(|host| (host.contains('.') || host == "localhost") && !host.starts_with('.'))
+        .unwrap_or(false);
+
+    host_ok
+        && url.len() <= 200
+        && url
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".:/_-~".contains(c))
 }
 
 #[tauri::command(async)]
@@ -1367,13 +1612,102 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
 
     let mut env = environment(&applied, &proxy);
     let folder_line = format!("Folder: {}", applied.scoop.target.display());
+    let global_flag = if request.global { "-g" } else { "" };
+    let update_globals = request.kind == "apps-update" && has_global_apps(&applied);
     let mut log = if request.kind == "config" {
         vec![
             "Scoop command: scoop config (proxy only)".to_string(),
             folder_line,
         ]
+    } else if request.kind == "bucket" {
+        let (name, url) = parse_bucket_spec(&request.spec)?;
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_NAME".to_string(),
+            value: name.clone(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_URL".to_string(),
+            value: url.clone(),
+        });
+        vec![
+            format!("Scoop command: scoop bucket add {name} {url}"),
+            folder_line,
+        ]
+    } else if request.kind == "bucket-rm" {
+        let name = parse_bucket_name(&request.spec)?;
+        env.push(ScoopEnvVar {
+            name: "SCOOP_BUCKET_NAME".to_string(),
+            value: name.clone(),
+        });
+        vec![
+            format!("Scoop command: scoop bucket rm {name}"),
+            folder_line,
+            "Apps installed from this bucket stay installed.".to_string(),
+        ]
+    } else if request.kind == "update" {
+        vec![
+            "Scoop command: scoop update (Scoop itself and every bucket)".to_string(),
+            folder_line,
+        ]
+    } else if request.kind == "apps-update" {
+        let mut lines = vec![
+            "Scoop command: scoop update * (held apps are skipped)".to_string(),
+            folder_line,
+        ];
+        if update_globals {
+            lines.push("Global apps follow with scoop update -g *.".to_string());
+        }
+        lines
+    } else if request.kind == "app-update"
+        || request.kind == "hold"
+        || request.kind == "unhold"
+    {
+        let args = parse_spec(&request.spec)?;
+        env.push(ScoopEnvVar {
+            name: "SCOOP_APP_ARGS".to_string(),
+            value: args.clone(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_GLOBAL_FLAG".to_string(),
+            value: global_flag.to_string(),
+        });
+        let subcommand = if request.kind == "app-update" {
+            "update"
+        } else {
+            request.kind.as_str()
+        };
+        vec![
+            format!("Scoop command: scoop {subcommand} {global_flag} {args}"),
+            folder_line,
+        ]
+    } else if request.kind == "uninstall" {
+        let args = parse_spec(&request.spec)?;
+        check_uninstall_targets(&args)?;
+        let purge_flag = if request.purge { "-p" } else { "" };
+        env.push(ScoopEnvVar {
+            name: "SCOOP_APP_ARGS".to_string(),
+            value: args.clone(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_GLOBAL_FLAG".to_string(),
+            value: global_flag.to_string(),
+        });
+        env.push(ScoopEnvVar {
+            name: "SCOOP_PURGE_FLAG".to_string(),
+            value: purge_flag.to_string(),
+        });
+        let persist = if request.purge {
+            "The app's persist folder is deleted too."
+        } else {
+            "The app's persist folder is kept for a later reinstall."
+        };
+        vec![
+            format!("Scoop command: scoop uninstall {global_flag} {purge_flag} {args}"),
+            folder_line,
+            persist.to_string(),
+        ]
     } else {
-        let args = parse_spec(&request.spec, &request.kind)?;
+        let args = parse_spec(&request.spec)?;
         env.push(ScoopEnvVar {
             name: "SCOOP_APP_ARGS".to_string(),
             value: args.clone(),
@@ -1386,14 +1720,100 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
     };
 
     log.extend(proxy_warnings(&proxy));
-    let script = run_script_text(&request.kind, &proxy);
+    let script = run_script_text(&request.kind, &proxy, update_globals);
     plan_view(&applied, &proxy, RUN_CMD_NAME, script, env, log)
+}
+
+/// Whether the global root holds any app. Only `scoop update -g <app>` can
+/// refresh those, and it needs an elevated window, so a run that updates
+/// everything adds it only when there is something for it to do.
+fn has_global_apps(applied: &AppliedLocation) -> bool {
+    !same_path(&applied.scoop.target, &applied.global.target)
+        && !read_apps(&applied.global.target, true).is_empty()
+}
+
+/// `scoop uninstall scoop` removes Scoop and every app it installed, so this
+/// page refuses it rather than letting one click wipe the whole installation.
+fn check_uninstall_targets(args: &str) -> Result<(), String> {
+    if args
+        .split_whitespace()
+        .any(|token| token.eq_ignore_ascii_case("scoop"))
+    {
+        return Err("Scoop itself cannot be uninstalled from this page.".to_string());
+    }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{is_inside, parse_spec, parse_version, same_path, strip_verbatim, PathKind};
+    use super::{
+        check_uninstall_targets, flag_field, is_inside, parse_bucket_name, parse_bucket_spec,
+        parse_spec, parse_version, read_app_json, same_path, strip_verbatim, PathKind,
+        APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+    };
+    use std::fs;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn app_metadata_is_read_under_either_name() {
+        let root = std::env::temp_dir().join(format!("wingharness-app-json-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+
+        let write = |dir: &str, file: &str, text: &str| {
+            let path = root.join(dir);
+            fs::create_dir_all(&path).unwrap();
+            fs::write(path.join(file), text).unwrap();
+            path
+        };
+
+        // An install made by a current Scoop: both qualified names.
+        let current = write(
+            "current",
+            APP_MANIFEST_FILE,
+            r#"{"version":"1.2.3"}"#,
+        );
+        write("current", APP_INSTALL_FILE, r#"{"bucket":"main"}"#);
+        assert_eq!(
+            read_app_json(&current, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("1.2.3"))
+        );
+        assert_eq!(
+            read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE)
+                .and_then(|value| value.get("bucket").cloned()),
+            Some(serde_json::json!("main"))
+        );
+
+        // An install made by an older Scoop: only the bare names, which is the
+        // case the fallback exists for.
+        let legacy = write("legacy", LEGACY_MANIFEST_FILE, r#"{"version":"0.1.0"}"#);
+        write("legacy", LEGACY_INSTALL_FILE, r#"{"bucket":"extras"}"#);
+        assert_eq!(
+            read_app_json(&legacy, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("0.1.0"))
+        );
+        assert_eq!(
+            read_app_json(&legacy, APP_INSTALL_FILE, LEGACY_INSTALL_FILE)
+                .and_then(|value| value.get("bucket").cloned()),
+            Some(serde_json::json!("extras"))
+        );
+
+        // Both present: the qualified name is Scoop's own record and wins.
+        let both = write("both", APP_MANIFEST_FILE, r#"{"version":"2.0.0"}"#);
+        write("both", LEGACY_MANIFEST_FILE, r#"{"version":"1.0.0"}"#);
+        assert_eq!(
+            read_app_json(&both, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE)
+                .and_then(|value| value.get("version").cloned()),
+            Some(serde_json::json!("2.0.0"))
+        );
+
+        // Nothing there: no metadata, not a crash.
+        let empty = write("empty", "unrelated.txt", "");
+        assert!(read_app_json(&empty, APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE).is_none());
+
+        fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn versions_are_read_from_the_reported_line() {
@@ -1404,20 +1824,103 @@ mod tests {
 
     #[test]
     fn specs_accept_the_documented_forms() {
-        assert_eq!(parse_spec("7zip", "install").unwrap(), "7zip");
-        assert_eq!(parse_spec("scoop install 7zip", "install").unwrap(), "7zip");
+        assert_eq!(parse_spec("7zip").unwrap(), "7zip");
+        assert_eq!(parse_spec("scoop install 7zip").unwrap(), "7zip");
         assert_eq!(
-            parse_spec("Scoop INSTALL extras/vscode git", "install").unwrap(),
+            parse_spec("Scoop INSTALL extras/vscode git").unwrap(),
             "extras/vscode git"
         );
-        assert_eq!(parse_spec("scoop search 7z", "search").unwrap(), "7z");
+        assert_eq!(parse_spec("scoop search 7z").unwrap(), "7z");
+        assert_eq!(parse_spec("scoop update 7zip").unwrap(), "7zip");
+        assert_eq!(parse_spec("scoop hold 7zip").unwrap(), "7zip");
     }
 
     #[test]
     fn specs_reject_shell_metacharacters() {
-        assert!(parse_spec("7zip & del x", "install").is_err());
-        assert!(parse_spec("", "install").is_err());
-        assert!(parse_spec("-g", "install").is_err());
+        assert!(parse_spec("7zip & del x").is_err());
+        assert!(parse_spec("").is_err());
+        assert!(parse_spec("-g").is_err());
+    }
+
+    #[test]
+    fn bucket_names_are_parsed_for_removal() {
+        assert_eq!(parse_bucket_name("extras").unwrap(), "extras");
+        assert_eq!(parse_bucket_name("scoop bucket rm extras").unwrap(), "extras");
+        assert_eq!(parse_bucket_name("bucket remove extras").unwrap(), "extras");
+        assert!(parse_bucket_name("").is_err());
+        assert!(parse_bucket_name("extras git@github.com:a/b").is_err());
+        // A name that could be read as a flag, or carry a metacharacter, would
+        // reach `cmd.exe` through a quoted variable.
+        assert!(parse_bucket_name("-rf").is_err());
+        assert!(parse_bucket_name("extras & del x").is_err());
+    }
+
+    #[test]
+    fn uninstalling_scoop_itself_is_refused() {
+        assert!(check_uninstall_targets("7zip extras/vscode").is_ok());
+        assert!(check_uninstall_targets("scoop").is_err());
+        // The whole list is checked, not just the first name.
+        assert!(check_uninstall_targets("7zip Scoop").is_err());
+    }
+
+    #[test]
+    fn a_hold_flag_is_read_as_a_boolean() {
+        assert!(flag_field(
+            &Some(serde_json::json!({ "bucket": "main", "hold": true })),
+            "hold"
+        ));
+        // `scoop unhold` saves the key as null rather than dropping it.
+        assert!(!flag_field(
+            &Some(serde_json::json!({ "bucket": "main", "hold": null })),
+            "hold"
+        ));
+        assert!(!flag_field(&Some(serde_json::json!({ "bucket": "main" })), "hold"));
+        assert!(!flag_field(&None, "hold"));
+    }
+
+    #[test]
+    fn bucket_specs_accept_the_documented_forms() {
+        let expected = (
+            "extras".to_string(),
+            "https://github.com/ScoopInstaller/Extras".to_string(),
+        );
+        assert_eq!(
+            parse_bucket_spec("extras https://github.com/ScoopInstaller/Extras").unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("scoop bucket add extras https://github.com/ScoopInstaller/Extras")
+                .unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("https://github.com/ScoopInstaller/Extras").unwrap(),
+            expected
+        );
+        assert_eq!(
+            parse_bucket_spec("https://github.com/ScoopInstaller/Extras.git/").unwrap(),
+            (
+                "extras".to_string(),
+                "https://github.com/ScoopInstaller/Extras.git/".to_string()
+            )
+        );
+        assert_eq!(
+            parse_bucket_spec("Extras https://gitlab.com/someone/Extras").unwrap(),
+            (
+                "extras".to_string(),
+                "https://gitlab.com/someone/Extras".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn bucket_specs_reject_shell_metacharacters() {
+        assert!(parse_bucket_spec("extras & del x").is_err());
+        assert!(parse_bucket_spec("ex\"tras https://github.com/a/b").is_err());
+        assert!(parse_bucket_spec("extras ftp://example.com/x").is_err());
+        assert!(parse_bucket_spec("extras https://github.com/a/b & del x").is_err());
+        assert!(parse_bucket_spec("").is_err());
+        assert!(parse_bucket_spec("a b c").is_err());
     }
 
     #[test]

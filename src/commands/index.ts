@@ -1095,6 +1095,7 @@ export type {
 } from "./services/moin/types";
 export {
   scoopApplyLocation,
+  scoopInstalled,
   scoopPlanRun,
   scoopPrepareInstall,
   scoopSearch,

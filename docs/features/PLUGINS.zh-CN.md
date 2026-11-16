@@ -6,27 +6,29 @@
 
 应用本身不认识任何具体插件——**装新插件不需要改前端、也不需要改 Rust**，只要桶里多一份清单。
 
+唯一必须遵守的是名字：**插件的 Scoop 应用名以 `wingharness-` 开头**，这个前缀就是唯一的标记（第 1a 节）。
+
 ## 1. 包结构与桶
 
 应用就是 zip 里面的内容，`plugin.json` 在根目录：
 
 ```
-hello-plugin.zip
+wingharness-hello-plugin.zip
 ├── plugin.json
 ├── run.cmd
 └── （其余文件随意）
 ```
 
-`scoop install hello-plugin` 会把它解到 `<scoop>/apps/hello-plugin/<版本>/`，并让 `<scoop>/apps/hello-plugin/current` 指向那一层。应用只看 `current`，所以如果压缩包外面还套了一层目录，就在桶清单里用 `extract_dir` 指出来。
+`scoop install wingharness-hello-plugin` 会把它解到 `<scoop>/apps/wingharness-hello-plugin/<版本>/`，并让 `<scoop>/apps/wingharness-hello-plugin/current` 指向那一层。应用只看 `current`，所以如果压缩包外面还套了一层目录，就在桶清单里用 `extract_dir` 指出来。
 
 桶清单**只用 Scoop 的标准字段**——插件自己的元数据留在包内，由应用去读：
 
 ```json
 {
   "version": "1.0.0",
-  "description": "Hello plugin: prints the values its config files hold.",
+  "description": "WingHarness plugin: hello plugin, prints the values its config files hold.",
   "homepage": "https://github.com/you/scoop-bucket",
-  "url": "https://github.com/you/scoop-bucket/releases/download/hello-plugin-1.0.0/hello-plugin-1.0.0.zip",
+  "url": "https://github.com/you/scoop-bucket/releases/download/wingharness-hello-plugin-1.0.0/wingharness-hello-plugin-1.0.0.zip",
   "hash": "sha256:…"
 }
 ```
@@ -47,6 +49,24 @@ hello-plugin.zip
 ]
 ```
 
+### 1a. 名字：`wingharness-<name>`
+
+插件的名字来自**桶清单的文件名**，因为 Scoop 就是按文件名给应用命名：`bucket/wingharness-cursor-proxy.json` 装出来就是应用 `wingharness-cursor-proxy`，它同时是 `apps/` 下的目录、持久化目录，也是应用里的插件 id。所以前缀不是装饰——**它是「这个应用是 WingHarness 插件」的唯一标记**，有三处依赖它：
+
+- **安装闸门（第 3 节）**——设置 → 插件拒绝任何不带它的名字，普通 Scoop 应用不会被误认成插件。报错是 `'<app>' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.`
+- **徽标**——Scoop 页的概览和搜索结果会给带前缀的应用打上「WingHarness 插件」，这样在机器上一堆 Scoop 应用里也能认出来。
+- **桶自己的约定**——见下。
+
+插件的桶清单还要在标准字段里说清它从哪来，用户在 `scoop info` 和应用卡片上都能看到：
+
+| 字段 | 约定 |
+| --- | --- |
+| 文件名 | `wingharness-<name>.json` |
+| `description` | 以 `WingHarness plugin: ` 开头 |
+| `notes` | 含一条 `Installed from WingHarness (Settings > Plugins).` |
+
+结构化元数据**不**写进桶清单。Scoop 的 `schema.json` 是 `additionalProperties: false`，自定义顶级键能装上，但会让桶的 CI 变红。它属于包内的 `plugin.json`——那份文件没有外部 schema 约束，只由应用读（第 2 节）。
+
 ## 2. plugin.json
 
 ```jsonc
@@ -57,11 +77,17 @@ hello-plugin.zip
   "entry": "run.cmd",          // 必填。启动插件用的脚本，相对插件根目录且必须落在插件目录内
   "stopScript": "stop.cmd",    // 可选。停止插件用的脚本，见第 5a 节
   "ui": "http://127.0.0.1:{PORT}/", // 可选。插件自己提供的页面地址，见第 4 节
+  "wingharness": {             // 可选。给应用和桶看的元数据
+    "minAppVersion": "0.0.12",
+    "category": "proxy"
+  },
   "configFiles": [ /* 配置源，见下 */ ]
 }
 ```
 
 > 注意上面是 **jsonc** 写法，加注释只是为了讲解；真正写 `plugin.json` 时不能带注释。
+
+`wingharness` 是插件声明「既不是 Scoop 字段、也不是脚本」那类信息的地方：`minAppVersion` 是写这个插件时的应用版本，`category` 用于归类。眼下没有代码读它们——这个块是描述性的，而且加载器会忽略不认识的键，所以带着它的插件在任何应用版本上都能用。别把它挪进桶清单，Scoop 的 schema 会拒绝（第 1a 节）。
 
 这里没有 `id`。**插件的身份就是它的 Scoop 应用名**，它同时是目录名，也是应用记录启用状态时用的键，所以两者不可能对不上。旧版本留下的、仍带 `id` 的 `plugin.json` 照常能读——那个键会被忽略，不算错误。
 
@@ -180,7 +206,7 @@ hello-plugin.zip
 
 设置页驱动 Scoop，而不重新实现它。
 
-1. **安装**——点 **Install plugin**，填应用名。这个应用必须来自你已经在 **Scoop** 页添加过的桶。应用会执行 `scoop install <app>`，把 Scoop 的输出实时显示在面板里，插件装好后是**停用**状态。
+1. **安装**——点 **Install plugin**，填应用名，**要带 `wingharness-` 前缀**。这个应用必须来自你已经在 **Scoop** 页添加过的桶。应用会执行 `scoop install <app>`，把 Scoop 的输出实时显示在面板里，插件装好后是**停用**状态。
 2. **启用**——在 设置 → 插件 里，把「已停用」按钮点成「已启用」。
 3. **配置**——点卡片上的「配置」，打开配置窗口（第 4a 节）。
 4. **运行**——点插件的「运行」，或点顶部的「运行全部」按顺序跑所有已启用的插件。输出实时进入下面的面板。
@@ -188,6 +214,26 @@ hello-plugin.zip
 6. **卸载**——垃圾桶图标执行 `scoop uninstall <app>`。插件的**配置会保留**：它们在持久化目录里，Scoop 卸载时不动它（第 6 节）。
 
 为什么填应用名而不是拖一个文件：拖 zip 安装意味着这一整步得由应用自己负责——解压、判断落在哪、再记一笔。这些事 Scoop 对机器上每个应用都已经做了，所以插件不过是「带了 `plugin.json` 的那个应用」。
+
+**前缀是闸门，不是建议。** `install` 在启动 Scoop 之前就拒绝不带 `wingharness-` 的名字，设置页在发请求之前又拦一次，这样对话框就能直接说清原因，不用等一个空跑的输出面板：
+
+```
+'cursor-proxy' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.
+```
+
+「装上了，但不是插件」那条报错（第 9 节）结尾也是同一句：装成功却没读到 `plugin.json` 的应用，被报成名字不对，而不是报成插件坏了。
+
+### 3a. 插件改名与旧安装的迁移
+
+**改名就是换一个新应用。** 名字就是身份（第 1a 节、第 6 节），所以把桶清单里的名字一改，就变成了另一个应用：旧安装还留在旧名字下，带着它自己的持久化目录和它自己在设置里的卡片。
+
+因此给自己的插件改名，要搬的是用户的数据，不是文件。把 `cursor-proxy` 迁移成 `wingharness-cursor-proxy`：
+
+1. `scoop uninstall cursor-proxy`——`ScoopCurrent\persist\cursor-proxy` 会保留。
+2. 把那个目录按新名字复制一份：`ScoopCurrent\persist\cursor-proxy` → `ScoopCurrent\persist\wingharness-cursor-proxy`。
+3. `scoop install wingharness-cursor-proxy`（或在 设置 → 插件 里安装），然后在那里重新启用。
+
+其余都不用管。`plugins.json` 里的旧键和侧栏布局里的 `plugin:cursor-proxy` 会被**留下并忽略**：指向不到已安装应用的 id 会被丢掉而不是显示出来，所以做完第 1 步之后这两处只是占地方，不会报错。想删也行，没有代码读它们。
 
 其余控件：「打开插件目录」在资源管理器里打开 `<scoop>/apps`，卡片上的目录图标打开该插件的 `current` 目录，文件图标打开它的运行日志（第 5b 节）。
 
@@ -269,7 +315,7 @@ echo Greeting is %GREETING%
 
 各处都是同一个启动/停止按钮，清单里把两半都点明了：`entry` 启动插件，`stopScript` 停止它。
 
-**插件声明了 `stopScript`，停止就完全交给它。** 应用执行它，别的什么都不做。它和 `entry` 一样，以插件的 `current` 目录为工作目录运行，带 `PLUGIN_ID` / `PLUGIN_DIR`，输出进同一份运行日志。它有 60 秒；超时还在跑的会被杀掉，停止操作报告为失败。
+**插件声明了 `stopScript`，停止就完全交给它。** 应用执行它，别的什么都不做。它和 `entry` 一样，以插件的 `current` 目录为工作目录运行，带 `PLUGIN_ID` / `PLUGIN_DIR` / `PLUGIN_PERSIST`，输出进同一份运行日志。它有 60 秒；超时还在跑的会被杀掉，停止操作报告为失败。
 
 有停止脚本时，应用**故意不**再顺手杀进程树。那个脚本是插件自己的收尾——它知道要结束什么，包括应用根本看不到的守护进程——在背后再叠一套粗糙的机制，只会把收尾砍断。
 
@@ -344,7 +390,7 @@ plugins/           旧 zip 安装器留下的目录，删掉之前会一直列�
 
 ## 8. 示例
 
-两个都在本仓库的 [`examples/`](../../examples/) 下，各自带 `plugin.json`、脚本和配置文件，桶清单在 [`examples/bucket/`](../../examples/bucket/) 里。
+两个都在本仓库的 [`examples/`](../../examples/) 下，各自带 `plugin.json`、脚本和配置文件，桶清单在 [`examples/bucket/`](../../examples/bucket/) 里——文件名分别是 `wingharness-hello-plugin.json` 和 `wingharness-plugin-showcase.json`，遵循前缀规则（第 1a 节）。
 
 ### 全示例：`examples/plugin-showcase/`
 
@@ -366,7 +412,7 @@ plugins/           旧 zip 安装器留下的目录，删掉之前会一直列�
 试其中一个的步骤：
 
 1. 把它的桶清单复制到 Scoop 页上已添加的桶里，`url` 指到该目录打成的 zip（`plugin.json` 必须在 zip 根目录）——或者直接从本地源安装。
-2. 在插件页点 **Install plugin**，填应用名。
+2. 在插件页点 **Install plugin**，填应用名（带前缀）。
 3. 点「配置」改字段。看 `<scoop>/persist/<app>` 里的文件跟着变——注释都还在。
 4. 点「运行」（或打开插件的标签页），看脚本读回了什么。
 
@@ -375,7 +421,10 @@ plugins/           旧 zip 安装器留下的目录，删掉之前会一直列�
 ## 9. 常见问题
 
 **「…is installed, but it is not a plugin: …」**
-应用装上了，但它的 `current` 目录根下没有可读的 `plugin.json`。要么 zip 外面多套了一层目录（在桶清单里设 `extract_dir`），要么清单本身无效——后半句话会说是哪种。
+应用装上了，但它的 `current` 目录根下没有可读的 `plugin.json`。要么 zip 外面多套了一层目录（在桶清单里设 `extract_dir`），要么清单本身无效——后半句话会说是哪种。如果它压根不是本应用的插件，消息最后一句会说明：插件是名为 `wingharness-<name>` 的 Scoop 应用。
+
+**「'xxx' is not a WingHarness plugin: plugins are Scoop apps named 'wingharness-<name>'.」**
+在 **Install plugin** 里填的名字没有 `wingharness-` 前缀，什么都没装。补上前缀——应用名就是桶清单的文件名，所以清单文件本身得叫 `wingharness-<name>.json`（第 1a 节）。
 
 **「'xxx' is already installed.」**
 这个应用已经在了。点卡片上的**更新**；要从头重装，先卸载。
