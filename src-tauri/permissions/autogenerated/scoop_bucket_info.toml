@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-bucket-info"
+description = "Enables the scoop_bucket_info command without any pre-configured scope."
+commands.allow = ["scoop_bucket_info"]
+
+[[permission]]
+identifier = "deny-scoop-bucket-info"
+description = "Denies the scoop_bucket_info command without any pre-configured scope."
+commands.deny = ["scoop_bucket_info"]

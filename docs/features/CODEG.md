@@ -184,6 +184,17 @@ One database, whoever starts it: the embed, Codeg on its own, or a server starte
 by hand. A `dataDir` filled in here overrides it for the server this app spawns
 only.
 
+A release install of Codeg does not include `codeg-server.exe`: the installer
+carries the desktop app and the `web` export (`tauri.conf.json` maps `../out` to
+`web/`), while the server is a separate binary target the bundler cannot pack.
+Build it once with `cargo build --release --no-default-features --features
+server-bin --bin codeg-server`, or take the archive the fork's Windows release
+attaches — `codeg-server-web-<tag>-windows-x64.zip`, the exe with the matching
+`web/` beside it. `serverPath` then points at the exe and `staticDir` at that
+`web/` folder, or at the `web` folder inside the installed app, which is the same
+export. Both halves have to come from one commit: a server paired with a `web/`
+from another answers 404 for whatever they do not share.
+
 ## Commands
 
 Fifteen, all named in the four lists (`invoke.rs`, `build.rs`,
@@ -220,10 +231,10 @@ are the exceptions, each small and each one the embed needs.
 - Appearance is written by both clients, so Codeg needs a way to read and write
   it outside its own window: `codeg-theme-preset` joins the synced keys in
   `src/lib/appearance-sync.ts` and `APPEARANCE_STORAGE_KEYS` in its
-  `commands/config_sync/appearance.rs`; `GET`-style `POST /api/get_appearance_settings`
-  and `POST /api/update_appearance_mode` join the web router, with
-  `read_appearance_mirror` and `set_appearance_mode` in the command layer
-  underneath; and the desktop app's launch step
+  `commands/config_sync/appearance.rs`; `POST /api/get_appearance_settings` and
+  `POST /api/update_appearance_mode` join the web router, with
+  `read_appearance_mirror` in the config-sync domain and `set_mode` in
+  `commands/appearance_mode.rs` underneath; and the desktop app's launch step
   (`adoptOrMirrorAppearanceOnLaunch`) now adopts the stored appearance instead of
   mirroring its own `localStorage` over it.
 - Its settings page records and highlights the preset in use

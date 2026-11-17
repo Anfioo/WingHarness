@@ -29,6 +29,7 @@ import { WindowFrame } from "@/components/window-frame.tsx";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { cancelDestroyWindow, destroyWindow } from "@/lib/window.ts";
+import { AUTHOR, REPO_URL } from "@/lib/app-meta";
 import { useManualUpdateCheck, useUpdater } from "@/hooks/use-updater";
 import noticesEn from "../../../THIRD_PARTY_NOTICES.md?raw";
 import noticesZh from "../../../THIRD_PARTY_NOTICES.zh-CN.md?raw";
@@ -40,18 +41,6 @@ const techVersions = {
   react: packageJson.dependencies.react.replace(/^\^/, "v"),
   typescript: packageJson.devDependencies.typescript.replace(/^~/, "v"),
 };
-
-// The developer profile shown on the About card. Links open in the system
-// browser through the opener plugin.
-const AUTHOR = {
-  name: "Anfioo",
-  avatar: "https://github.com/Anfioo.png",
-  github: "https://github.com/Anfioo",
-  blog: "https://blog.csdn.net/m0_73579391",
-  email: "anfioozys@gmail.com",
-};
-
-const REPO_URL = "https://github.com/Anfioo/WingHarness";
 
 const TECH_CHIPS: { label: string; version?: string }[] = [
   { label: "Tauri", version: techVersions.tauri },

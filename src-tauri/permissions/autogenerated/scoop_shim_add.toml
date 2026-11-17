@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-shim-add"
+description = "Enables the scoop_shim_add command without any pre-configured scope."
+commands.allow = ["scoop_shim_add"]
+
+[[permission]]
+identifier = "deny-scoop-shim-add"
+description = "Denies the scoop_shim_add command without any pre-configured scope."
+commands.deny = ["scoop_shim_add"]

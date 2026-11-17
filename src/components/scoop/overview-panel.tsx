@@ -147,7 +147,12 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
                 key={`${app.global ? "g" : "u"}-${app.name}`}
                 className="flex items-start gap-3 py-2"
               >
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => page.openPackageDetail(app.name, app.bucket, app.global)}
+                  title={t("scoop.overview.openDetail", { app: app.name })}
+                  className="hover:bg-muted/60 focus-visible:ring-ring min-w-0 flex-1 rounded-md text-start focus-visible:ring-2 focus-visible:outline-none"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{app.name}</span>
                     {app.version && (
@@ -179,7 +184,7 @@ export function ScoopOverviewPanel({ page }: { page: ScoopPageController }) {
                       {app.description}
                     </p>
                   )}
-                </div>
+                </button>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
                     variant="outline"

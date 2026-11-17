@@ -155,6 +155,14 @@ Codeg 的语言在它自己的数据库里，不在页面里，所以打开页�
 一个数据库，谁启动都一样：嵌入版、自己打开的 Codeg，还是手工起的服务。在这里填了
 `dataDir`，只覆盖本应用拉起的那个服务。
 
+装好的 Codeg 里**没有** `codeg-server.exe`：安装程序只带桌面应用和 `web` 导出
+（`tauri.conf.json` 把 `../out` 映射成 `web/`），服务是另一个二进制目标，打包器装不
+进去。要么自己构建一次（`cargo build --release --no-default-features --features
+server-bin --bin codeg-server`），要么取 fork 的 Windows 发布附带的那份压缩包——
+`codeg-server-web-<tag>-windows-x64.zip`，exe 旁边就是配套的 `web/`。`serverPath`
+指那个 exe，`staticDir` 指同一份 `web/`，或者指安装目录里的 `web`（同一个导出）。
+两半必须来自同一个提交：配错版本时缺的路由只会 404。
+
 ## 命令
 
 十五个，全部写进四份清单（`invoke.rs`、`build.rs`、`capabilities/default.json`、
@@ -190,8 +198,8 @@ Codeg 是第三方仓库，嵌入本意是不碰它；下面这些是例外，�
   `codeg-theme-preset` 加入 `src/lib/appearance-sync.ts` 的同步键和
   `commands/config_sync/appearance.rs` 的 `APPEARANCE_STORAGE_KEYS`；
   `POST /api/get_appearance_settings` 与 `POST /api/update_appearance_mode`
-  加入 web 路由，底下是命令层的 `read_appearance_mirror` 与
-  `set_appearance_mode`；桌面应用的启动步骤
+  加入 web 路由，底下是 config-sync 域的 `read_appearance_mirror` 与
+  `commands/appearance_mode.rs` 的 `set_mode`；桌面应用的启动步骤
   （`adoptOrMirrorAppearanceOnLaunch`）改为采用库里存的外观，而不是把自己的
   `localStorage` 镜像过去。
 - 它的设置页记录并高亮当前预设（`custom-style-section.tsx`，加上

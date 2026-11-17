@@ -38,9 +38,11 @@ export function ScoopRunDock({ page }: { page: ScoopPageController }) {
         <span className="text-muted-foreground min-w-0 flex-1 truncate font-mono text-[11px]">
           {page.plan?.scriptPath}
         </span>
-        <Button variant="ghost" size="sm" onClick={() => setShowScript((value) => !value)}>
-          {showScript ? t("scoop.run.hideCommand") : t("scoop.run.showCommand")}
-        </Button>
+        {page.plan && (
+          <Button variant="ghost" size="sm" onClick={() => setShowScript((value) => !value)}>
+            {showScript ? t("scoop.run.hideCommand") : t("scoop.run.showCommand")}
+          </Button>
+        )}
         <Button variant="ghost" size="sm" disabled={page.running !== null} onClick={page.clearRun}>
           {t("scoop.run.clear")}
         </Button>

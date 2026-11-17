@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
-import type { ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
+import type { ScoopDetailTarget, ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
 import {
+  scoopAddBucket,
   scoopApplyLocation,
   scoopInstalled,
   scoopPlanRun,
   scoopPrepareInstall,
+  scoopRemoveBucket,
+  scoopSetHold,
   scoopStatus,
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -26,7 +30,7 @@ export type ScoopRunKind =
   | "update"
   | "apps-update"
   | "app-update"
-  | "hold"
+  | "cleanup"
   | "uninstall"
   | "config";
 export type ScoopLogTone = "info" | "error" | "done";
@@ -70,11 +74,19 @@ export interface ScoopPageController {
   updateApps: () => Promise<void>;
   /** Updates one app (`scoop update <app>`), global apps included. */
   updateApp: (app: { name: string; global: boolean }) => Promise<void>;
-  /** Pins an app at its version (`scoop hold`), or releases it. */
+  /** Pins an app at its version, or releases it. Scoop keeps the pin in the
+   * app's own install record, so this is a file write and not a run. */
   setAppHold: (app: { name: string; global: boolean }, hold: boolean) => Promise<void>;
   /** Uninstalls one app (`scoop uninstall [-g] [-p] <app>`). */
   uninstallApp: (app: { name: string; global: boolean }, purge: boolean) => Promise<void>;
+  /** Runs `scoop cleanup *`: the versions a newer install replaced. */
+  cleanupApps: () => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
+  /** The row whose metadata the detail sheet is showing, if it is open. */
+  detail: ScoopDetailTarget | null;
+  openPackageDetail: (name: string, bucket?: string | null, global?: boolean) => void;
+  openBucketDetail: (name: string) => void;
+  closeDetail: () => void;
   syncProxy: () => Promise<void>;
   clearRun: () => void;
   relaunchApp: () => void;
@@ -105,6 +117,7 @@ export function useScoopPage(): ScoopPageController {
   const [lastExit, setLastExit] = useState<number | null>(null);
   const [logs, setLogs] = useState<ScoopLogEntry[]>([]);
   const [restartNeeded, setRestartNeeded] = useState(false);
+  const [detail, setDetail] = useState<ScoopDetailTarget | null>(null);
 
   const logIdRef = useRef(0);
   const runIdRef = useRef(0);
@@ -268,16 +281,75 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
-  /** `scoop bucket add <name> <url>`; the bucket list refreshes on success. */
+  /**
+   * Clones a bucket with the app's own git, so the page's proxy applies and
+   * nothing depends on Scoop finding a `git.exe` for itself.
+   */
   const addBucket = useCallback(
-    (name: string, url: string) => runPlan({ kind: "bucket", spec: `${name} ${url}` }, "bucket"),
-    [runPlan]
+    async (name: string, url: string) => {
+      if (running || !beginPreparation()) return;
+      setRunning("bucket");
+      setPlan(null);
+      setRun(null);
+      setLastExit(null);
+      appendLog(t("scoop.run.bucketCloning", { name }), "info");
+      // A quarter at a time: a large bucket takes a minute, and a line per
+      // percent would bury every other entry in the log.
+      let reached = 0;
+      const unlisten = await listen<number>("scoop-bucket-progress", (event) => {
+        const mark = Math.floor(event.payload / 25) * 25;
+        if (mark > reached && mark < 100) {
+          reached = mark;
+          appendLog(t("scoop.run.bucketProgress", { name, percent: mark }));
+        }
+      });
+      try {
+        const result = await scoopAddBucket({
+          spec: `${name} ${url}`,
+          proxyMode: prefs.proxyMode,
+          proxyUrl: prefs.proxyUrl,
+        });
+        result.log.forEach((line) => appendLog(line));
+        appendLog(t("scoop.run.bucketAdded", { name: result.name }), "done");
+        setLastExit(0);
+        await refresh(true);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        // No process ran, so there is no exit code to report; the dock only
+        // needs to know the attempt ended badly.
+        setLastExit(1);
+      } finally {
+        unlisten();
+        setRunning(null);
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, prefs, refresh, running, t]
   );
 
-  /** `scoop bucket rm <name>`: the clone goes, the apps stay. */
+  /** Deletes a bucket's clone: the apps installed from it stay installed. */
   const removeBucket = useCallback(
-    (name: string) => runPlan({ kind: "bucket-rm", spec: name }, "bucket-rm"),
-    [runPlan]
+    async (name: string) => {
+      if (running || !beginPreparation()) return;
+      setRunning("bucket-rm");
+      setPlan(null);
+      setRun(null);
+      setLastExit(null);
+      try {
+        const result = await scoopRemoveBucket(name);
+        result.log.forEach((line) => appendLog(line));
+        appendLog(t("scoop.run.bucketRemoved", { name: result.name }), "done");
+        setLastExit(0);
+        await refresh(true);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        setLastExit(1);
+      } finally {
+        setRunning(null);
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, refresh, running, t]
   );
 
   /** `scoop update`: Scoop itself and every cloned bucket. */
@@ -301,12 +373,33 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
-  /** `scoop hold` / `scoop unhold`: Scoop records the pin in the app's own
-   * install info, which is the same flag `scoop update *` reads. */
+  /**
+   * Pins an app or releases it. Scoop's `hold` is only a flag written into the
+   * app's own install record, which the backend writes directly: no process,
+   * no terminal, and the row flips as soon as the write lands.
+   */
   const setAppHold = useCallback(
-    (app: { name: string; global: boolean }, hold: boolean) =>
-      runPlan({ kind: hold ? "hold" : "unhold", spec: app.name, global: app.global }, "hold"),
-    [runPlan]
+    async (app: { name: string; global: boolean }, hold: boolean) => {
+      if (!beginPreparation()) return;
+      try {
+        const apps = await scoopSetHold(app.name, app.global, hold);
+        setStatus((current) => (current ? { ...current, apps } : current));
+        appendLog(
+          hold
+            ? t("scoop.run.appHeld", { app: app.name })
+            : t("scoop.run.appUnheld", { app: app.name }),
+          "done"
+        );
+        // No process ran, so the dock only needs to know the write landed.
+        setLastExit(0);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        setLastExit(1);
+      } finally {
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, t]
   );
 
   /** `scoop uninstall [-g] [-p] <app>`: Scoop keeps the app's persist folder
@@ -314,6 +407,14 @@ export function useScoopPage(): ScoopPageController {
   const uninstallApp = useCallback(
     (app: { name: string; global: boolean }, purge: boolean) =>
       runPlan({ kind: "uninstall", spec: app.name, global: app.global, purge }, "uninstall"),
+    [runPlan]
+  );
+
+  /** `scoop cleanup *`: the versions a newer install replaced, one root after
+   * the other. A download cache is not part of it — that one the diagnostics
+   * tab deletes itself, so it can leave the files a rollback needs. */
+  const cleanupApps = useCallback(
+    () => runPlan({ kind: "cleanup", spec: "" }, "cleanup"),
     [runPlan]
   );
 
@@ -325,6 +426,16 @@ export function useScoopPage(): ScoopPageController {
     setLastExit(null);
     setLogs([]);
   }, []);
+
+  const openPackageDetail = useCallback(
+    (name: string, bucket: string | null = null, global = false) =>
+      setDetail({ kind: "package", name, bucket, global }),
+    []
+  );
+
+  const openBucketDetail = useCallback((name: string) => setDetail({ kind: "bucket", name }), []);
+
+  const closeDetail = useCallback(() => setDetail(null), []);
 
   const relaunchApp = useCallback(() => {
     void relaunch();
@@ -356,7 +467,12 @@ export function useScoopPage(): ScoopPageController {
     updateApp,
     setAppHold,
     uninstallApp,
+    cleanupApps,
     searchOnline,
+    detail,
+    openPackageDetail,
+    openBucketDetail,
+    closeDetail,
     syncProxy,
     clearRun,
     relaunchApp,

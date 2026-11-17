@@ -132,7 +132,12 @@ export function ScoopBucketsPanel({ page }: { page: ScoopPageController }) {
             <ul className="divide-border divide-y">
               {status.buckets.map((bucket) => (
                 <li key={bucket.name} className="flex items-start gap-3 px-4 py-2">
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    onClick={() => page.openBucketDetail(bucket.name)}
+                    title={t("scoop.buckets.openDetail", { bucket: bucket.name })}
+                    className="hover:bg-muted/60 focus-visible:ring-ring min-w-0 flex-1 rounded-md text-start focus-visible:ring-2 focus-visible:outline-none"
+                  >
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{bucket.name}</span>
                       <span className="text-muted-foreground text-xs">
@@ -142,7 +147,7 @@ export function ScoopBucketsPanel({ page }: { page: ScoopPageController }) {
                     <p className="text-muted-foreground mt-0.5 font-mono text-[11px] break-all">
                       {bucket.path}
                     </p>
-                  </div>
+                  </button>
                   <RemoveBucketButton page={page} bucket={bucket.name} disabled={busy} />
                 </li>
               ))}

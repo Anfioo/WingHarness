@@ -94,6 +94,10 @@ so `SCOOP_PROXY_ADDRESS` is the URL with its scheme removed. A `socks5://` URL i
 passed through the same way, with a warning in the log: Scoop itself only
 understands HTTP proxies.
 
+Bucket clones are the exception, because they do not go through Scoop: the same
+address is handed to libgit2 as a full URL — the system setting is a bare
+`host:port`, so it gains `http://` — and a `socks5://` proxy works there.
+
 ## The installer
 
 The official `install.ps1` is bundled at
@@ -128,17 +132,28 @@ is also a line in the run log (`Installer runs as: …`), so the terminal shows 
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop uninstall`, or the proxy sync |
+| `scoop-run.ps1` | The wrapper every Scoop call goes through |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
-`%SCOOP_PROXY_ADDRESS%`) rather than being pasted into the file, which keeps a
-non-ASCII user name or folder out of `cmd.exe`'s encoding problems. `chcp 65001`
-is set for readable output.
+`%SCOOP_PROXY_ADDRESS%`, `%SCOOP_WRAPPER%`) rather than being pasted into the
+file, which keeps a non-ASCII user name or folder out of `cmd.exe`'s encoding
+problems. `chcp 65001` is set for readable output.
 
-`scoop.cmd` is invoked with `call`: without it a batch file transfers control
-and `exit /b` inside the shim would end the script before the second command or
-the exit-code line.
+Scoop itself is PowerShell, so a call is never pure `cmd`: what the scripts pin
+is the *host*. They call `powershell.exe -File "%SCOOP_WRAPPER%" …` rather than
+`%SCOOP%\shims\scoop.cmd`, because that shim chooses its own host with
+`where /q pwsh.exe` — the same machine would run Scoop on whichever PowerShell
+is on `PATH` — and because it drops the exit code: Scoop's `exec` is
+`& $path @args`, whose status only lands in `$LASTEXITCODE`, so the shim exits
+`0` even after a failure. Windows PowerShell 5.1 is always present and is
+already the installer's host, so the wrapper gets both: a fixed host, and the
+real status.
+
+The wrapper formats the command's output with `Out-String -Stream` before it
+exits. That is what keeps a table such as `scoop bucket list` visible: a bare
+`exit` ends the process while the formatter still holds the objects.
 
 Each script
 
@@ -187,15 +202,49 @@ extras/vscode git`, and the same forms for search. Tokens are restricted to
 `A-Z a-z 0-9 . - _ + / @`, because the result is expanded by `cmd.exe` and a
 shell metacharacter would be an injection.
 
+## The details sheet
+
+A row that names something can be clicked open: a package from the overview or
+from a local search hit, a bucket from its own row. The sheet comes in from the
+right with what the manifest or the clone actually says, so the list keeps its
+place, and it fills in when the read answers rather than holding the click.
+
+- **A package** — `scoop_package_info` looks the name up in the cloned buckets
+  first and falls back to `apps/<name>/current/scoop-manifest.json`, so a bucket
+  that was updated shows what the next install would get while an app installed
+  earlier still shows its own copy. It returns the version, the installed
+  version, the bucket, the description, the homepage, the licence in either
+  shape (`"MIT"` or `{identifier, url}`), the notes, `depends`, `suggests`, the
+  commands `bin` installs, the manifest path and its raw text. **Details** shows
+  the parsed form; **Manifest** shows the file untouched, which is where
+  anything the parsed form does not understand still is. A package that is not
+  installed gets an **Install** button in the footer.
+- **A bucket** — `scoop_bucket_info` lists the `bucket/*.json` names of that
+  clone and the `RepoSummary` `git-core` reads from it: remote, branch, short
+  hash, committer time and the first line of the last commit. Every name in the
+  list is filterable and opens its own package sheet on top, with a back button
+  in the header.
+
+The sheet keeps its own trail of one to two entries, seeded from the row that
+was clicked, so a bucket and then one of its packages are one sheet rather than
+two stacked dialogs. A response that lands after the sheet closed or moved on is
+dropped, and the overview's `global` flag travels with the row, so a global
+app's installed version is read from `scoopg`.
+
 ## Cloning a bucket
 
-The **Buckets** tab clones a bucket with `scoop bucket add`; the one input line
-takes any of these, and the leading words are optional:
+A bucket is a git clone under `<scoop>/buckets/<name>` — that folder *is* the
+registration, which is why `scoop bucket add` is only a `git clone` with three
+parity checks in front of it. The **Buckets** tab therefore clones the bucket
+itself, through the bundled `git-core` (`git2`, with libgit2 vendored in): no
+PowerShell, no `git.exe` for the user to install, and the page's proxy actually
+applies. The one input line takes any of these, and the leading words are
+optional:
 
 | Input | Result |
 | --- | --- |
-| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
-| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `extras` | `extras` cloned from `https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
+| `extras https://github.com/ScoopInstaller/Extras` | the same, from the address given |
 | `https://github.com/ScoopInstaller/Extras` | the name is the repository name, lowercased |
 | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | the same, read the way it is typed in a terminal |
 | `extras/7zip` | `scoop install extras/7zip`, from a bucket that is already cloned |
@@ -203,12 +252,17 @@ takes any of these, and the leading words are optional:
 
 A bare `owner/repo` is deliberately an install, not a clone: that is how
 `scoop install` reads it, and the URL form is how a bucket is cloned without
-naming it. The frontend parses the line, and the backend parses it again before
-writing `run.cmd` — the name and the address travel in the child's
-environment, quoted, and both are restricted to what a bucket name and a git URL
-can contain.
+naming it. The frontend parses the line and `scoop_add_bucket` parses it again;
+both are restricted to what a bucket name and a git URL can contain.
 
-The bucket list is refreshed when a clone exits with code 0. Installing
+`SCOOP`, `SCOOP_GLOBAL` and a `.cmd` script play no part in a clone, so the run
+dock shows the log and its progress rather than a terminal: `scoop_add_bucket`
+emits `scoop-bucket-progress` and the page logs every quarter of it, so a big
+bucket does not bury the log in percentages. The bucket list is refreshed when the clone returns. The
+checks Scoop makes before cloning are kept: an existing folder, or another
+bucket already pointing at the same repository (compared without scheme,
+trailing slash or `.git`), is refused with a message, and a clone that fails
+half-way is deleted again so no empty bucket is left behind. Installing
 `<bucket>/<manifest>` from a bucket that is not cloned yet is refused with a
 message instead of run: Scoop would ask whether to add it, and the terminal has
 no input path.
@@ -216,14 +270,15 @@ no input path.
 ### Removing a bucket
 
 The trash button on a bucket's row asks for confirmation and then runs
-`scoop bucket rm <name>`, which deletes the clone under
-`<scoop>/buckets/<name>`. Scoop removes the folder and its cache entry and
-nothing else: apps installed from that bucket stay installed and stay listed,
-but the bucket's manifests are gone, so a local search no longer offers new apps
-from it. The confirmation says so, because that is the part that surprises.
+`scoop_remove_bucket`, which deletes the clone under `<scoop>/buckets/<name>`.
+The name is limited to letters, digits, dots, dashes and underscores before the
+recursive delete, and the result is checked to sit inside `buckets` first. Apps
+installed from that bucket stay installed and stay listed, but the bucket's
+manifests are gone, so a local search no longer offers new apps from it. The
+confirmation says so, because that is the part that surprises.
 
-One bucket per run, and any bucket can go, `main` included — Scoop itself allows
-that, and the page follows it.
+One bucket at a time, and any bucket can go, `main` included — Scoop itself
+allows that, and the page follows it.
 
 ## Updating the catalog and the apps
 
@@ -247,17 +302,25 @@ global apps alone. A global app's row carries `-g` too.
 
 ### Pinning a version
 
-**Pin** on a row runs `scoop hold <app>`; **Unpin** runs `scoop unhold <app>`.
-Scoop records the pin as `hold: true` in the app's own install info
-(`scoop-install.json`, or `install.json` on an older install), and every later
-`scoop update *` skips it — the skip is Scoop's own, so the page does not filter
-anything itself. The row then shows a **Pinned** badge and its **Update** button
-is disabled: Scoop refuses to update a held app, so the way through is to unpin
-it first, which is one click away.
+A pin is not a command Scoop has to run. `scoop hold` only writes `hold: true`
+into the app's own install info — `scoop-install.json`, or `install.json` on an
+install made by an older Scoop — and `scoop update *` skips an app whose record
+says `true`. That is the same file the page already reads for an app's bucket, so
+`scoop_set_hold` writes the flag itself: one file write, no PowerShell, no
+terminal, and the row flips as soon as the write answers. The record is read, one
+key is set or dropped, and the whole object is written back, so nothing else
+Scoop put in it is lost; a BOM an older Scoop left behind is tolerated on the
+way in.
 
-The page reads the flag from that file rather than from a `scoop` process, so
-the badge is right the moment the status lands, and it flips when the hold run
-exits with 0 (the run refreshes the status).
+**Unpin** drops the key instead of writing `hold: false`, which reads the same
+way, because only `true` is a pin — `scoop unhold` leaves the key behind as
+`null` and the page treats both the same. The command answers with the refreshed
+app list of both roots, so a flag flip never re-reads the whole catalog.
+
+A pinned row shows a **Pinned** badge and its **Update** button is disabled:
+Scoop refuses to update a held app, so the way through is to unpin it first,
+which is one click away. The skip inside `scoop update *` is Scoop's own, so the
+page does not filter anything itself.
 
 ## Uninstalling an app
 
@@ -278,6 +341,87 @@ so what a run does is visible before and after it starts.
 `scoop uninstall scoop` would remove Scoop itself and every app with it, so
 `scoop_plan_run` refuses that name outright instead of offering it as a target.
 
+## The diagnostics tab
+
+Four cards, four questions: is this machine set up for Scoop, what can be freed,
+what is in the download cache and what is in the shims. All of it is read from
+the disk; only the two buttons that change apps go through a terminal.
+
+### The checkup
+
+`scoop_checkup` is read-only and answers with one row per check. A row carries an
+**id**, whether it passed, the value it measured and — when it failed — the
+action that fixes it. The sentences stay in the page: the backend sends
+`git`, not `Git is installed`, so a row can never arrive half-translated and a
+new check costs one row in each locale file.
+
+| Id | Passes when | Fix |
+| --- | --- | --- |
+| `git` | `git --version` exits 0 | install the `git` app |
+| `mainBucket` | `<scoop>/buckets/main` is a folder | clone `ScoopInstaller/Main` |
+| `developerMode` | `AllowDevelopmentWithoutDevLicense` is `1` under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock` | open `ms-settings:developers` |
+| `longPaths` | `LongPathsEnabled` is `1` under `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem` | open `ms-settings:developers` |
+| `ntfs` | the volume the install sits on reports `NTFS` | open `ms-settings:disksandvolumes` |
+| `helper` | `apps/<helper>/current` exists, for `7zip`, `dark`, `innounp` and `lessmsi` | install that app |
+
+The registry and the volume are read rather than shelled out — through
+`windows-registry` and `GetVolumeInformationW` — so a checkup costs one
+`git --version` and nothing else, and the filesystem name survives a localized
+Windows. **Install** and **Clone** are the actions the page already has: they
+open the ordinary install plan and the ordinary clone, so the log and the
+terminal are the same ones, down to the proxy. **Open settings** is
+`scoop_open_settings`, which hands `explorer.exe` a fixed `ms-settings:`
+address; the command accepts `developers` and `disksandvolumes` and refuses
+anything else, because that value would otherwise reach the shell.
+
+### Cleanup
+
+Two mechanisms behind one card, because they are two different questions:
+
+- **Old versions** runs `scoop cleanup *`, the per-root sweep Scoop itself uses,
+  with `scoop cleanup -g *` appended when the global root holds an app and the
+  user-scope pass was reached. It is a run like any other, so the result is in
+  the terminal.
+- **Outdated downloads** is done by the page instead. `scoop cache rm *` would
+  take every file with it, including the downloads an app installed from several
+  versions still needs, so `scoop_cache_clear(…, outdatedOnly)` compares each
+  file's version with what is installed and deletes only the stale ones.
+
+### The download cache
+
+`scoop_cache_entries` reads `<scoop>/cache` itself. Scoop names every file
+`name#version#hash.ext`, which is everything the page needs to show an app, a
+version and a size without asking the CLI; the directory total is the sum of
+what is listed. An app installed from more than one version — `apps/<app>`
+holding version folders next to `current` — is marked **versioned**, and its
+files are not deletable here: they are what switching between those versions
+needs. `scoop_cache_clear` counts such a file as `skipped` rather than silently
+dropping it, and the row's delete button is disabled with that reason as its
+tooltip.
+
+### The shims
+
+`scoop_shims` walks `shims` and `global/shims`. A row is one name: the `.shim`
+file says what to run (`path`, `args`), the `.exe` beside it is a copy of
+Scoop's launcher, so the launcher and its `.exe.shimmed` twin are folded into
+the row instead of being listed on their own. Every action is a file operation,
+which is why none of them needs a terminal:
+
+- **Hide / show** renames `<name>.exe` to `<name>.exe.shimmed` and back —
+  Scoop's own way of taking a command out of `PATH` without deleting the shim.
+- **Delete** removes every file that starts with `<name>.` — the dot is what
+  keeps `dark` from taking `darktable` with it.
+- **Add** writes the `.shim` file and copies `apps/scoop/current/shim.exe` next
+  to it, in the local or the global root.
+
+### The signature
+
+The Settings tab ends with one card that is about WingHarness rather than about
+Scoop: the app's name, the version from `getVersion()`, the `GPL-3.0-only`
+licence, the author and a link to the source repository, plus the same update
+check the About window offers. It is deliberately not a second way into that
+window — the two buttons it needs are one call each.
+
 ## Commands
 
 | Command | Parameters | Returns |
@@ -287,7 +431,20 @@ so what a run does is visible before and after it starts.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or removal, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a proxy sync, `scoop update`, `scoop update *`, one app's update, `scoop cleanup *`, or an uninstall |
+| `scoop_set_hold` | `name`, `global`, `hold` | writes or clears the pin in the app's own install record; returns the refreshed app list of both roots |
+| `scoop_add_bucket` | `request` | clones the bucket into `<scoop>/buckets/<name>` through `git-core`, with the page's proxy; returns its name, folder and log |
+| `scoop_remove_bucket` | `spec` | deletes `<scoop>/buckets/<name>`; returns its name, folder and log |
+| `scoop_package_info` | `name`, `bucket`, `global` | one manifest read from the cloned bucket, or from the installed app: versions, licence, notes, depends, suggests, commands, path and raw text |
+| `scoop_bucket_info` | `name` | the bucket's `bucket/*.json` names plus the clone's remote, branch, commit, committer time and last commit subject |
+| `scoop_checkup` | — | one row per check: id, pass, measured value, and the fix when it failed |
+| `scoop_open_settings` | `page` | opens `ms-settings:developers` or `ms-settings:disksandvolumes` |
+| `scoop_cache_entries` | — | `<scoop>\cache` read as files: app, version, size, and whether a versioned install owns it |
+| `scoop_cache_clear` | `files`, `outdatedOnly` | deletes the named files, only the outdated ones, or all of them; returns freed bytes, skipped files and failures |
+| `scoop_shims` | — | the local and global shims: name, target, app, args, global, hidden |
+| `scoop_shim_add` | `request` | writes `<name>.shim` plus a copy of `shim.exe`; returns the refreshed list |
+| `scoop_shim_toggle` | `name` | renames the launcher to hide or show the shim; returns the refreshed list |
+| `scoop_shim_remove` | `name` | deletes every file of that shim; returns the refreshed list |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.
@@ -302,6 +459,14 @@ a line and exits instead of opening an interactive shell.
 - **Local search only sees cloned buckets.** A bucket that was never cloned is
   found by **Search online**, which clones on demand.
 - **One run at a time**, and no input: the scripts are non-interactive.
+- **`scoop cleanup -g *` needs an elevated window**, exactly like
+  `scoop update -g *`, so a global sweep started from an ordinary window reports
+  its refusal in the terminal and leaves the global root alone.
+- **Cache and shim changes are file operations**, done here rather than through
+  `scoop cache rm` and `scoop shim`, so they follow Scoop's layout rather than
+  its code: the downloads of an app installed from several versions are never
+  deleted from the cache manager, and a shim added here is not registered
+  anywhere else.
 - **System mode uses whatever Windows reports**, including a PAC URL, which
   Scoop's HTTP proxy setting cannot honour as an address.
 

@@ -11,14 +11,19 @@
 //! The vendor installer is bundled from `resources/scoop/install.ps1` at build
 //! time; nothing is downloaded at run time. It is Unlicense (public domain);
 //! see `THIRD_PARTY_NOTICES.md`.
+//!
+//! Buckets are the exception to the scripts: a bucket is a git clone under
+//! `<root>\buckets\<name>`, so the app clones and deletes them itself through
+//! `git-core` instead of asking Scoop to shell out to `git.exe`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 use crate::config::{self, ProxyMode};
 use crate::proc::NoWindow;
@@ -29,6 +34,37 @@ const INSTALL_SCRIPT: &str = include_str!("../../resources/scoop/install.ps1");
 const INSTALL_SCRIPT_NAME: &str = "install.ps1";
 const INSTALL_CMD_NAME: &str = "install.cmd";
 const RUN_CMD_NAME: &str = "run.cmd";
+/// Every Scoop call goes through this wrapper instead of `shims\scoop.cmd`.
+///
+/// The `.cmd` shim picks its host with `where /q pwsh.exe`, so the same machine
+/// runs Scoop on whatever PowerShell happens to be on `PATH`, and it loses the
+/// exit code: `scoop.ps1` ends with `exec`, whose `& $path @args` only sets
+/// `$LASTEXITCODE` in the caller, so the process still exits 0 after a failure.
+/// Calling the entry script through this wrapper pins Windows PowerShell 5.1
+/// (always present, and already the host of the installer), keeps the output —
+/// `Out-String -Stream` formats inside the statement, so the final `exit`
+/// cannot drop a buffered table — and returns the real status.
+const RUN_WRAPPER_NAME: &str = "scoop-run.ps1";
+const RUN_WRAPPER: &str = r#"# Runs one Scoop command and returns its real exit code.
+#
+# `& $entry @args` alone is not enough: Scoop's own `exec` swallows the status of
+# the script it runs, and a bare `exit` at the end would discard the objects a
+# command such as `bucket list` hands to the formatter. Formatting them here
+# first makes the exit safe.
+$root = $env:SCOOP
+$entry = Join-Path $root 'apps\scoop\current\bin\scoop.ps1'
+if (-not (Test-Path -LiteralPath $entry)) {
+    $entry = Join-Path $root 'shims\scoop.ps1'
+}
+if (-not (Test-Path -LiteralPath $entry)) {
+    Write-Host "[scoop] no Scoop entry script under $root"
+    exit 127
+}
+& $entry @args | Out-String -Stream | Write-Host
+$status = $LASTEXITCODE
+if ($null -eq $status) { $status = 0 }
+exit $status
+"#;
 /// Folder under the data directory holding the generated scripts. It is
 /// deliberately not inside the Scoop root: the default install folder is
 /// `<data dir>/scoop`, and generated files must not land in the package tree.
@@ -196,11 +232,12 @@ pub struct ScoopInstallRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
-    /// `install`, `search`, `config`, `bucket`, `bucket-rm`, `update`,
-    /// `apps-update`, `app-update`, `hold`, `unhold` or `uninstall`.
+    /// `install`, `search`, `config`, `update`, `apps-update`, `app-update`,
+    /// `cleanup` or `uninstall`. Buckets have their own commands, since they
+    /// are cloned by the app rather than by Scoop.
     pub kind: String,
-    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; for
-    /// `bucket-rm`, `<name>`; `update` and `apps-update` take nothing.
+    /// `7zip` or `scoop install 7zip`; `update`, `apps-update` and `cleanup`
+    /// take nothing.
     pub spec: String,
     /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
     #[serde(default)]
@@ -274,6 +311,32 @@ fn work_dir() -> PathBuf {
 
 fn install_script_path() -> PathBuf {
     work_dir().join(INSTALL_SCRIPT_NAME)
+}
+
+fn run_wrapper_path() -> PathBuf {
+    work_dir().join(RUN_WRAPPER_NAME)
+}
+
+/// One line of a generated script that hands `<args>` to the wrapper.
+///
+/// The wrapper path is a variable: a non-ASCII user name would otherwise put
+/// the data directory's encoding into a script that has to stay ASCII. No
+/// `call` is needed — `powershell.exe` is a program, not a batch file.
+fn scoop_call(script: &mut String, args: &str) {
+    script.push_str("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%SCOOP_WRAPPER%\" ");
+    script.push_str(args);
+    script.push_str("\r\n");
+}
+
+/// The `scoop config` arguments for one proxy mode. The quiet form carries a
+/// `cmd` redirect, which only works at the end of the line: any further text
+/// would be swallowed as the redirect target.
+fn proxy_config_args(proxy: &EffectiveProxy) -> String {
+    let mut args = format!("config {}", proxy.config_args());
+    if proxy.config_quiet() {
+        args.push_str(" >nul 2>&1");
+    }
+    args
 }
 
 fn resolve_choice(choice: &ScoopPathChoice, kind: PathKind) -> Result<PathBuf, String> {
@@ -362,6 +425,13 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+fn is_json_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("json"))
+        .unwrap_or(false)
+}
+
 /// Scoop's own record of an installed app, which it writes into `current`:
 /// the manifest it installed from, and the bucket that manifest came from.
 const APP_MANIFEST_FILE: &str = "scoop-manifest.json";
@@ -382,8 +452,11 @@ fn read_app_json(current: &Path, primary: &str, legacy: &str) -> Option<serde_js
 }
 
 fn text_field(value: &Option<serde_json::Value>, key: &str) -> Option<String> {
+    value.as_ref().and_then(|value| text_of(value, key))
+}
+
+fn text_of(value: &serde_json::Value, key: &str) -> Option<String> {
     value
-        .as_ref()?
         .get(key)?
         .as_str()
         .map(str::trim)
@@ -460,13 +533,7 @@ fn read_buckets(target: &Path) -> Vec<ScoopBucketView> {
                 .map(|files| {
                     files
                         .flatten()
-                        .filter(|file| {
-                            file.path()
-                                .extension()
-                                .and_then(|ext| ext.to_str())
-                                .map(|ext| ext.eq_ignore_ascii_case("json"))
-                                .unwrap_or(false)
-                        })
+                        .filter(|file| is_json_file(&file.path()))
                         .count()
                 })
                 .unwrap_or(0);
@@ -484,8 +551,8 @@ fn read_buckets(target: &Path) -> Vec<ScoopBucketView> {
 
 /// Runs a captured child with a hard deadline.
 ///
-/// The Scoop commands are off the main thread, but a PowerShell or `scoop.cmd`
-/// that never exits would still leave the page waiting forever. A child that
+/// The Scoop commands are off the main thread, but a PowerShell command that
+/// never exits would still leave the page waiting forever. A child that
 /// outlives the deadline is killed together with its descendants.
 fn run_with_timeout(mut command: Command, seconds: u64, label: &str) -> Result<std::process::Output, String> {
     let mut child = command
@@ -513,27 +580,38 @@ fn run_with_timeout(mut command: Command, seconds: u64, label: &str) -> Result<s
 
 /// A small installer is not a version source; ask the installed CLI once.
 fn scoop_version(root: &Path) -> Option<String> {
-    let shim = root.join("shims").join("scoop.cmd");
-    if !shim.is_file() {
-        return None;
-    }
-
-    let command = {
-        let mut command = Command::new("cmd");
-        command
-            .arg("/d")
-            .arg("/c")
-            .arg(&shim)
-            .arg("--version")
-            .env("SCOOP", root)
-            .env("SCOOP_GLOBAL", root);
-        command
-    };
+    let entry = scoop_entry_script(root)?;
+    let mut command = Command::new("powershell.exe");
+    command
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(&entry)
+        .arg("--version")
+        .env("SCOOP", root)
+        .env("SCOOP_GLOBAL", root);
     let output = run_with_timeout(command, 20, "scoop --version").ok()?;
 
     let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&output.stderr));
     parse_version(&text)
+}
+
+/// The script that runs Scoop, preferring the real one over a shim so a stale
+/// absolute path in `shims\scoop.cmd` cannot send the call to another install.
+fn scoop_entry_script(root: &Path) -> Option<PathBuf> {
+    let entry = root
+        .join("apps")
+        .join("scoop")
+        .join("current")
+        .join("bin")
+        .join("scoop.ps1");
+    if entry.is_file() {
+        return Some(entry);
+    }
+    let shim = root.join("shims").join("scoop.ps1");
+    if shim.is_file() {
+        return Some(shim);
+    }
+    None
 }
 
 /// Scoop prints `Current Scoop version:` followed by `v0.5.2 …`; the first
@@ -642,6 +720,82 @@ fn status() -> ScoopStatusView {
 }
 
 // ---------------------------------------------------------------------------
+// Pinning
+//
+// A pin is not a command Scoop has to run: `scoop hold` only writes `hold:
+// true` into the app's own install record, which is a file this app already
+// reads. Writing it here costs one file write instead of a PowerShell session,
+// and it keeps working when the CLI or the proxy is having a bad day.
+
+/// Pins an installed app at its version, or releases it.
+///
+/// Returns the refreshed app list of both roots, so the page never re-reads the
+/// whole catalog for a flag flip.
+#[tauri::command(async)]
+pub fn scoop_set_hold(name: String, global: bool, hold: bool) -> Result<Vec<ScoopAppView>, String> {
+    let root = if global {
+        root_view(PathKind::Global).target
+    } else {
+        root_view(PathKind::Scoop).target
+    };
+    set_app_hold(&root, name.trim(), hold)?;
+    Ok(read_all_apps(
+        &root_view(PathKind::Scoop).target,
+        &root_view(PathKind::Global).target,
+    ))
+}
+
+/// Writes the pin into the record Scoop keeps for the installed app.
+fn set_app_hold(root: &Path, name: &str, hold: bool) -> Result<(), String> {
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not an app name."));
+    }
+
+    // `current` is a junction over the installed version, and a write through
+    // it lands in that version's folder, which is where Scoop keeps the record.
+    let current = root.join("apps").join(name).join("current");
+    if !current.is_dir() {
+        return Err(format!(
+            "'{name}' is not installed under {}.",
+            root.display()
+        ));
+    }
+
+    let path = [APP_INSTALL_FILE, LEGACY_INSTALL_FILE]
+        .iter()
+        .map(|file| current.join(file))
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            format!(
+                "Neither {APP_INSTALL_FILE} nor {LEGACY_INSTALL_FILE} is in {}.",
+                current.display()
+            )
+        })?;
+
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
+    // The record is written by Scoop and by other tools; a BOM is not JSON.
+    let mut value: serde_json::Value = serde_json::from_str(text.trim_start_matches('\u{feff}'))
+        .map_err(|error| format!("{} is not valid JSON: {error}", path.display()))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("{} is not a JSON object.", path.display()))?;
+
+    if hold {
+        object.insert("hold".to_string(), serde_json::Value::Bool(true));
+    } else {
+        // `scoop unhold` leaves the key behind as `null`; dropping it reads the
+        // same way, because only `true` is a pin.
+        object.remove("hold");
+    }
+
+    let text = serde_json::to_string_pretty(&value)
+        .map_err(|error| format!("Failed to encode {}: {error}", path.display()))?;
+    fs::write(&path, format!("{text}\n"))
+        .map_err(|error| format!("Failed to write {}: {error}", path.display()))
+}
+
+// ---------------------------------------------------------------------------
 // Catalog and search
 
 #[tauri::command(async)]
@@ -675,12 +829,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
             };
             for file in files.flatten() {
                 let path = file.path();
-                if !path
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .map(|ext| ext.eq_ignore_ascii_case("json"))
-                    .unwrap_or(false)
-                {
+                if !is_json_file(&path) {
                     continue;
                 }
                 let name = path
@@ -820,12 +969,18 @@ impl EffectiveProxy {
 
     /// Arguments after `scoop config`. `%SCOOP_PROXY_ADDRESS%` is expanded by
     /// `cmd.exe`; the address never enters the script text itself.
-    fn config_command(&self) -> &'static str {
+    fn config_args(&self) -> &'static str {
         match self.mode {
             EffectiveMode::Custom => "proxy \"%SCOOP_PROXY_ADDRESS%\"",
             EffectiveMode::None => "proxy none",
-            EffectiveMode::System => "rm proxy >nul 2>&1",
+            // Removing a setting that is not there is an error to Scoop, and on
+            // System mode with no stored proxy that is the ordinary case.
+            EffectiveMode::System => "rm proxy",
         }
+    }
+
+    fn config_quiet(&self) -> bool {
+        matches!(self.mode, EffectiveMode::System)
     }
 }
 
@@ -1127,7 +1282,15 @@ fn set_user_env(_values: &[(&str, &str)]) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // Plans
 
-fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEnvVar> {
+fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Result<Vec<ScoopEnvVar>, String> {
+    // Refreshed on every plan: a newer app build can change the wrapper, and a
+    // stale copy would keep running the old one.
+    let wrapper = run_wrapper_path();
+    fs::create_dir_all(work_dir())
+        .map_err(|error| format!("Failed to create {}: {error}", work_dir().display()))?;
+    fs::write(&wrapper, RUN_WRAPPER)
+        .map_err(|error| format!("Failed to write {}: {error}", wrapper.display()))?;
+
     let mut values = vec![
         ("SCOOP", applied.scoop.root.display().to_string()),
         ("SCOOP_GLOBAL", applied.global.root.display().to_string()),
@@ -1140,6 +1303,7 @@ fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEn
             "SCOOP_INSTALL_PS1",
             install_script_path().display().to_string(),
         ),
+        ("SCOOP_WRAPPER", wrapper.display().to_string()),
         ("SCOOP_PROXY_LABEL", proxy.label()),
         (
             "SCOOP_PROXY_ADDRESS",
@@ -1152,13 +1316,13 @@ fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEn
     ];
     values.extend(proxy.env());
 
-    values
+    Ok(values
         .into_iter()
         .map(|(name, value)| ScoopEnvVar {
             name: name.to_string(),
             value,
         })
-        .collect()
+        .collect())
 }
 
 /// The real folder behind `SCOOP`: where the installed apps live.
@@ -1193,15 +1357,15 @@ pub(crate) fn prepare_scoop_command(subcommand: &str, app: &str) -> Result<Scoop
     let applied = current_location()?;
     let proxy = effective_proxy("inherit", None);
 
-    let mut env = environment(&applied, &proxy);
+    let mut env = environment(&applied, &proxy)?;
     env.push(ScoopEnvVar {
         name: "SCOOP_PLUGIN_APP".to_string(),
         value: app.to_string(),
     });
 
-    let script = format!(
-        "@echo off\r\nchcp 65001 >nul\r\ncall \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} \"%SCOOP_PLUGIN_APP%\"\r\nexit /b %ERRORLEVEL%\r\n"
-    );
+    let mut script = String::from("@echo off\r\nchcp 65001 >nul\r\n");
+    scoop_call(&mut script, &format!("{subcommand} \"%SCOOP_PLUGIN_APP%\""));
+    script.push_str("exit /b %ERRORLEVEL%\r\n");
     let path = write_script(&format!("plugin-{subcommand}.cmd"), &script)?;
 
     Ok(ScoopCommand { script: path, env })
@@ -1249,10 +1413,8 @@ fn install_script_text(proxy: &EffectiveProxy, run_as_admin: bool) -> String {
     // address would close the block early.
     script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_done\r\n");
     script.push_str("echo [scoop] configuring the Scoop proxy for future installs\r\n");
-    script.push_str(&format!(
-        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-        proxy.config_command()
-    ));
+    let config = proxy_config_args(proxy);
+    scoop_call(&mut script, &config);
     script.push_str(":scoop_done\r\n");
     script.push_str("exit /b %SCOOP_EXIT%\r\n");
     script
@@ -1268,79 +1430,63 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
     script.push_str("echo [scoop] SCOOP_GLOBAL link : %SCOOP_GLOBAL%\r\n");
     script.push_str("echo [scoop] SCOOP_GLOBAL real : %SCOOP_GLOBAL_TARGET%\r\n");
 
-    let config = format!(
-        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-        proxy.config_command()
-    );
+    let config = proxy_config_args(proxy);
 
-    // `call` is required: invoking a batch file without it transfers control
-    // and `exit /b` inside scoop.cmd would end this script before the next line.
     if kind == "config" {
         script.push_str("echo [scoop] applying the proxy to Scoop\r\n");
-        script.push_str(&config);
-    } else if kind == "bucket" {
-        script.push_str(
-            "echo [scoop] command: scoop bucket add %SCOOP_BUCKET_NAME% %SCOOP_BUCKET_URL%\r\n",
-        );
-        script.push_str(&config);
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"\r\n",
-        );
-    } else if kind == "bucket-rm" {
-        // Removing a bucket deletes its clone only: the apps installed from it
-        // stay where they are, so this needs no proxy either.
-        script.push_str("echo [scoop] command: scoop bucket rm %SCOOP_BUCKET_NAME%\r\n");
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket rm \"%SCOOP_BUCKET_NAME%\"\r\n",
-        );
+        scoop_call(&mut script, &config);
     } else if kind == "update" {
         // No app argument: Scoop updates itself and every cloned bucket.
         script.push_str("echo [scoop] command: scoop update\r\n");
-        script.push_str(&config);
-        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update");
     } else if kind == "apps-update" {
         // `*` is every app in one root, and Scoop skips the held ones itself,
         // which is the whole point of holding: a pinned version stays put.
         script.push_str("echo [scoop] command: scoop update *\r\n");
-        script.push_str(&config);
-        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update *\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update *");
         if update_globals {
             script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
             script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_run_done\r\n");
             script.push_str("echo [scoop] command: scoop update -g *\r\n");
-            script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update -g *\r\n");
+            scoop_call(&mut script, "update -g *");
         }
-    } else if kind == "app-update" || kind == "hold" || kind == "unhold" {
-        let subcommand = if kind == "app-update" { "update" } else { kind };
-        script.push_str(&format!(
-            "echo [scoop] command: scoop {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
-        ));
-        // Holding is a metadata write: it downloads nothing, so the proxy is
-        // irrelevant to it.
-        if kind == "app-update" {
-            script.push_str(&config);
+    } else if kind == "cleanup" {
+        // `cleanup *` deletes every version folder a newer install replaced; the
+        // `current` one is what Scoop keeps.
+        script.push_str("echo [scoop] command: scoop cleanup *\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "cleanup *");
+        if update_globals {
+            script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
+            script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_run_done\r\n");
+            script.push_str("echo [scoop] command: scoop cleanup -g *\r\n");
+            scoop_call(&mut script, "cleanup -g *");
         }
-        script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
-        ));
+    } else if kind == "app-update" {
+        script.push_str(
+            "echo [scoop] command: scoop update %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n",
+        );
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%");
     } else if kind == "uninstall" {
         // Scoop keeps the app's `persist` folder unless it is given `-p`, which
         // is what a reinstall needs to find the user's settings again.
         script.push_str(
             "echo [scoop] command: scoop uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
         );
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        scoop_call(
+            &mut script,
+            "uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%",
         );
     } else {
         let subcommand = if kind == "search" { "search" } else { "install" };
         script.push_str(&format!(
             "echo [scoop] command: scoop {subcommand} %SCOOP_APP_ARGS%\r\n"
         ));
-        script.push_str(&config);
-        script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_APP_ARGS%\r\n"
-        ));
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, &format!("{subcommand} %SCOOP_APP_ARGS%"));
     }
 
     script.push_str(":scoop_run_done\r\n");
@@ -1430,7 +1576,7 @@ fn parse_spec(spec: &str) -> Result<String, String> {
     // The verb is optional and either one: a line typed in a terminal reads as
     // `scoop update 7zip`, a line typed into a box on this page as `7zip`.
     if let Some(first) = tokens.first() {
-        if ["install", "search", "update", "hold", "unhold", "uninstall"]
+        if ["install", "search", "update", "uninstall"]
             .iter()
             .any(|verb| first.eq_ignore_ascii_case(verb))
         {
@@ -1548,7 +1694,8 @@ fn parse_bucket_name(spec: &str) -> Result<String, String> {
 }
 
 /// The repository name of a clone URL, lowercased the way Scoop names buckets.
-fn bucket_name_from_url(url: &str) -> Result<String, String> {    let repo = url
+fn bucket_name_from_url(url: &str) -> Result<String, String> {
+    let repo = url
         .trim_end_matches('/')
         .rsplit('/')
         .next()
@@ -1589,6 +1736,467 @@ fn is_bucket_url(url: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || ".:/_-~".contains(c))
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketRequest {
+    /// `<name> <url>` or a bare repository URL, as the bucket form accepts it.
+    pub spec: String,
+    #[serde(default = "default_proxy_mode")]
+    pub proxy_mode: String,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketResult {
+    pub name: String,
+    pub path: String,
+    pub log: Vec<String>,
+}
+
+/// `<root>\buckets`, the only place Scoop looks for a bucket.
+fn buckets_dir(applied: &AppliedLocation) -> PathBuf {
+    applied.scoop.target.join("buckets")
+}
+
+/// Compares repository addresses the way a person would: the scheme, a trailing
+/// slash and a trailing `.git` do not make it a different repository.
+fn same_repository(left: &str, right: &str) -> bool {
+    fn normalize(url: &str) -> String {
+        let url = url.trim().trim_end_matches('/');
+        let url = url.strip_suffix(".git").unwrap_or(url);
+        let url = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .unwrap_or(url);
+        url.trim_end_matches('/').to_ascii_lowercase()
+    }
+    normalize(left) == normalize(right)
+}
+
+/// The bucket already holding `url`, if any. Scoop refuses a second clone of
+/// the same repository, so a copy added under another name must not happen.
+fn bucket_with_remote(dir: &Path, url: &str) -> Option<String> {
+    for entry in fs::read_dir(dir).ok()?.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let path = entry.path();
+        if let Some(remote) = git_core::remote::origin_url(&path.to_string_lossy()) {
+            if same_repository(&remote, url) {
+                return Some(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    None
+}
+
+/// The proxy libgit2 should use. `None` leaves it to git's own configuration,
+/// which is the right answer when the page asks for a direct connection.
+fn clone_proxy(proxy: &EffectiveProxy) -> Option<String> {
+    match proxy.mode {
+        EffectiveMode::None => None,
+        // libgit2 wants a full URL, and the Windows system setting is a bare
+        // `host:port`; a page or settings override already has a scheme.
+        EffectiveMode::System | EffectiveMode::Custom => {
+            proxy.url.as_deref().and_then(normalize_proxy_url)
+        }
+    }
+}
+
+/// Clones `url` into `<buckets>\<name>` and returns the folder it landed in.
+fn clone_bucket(
+    app: &AppHandle,
+    dir: &Path,
+    name: &str,
+    url: &str,
+    proxy: Option<String>,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(dir)
+        .map_err(|error| format!("Failed to create {}: {error}", dir.display()))?;
+    let path = dir.join(name);
+    if path.exists() {
+        return Err(format!(
+            "The '{name}' bucket already exists. Remove it first, or pick another name."
+        ));
+    }
+    if let Some(other) = bucket_with_remote(dir, url) {
+        return Err(format!("{url} is already cloned as the '{other}' bucket."));
+    }
+
+    let emitter = app.clone();
+    let target = path.to_string_lossy().to_string();
+    match git_core::remote::clone_with_proxy(url, &target, None, proxy.as_deref(), move |pct| {
+        let _ = emitter.emit("scoop-bucket-progress", pct);
+    }) {
+        Ok(_) => Ok(path),
+        Err(error) => {
+            // Half a clone is worse than none: Scoop would count the folder as
+            // a bucket, and its manifests would be missing.
+            let _ = fs::remove_dir_all(&path);
+            Err(format!("Failed to clone {url}: {error}"))
+        }
+    }
+}
+
+/// `scoop bucket add`, without Scoop. A bucket is a git clone under
+/// `<root>\buckets\<name>` — that folder *is* the registration — so cloning it
+/// here keeps the call inside the app: no PowerShell, no `git.exe`, and the
+/// page's proxy is actually used, which libgit2 will not pick up on its own.
+#[tauri::command(async)]
+pub fn scoop_add_bucket(
+    app: AppHandle,
+    request: ScoopBucketRequest,
+) -> Result<ScoopBucketResult, String> {
+    let applied = current_location()?;
+    let (name, url) = parse_bucket_spec(&request.spec)?;
+    let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
+    let path = clone_bucket(&app, &buckets_dir(&applied), &name, &url, clone_proxy(&proxy))?;
+
+    Ok(ScoopBucketResult {
+        log: vec![
+            format!("Scoop command: scoop bucket add {name} {url} (cloned by the app)"),
+            format!("Proxy: {}", proxy.label()),
+            format!("Bucket folder: {}", path.display()),
+        ],
+        name,
+        path: path.display().to_string(),
+    })
+}
+
+/// `scoop bucket rm`, without Scoop: the clone goes, and the apps installed
+/// from it stay where they are.
+#[tauri::command(async)]
+pub fn scoop_remove_bucket(spec: String) -> Result<ScoopBucketResult, String> {
+    let applied = current_location()?;
+    let name = parse_bucket_name(&spec)?;
+    let dir = buckets_dir(&applied);
+    let path = dir.join(&name);
+    // The name is already limited to letters, digits, dots, dashes and
+    // underscores; this is the second lock on a recursive delete.
+    if !is_inside(&path, &dir) {
+        return Err(format!("'{name}' is not inside {}", dir.display()));
+    }
+    if !path.is_dir() {
+        return Err(format!("The '{name}' bucket is not installed."));
+    }
+    fs::remove_dir_all(&path)
+        .map_err(|error| format!("Failed to delete {}: {error}", path.display()))?;
+
+    let log = vec![
+        format!("Scoop command: scoop bucket rm {name} (deleted by the app)"),
+        format!("Removed: {}", path.display()),
+        "Apps installed from this bucket stay installed.".to_string(),
+    ];
+    Ok(ScoopBucketResult {
+        name,
+        path: path.display().to_string(),
+        log,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Details
+//
+// Every row of the page can be opened: a package shows what its manifest says,
+// a bucket shows where its clone came from and what it holds. Both read from
+// disk, so nothing here runs Scoop or touches the network.
+
+/// One package, as its manifest describes it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopPackageInfoView {
+    pub name: String,
+    /// The bucket the details were read from.
+    pub bucket: Option<String>,
+    pub installed: bool,
+    pub global: bool,
+    /// The manifest's own version: what an install would fetch.
+    pub version: Option<String>,
+    /// What is on disk, which a held app keeps behind `version`.
+    pub installed_version: Option<String>,
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub license: Option<String>,
+    pub license_url: Option<String>,
+    pub notes: Option<String>,
+    pub depends: Vec<String>,
+    pub suggests: Vec<String>,
+    /// The commands the manifest puts on `PATH`, aliases included.
+    pub bins: Vec<String>,
+    pub manifest_path: String,
+    /// The manifest exactly as it is on disk.
+    pub manifest: String,
+}
+
+/// One bucket: the repository its clone came from, and what is in it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketInfoView {
+    pub name: String,
+    pub path: String,
+    /// Manifest names, sorted: the bucket's catalog.
+    pub packages: Vec<String>,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    pub commit: Option<String>,
+    /// Last commit time, in seconds since the Unix epoch.
+    pub committed_at: Option<i64>,
+    pub subject: Option<String>,
+}
+
+/// A manifest read from disk, with the text it was parsed from.
+#[derive(Clone)]
+struct ManifestSource {
+    path: PathBuf,
+    text: String,
+    value: serde_json::Value,
+    bucket: Option<String>,
+}
+
+/// A single manifest name: the character set an app spec allows, without the
+/// separators that would make it a bucket-qualified spec.
+fn is_package_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 100
+        && !name.starts_with('-')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".-_+@".contains(c))
+}
+
+/// A manifest field that may be written as one string or as a list of them.
+fn string_list(manifest: &serde_json::Value, key: &str) -> Vec<String> {
+    match manifest.get(key) {
+        Some(serde_json::Value::String(text)) => vec![text.clone()],
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| item.as_str().map(str::to_string))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `notes` is shown as it would be printed, one entry per line.
+fn notes_field(manifest: &serde_json::Value) -> Option<String> {
+    let lines = string_list(manifest, "notes");
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
+/// `license` is either an identifier or `{ identifier, url }`.
+fn license_fields(manifest: &serde_json::Value) -> (Option<String>, Option<String>) {
+    match manifest.get("license") {
+        Some(serde_json::Value::String(identifier)) => (Some(identifier.clone()), None),
+        Some(value) => (
+            value.get("identifier").and_then(|text| text.as_str()).map(str::to_string),
+            value.get("url").and_then(|text| text.as_str()).map(str::to_string),
+        ),
+        None => (None, None),
+    }
+}
+
+/// The commands a manifest exposes. `bin` is a string, a list of strings, a
+/// list of `[path, alias]` pairs, or a list of `{ path: alias }` objects.
+fn bin_names(manifest: &serde_json::Value) -> Vec<String> {
+    match manifest.get("bin") {
+        Some(serde_json::Value::String(name)) => vec![name.clone()],
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| match item {
+                serde_json::Value::String(name) => Some(name.clone()),
+                serde_json::Value::Array(pair) => pair
+                    .get(1)
+                    .or_else(|| pair.first())
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string),
+                serde_json::Value::Object(alias) => match alias.iter().next() {
+                    // `{ "path\\to.exe": "command" }`: the command is what a
+                    // person types, so it is the alias and not the path.
+                    Some((path, command)) => Some(command.as_str().unwrap_or(path).to_string()),
+                    None => None,
+                },
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `<root>\buckets\<bucket>\bucket\<name>.json`, when that manifest is there.
+fn bucket_manifest(root: &Path, bucket: &str, name: &str) -> Option<PathBuf> {
+    let path = root
+        .join("buckets")
+        .join(bucket)
+        .join("bucket")
+        .join(format!("{name}.json"));
+    path.is_file().then_some(path)
+}
+
+/// The manifest a cloned bucket holds for `name`, and which bucket that was.
+///
+/// The named bucket is tried first, then the buckets on disk in turn: a row
+/// can carry a bucket that is gone, and the manifest is often still there.
+fn find_bucket_manifest(
+    root: &Path,
+    name: &str,
+    bucket: Option<&str>,
+) -> Option<(PathBuf, String)> {
+    if let Some(bucket) = bucket {
+        if let Some(path) = bucket_manifest(root, bucket, name) {
+            return Some((path, bucket.to_string()));
+        }
+    }
+
+    let entries = fs::read_dir(root.join("buckets")).ok()?;
+    for entry in entries.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let candidate = entry.file_name().to_string_lossy().to_string();
+        if let Some(path) = bucket_manifest(root, &candidate, name) {
+            return Some((path, candidate));
+        }
+    }
+    None
+}
+
+/// `apps\<name>\current\scoop-manifest.json`, the manifest Scoop installed from.
+fn installed_manifest(root: &Path, name: &str) -> Option<PathBuf> {
+    let current = root.join("apps").join(name).join("current");
+    [APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE]
+        .iter()
+        .map(|file| current.join(file))
+        .find(|path| path.is_file())
+}
+
+fn manifest_source(path: &Path, bucket: Option<String>) -> Option<ManifestSource> {
+    // Manifests are written by other tools and may carry a BOM, which
+    // `serde_json` refuses.
+    let text = fs::read_to_string(path)
+        .ok()?
+        .trim_start_matches('\u{feff}')
+        .to_string();
+    let value = serde_json::from_str(&text).ok()?;
+    Some(ManifestSource {
+        path: path.to_path_buf(),
+        text,
+        value,
+        bucket,
+    })
+}
+
+/// Everything the manifest of one package says, plus what is installed.
+#[tauri::command(async)]
+pub fn scoop_package_info(
+    name: String,
+    bucket: Option<String>,
+    global: bool,
+) -> Result<ScoopPackageInfoView, String> {
+    let name = name.trim().to_string();
+    if !is_package_name(&name) {
+        return Err(format!("'{name}' is not an app name."));
+    }
+
+    let scoop = root_view(PathKind::Scoop);
+    let global_root = root_view(PathKind::Global);
+    let install_root = if global {
+        &global_root.target
+    } else {
+        &scoop.target
+    };
+
+    let installed = installed_manifest(install_root, &name)
+        .and_then(|path| manifest_source(&path, None));
+    // The bucket's manifest wins: it is the version an install would fetch,
+    // while the installed one only says what is on disk today.
+    let source = find_bucket_manifest(&scoop.target, &name, bucket.as_deref())
+        .and_then(|(path, bucket)| manifest_source(&path, Some(bucket)))
+        .or_else(|| installed.clone())
+        .ok_or_else(|| {
+            format!("No cloned bucket holds a manifest for '{name}'. Update the buckets first.")
+        })?;
+
+    let installed_bucket = || {
+        let current = install_root.join("apps").join(&name).join("current");
+        let install = read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE);
+        text_field(&install, "bucket")
+    };
+    let (license, license_url) = license_fields(&source.value);
+
+    Ok(ScoopPackageInfoView {
+        bucket: source
+            .bucket
+            .clone()
+            .or_else(installed_bucket)
+            .or(bucket)
+            .filter(|bucket| !bucket.is_empty()),
+        installed: installed.is_some(),
+        installed_version: installed
+            .as_ref()
+            .and_then(|installed| text_of(&installed.value, "version")),
+        version: text_of(&source.value, "version"),
+        description: text_of(&source.value, "description"),
+        homepage: text_of(&source.value, "homepage"),
+        notes: notes_field(&source.value),
+        depends: string_list(&source.value, "depends"),
+        suggests: string_list(&source.value, "suggests"),
+        bins: bin_names(&source.value),
+        manifest_path: source.path.display().to_string(),
+        manifest: source.text,
+        name,
+        global,
+        license,
+        license_url,
+    })
+}
+
+/// One bucket: its clone's git metadata and the manifests it holds.
+#[tauri::command(async)]
+pub fn scoop_bucket_info(name: String) -> Result<ScoopBucketInfoView, String> {
+    let applied = current_location()?;
+    let name = parse_bucket_name(&name)?;
+    let dir = buckets_dir(&applied);
+    let path = dir.join(&name);
+    if !is_inside(&path, &dir) || !path.is_dir() {
+        return Err(format!("The '{name}' bucket is not installed."));
+    }
+
+    let mut packages: Vec<String> = fs::read_dir(path.join("bucket"))
+        .map(|files| {
+            files
+                .flatten()
+                .filter(|file| is_json_file(&file.path()))
+                .filter_map(|file| {
+                    file.path()
+                        .file_stem()
+                        .map(|stem| stem.to_string_lossy().to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    packages.sort_by(|left, right| left.to_lowercase().cmp(&right.to_lowercase()));
+
+    // A bucket is a clone, so where it came from and how old it is are git's
+    // to answer; a folder that is not a repository simply has none of it.
+    let summary = git_core::remote::summarize(&path.to_string_lossy()).unwrap_or_default();
+
+    Ok(ScoopBucketInfoView {
+        name,
+        path: path.display().to_string(),
+        packages,
+        remote: summary.remote,
+        branch: summary.branch,
+        commit: summary.commit,
+        committed_at: summary.committed_at,
+        subject: summary.subject,
+    })
+}
+
 #[tauri::command(async)]
 pub fn scoop_apply_location(request: ScoopLocationRequest) -> Result<ScoopStatusView, String> {
     apply_location(&request.scoop, &request.scoop_global)?;
@@ -1601,7 +2209,7 @@ pub fn scoop_prepare_install(request: ScoopInstallRequest) -> Result<ScoopPlanVi
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
 
     let script = install_script_text(&proxy, request.run_as_admin);
-    let env = environment(&applied, &proxy);
+    let env = environment(&applied, &proxy)?;
     let mut log = std::mem::take(&mut applied.log);
     log.push(format!("Installer: {}", install_script_path().display()));
     log.push(format!(
@@ -1629,39 +2237,17 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
     let applied = current_location()?;
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
 
-    let mut env = environment(&applied, &proxy);
+    let mut env = environment(&applied, &proxy)?;
     let folder_line = format!("Folder: {}", applied.scoop.target.display());
     let global_flag = if request.global { "-g" } else { "" };
-    let update_globals = request.kind == "apps-update" && has_global_apps(&applied);
+    // Both of these take one `*` per root, so a global install needs a second
+    // call of its own.
+    let sweeps_apps = request.kind == "apps-update" || request.kind == "cleanup";
+    let update_globals = sweeps_apps && has_global_apps(&applied);
     let mut log = if request.kind == "config" {
         vec![
             "Scoop command: scoop config (proxy only)".to_string(),
             folder_line,
-        ]
-    } else if request.kind == "bucket" {
-        let (name, url) = parse_bucket_spec(&request.spec)?;
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_NAME".to_string(),
-            value: name.clone(),
-        });
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_URL".to_string(),
-            value: url.clone(),
-        });
-        vec![
-            format!("Scoop command: scoop bucket add {name} {url}"),
-            folder_line,
-        ]
-    } else if request.kind == "bucket-rm" {
-        let name = parse_bucket_name(&request.spec)?;
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_NAME".to_string(),
-            value: name.clone(),
-        });
-        vec![
-            format!("Scoop command: scoop bucket rm {name}"),
-            folder_line,
-            "Apps installed from this bucket stay installed.".to_string(),
         ]
     } else if request.kind == "update" {
         vec![
@@ -1677,10 +2263,16 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             lines.push("Global apps follow with scoop update -g *.".to_string());
         }
         lines
-    } else if request.kind == "app-update"
-        || request.kind == "hold"
-        || request.kind == "unhold"
-    {
+    } else if request.kind == "cleanup" {
+        let mut lines = vec![
+            "Scoop command: scoop cleanup * (versions a newer install replaced)".to_string(),
+            folder_line,
+        ];
+        if update_globals {
+            lines.push("Global apps follow with scoop cleanup -g *.".to_string());
+        }
+        lines
+    } else if request.kind == "app-update" {
         let args = parse_spec(&request.spec)?;
         env.push(ScoopEnvVar {
             name: "SCOOP_APP_ARGS".to_string(),
@@ -1690,13 +2282,8 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             name: "SCOOP_GLOBAL_FLAG".to_string(),
             value: global_flag.to_string(),
         });
-        let subcommand = if request.kind == "app-update" {
-            "update"
-        } else {
-            request.kind.as_str()
-        };
         vec![
-            format!("Scoop command: scoop {subcommand} {global_flag} {args}"),
+            format!("Scoop command: scoop update {global_flag} {args}"),
             folder_line,
         ]
     } else if request.kind == "uninstall" {
@@ -1763,16 +2350,775 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Diagnostics
+//
+// The checkup is read-only and answers with ids, never with sentences: the page
+// translates each row and the ones it has no wording for stay untranslated
+// rather than leaking English into the interface. A fix is an action the page
+// already has — an install plan, a bucket clone — or the settings page that
+// carries the switch.
+
+/// One row of the checkup.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCheckupItemView {
+    /// `git`, `mainBucket`, `developerMode`, `longPaths`, `ntfs` or `helper`.
+    id: String,
+    ok: bool,
+    /// The value the row measured: the git version, the filesystem, the helper.
+    value: Option<String>,
+    fix: Option<ScoopCheckupFixView>,
+}
+
+/// What the page offers for a failed row.
+#[derive(Serialize, Clone)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ScoopCheckupFixView {
+    /// `scoop install <package>`, through the page's own install plan.
+    InstallPackage { package: String },
+    /// The bucket's clone, with the repository it comes from.
+    InstallBucket { name: String, url: String },
+    /// One of the Windows settings pages below.
+    OpenSettings { page: String },
+}
+
+/// The settings pages the checkup links to. The value ends up in an
+/// `ms-settings:` address handed to the shell, so it is a fixed list and not
+/// whatever the page asks for.
+const SETTINGS_PAGES: &[&str] = &["developers", "disksandvolumes"];
+
+/// The helper packages a Scoop install is expected to carry: the unpacking and
+/// installer helpers manifests ask for by name.
+const HELPER_PACKAGES: &[&str] = &["7zip", "dark", "innounp", "lessmsi"];
+
+#[tauri::command(async)]
+pub fn scoop_checkup() -> Result<Vec<ScoopCheckupItemView>, String> {
+    let scoop = root_view(PathKind::Scoop);
+    if !is_scoop_dir(&scoop.target) {
+        return Err("Scoop is not installed yet.".to_string());
+    }
+
+    let mut items = vec![git_check(), main_bucket_check(&scoop.target)];
+    #[cfg(windows)]
+    {
+        items.push(developer_mode_check());
+        items.push(long_paths_check());
+        items.push(filesystem_check(&scoop.target));
+    }
+    items.extend(helper_checks(&scoop.target));
+    Ok(items)
+}
+
+/// Opens one of the Windows settings pages a failed check points at.
+#[tauri::command(async)]
+pub fn scoop_open_settings(page: String) -> Result<(), String> {
+    if !SETTINGS_PAGES.contains(&page.as_str()) {
+        return Err(format!("'{page}' is not a settings page the checkup opens."));
+    }
+    // `explorer.exe` exits non-zero even when it did open the page, so the spawn
+    // is what is checked here and not the exit code.
+    Command::new("explorer.exe")
+        .arg(format!("ms-settings:{page}"))
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Failed to open the Windows settings: {error}"))
+}
+
+/// `git --version`: Scoop shells out to git whenever a bucket is updated.
+fn git_check() -> ScoopCheckupItemView {
+    let mut command = Command::new("git");
+    command.arg("--version");
+    let output = run_with_timeout(command, 10, "git --version");
+    let ok = output
+        .as_ref()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    let value = output
+        .ok()
+        .filter(|_| ok)
+        .and_then(|output| String::from_utf8_lossy(&output.stdout).lines().next().map(str::to_string))
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty());
+
+    ScoopCheckupItemView {
+        id: "git".to_string(),
+        ok,
+        value,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::InstallPackage {
+                package: "git".to_string(),
+            })
+        },
+    }
+}
+
+/// The `main` bucket is where most manifests come from.
+fn main_bucket_check(root: &Path) -> ScoopCheckupItemView {
+    let ok = root.join("buckets").join("main").is_dir();
+    ScoopCheckupItemView {
+        id: "mainBucket".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::InstallBucket {
+                name: "main".to_string(),
+                url: "https://github.com/ScoopInstaller/Main".to_string(),
+            })
+        },
+    }
+}
+
+/// The helper packages Scoop unpacks archives and installers with.
+fn helper_checks(root: &Path) -> Vec<ScoopCheckupItemView> {
+    HELPER_PACKAGES
+        .iter()
+        .map(|helper| {
+            let ok = root.join("apps").join(helper).join("current").exists();
+            ScoopCheckupItemView {
+                id: "helper".to_string(),
+                ok,
+                value: Some((*helper).to_string()),
+                fix: if ok {
+                    None
+                } else {
+                    Some(ScoopCheckupFixView::InstallPackage {
+                        package: (*helper).to_string(),
+                    })
+                },
+            }
+        })
+        .collect()
+}
+
+/// A `0`/`1` switch under `HKEY_LOCAL_MACHINE`.
+#[cfg(windows)]
+fn registry_switch(path: &str, name: &str) -> bool {
+    use windows_registry::LOCAL_MACHINE;
+    LOCAL_MACHINE
+        .open(path)
+        .and_then(|key| key.get_u32(name))
+        .map(|value| value == 1)
+        .unwrap_or(false)
+}
+
+/// Links — which Scoop uses for shims and app folders — need developer mode on
+/// an account that cannot create them otherwise.
+#[cfg(windows)]
+fn developer_mode_check() -> ScoopCheckupItemView {
+    let ok = registry_switch(
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock",
+        "AllowDevelopmentWithoutDevLicense",
+    );
+    ScoopCheckupItemView {
+        id: "developerMode".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "developers".to_string(),
+            })
+        },
+    }
+}
+
+#[cfg(windows)]
+fn long_paths_check() -> ScoopCheckupItemView {
+    let ok = registry_switch(
+        r"SYSTEM\CurrentControlSet\Control\FileSystem",
+        "LongPathsEnabled",
+    );
+    ScoopCheckupItemView {
+        id: "longPaths".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "developers".to_string(),
+            })
+        },
+    }
+}
+
+/// Scoop keeps two versions of an app side by side with links, which needs an
+/// NTFS volume.
+#[cfg(windows)]
+fn filesystem_check(root: &Path) -> ScoopCheckupItemView {
+    let name = filesystem_name(root);
+    let ok = name
+        .as_deref()
+        .map(|name| name.eq_ignore_ascii_case("NTFS"))
+        .unwrap_or(false);
+    ScoopCheckupItemView {
+        id: "ntfs".to_string(),
+        ok,
+        value: name,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "disksandvolumes".to_string(),
+            })
+        },
+    }
+}
+
+/// The filesystem of the volume a folder is on, e.g. `NTFS`.
+#[cfg(windows)]
+fn filesystem_name(path: &Path) -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{GetVolumeInformationW, GetVolumePathNameW};
+
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let mut volume = vec![0u16; 261];
+    if unsafe { GetVolumePathNameW(wide.as_ptr(), volume.as_mut_ptr(), volume.len() as u32) } == 0 {
+        return None;
+    }
+
+    // A filesystem name is at most 32 characters, the terminator included.
+    let mut name = vec![0u16; 32];
+    let read = unsafe {
+        GetVolumeInformationW(
+            volume.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            name.as_mut_ptr(),
+            name.len() as u32,
+        )
+    };
+    if read == 0 {
+        return None;
+    }
+
+    let end = name.iter().position(|&c| c == 0).unwrap_or(name.len());
+    Some(String::from_utf16_lossy(&name[..end]))
+}
+
+// --- Download cache ---------------------------------------------------------
+
+/// One file in `<scoop>\cache`, named `name#version#hash.ext` by Scoop.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheEntryView {
+    file_name: String,
+    name: String,
+    version: String,
+    length: u64,
+    /// The app is installed from more than one version at once, so its
+    /// downloads are what switching between them needs. Never deleted here.
+    versioned: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheView {
+    path: String,
+    total: u64,
+    entries: Vec<ScoopCacheEntryView>,
+}
+
+#[derive(Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheClearView {
+    deleted: usize,
+    /// Left alone because the app is installed from several versions.
+    skipped: usize,
+    freed: u64,
+    failed: Vec<String>,
+}
+
+#[tauri::command(async)]
+pub fn scoop_cache_entries() -> Result<ScoopCacheView, String> {
+    let root = root_view(PathKind::Scoop).target;
+    let entries = cache_entries(&root);
+    Ok(ScoopCacheView {
+        path: cache_dir(&root).display().to_string(),
+        total: entries.iter().map(|entry| entry.length).sum(),
+        entries,
+    })
+}
+
+/// Deletes cache files: the named ones, or with `outdated_only` just the
+/// downloads the installed versions have moved past, or the whole cache.
+#[tauri::command(async)]
+pub fn scoop_cache_clear(
+    files: Option<Vec<String>>,
+    outdated_only: bool,
+) -> Result<ScoopCacheClearView, String> {
+    let root = root_view(PathKind::Scoop).target;
+    let dir = cache_dir(&root);
+    if !dir.is_dir() {
+        return Ok(ScoopCacheClearView::default());
+    }
+
+    let entries = cache_entries(&root);
+    let installed = installed_versions(&root);
+    let chosen = match files {
+        Some(files) if !files.is_empty() => entries
+            .into_iter()
+            .filter(|entry| files.iter().any(|file| file == &entry.file_name))
+            .collect(),
+        _ if outdated_only => entries
+            .into_iter()
+            .filter(|entry| {
+                installed
+                    .get(&entry.name.to_ascii_lowercase())
+                    .map(|version| version != &entry.version)
+                    .unwrap_or(true)
+            })
+            .collect(),
+        _ => entries,
+    };
+
+    let mut result = ScoopCacheClearView::default();
+    for entry in chosen {
+        if entry.versioned {
+            result.skipped += 1;
+            continue;
+        }
+        match fs::remove_file(dir.join(&entry.file_name)) {
+            Ok(()) => {
+                result.deleted += 1;
+                result.freed += entry.length;
+            }
+            Err(error) => result.failed.push(format!("{}: {error}", entry.file_name)),
+        }
+    }
+    Ok(result)
+}
+
+/// `<root>\cache`: every download Scoop kept.
+fn cache_dir(root: &Path) -> PathBuf {
+    root.join("cache")
+}
+
+/// The apps installed from more than one version at once: `apps\<name>` holds
+/// version folders next to the `current` link.
+fn versioned_apps(root: &Path) -> BTreeSet<String> {
+    let Ok(entries) = fs::read_dir(root.join("apps")) else {
+        return BTreeSet::new();
+    };
+    entries
+        .flatten()
+        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .filter(|entry| {
+            fs::read_dir(entry.path())
+                .map(|versions| {
+                    versions
+                        .flatten()
+                        .filter(|version| {
+                            version.file_type().map(|kind| kind.is_dir()).unwrap_or(false)
+                                && !version
+                                    .file_name()
+                                    .to_string_lossy()
+                                    .eq_ignore_ascii_case("current")
+                        })
+                        .count()
+                        > 1
+                })
+                .unwrap_or(false)
+        })
+        .map(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase())
+        .collect()
+}
+
+/// `name#version#hash.ext` — the name and version Scoop wrote into the file name.
+fn parse_cache_name(file_name: &str) -> Option<(String, String)> {
+    let mut parts = file_name.split('#');
+    let name = parts.next().unwrap_or_default();
+    let version = parts.next()?;
+    if name.is_empty() || version.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), version.to_string()))
+}
+
+fn cache_entries(root: &Path) -> Vec<ScoopCacheEntryView> {
+    let versioned = versioned_apps(root);
+    let Ok(entries) = fs::read_dir(cache_dir(root)) else {
+        return Vec::new();
+    };
+
+    let mut files: Vec<ScoopCacheEntryView> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let metadata = fs::metadata(&path).ok()?;
+            if !metadata.is_file() {
+                return None;
+            }
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let (name, version) = parse_cache_name(&file_name)?;
+            Some(ScoopCacheEntryView {
+                versioned: versioned.contains(&name.to_ascii_lowercase()),
+                file_name,
+                name,
+                version,
+                length: metadata.len(),
+            })
+        })
+        .collect();
+
+    files.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then(left.version.cmp(&right.version))
+    });
+    files
+}
+
+/// What is installed on disk, by lowercased app name.
+fn installed_versions(root: &Path) -> BTreeMap<String, String> {
+    read_apps(root, false)
+        .into_iter()
+        .filter_map(|app| {
+            app.version
+                .map(|version| (app.name.to_ascii_lowercase(), version))
+        })
+        .collect()
+}
+
+// --- Shims ------------------------------------------------------------------
+
+/// One shim in `shims`: the launcher Scoop puts on `PATH`.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopShimView {
+    name: String,
+    /// What the shim runs: the `.shim` file's `path`, or the script itself.
+    target: String,
+    /// The app under `apps\<name>`, when the target is inside one.
+    app: Option<String>,
+    args: Option<String>,
+    global: bool,
+    /// A `<name>.exe.shimmed` sits next to it: the shim is out of the way.
+    hidden: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopShimRequest {
+    name: String,
+    target: String,
+    args: Option<String>,
+    global: bool,
+}
+
+#[tauri::command(async)]
+pub fn scoop_shims() -> Result<Vec<ScoopShimView>, String> {
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Hides a shim or brings it back: the launcher is renamed, nothing is deleted.
+#[tauri::command(async)]
+pub fn scoop_shim_toggle(name: String) -> Result<Vec<ScoopShimView>, String> {
+    let name = name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+
+    let mut changed = false;
+    for (dir, _) in shim_dirs() {
+        let exe = dir.join(format!("{name}.exe"));
+        let hidden = dir.join(format!("{name}.exe.shimmed"));
+        if exe.is_file() {
+            fs::rename(&exe, &hidden)
+                .map_err(|error| format!("Failed to hide {}: {error}", exe.display()))?;
+            changed = true;
+        } else if hidden.is_file() {
+            fs::rename(&hidden, &exe)
+                .map_err(|error| format!("Failed to show {}: {error}", hidden.display()))?;
+            changed = true;
+        }
+    }
+
+    if !changed {
+        return Err(format!("'{name}' has no launcher in the shims folder."));
+    }
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Deletes every file that belongs to a shim: the `.shim`, the launcher and the
+/// renamed copies next to them.
+#[tauri::command(async)]
+pub fn scoop_shim_remove(name: String) -> Result<Vec<ScoopShimView>, String> {
+    let name = name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+
+    // `<name>.` and not `<name>`: `dark` must not take `darktable` with it.
+    let prefix = format!("{}.", name.to_ascii_lowercase());
+    let mut removed = 0;
+    for (dir, _) in shim_dirs() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            if !file_name.to_ascii_lowercase().starts_with(&prefix) || !entry.path().is_file() {
+                continue;
+            }
+            fs::remove_file(entry.path())
+                .map_err(|error| format!("Failed to delete {file_name}: {error}"))?;
+            removed += 1;
+        }
+    }
+
+    if removed == 0 {
+        return Err(format!("'{name}' has no files in the shims folder."));
+    }
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Writes a shim for a target of the user's choosing.
+#[tauri::command(async)]
+pub fn scoop_shim_add(request: ScoopShimRequest) -> Result<Vec<ScoopShimView>, String> {
+    let name = request.name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+    let target = request.target.trim();
+    if target.is_empty() {
+        return Err("A shim needs the path of what it runs.".to_string());
+    }
+
+    let scoop = root_view(PathKind::Scoop).target;
+    let dir = if request.global {
+        root_view(PathKind::Global).target.join("shims")
+    } else {
+        scoop.join("shims")
+    };
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("Failed to create {}: {error}", dir.display()))?;
+
+    // A shim is the pair: the `.shim` file saying what to run, and Scoop's own
+    // `shim.exe` launcher that reads it.
+    let template = scoop
+        .join("apps")
+        .join("scoop")
+        .join("current")
+        .join("shim.exe");
+    if !template.is_file() {
+        return Err(format!(
+            "Scoop's shim.exe is not in {}; is the install complete?",
+            template.display()
+        ));
+    }
+
+    let mut text = format!("path = \"{target}\"\n");
+    if let Some(args) = request
+        .args
+        .as_deref()
+        .map(str::trim)
+        .filter(|args| !args.is_empty())
+    {
+        text.push_str(&format!("args = {args}\n"));
+    }
+
+    let shim_file = dir.join(format!("{name}.shim"));
+    fs::write(&shim_file, text)
+        .map_err(|error| format!("Failed to write {}: {error}", shim_file.display()))?;
+    let exe = dir.join(format!("{name}.exe"));
+    fs::copy(&template, &exe)
+        .map_err(|error| format!("Failed to write {}: {error}", exe.display()))?;
+
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// `<root>\shims`, and the global one, which is a folder of its own.
+fn shim_dirs() -> Vec<(PathBuf, bool)> {
+    let scoop = root_view(PathKind::Scoop).target;
+    let global = root_view(PathKind::Global).target;
+    let mut dirs = vec![(scoop.join("shims"), false)];
+    if !same_path(&scoop, &global) {
+        dirs.push((global.join("shims"), true));
+    }
+    dirs
+}
+
+/// The `path` and `args` a `.shim` file carries.
+fn read_shim_lines(text: &str) -> (Option<String>, Option<String>) {
+    let mut target = None;
+    let mut args = None;
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+        // Scoop writes `path = "…"`, so only the enclosing pair is quoting; an
+        // argument list carries its own quotes and they have to survive.
+        let value = value
+            .strip_prefix('"')
+            .and_then(|rest| rest.strip_suffix('"'))
+            .unwrap_or(value)
+            .to_string();
+        match key.trim().to_ascii_lowercase().as_str() {
+            "path" if !value.is_empty() => target = Some(value),
+            "args" => args = if value.is_empty() { None } else { Some(value) },
+            _ => {}
+        }
+    }
+    (target, args)
+}
+
+/// `…\apps\<name>\…` → `<name>`: which app a shim belongs to.
+fn app_of_shim_target(target: &str) -> Option<String> {
+    let parts: Vec<&str> = target.split(['\\', '/']).collect();
+    let index = parts
+        .iter()
+        .position(|part| part.eq_ignore_ascii_case("apps"))?;
+    parts
+        .get(index + 1)
+        .filter(|name| !name.is_empty())
+        .map(|name| (*name).to_string())
+}
+
+fn read_shims(dirs: &[(PathBuf, bool)]) -> Vec<ScoopShimView> {
+    let mut shims: BTreeMap<String, ScoopShimView> = BTreeMap::new();
+    for (dir, global) in dirs {
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            // The launcher and its hidden twin are not rows of their own: a row
+            // is the `.shim` file, or the bare script of a shim written by hand.
+            if file_name.ends_with(".exe") || file_name.ends_with(".exe.shimmed") {
+                continue;
+            }
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(name) = path.file_stem().map(|stem| stem.to_string_lossy().to_string()) else {
+                continue;
+            };
+            let key = name.to_ascii_lowercase();
+            if shims.contains_key(&key) {
+                continue;
+            }
+
+            let shim_file = dir.join(format!("{name}.shim"));
+            let (target, args) = if shim_file.is_file() {
+                let text = fs::read_to_string(&shim_file).unwrap_or_default();
+                let (target, args) = read_shim_lines(&text);
+                // A `.shim` without a `path` runs nothing; the file itself is
+                // the only honest answer, and it does not depend on which of the
+                // shim's files the folder happened to list first.
+                (
+                    target.unwrap_or_else(|| shim_file.display().to_string()),
+                    args,
+                )
+            } else {
+                (path.display().to_string(), None)
+            };
+
+            shims.insert(
+                key,
+                ScoopShimView {
+                    hidden: dir.join(format!("{name}.exe.shimmed")).is_file(),
+                    app: app_of_shim_target(&target),
+                    target,
+                    args,
+                    global: *global,
+                    name,
+                },
+            );
+        }
+    }
+    shims.into_values().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        check_uninstall_targets, flag_field, install_script_text, is_inside, parse_bucket_name,
-        parse_bucket_spec, parse_spec, parse_version, read_app_json, same_path, strip_verbatim,
-        EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
-        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        app_of_shim_target, bin_names, cache_entries, check_uninstall_targets, clone_proxy,
+        flag_field, install_script_text, is_inside, is_package_name, license_fields, notes_field,
+        parse_bucket_name, parse_bucket_spec, parse_cache_name, parse_spec, parse_version,
+        read_app_json, read_json, read_shim_lines, read_shims, run_script_text, same_path,
+        same_repository, set_app_hold, string_list, strip_verbatim, text_of, EffectiveMode,
+        EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE,
+        LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn a_pin_is_written_into_the_install_record() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-write-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let current = root.join("apps/demo/current");
+        fs::create_dir_all(&current).unwrap();
+        let info = current.join(APP_INSTALL_FILE);
+        fs::write(&info, r#"{"bucket":"main","architecture":"64bit"}"#).unwrap();
+
+        set_app_hold(&root, "demo", true).unwrap();
+        let value = read_json(&info).unwrap();
+        assert_eq!(value.get("hold"), Some(&serde_json::json!(true)));
+        // Everything Scoop wrote is still there: this rewrites one key, not the
+        // whole record.
+        assert_eq!(text_of(&value, "bucket").as_deref(), Some("main"));
+        assert_eq!(text_of(&value, "architecture").as_deref(), Some("64bit"));
+
+        set_app_hold(&root, "demo", false).unwrap();
+        let value = read_json(&info).unwrap();
+        assert!(value.get("hold").is_none());
+        assert_eq!(text_of(&value, "bucket").as_deref(), Some("main"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_legacy_record_is_pinned_too() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let current = root.join("apps/demo/current");
+        fs::create_dir_all(&current).unwrap();
+        let info = current.join(LEGACY_INSTALL_FILE);
+        // The BOM an older Scoop wrote, which is why the read strips it.
+        fs::write(&info, "\u{feff}{\"bucket\":\"main\"}").unwrap();
+
+        set_app_hold(&root, "demo", true).unwrap();
+        assert_eq!(
+            read_json(&info).and_then(|value| value.get("hold").cloned()),
+            Some(serde_json::json!(true))
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn only_an_installed_app_can_be_pinned() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-missing-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+
+        // No `apps` folder at all.
+        assert!(set_app_hold(&root, "demo", true).is_err());
+        // A name that could walk out of `apps` never reaches the file system.
+        assert!(set_app_hold(&root, "../demo", true).is_err());
+
+        // The folder is there but carries no record.
+        fs::create_dir_all(root.join("apps/demo/current")).unwrap();
+        assert!(set_app_hold(&root, "demo", true).is_err());
+
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn app_metadata_is_read_under_either_name() {
@@ -1854,6 +3200,49 @@ mod tests {
     }
 
     #[test]
+    fn scoop_runs_through_the_pinned_wrapper() {
+        let proxy = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: None,
+            source: "settings",
+        };
+        for text in [
+            install_script_text(&proxy, false),
+            run_script_text("config", &proxy, false),
+            run_script_text("install", &proxy, false),
+            run_script_text("update", &proxy, false),
+            run_script_text("apps-update", &proxy, true),
+            run_script_text("app-update", &proxy, false),
+            run_script_text("uninstall", &proxy, false),
+            run_script_text("search", &proxy, false),
+        ] {
+            // The `.cmd` shim picks its host with `where /q pwsh.exe`, so it is
+            // never the way in: the wrapper pins Windows PowerShell and returns
+            // the real exit code.
+            assert!(!text.contains("scoop.cmd"));
+            assert!(text.contains("-File \"%SCOOP_WRAPPER%\""));
+            // It is run by `cmd.exe`, so it must survive a non-ASCII code page.
+            assert!(text.is_ascii(), "not ASCII: {text}");
+        }
+    }
+
+    #[test]
+    fn the_proxy_redirect_stays_at_the_end_of_its_line() {
+        let system = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: None,
+            source: "settings",
+        };
+        let script = run_script_text("config", &system, false);
+        let line = script
+            .lines()
+            .find(|line| line.contains("config rm proxy"))
+            .expect("the removal line is missing");
+        // Anything after the redirect would become its target.
+        assert!(line.ends_with(">nul 2>&1"), "{line}");
+    }
+
+    #[test]
     fn specs_accept_the_documented_forms() {
         assert_eq!(parse_spec("7zip").unwrap(), "7zip");
         assert_eq!(parse_spec("scoop install 7zip").unwrap(), "7zip");
@@ -1863,7 +3252,7 @@ mod tests {
         );
         assert_eq!(parse_spec("scoop search 7z").unwrap(), "7z");
         assert_eq!(parse_spec("scoop update 7zip").unwrap(), "7zip");
-        assert_eq!(parse_spec("scoop hold 7zip").unwrap(), "7zip");
+        assert_eq!(parse_spec("scoop uninstall 7zip").unwrap(), "7zip");
     }
 
     #[test]
@@ -1985,5 +3374,191 @@ mod tests {
         assert!(is_inside(Path::new(r"C:\a\b"), Path::new(r"C:\a")));
         assert!(!is_inside(Path::new(r"C:\a"), Path::new(r"C:\a")));
         assert!(!is_inside(Path::new(r"C:\ab"), Path::new(r"C:\a")));
+    }
+
+    #[test]
+    fn repository_addresses_compare_the_way_a_person_would() {
+        // The same repository, written the three ways a bucket URL arrives.
+        assert!(same_repository(
+            "https://github.com/ScoopInstaller/Extras",
+            "https://github.com/ScoopInstaller/Extras.git"
+        ));
+        assert!(same_repository(
+            "https://GitHub.com/ScoopInstaller/Extras/",
+            "https://github.com/scoopinstaller/extras"
+        ));
+        assert!(!same_repository(
+            "https://github.com/ScoopInstaller/Extras",
+            "https://github.com/ScoopInstaller/Main"
+        ));
+    }
+
+    #[test]
+    fn a_clone_proxy_is_always_a_full_url() {
+        let custom = EffectiveProxy {
+            mode: EffectiveMode::Custom,
+            url: Some("socks5://127.0.0.1:7891".to_string()),
+            source: "page",
+        };
+        assert_eq!(clone_proxy(&custom).as_deref(), Some("socks5://127.0.0.1:7891"));
+
+        // The Windows setting is a bare `host:port`; libgit2 wants a scheme.
+        let system = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: Some("127.0.0.1:7890".to_string()),
+            source: "settings",
+        };
+        assert_eq!(clone_proxy(&system).as_deref(), Some("http://127.0.0.1:7890"));
+
+        let none = EffectiveProxy {
+            mode: EffectiveMode::None,
+            url: None,
+            source: "page",
+        };
+        assert_eq!(clone_proxy(&none), None);
+    }
+
+    #[test]
+    fn a_manifest_may_write_a_list_as_one_value() {
+        let manifest = serde_json::json!({
+            "depends": ["7zip", "git"],
+            "suggests": "vcredist",
+            "notes": ["First line.", "Second line."],
+        });
+        assert_eq!(string_list(&manifest, "depends"), vec!["7zip", "git"]);
+        assert_eq!(string_list(&manifest, "suggests"), vec!["vcredist"]);
+        assert_eq!(
+            notes_field(&manifest).as_deref(),
+            Some("First line.\nSecond line.")
+        );
+        assert_eq!(notes_field(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn a_license_is_read_in_either_shape() {
+        let bare = serde_json::json!({ "license": "MIT" });
+        assert_eq!(license_fields(&bare), (Some("MIT".to_string()), None));
+
+        let full = serde_json::json!({
+            "license": { "identifier": "Freeware", "url": "https://example.invalid/licence" },
+        });
+        assert_eq!(
+            license_fields(&full),
+            (
+                Some("Freeware".to_string()),
+                Some("https://example.invalid/licence".to_string())
+            )
+        );
+
+        assert_eq!(license_fields(&serde_json::json!({})), (None, None));
+    }
+
+    #[test]
+    fn bin_entries_are_read_in_every_shape() {
+        // A bare path, a `[path, alias]` pair, and a `{ path: alias }` object.
+        let manifest = serde_json::json!({
+            "bin": ["foo.exe", ["bar.exe", "baz"], { "qux.exe": "quux" }],
+        });
+        assert_eq!(bin_names(&manifest), vec!["foo.exe", "baz", "quux"]);
+        assert!(bin_names(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn only_a_plain_name_reaches_the_manifest_reader() {
+        assert!(is_package_name("7zip"));
+        assert!(is_package_name("notepadplusplus"));
+        assert!(is_package_name("python312"));
+        assert!(!is_package_name(""));
+        assert!(!is_package_name("extras/7zip"));
+        assert!(!is_package_name("-rf"));
+        assert!(!is_package_name("7zip & del x"));
+    }
+
+    #[test]
+    fn a_cache_file_says_which_app_and_version_it_is() {
+        assert_eq!(
+            parse_cache_name("7zip#24.08#3f2c1ab.7z"),
+            Some(("7zip".to_string(), "24.08".to_string()))
+        );
+        // The older three-part names are still names Scoop wrote.
+        assert_eq!(
+            parse_cache_name("git#2.45.1"),
+            Some(("git".to_string(), "2.45.1".to_string()))
+        );
+        // Anything else is not a download this page can date.
+        assert_eq!(parse_cache_name("readme.txt"), None);
+        assert_eq!(parse_cache_name("#1.0.0#hash.zip"), None);
+    }
+
+    #[test]
+    fn the_cache_is_read_with_the_apps_it_belongs_to() {
+        let root = std::env::temp_dir().join(format!("wingharness-cache-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let cache = root.join("cache");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("demo#1.0.0#abc.zip"), "old").unwrap();
+        fs::write(cache.join("demo#2.0.0#def.zip"), "new").unwrap();
+        fs::write(cache.join("other#1.0.0#ghi.zip"), "other").unwrap();
+        fs::write(cache.join("notes.txt"), "not a download").unwrap();
+
+        // `demo` holds two versions at once, so its downloads are kept; `other`
+        // holds one, so its download is fair game.
+        fs::create_dir_all(root.join("apps/demo/1.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/demo/2.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/other/1.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/other/current")).unwrap();
+
+        let entries = cache_entries(&root);
+        assert_eq!(entries.len(), 3);
+        let versioned: Vec<bool> = entries.iter().map(|entry| entry.versioned).collect();
+        assert_eq!(versioned, vec![true, true, false]);
+        assert_eq!(entries.iter().map(|entry| entry.length).sum::<u64>(), 11);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_shim_file_is_read_as_scoop_writes_it() {
+        let (target, args) = read_shim_lines(
+            "path = \"C:\\scoop\\apps\\7zip\\current\\7z.exe\"\r\nargs = \r\n",
+        );
+        let target = target.unwrap();
+        assert_eq!(target, r"C:\scoop\apps\7zip\current\7z.exe");
+        assert_eq!(args, None);
+        assert_eq!(app_of_shim_target(&target).as_deref(), Some("7zip"));
+
+        let (_, args) = read_shim_lines("path = \"x.exe\"\nargs = --quiet \"a b\"\n");
+        assert_eq!(args.as_deref(), Some("--quiet \"a b\""));
+
+        // A shim written by hand carries anything that is not `path`/`args`.
+        assert_eq!(read_shim_lines("portable = true"), (None, None));
+        assert_eq!(app_of_shim_target(r"D:\tools\custom.exe"), None);
+    }
+
+    #[test]
+    fn a_shim_is_listed_once_per_name() {
+        let root = std::env::temp_dir().join(format!("wingharness-shim-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let shims = root.join("shims");
+        fs::create_dir_all(&shims).unwrap();
+        // The four files one Scoop shim leaves behind, plus a hidden one and a
+        // bare script someone put there by hand.
+        for name in ["dark.exe", "dark.shim", "dark.ps1", "dark.cmd", "scoopx.exe.shimmed"] {
+            fs::write(shims.join(name), "").unwrap();
+        }
+        fs::write(shims.join("scoopx.shim"), "path = \"C:\\bin\\scoopx.exe\"\n").unwrap();
+        fs::write(shims.join("handwritten.cmd"), "").unwrap();
+
+        let listed = read_shims(&[(shims.clone(), false)]);
+        let names: Vec<&str> = listed.iter().map(|shim| shim.name.as_str()).collect();
+        assert_eq!(names, vec!["dark", "handwritten", "scoopx"]);
+
+        let dark = &listed[0];
+        assert_eq!(dark.target, shims.join("dark.shim").display().to_string());
+        assert_eq!(dark.app, None);
+        assert!(!dark.hidden);
+        assert!(listed[2].hidden);
+
+        fs::remove_dir_all(&root).unwrap();
     }
 }

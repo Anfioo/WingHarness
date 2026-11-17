@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-open-settings"
+description = "Enables the scoop_open_settings command without any pre-configured scope."
+commands.allow = ["scoop_open_settings"]
+
+[[permission]]
+identifier = "deny-scoop-open-settings"
+description = "Denies the scoop_open_settings command without any pre-configured scope."
+commands.deny = ["scoop_open_settings"]
