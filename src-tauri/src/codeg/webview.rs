@@ -27,7 +27,9 @@
 //! capability covers (see `build.rs`).
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use tauri::webview::{Webview, WebviewBuilder};
@@ -61,6 +63,12 @@ pub struct Theme {
     /// window it sits in.
     pub mode: String,
     pub custom: String,
+    /// The id of the preset the app is wearing, or empty for its built-in
+    /// theme. Not used for painting: the palette is already in `custom`. Codeg
+    /// records it as the preset in use, which is what lets its settings page
+    /// mark that card as applied.
+    #[serde(default)]
+    pub preset: String,
 }
 
 /// Who asked for the page: the document (page load) it belongs to, and the
@@ -90,6 +98,33 @@ fn owners() -> &'static Mutex<HashMap<String, Owner>> {
 fn ops_lock() -> &'static Mutex<()> {
     static OPS: OnceLock<Mutex<()>> = OnceLock::new();
     OPS.get_or_init(|| Mutex::new(()))
+}
+
+/// The stamp the page compares before it accepts an injected appearance.
+///
+/// `initialization_script` is a snapshot taken when the page was created, and
+/// WebView2 re-runs it on **every** document load. Codeg's own settings page is
+/// such a load (`window.open` becomes an in-place navigation here), so without
+/// a stamp a settings visit would put back the palette from the moment the page
+/// was opened and undo every appearance change made since.
+static THEME_REV: AtomicU64 = AtomicU64::new(0);
+
+/// A stamp strictly greater than every one handed out so far, and than any a
+/// previous run of the app left in the page — its `localStorage` outlives the
+/// process, and a counter starting at zero again would be refused as stale.
+fn next_theme_rev() -> u64 {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_millis() as u64)
+        .unwrap_or(0);
+    let mut current = THEME_REV.load(Ordering::Relaxed);
+    loop {
+        let next = current.max(now) + 1;
+        match THEME_REV.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => return next,
+            Err(actual) => current = actual,
+        }
+    }
 }
 
 /// The webview label for one host window.
@@ -192,7 +227,7 @@ pub fn open(
         .map_err(|error| format!("Invalid Codeg route: {error}"))?;
 
     let token = server::token(app)?;
-    let script = initialization_script(&token, theme);
+    let script = initialization_script(&token, theme, next_theme_rev());
 
     let window = app
         .get_window(host)
@@ -306,12 +341,14 @@ pub fn current_url(app: &AppHandle, host: &str) -> Result<String, String> {
 
 /// Repaints the page in the app's current appearance, without a reload.
 ///
-/// Writes the same two `localStorage` values the injection script wrote, then
+/// Writes the same `localStorage` values the injection script wrote, then
 /// dispatches the `storage` events Codeg's appearance provider listens for —
 /// the same one a second Codeg tab would receive — and flips the document's own
-/// mode class so its light and dark buckets are the right way round.
+/// mode class so its light and dark buckets are the right way round. The write
+/// carries a newer stamp, which is what keeps the next document load (Codeg's
+/// own settings page, for one) from putting the creation-time palette back.
 pub fn apply_theme(app: &AppHandle, host: &str, theme: &Theme) -> Result<(), String> {
-    let script = theme_script(theme);
+    let script = theme_script(theme, next_theme_rev());
     webview_of(app, host)?
         .eval(&script)
         .map_err(|error| format!("Failed to restyle the Codeg page: {error}"))
@@ -428,13 +465,17 @@ fn js_string(value: &str) -> String {
 /// `appearance.rs`). The write is wholesale, so the whole set is read back from
 /// the page rather than sending only the keys this app owns — a partial set
 /// would drop the page's fonts, zoom and background from that copy.
-const SYNCED_KEYS_JS: &str = r#"["theme","codeg-theme-color","codeg-zoom-level","codeg-welcome-quick-actions","codeg-chat-animations","codeg-chat-content-width","codeg-ui-font","codeg-ui-font-custom","codeg-ui-font-stack","codeg-editor-font","codeg-editor-font-custom","codeg-editor-font-size","codeg-editor-ligatures","codeg-editor-word-wrap","codeg-terminal-font","codeg-terminal-font-custom","codeg-terminal-font-size","codeg-terminal-ligatures","codeg-workspace-bg-enabled","codeg-workspace-bg-mask","codeg-workspace-bg-blur","codeg-workspace-bg-fill","codeg-workspace-bg-panel-opacity","codeg-custom-theme","codeg-custom-theme-enabled","codeg-custom-css","codeg-custom-css-enabled"]"#;
+const SYNCED_KEYS_JS: &str = r#"["theme","codeg-theme-color","codeg-zoom-level","codeg-welcome-quick-actions","codeg-chat-animations","codeg-chat-content-width","codeg-ui-font","codeg-ui-font-custom","codeg-ui-font-stack","codeg-editor-font","codeg-editor-font-custom","codeg-editor-font-size","codeg-editor-ligatures","codeg-editor-word-wrap","codeg-terminal-font","codeg-terminal-font-custom","codeg-terminal-font-size","codeg-terminal-ligatures","codeg-workspace-bg-enabled","codeg-workspace-bg-mask","codeg-workspace-bg-blur","codeg-workspace-bg-fill","codeg-workspace-bg-panel-opacity","codeg-custom-theme","codeg-custom-theme-enabled","codeg-theme-preset","codeg-custom-css","codeg-custom-css-enabled"]"#;
 
 /// Copies the page's appearance into Codeg's settings store.
 ///
-/// The same call Codeg's own setters make (`mirrorAppearanceNow` in
-/// `src/lib/appearance-sync.ts`), over the same route, with the page's own token:
-/// it has to come from inside the page, because that is where the values are.
+/// The same calls Codeg's own setters make (`mirrorAppearanceNow` in
+/// `src/lib/appearance-sync.ts`, `updateAppearanceMode` in `src/lib/tauri.ts`),
+/// over the same routes, with the page's own token: they have to come from
+/// inside the page, because that is where the values are. The mode is written
+/// separately because Codeg keeps it outside `localStorage` — its window chrome
+/// and its launch read it from the database — and its own writer is an `invoke`
+/// this embed cannot reach.
 const MIRROR_JS: &str = r#"function () {
   try {
     var keys = __KEYS__;
@@ -444,14 +485,20 @@ const MIRROR_JS: &str = r#"function () {
       if (value !== null) values[keys[index]] = value;
     }
     var token = window.localStorage.getItem("codeg_token") || "";
+    var headers = {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      "X-Requested-With": "XMLHttpRequest"
+    };
     fetch("/api/config_sync_mirror_appearance", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token,
-        "X-Requested-With": "XMLHttpRequest"
-      },
+      headers: headers,
       body: JSON.stringify({ values: values })
+    }).catch(function () {});
+    fetch("/api/update_appearance_mode", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({ mode: window.localStorage.getItem("theme") || "system" })
     }).catch(function () {});
   } catch (error) {}
 }"#;
@@ -474,8 +521,11 @@ fn mirror_call() -> String {
 ///   `__TAURI_INTERNALS__` on every webview it creates, child webviews
 ///   included, so without a marker of our own Codeg would take itself for its
 ///   own desktop app and call commands that do not exist here.
-/// * `theme` — the mode, already resolved by the app.
-/// * `codeg-custom-theme` — the app's palette, as the two buckets Codeg expects.
+/// * `theme`, `codeg-custom-theme`, `codeg-custom-theme-enabled`,
+///   `codeg-theme-preset` — the app's appearance, as Codeg stores it. Written
+///   only when this snapshot is newer than the stamp in the page: this script
+///   is re-applied on every document load, and the app may have applied a newer
+///   appearance since the page was created.
 ///
 /// Once the page has loaded it also calls the page's own appearance mirror, so
 /// the copy of these values in Codeg's settings store is written on the first
@@ -485,10 +535,18 @@ const INIT_SCRIPT: &str = r#"(function () {
   try {
     window.__CODEG_EMBEDDED__ = true;
     localStorage.setItem("codeg_token", __TOKEN__);
-    localStorage.setItem("theme", __MODE__);
-    localStorage.setItem("codeg-theme-color", "neutral");
-    localStorage.setItem("codeg-custom-theme", __CUSTOM__);
-    localStorage.setItem("codeg-custom-theme-enabled", "1");
+    var stored = 0;
+    try {
+      stored = parseInt(localStorage.getItem("codeg-embed-theme-rev"), 10) || 0;
+    } catch (error) {}
+    if (__REV__ > stored) {
+      localStorage.setItem("theme", __MODE__);
+      localStorage.setItem("codeg-theme-color", "neutral");
+      localStorage.setItem("codeg-custom-theme", __CUSTOM__);
+      localStorage.setItem("codeg-custom-theme-enabled", "1");
+      localStorage.setItem("codeg-theme-preset", __PRESET__);
+      localStorage.setItem("codeg-embed-theme-rev", String(__REV__));
+    }
   } catch (error) {}
   window.open = function (url) {
     if (typeof url === "string" && url && url !== "about:blank") {
@@ -511,12 +569,20 @@ const INIT_SCRIPT: &str = r#"(function () {
 const THEME_SCRIPT: &str = r##"(function () {
   var mode = __MODE__;
   var custom = __CUSTOM__;
+  var preset = __PRESET__;
   try {
     localStorage.setItem("theme", mode);
     localStorage.setItem("codeg-custom-theme", custom);
     localStorage.setItem("codeg-custom-theme-enabled", "1");
+    localStorage.setItem("codeg-theme-preset", preset);
+    // Stamped so the creation-time snapshot this page was opened with cannot
+    // put its own palette back on the next document load.
+    localStorage.setItem("codeg-embed-theme-rev", String(__REV__));
     window.dispatchEvent(
       new StorageEvent("storage", { key: "codeg-custom-theme", newValue: custom })
+    );
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "codeg-theme-preset", newValue: preset })
     );
     window.dispatchEvent(new StorageEvent("storage", { key: "theme", newValue: mode }));
   } catch (error) {}
@@ -535,18 +601,22 @@ const THEME_SCRIPT: &str = r##"(function () {
   }, 600);
 })();"##;
 
-fn initialization_script(token: &str, theme: &Theme) -> String {
+fn initialization_script(token: &str, theme: &Theme, rev: u64) -> String {
     INIT_SCRIPT
         .replace("__TOKEN__", &js_string(token))
         .replace("__MODE__", &js_string(&theme.mode))
         .replace("__CUSTOM__", &js_string(&theme.custom))
+        .replace("__PRESET__", &js_string(&theme.preset))
+        .replace("__REV__", &rev.to_string())
         .replace("__MIRROR__", &mirror_call())
 }
 
-fn theme_script(theme: &Theme) -> String {
+fn theme_script(theme: &Theme, rev: u64) -> String {
     THEME_SCRIPT
         .replace("__MODE__", &js_string(&theme.mode))
         .replace("__CUSTOM__", &js_string(&theme.custom))
+        .replace("__PRESET__", &js_string(&theme.preset))
+        .replace("__REV__", &rev.to_string())
         .replace("__MIRROR__", &mirror_call())
 }
 
@@ -588,22 +658,68 @@ mod tests {
             &Theme {
                 mode: "dark".to_string(),
                 custom: "{\"dark\":{\"primary\":\"oklch(1 0 0)\"}}".to_string(),
+                preset: "sunset".to_string(),
             },
+            7,
         );
         assert!(script.contains(r#""codeg_token", "tok\"en""#), "{script}");
         assert!(script.contains(r#""theme", "dark""#), "{script}");
+        assert!(script.contains(r#""codeg-theme-preset", "sunset""#), "{script}");
         assert!(!script.contains("__TOKEN__"), "{script}");
         assert!(!script.contains("__CUSTOM__"), "{script}");
+        assert!(!script.contains("__PRESET__"), "{script}");
+        assert!(!script.contains("__REV__"), "{script}");
         // The popup replacement is what keeps this app to one Codeg webview.
         assert!(script.contains("window.open = function"), "{script}");
         // The appearance copy in Codeg's own settings store is written from
         // inside the page, on this first open included.
         assert!(!script.contains("__MIRROR__"), "{script}");
         assert!(script.contains("config_sync_mirror_appearance"), "{script}");
+        assert!(script.contains("update_appearance_mode"), "{script}");
         assert!(
             script.contains(r#""codeg-custom-theme-enabled""#),
             "{script}"
         );
+    }
+
+    /// The creation-time snapshot is re-applied on every document load, so it
+    /// may not put its palette back over a newer one the app applied since.
+    #[test]
+    fn a_document_load_only_takes_a_newer_appearance() {
+        let script = initialization_script(
+            "token",
+            &Theme {
+                mode: "light".to_string(),
+                custom: "{}".to_string(),
+                preset: String::new(),
+            },
+            42,
+        );
+        assert!(script.contains("if (42 > stored)"), "{script}");
+        assert!(
+            script.contains(r#"localStorage.setItem("codeg-embed-theme-rev", String(42))"#),
+            "{script}"
+        );
+
+        let repaint = theme_script(
+            &Theme {
+                mode: "dark".to_string(),
+                custom: "{}".to_string(),
+                preset: String::new(),
+            },
+            43,
+        );
+        assert!(
+            repaint.contains(r#"localStorage.setItem("codeg-embed-theme-rev", String(43))"#),
+            "{repaint}"
+        );
+    }
+
+    #[test]
+    fn stamps_are_strictly_increasing() {
+        let first = next_theme_rev();
+        let second = next_theme_rev();
+        assert!(second > first, "{first} then {second}");
     }
 
     /// `SYNCED_APPEARANCE_KEYS` in Codeg's `src/lib/appearance-sync.ts` — the
@@ -611,21 +727,28 @@ mod tests {
     #[test]
     fn the_mirror_sends_the_whole_synced_set() {
         let script = mirror_call();
-        assert_eq!(script.matches(r#""codeg-"#).count(), 26, "{script}");
+        assert_eq!(script.matches(r#""codeg-"#).count(), 27, "{script}");
         assert!(script.contains(r#""theme""#), "{script}");
+        assert!(script.contains(r#""codeg-theme-preset""#), "{script}");
         assert!(script.contains(r#""codeg-custom-css-enabled""#), "{script}");
     }
 
     #[test]
     fn the_theme_script_carries_the_mode_and_the_palette() {
-        let script = theme_script(&Theme {
-            mode: "light".to_string(),
-            custom: "{}".to_string(),
-        });
+        let script = theme_script(
+            &Theme {
+                mode: "light".to_string(),
+                custom: "{}".to_string(),
+                preset: "sunset".to_string(),
+            },
+            9,
+        );
         assert!(script.contains(r#"var mode = "light""#), "{script}");
         assert!(script.contains(r#"var custom = "{}""#), "{script}");
+        assert!(script.contains(r#"var preset = "sunset""#), "{script}");
         assert!(script.contains("classList.remove(\"dark\")"), "{script}");
         assert!(!script.contains("__MIRROR__"), "{script}");
         assert!(script.contains("config_sync_mirror_appearance"), "{script}");
+        assert!(script.contains("update_appearance_mode"), "{script}");
     }
 }

@@ -77,6 +77,11 @@ function currentVars(): Record<string, string> {
  * built-in theme — whose values live in the stylesheet alone — so Codeg falls
  * back to its own default for a mode the app is not in.
  *
+ * The preset id travels with it. Codeg's preset library holds the same entries,
+ * so naming the one in use is enough for its settings page to mark that card as
+ * applied; the built-in theme is not one of them and is sent as "no preset"
+ * rather than as an id Codeg would look up and miss.
+ *
  * One-way: nothing here is ever read back from Codeg.
  */
 export function buildCodegTheme(preset: string, mode: ColorMode): CodegTheme {
@@ -88,7 +93,11 @@ export function buildCodegTheme(preset: string, mode: ColorMode): CodegTheme {
   const buckets =
     mode === "dark" ? { light: otherVars, dark: current } : { light: current, dark: otherVars };
 
-  return { mode, custom: JSON.stringify(buckets) };
+  return {
+    mode,
+    custom: JSON.stringify(buckets),
+    preset: theme ? preset : "",
+  };
 }
 
 /** A preset's values, minus the ones Codeg would refuse anyway. */

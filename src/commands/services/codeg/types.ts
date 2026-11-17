@@ -21,6 +21,12 @@ export interface CodegBounds {
 export interface CodegTheme {
   mode: "light" | "dark";
   custom: string;
+  /**
+   * The preset the app is wearing, or `""` for its built-in theme. Carried so
+   * Codeg records which preset is in use — its settings page marks that card as
+   * applied — never for painting: the palette is already in `custom`.
+   */
+  preset: string;
 }
 
 /** What the Codeg server process is doing right now. */
@@ -40,7 +46,10 @@ export interface CodegSettings {
   serverPath: string;
   /** Port the server listens on, on loopback. */
   port: number;
-  /** Codeg's data directory; a sandbox by default. */
+  /**
+   * Codeg's data directory; empty means the folder a standalone Codeg uses by
+   * default, so both read one database.
+   */
   dataDir: string;
   /** Derived from `port`: the origin the page is loaded from. */
   url: string;

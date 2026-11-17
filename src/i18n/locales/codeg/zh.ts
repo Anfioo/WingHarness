@@ -42,8 +42,7 @@ const codeg = {
       "用 cargo build --no-default-features --features server-bin --bin codeg-server 构建。",
     port: "端口",
     dataDir: "数据目录",
-    dataDirHint:
-      "留空则使用应用数据目录下的 codeg 文件夹，Codeg 用自己的一份数据，不碰你平时的 Codeg 数据。",
+    dataDirHint: "留空则使用单独启动的 Codeg 也默认使用的目录，两边的数据共用一个库。",
     restartHint: "改过路径或端口后，重启服务即可生效。",
     token: "访问令牌",
     tokenHint:

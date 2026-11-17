@@ -43,7 +43,7 @@ const codeg = {
     port: "Port",
     dataDir: "Data directory",
     dataDirHint:
-      "Left empty, Codeg gets a directory of its own under the app's data directory, so your own Codeg data is never touched.",
+      "Left empty, Codeg uses the folder a standalone Codeg uses by default too, so both share one database.",
     restartHint: "Restart the server to apply a changed path or port.",
     token: "Access token",
     tokenHint:
