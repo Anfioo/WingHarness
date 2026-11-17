@@ -1,6 +1,6 @@
 [package]
 name = "wingharness"
-version = "0.0.14"
+version = "0.0.18"
 description = "WingHarness, a local-first desktop workspace built on Tauri."
 authors = ["Anfioo"]
 license = "GPL-3.0-only"
@@ -152,6 +152,9 @@ shaic-core = { path = "shaic-core" }
 # The moin settings tab displays the effective system proxy. Reading WinINET's
 # settings is a registry lookup, not another process.
 windows-registry = "0.6"
+# The Scoop diagnostics read the volume a folder sits on: Scoop needs NTFS, and
+# the filesystem name only comes from the Win32 volume API.
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

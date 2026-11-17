@@ -1,4 +1,5 @@
 pub mod ccs;
+mod codeg;
 mod commands;
 pub mod config;
 mod invoke;
@@ -133,6 +134,7 @@ pub fn run() {
         })
         .manage(commands::updater::UpdateDownloadState::default())
         .manage(commands::claude_chat::ClaudeRuns::default())
+        .manage(codeg::server::CodegState::default())
         .manage(mcphub::McpHubState::default())
         .manage(git_core::terminal::TerminalState::default())
         .manage(git_core::watcher::WatcherState::default())
@@ -208,6 +210,12 @@ pub fn run() {
             // still open on the server: close both before the process goes.
             if let Some(db) = app.try_state::<commands::db::DbState>() {
                 tauri::async_runtime::block_on(db.shutdown());
+            }
+            // codeg-server holds its port and keeps working — a database
+            // client, a workspace scan — for as long as nothing kills it, and
+            // the port it holds would fail the next start.
+            if app.try_state::<codeg::server::CodegState>().is_some() {
+                codeg::server::shutdown(app);
             }
         }
     });

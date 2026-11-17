@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock, RwLock};
 
 use git2::{
-    build::CheckoutBuilder, AutotagOption, Cred, CredentialType, FetchOptions, PushOptions,
-    RemoteCallbacks, Repository,
+    build::CheckoutBuilder, AutotagOption, Cred, CredentialType, FetchOptions, ProxyOptions,
+    PushOptions, RemoteCallbacks, Repository,
 };
 
 use crate::error::{AppError, AppResult};
@@ -836,6 +836,22 @@ pub fn clone(
     branch: Option<&str>,
     on_progress: impl Fn(u32) + Send,
 ) -> AppResult<String> {
+    clone_with_proxy(url, into, branch, None, on_progress)
+}
+
+/// `clone`, but routed through `proxy` when one is given.
+///
+/// libgit2 reads a proxy from git's own configuration only — it ignores the
+/// Windows system proxy and the `HTTP_PROXY` variables an ordinary child process
+/// would inherit. A caller that has its own proxy setting therefore has to pass
+/// it here, or a clone that works for `git.exe` fails with no route to the host.
+pub fn clone_with_proxy(
+    url: &str,
+    into: &str,
+    branch: Option<&str>,
+    proxy: Option<&str>,
+    on_progress: impl Fn(u32) + Send,
+) -> AppResult<String> {
     prime_account_bindings(None);
     let mut callbacks = make_callbacks();
     let mut last_pct: Option<u32> = None;
@@ -850,6 +866,11 @@ pub fn clone(
     });
     let mut opts = FetchOptions::new();
     opts.remote_callbacks(callbacks);
+    if let Some(proxy) = proxy {
+        let mut proxy_opts = ProxyOptions::new();
+        proxy_opts.url(proxy);
+        opts.proxy_options(proxy_opts);
+    }
     let mut builder = git2::build::RepoBuilder::new();
     builder.fetch_options(opts);
     if let Some(branch) = branch {
@@ -864,6 +885,57 @@ pub fn clone(
         .trim_end_matches('/')
         .to_string();
     Ok(root)
+}
+
+/// The `origin` address of an existing clone, for callers that compare
+/// repositories rather than work on them.
+pub fn origin_url(path: &str) -> Option<String> {
+    let repo = Repository::open(path).ok()?;
+    let remote = repo.find_remote("origin").ok()?;
+    remote.url().map(|url| url.to_string())
+}
+
+/// What a clone says about itself: where it came from and how fresh it is.
+///
+/// Every field is optional because a folder can be a repository without an
+/// `origin`, without a checked-out `HEAD`, or without any commit at all — a
+/// bucket cloned a second ago is exactly that.
+#[derive(Clone, Default)]
+pub struct RepoSummary {
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    /// Short hash of `HEAD`.
+    pub commit: Option<String>,
+    /// Committer time of `HEAD`, in seconds since the Unix epoch.
+    pub committed_at: Option<i64>,
+    /// First line of the `HEAD` commit message.
+    pub subject: Option<String>,
+}
+
+/// `RepoSummary` for the repository at `path`, or `None` when there is none.
+pub fn summarize(path: &str) -> Option<RepoSummary> {
+    let repo = Repository::open(path).ok()?;
+    let mut summary = RepoSummary {
+        remote: origin_url(path),
+        ..RepoSummary::default()
+    };
+
+    let Ok(head) = repo.head() else {
+        return Some(summary);
+    };
+    if head.is_branch() {
+        summary.branch = head.shorthand().map(str::to_string);
+    }
+
+    if let Some(oid) = head.target() {
+        summary.commit = Some(oid.to_string().chars().take(7).collect());
+        if let Ok(commit) = repo.find_commit(oid) {
+            summary.committed_at = Some(commit.time().seconds());
+            summary.subject = commit.summary().map(str::to_string);
+        }
+    }
+
+    Some(summary)
 }
 
 #[allow(dead_code)]

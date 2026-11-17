@@ -47,6 +47,8 @@ pub struct Config {
     /// 文件预览页的读取上限与高亮开关。
     #[serde(rename = "filePreview")]
     pub file_preview: FilePreviewConfig,
+    /// Codeg（开发）—— how the app launches and embeds the Codeg app.
+    pub codeg: CodegConfig,
     /// Whether the app runs in networked mode.
     ///
     /// Standalone (the default) hides the sidebar's account menu; networked
@@ -133,6 +135,70 @@ impl FilePreviewConfig {
     }
 }
 
+/// Where the Codeg app lives, how it is served and where it keeps its data.
+///
+/// Codeg is a separate product, not a built-in page: the app starts
+/// `codeg-server` as its own child process and shows the static export it serves
+/// in a child webview. Everything here therefore describes an external
+/// installation, which is why the defaults are a developer's checkout under
+/// `D:\codeg` rather than something the app installed itself.
+///
+/// `data_dir` is empty in the default configuration, meaning "inside the app's
+/// own data directory" — see [`CodegConfig::resolved_data_dir`]. It is kept
+/// separate from wherever the user's own Codeg installation keeps its database
+/// on purpose: this copy is a development sandbox, and pointing it at the real
+/// one would pollute it.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(default, rename_all = "camelCase")]
+pub struct CodegConfig {
+    /// Codeg's source checkout. Used as the server's working directory.
+    pub repo_path: String,
+    /// The static export (`next build` output) the server serves.
+    pub static_dir: String,
+    /// The `codeg-server` executable.
+    pub server_path: String,
+    /// Loopback port the server listens on.
+    pub port: u16,
+    /// Codeg's data directory; empty means [`CodegConfig::resolved_data_dir`].
+    pub data_dir: String,
+}
+
+/// The port the settings page offers and the server starts on.
+pub const DEFAULT_CODEG_PORT: u16 = 3080;
+
+impl Default for CodegConfig {
+    fn default() -> Self {
+        Self {
+            repo_path: "D:\\codeg".to_string(),
+            static_dir: "D:\\codeg\\out".to_string(),
+            server_path: "D:\\codeg\\src-tauri\\target\\debug\\codeg-server.exe".to_string(),
+            port: DEFAULT_CODEG_PORT,
+            data_dir: String::new(),
+        }
+    }
+}
+
+impl CodegConfig {
+    /// The directory Codeg is pointed at, as an absolute path.
+    ///
+    /// A blank `data_dir` means "inside the app's data directory", so the whole
+    /// feature keeps moving with the directory the rest of the app uses. A
+    /// relative path is resolved the same way rather than against the process's
+    /// working directory, which is not something a user can reason about.
+    pub fn resolved_data_dir(&self) -> PathBuf {
+        let configured = PathBuf::from(self.data_dir.trim());
+        if configured.as_os_str().is_empty() || !configured.is_absolute() {
+            return dir().join("codeg");
+        }
+        configured
+    }
+
+    /// The address the embedded page and the health probe both use.
+    pub fn url(&self) -> String {
+        format!("http://127.0.0.1:{}", self.port)
+    }
+}
+
 /// Names reqwest and most command-line tools read to find a proxy. Both cases
 /// are written because tools differ in which one they look at.
 const PROXY_VARS: [&str; 6] = [
@@ -198,6 +264,21 @@ impl Config {
         } else {
             self.file_preview.bytes_cap()
         };
+
+        // Paths pasted from Explorer's "Copy as path" arrive wrapped in quotes,
+        // and a zeroed port is what an older or hand-edited config holds. Both
+        // would fail the start with a message about a path that looks right.
+        for value in [
+            &mut self.codeg.repo_path,
+            &mut self.codeg.static_dir,
+            &mut self.codeg.server_path,
+            &mut self.codeg.data_dir,
+        ] {
+            *value = value.trim().trim_matches('"').trim().to_string();
+        }
+        if self.codeg.port == 0 {
+            self.codeg.port = DEFAULT_CODEG_PORT;
+        }
     }
 }
 
@@ -518,6 +599,33 @@ mod tests {
         config.file_preview.max_bytes = u64::MAX;
         config.normalize();
         assert_eq!(config.file_preview.max_bytes, MAX_FILE_PREVIEW_BYTES);
+    }
+
+    /// The Codeg defaults are a developer checkout, and a blank or relative data
+    /// directory falls back to the app's own data directory so the feature moves
+    /// with everything else.
+    #[test]
+    fn codeg_defaults_name_a_checkout_and_a_sandboxed_data_dir() {
+        let config = Config::default();
+        assert_eq!(config.codeg.repo_path, "D:\\codeg");
+        assert_eq!(config.codeg.static_dir, "D:\\codeg\\out");
+        assert_eq!(config.codeg.port, DEFAULT_CODEG_PORT);
+        assert_eq!(config.codeg.url(), "http://127.0.0.1:3080");
+        assert_eq!(config.codeg.resolved_data_dir(), dir().join("codeg"));
+
+        // A quoted path pasted from Explorer and a zeroed port are repaired.
+        let mut patched: Config = serde_json::from_str(
+            r#"{"codeg":{"repoPath":" \"D:\\codeg\" ","port":0,"serverPath":" D:\\codeg\\codeg-server.exe "}}"#,
+        )
+        .unwrap();
+        patched.normalize();
+        assert_eq!(patched.codeg.repo_path, "D:\\codeg");
+        assert_eq!(patched.codeg.server_path, "D:\\codeg\\codeg-server.exe");
+        assert_eq!(patched.codeg.port, DEFAULT_CODEG_PORT);
+
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"repoPath\""), "{json}");
+        assert!(json.contains("\"dataDir\""), "{json}");
     }
 
     #[test]

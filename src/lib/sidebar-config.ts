@@ -33,6 +33,8 @@ export const DEFAULT_GROUP_NAMES: Record<AppRouteGroup, string> = {
   // Same deal again: the ports page is listed in 「其他」.
   ports: "端口",
   moin: "下载",
+  // Same deal again: the Codeg page is listed in 「其他」.
+  codeg: "Codeg",
 };
 
 /** Name of the group that collects entries no group refers to. */

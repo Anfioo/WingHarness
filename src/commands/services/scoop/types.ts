@@ -32,7 +32,8 @@ export interface ScoopApp {
   bucket: string | null;
   /** Installed under `SCOOP_GLOBAL` instead of `SCOOP`. */
   global: boolean;
-  /** `scoop hold`: pinned at this version, so `scoop update *` skips it. */
+  /** Pinned at this version: the flag Scoop keeps in the app's install
+   * record, so `scoop update *` skips it. */
   hold: boolean;
   /** A WingHarness plugin: the app name carries the plugin prefix. */
   plugin: boolean;
@@ -114,6 +115,12 @@ export interface ScoopLocationRequest {
 export interface ScoopInstallRequest extends ScoopLocationRequest {
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
+  /**
+   * Pass `-RunAsAdmin` to the installer. The official installer aborts when it
+   * sees an elevated token unless this flag is given, which is the case for an
+   * account running with UAC off or an app started as administrator.
+   */
+  runAsAdmin?: boolean;
 }
 
 export interface ScoopRunRequest {
@@ -121,18 +128,14 @@ export interface ScoopRunRequest {
     | "install"
     | "search"
     | "config"
-    | "bucket"
-    | "bucket-rm"
     | "update"
     | "apps-update"
     | "app-update"
-    | "hold"
-    | "unhold"
+    | "cleanup"
     | "uninstall";
   /**
    * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
-   * for `bucket`, `<name> <url>`; for `bucket-rm`, `<name>`; `update` and
-   * `apps-update` take nothing.
+   * `update`, `apps-update` and `cleanup` take nothing.
    */
   spec: string;
   /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
@@ -141,4 +144,131 @@ export interface ScoopRunRequest {
   purge?: boolean;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
+}
+
+/** A bucket the app clones itself, with the page's proxy. */
+export interface ScoopBucketRequest {
+  /** `<name> <url>`, or a bare repository URL. */
+  spec: string;
+  proxyMode: ScoopProxyMode;
+  proxyUrl?: string | null;
+}
+
+export interface ScoopBucketResult {
+  name: string;
+  path: string;
+  /** The steps taken, handed to the page's log as they are. */
+  log: string[];
+}
+
+/** One package, as its manifest describes it. */
+export interface ScoopPackageInfo {
+  name: string;
+  /** The bucket the details were read from. */
+  bucket: string | null;
+  installed: boolean;
+  global: boolean;
+  /** The manifest's own version: what an install would fetch. */
+  version: string | null;
+  /** What is on disk, which a held app keeps behind `version`. */
+  installedVersion: string | null;
+  description: string | null;
+  homepage: string | null;
+  license: string | null;
+  licenseUrl: string | null;
+  notes: string | null;
+  depends: string[];
+  suggests: string[];
+  /** The commands the manifest puts on `PATH`, aliases included. */
+  bins: string[];
+  manifestPath: string;
+  /** The manifest exactly as it is on disk. */
+  manifest: string;
+}
+
+/** One bucket: the repository its clone came from, and what is in it. */
+export interface ScoopBucketInfo {
+  name: string;
+  path: string;
+  /** Manifest names, sorted: the bucket's catalog. */
+  packages: string[];
+  remote: string | null;
+  branch: string | null;
+  commit: string | null;
+  /** Last commit time, in seconds since the Unix epoch. */
+  committedAt: number | null;
+  subject: string | null;
+}
+
+/** What the detail sheet is showing. */
+export type ScoopDetailTarget =
+  | { kind: "package"; name: string; bucket: string | null; global: boolean }
+  | { kind: "bucket"; name: string };
+
+/** What the checkup offers for a failed row. */
+export type ScoopCheckupFix =
+  | { kind: "installPackage"; package: string }
+  | { kind: "installBucket"; name: string; url: string }
+  | { kind: "openSettings"; page: string };
+
+/** The checks the diagnostics tab runs, in the order they are shown. */
+export type ScoopCheckupId =
+  | "git"
+  | "mainBucket"
+  | "developerMode"
+  | "longPaths"
+  | "ntfs"
+  | "helper";
+
+/** One row of the checkup. */
+export interface ScoopCheckupItem {
+  id: ScoopCheckupId;
+  ok: boolean;
+  /** What was measured: the git version, the filesystem, the helper's name. */
+  value: string | null;
+  fix: ScoopCheckupFix | null;
+}
+
+/** One download Scoop kept, named `name#version#hash.ext`. */
+export interface ScoopCacheEntry {
+  fileName: string;
+  name: string;
+  version: string;
+  length: number;
+  /** The app is installed from several versions, so the file stays. */
+  versioned: boolean;
+}
+
+export interface ScoopCache {
+  path: string;
+  total: number;
+  entries: ScoopCacheEntry[];
+}
+
+export interface ScoopCacheClear {
+  deleted: number;
+  skipped: number;
+  freed: number;
+  failed: string[];
+}
+
+/** One launcher on `PATH`. */
+export interface ScoopShim {
+  name: string;
+  /** What the shim runs: the `.shim` file's `path`, or the script itself. */
+  target: string;
+  /** The app under `apps\<name>`, when the target is inside one. */
+  app: string | null;
+  args: string | null;
+  global: boolean;
+  /** Renamed to `<name>.exe.shimmed`: the shim is out of the way. */
+  hidden: boolean;
+}
+
+/** A shim to write: the `.shim` file and a copy of Scoop's launcher. */
+export interface ScoopShimRequest {
+  name: string;
+  target: string;
+  args?: string | null;
+  global: boolean;
 }

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-cache-clear"
+description = "Enables the scoop_cache_clear command without any pre-configured scope."
+commands.allow = ["scoop_cache_clear"]
+
+[[permission]]
+identifier = "deny-scoop-cache-clear"
+description = "Denies the scoop_cache_clear command without any pre-configured scope."
+commands.deny = ["scoop_cache_clear"]

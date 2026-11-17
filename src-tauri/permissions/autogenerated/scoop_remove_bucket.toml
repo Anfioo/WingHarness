@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-scoop-remove-bucket"
+description = "Enables the scoop_remove_bucket command without any pre-configured scope."
+commands.allow = ["scoop_remove_bucket"]
+
+[[permission]]
+identifier = "deny-scoop-remove-bucket"
+description = "Denies the scoop_remove_bucket command without any pre-configured scope."
+commands.deny = ["scoop_remove_bucket"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-state"
+description = "Enables the codeg_state command without any pre-configured scope."
+commands.allow = ["codeg_state"]
+
+[[permission]]
+identifier = "deny-codeg-state"
+description = "Denies the codeg_state command without any pre-configured scope."
+commands.deny = ["codeg_state"]
