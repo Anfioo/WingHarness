@@ -4,12 +4,17 @@ import type {
   ScoopBucketInfo,
   ScoopBucketRequest,
   ScoopBucketResult,
+  ScoopCache,
+  ScoopCacheClear,
+  ScoopCheckupItem,
   ScoopInstallRequest,
   ScoopLocationRequest,
   ScoopPackageInfo,
   ScoopPlan,
   ScoopRunRequest,
   ScoopSearchHit,
+  ScoopShim,
+  ScoopShimRequest,
   ScoopStatus,
 } from "./types";
 
@@ -98,4 +103,60 @@ export function scoopSetHold(name: string, global: boolean, hold: boolean): Prom
     "scoop_set_hold",
     { name, global, hold }
   );
+}
+
+/**
+ * The checkup: git, the `main` bucket, the Windows switches, the filesystem and
+ * the helper packages. Each row comes back with an id the page translates and,
+ * when it failed, the action that fixes it.
+ */
+export function scoopCheckup(): Promise<ScoopCheckupItem[]> {
+  return invokeCommand<Record<string, never>, ScoopCheckupItem[]>("scoop_checkup", {});
+}
+
+/** Opens one of the Windows settings pages a failed check points at. */
+export function scoopOpenSettings(page: string): Promise<void> {
+  return invokeCommand<{ page: string }, void>("scoop_open_settings", { page });
+}
+
+/** Every download in `<scoop>\cache`, with the app it belongs to. */
+export function scoopCacheEntries(): Promise<ScoopCache> {
+  return invokeCommand<Record<string, never>, ScoopCache>("scoop_cache_entries", {});
+}
+
+/**
+ * Deletes cache files: the named ones, only the outdated ones, or — with
+ * neither — the whole cache. Downloads of apps installed from more than one
+ * version are never touched.
+ */
+export function scoopCacheClear(
+  files: string[] | null,
+  outdatedOnly = false
+): Promise<ScoopCacheClear> {
+  return invokeCommand<{ files: string[] | null; outdatedOnly: boolean }, ScoopCacheClear>(
+    "scoop_cache_clear",
+    { files, outdatedOnly }
+  );
+}
+
+/** Every shim in the local and the global `shims` folder. */
+export function scoopShims(): Promise<ScoopShim[]> {
+  return invokeCommand<Record<string, never>, ScoopShim[]>("scoop_shims", {});
+}
+
+/** Writes a shim for a target of the user's choosing. */
+export function scoopShimAdd(request: ScoopShimRequest): Promise<ScoopShim[]> {
+  return invokeCommand<{ request: ScoopShimRequest }, ScoopShim[]>("scoop_shim_add", {
+    request,
+  });
+}
+
+/** Hides a shim from `PATH`, or brings it back. */
+export function scoopShimToggle(name: string): Promise<ScoopShim[]> {
+  return invokeCommand<{ name: string }, ScoopShim[]>("scoop_shim_toggle", { name });
+}
+
+/** Deletes every file that belongs to a shim. */
+export function scoopShimRemove(name: string): Promise<ScoopShim[]> {
+  return invokeCommand<{ name: string }, ScoopShim[]>("scoop_shim_remove", { name });
 }

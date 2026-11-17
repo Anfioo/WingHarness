@@ -16,7 +16,7 @@
 //! `<root>\buckets\<name>`, so the app clones and deletes them itself through
 //! `git-core` instead of asking Scoop to shell out to `git.exe`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -233,10 +233,11 @@ pub struct ScoopInstallRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
     /// `install`, `search`, `config`, `update`, `apps-update`, `app-update`,
-    /// `hold`, `unhold` or `uninstall`. Buckets have their own commands, since
-    /// they are cloned by the app rather than by Scoop.
+    /// `cleanup` or `uninstall`. Buckets have their own commands, since they
+    /// are cloned by the app rather than by Scoop.
     pub kind: String,
-    /// `7zip` or `scoop install 7zip`; `update` and `apps-update` take nothing.
+    /// `7zip` or `scoop install 7zip`; `update`, `apps-update` and `cleanup`
+    /// take nothing.
     pub spec: String,
     /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
     #[serde(default)]
@@ -1451,6 +1452,18 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
             script.push_str("echo [scoop] command: scoop update -g *\r\n");
             scoop_call(&mut script, "update -g *");
         }
+    } else if kind == "cleanup" {
+        // `cleanup *` deletes every version folder a newer install replaced; the
+        // `current` one is what Scoop keeps.
+        script.push_str("echo [scoop] command: scoop cleanup *\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "cleanup *");
+        if update_globals {
+            script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
+            script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_run_done\r\n");
+            script.push_str("echo [scoop] command: scoop cleanup -g *\r\n");
+            scoop_call(&mut script, "cleanup -g *");
+        }
     } else if kind == "app-update" {
         script.push_str(
             "echo [scoop] command: scoop update %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n",
@@ -2227,7 +2240,10 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
     let mut env = environment(&applied, &proxy)?;
     let folder_line = format!("Folder: {}", applied.scoop.target.display());
     let global_flag = if request.global { "-g" } else { "" };
-    let update_globals = request.kind == "apps-update" && has_global_apps(&applied);
+    // Both of these take one `*` per root, so a global install needs a second
+    // call of its own.
+    let sweeps_apps = request.kind == "apps-update" || request.kind == "cleanup";
+    let update_globals = sweeps_apps && has_global_apps(&applied);
     let mut log = if request.kind == "config" {
         vec![
             "Scoop command: scoop config (proxy only)".to_string(),
@@ -2245,6 +2261,15 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
         ];
         if update_globals {
             lines.push("Global apps follow with scoop update -g *.".to_string());
+        }
+        lines
+    } else if request.kind == "cleanup" {
+        let mut lines = vec![
+            "Scoop command: scoop cleanup * (versions a newer install replaced)".to_string(),
+            folder_line,
+        ];
+        if update_globals {
+            lines.push("Global apps follow with scoop cleanup -g *.".to_string());
         }
         lines
     } else if request.kind == "app-update" {
@@ -2325,15 +2350,708 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Diagnostics
+//
+// The checkup is read-only and answers with ids, never with sentences: the page
+// translates each row and the ones it has no wording for stay untranslated
+// rather than leaking English into the interface. A fix is an action the page
+// already has — an install plan, a bucket clone — or the settings page that
+// carries the switch.
+
+/// One row of the checkup.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCheckupItemView {
+    /// `git`, `mainBucket`, `developerMode`, `longPaths`, `ntfs` or `helper`.
+    id: String,
+    ok: bool,
+    /// The value the row measured: the git version, the filesystem, the helper.
+    value: Option<String>,
+    fix: Option<ScoopCheckupFixView>,
+}
+
+/// What the page offers for a failed row.
+#[derive(Serialize, Clone)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ScoopCheckupFixView {
+    /// `scoop install <package>`, through the page's own install plan.
+    InstallPackage { package: String },
+    /// The bucket's clone, with the repository it comes from.
+    InstallBucket { name: String, url: String },
+    /// One of the Windows settings pages below.
+    OpenSettings { page: String },
+}
+
+/// The settings pages the checkup links to. The value ends up in an
+/// `ms-settings:` address handed to the shell, so it is a fixed list and not
+/// whatever the page asks for.
+const SETTINGS_PAGES: &[&str] = &["developers", "disksandvolumes"];
+
+/// The helper packages a Scoop install is expected to carry: the unpacking and
+/// installer helpers manifests ask for by name.
+const HELPER_PACKAGES: &[&str] = &["7zip", "dark", "innounp", "lessmsi"];
+
+#[tauri::command(async)]
+pub fn scoop_checkup() -> Result<Vec<ScoopCheckupItemView>, String> {
+    let scoop = root_view(PathKind::Scoop);
+    if !is_scoop_dir(&scoop.target) {
+        return Err("Scoop is not installed yet.".to_string());
+    }
+
+    let mut items = vec![git_check(), main_bucket_check(&scoop.target)];
+    #[cfg(windows)]
+    {
+        items.push(developer_mode_check());
+        items.push(long_paths_check());
+        items.push(filesystem_check(&scoop.target));
+    }
+    items.extend(helper_checks(&scoop.target));
+    Ok(items)
+}
+
+/// Opens one of the Windows settings pages a failed check points at.
+#[tauri::command(async)]
+pub fn scoop_open_settings(page: String) -> Result<(), String> {
+    if !SETTINGS_PAGES.contains(&page.as_str()) {
+        return Err(format!("'{page}' is not a settings page the checkup opens."));
+    }
+    // `explorer.exe` exits non-zero even when it did open the page, so the spawn
+    // is what is checked here and not the exit code.
+    Command::new("explorer.exe")
+        .arg(format!("ms-settings:{page}"))
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| format!("Failed to open the Windows settings: {error}"))
+}
+
+/// `git --version`: Scoop shells out to git whenever a bucket is updated.
+fn git_check() -> ScoopCheckupItemView {
+    let mut command = Command::new("git");
+    command.arg("--version");
+    let output = run_with_timeout(command, 10, "git --version");
+    let ok = output
+        .as_ref()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    let value = output
+        .ok()
+        .filter(|_| ok)
+        .and_then(|output| String::from_utf8_lossy(&output.stdout).lines().next().map(str::to_string))
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty());
+
+    ScoopCheckupItemView {
+        id: "git".to_string(),
+        ok,
+        value,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::InstallPackage {
+                package: "git".to_string(),
+            })
+        },
+    }
+}
+
+/// The `main` bucket is where most manifests come from.
+fn main_bucket_check(root: &Path) -> ScoopCheckupItemView {
+    let ok = root.join("buckets").join("main").is_dir();
+    ScoopCheckupItemView {
+        id: "mainBucket".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::InstallBucket {
+                name: "main".to_string(),
+                url: "https://github.com/ScoopInstaller/Main".to_string(),
+            })
+        },
+    }
+}
+
+/// The helper packages Scoop unpacks archives and installers with.
+fn helper_checks(root: &Path) -> Vec<ScoopCheckupItemView> {
+    HELPER_PACKAGES
+        .iter()
+        .map(|helper| {
+            let ok = root.join("apps").join(helper).join("current").exists();
+            ScoopCheckupItemView {
+                id: "helper".to_string(),
+                ok,
+                value: Some((*helper).to_string()),
+                fix: if ok {
+                    None
+                } else {
+                    Some(ScoopCheckupFixView::InstallPackage {
+                        package: (*helper).to_string(),
+                    })
+                },
+            }
+        })
+        .collect()
+}
+
+/// A `0`/`1` switch under `HKEY_LOCAL_MACHINE`.
+#[cfg(windows)]
+fn registry_switch(path: &str, name: &str) -> bool {
+    use windows_registry::LOCAL_MACHINE;
+    LOCAL_MACHINE
+        .open(path)
+        .and_then(|key| key.get_u32(name))
+        .map(|value| value == 1)
+        .unwrap_or(false)
+}
+
+/// Links — which Scoop uses for shims and app folders — need developer mode on
+/// an account that cannot create them otherwise.
+#[cfg(windows)]
+fn developer_mode_check() -> ScoopCheckupItemView {
+    let ok = registry_switch(
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock",
+        "AllowDevelopmentWithoutDevLicense",
+    );
+    ScoopCheckupItemView {
+        id: "developerMode".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "developers".to_string(),
+            })
+        },
+    }
+}
+
+#[cfg(windows)]
+fn long_paths_check() -> ScoopCheckupItemView {
+    let ok = registry_switch(
+        r"SYSTEM\CurrentControlSet\Control\FileSystem",
+        "LongPathsEnabled",
+    );
+    ScoopCheckupItemView {
+        id: "longPaths".to_string(),
+        ok,
+        value: None,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "developers".to_string(),
+            })
+        },
+    }
+}
+
+/// Scoop keeps two versions of an app side by side with links, which needs an
+/// NTFS volume.
+#[cfg(windows)]
+fn filesystem_check(root: &Path) -> ScoopCheckupItemView {
+    let name = filesystem_name(root);
+    let ok = name
+        .as_deref()
+        .map(|name| name.eq_ignore_ascii_case("NTFS"))
+        .unwrap_or(false);
+    ScoopCheckupItemView {
+        id: "ntfs".to_string(),
+        ok,
+        value: name,
+        fix: if ok {
+            None
+        } else {
+            Some(ScoopCheckupFixView::OpenSettings {
+                page: "disksandvolumes".to_string(),
+            })
+        },
+    }
+}
+
+/// The filesystem of the volume a folder is on, e.g. `NTFS`.
+#[cfg(windows)]
+fn filesystem_name(path: &Path) -> Option<String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Storage::FileSystem::{GetVolumeInformationW, GetVolumePathNameW};
+
+    let wide: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+    let mut volume = vec![0u16; 261];
+    if unsafe { GetVolumePathNameW(wide.as_ptr(), volume.as_mut_ptr(), volume.len() as u32) } == 0 {
+        return None;
+    }
+
+    // A filesystem name is at most 32 characters, the terminator included.
+    let mut name = vec![0u16; 32];
+    let read = unsafe {
+        GetVolumeInformationW(
+            volume.as_ptr(),
+            std::ptr::null_mut(),
+            0,
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            std::ptr::null_mut(),
+            name.as_mut_ptr(),
+            name.len() as u32,
+        )
+    };
+    if read == 0 {
+        return None;
+    }
+
+    let end = name.iter().position(|&c| c == 0).unwrap_or(name.len());
+    Some(String::from_utf16_lossy(&name[..end]))
+}
+
+// --- Download cache ---------------------------------------------------------
+
+/// One file in `<scoop>\cache`, named `name#version#hash.ext` by Scoop.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheEntryView {
+    file_name: String,
+    name: String,
+    version: String,
+    length: u64,
+    /// The app is installed from more than one version at once, so its
+    /// downloads are what switching between them needs. Never deleted here.
+    versioned: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheView {
+    path: String,
+    total: u64,
+    entries: Vec<ScoopCacheEntryView>,
+}
+
+#[derive(Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopCacheClearView {
+    deleted: usize,
+    /// Left alone because the app is installed from several versions.
+    skipped: usize,
+    freed: u64,
+    failed: Vec<String>,
+}
+
+#[tauri::command(async)]
+pub fn scoop_cache_entries() -> Result<ScoopCacheView, String> {
+    let root = root_view(PathKind::Scoop).target;
+    let entries = cache_entries(&root);
+    Ok(ScoopCacheView {
+        path: cache_dir(&root).display().to_string(),
+        total: entries.iter().map(|entry| entry.length).sum(),
+        entries,
+    })
+}
+
+/// Deletes cache files: the named ones, or with `outdated_only` just the
+/// downloads the installed versions have moved past, or the whole cache.
+#[tauri::command(async)]
+pub fn scoop_cache_clear(
+    files: Option<Vec<String>>,
+    outdated_only: bool,
+) -> Result<ScoopCacheClearView, String> {
+    let root = root_view(PathKind::Scoop).target;
+    let dir = cache_dir(&root);
+    if !dir.is_dir() {
+        return Ok(ScoopCacheClearView::default());
+    }
+
+    let entries = cache_entries(&root);
+    let installed = installed_versions(&root);
+    let chosen = match files {
+        Some(files) if !files.is_empty() => entries
+            .into_iter()
+            .filter(|entry| files.iter().any(|file| file == &entry.file_name))
+            .collect(),
+        _ if outdated_only => entries
+            .into_iter()
+            .filter(|entry| {
+                installed
+                    .get(&entry.name.to_ascii_lowercase())
+                    .map(|version| version != &entry.version)
+                    .unwrap_or(true)
+            })
+            .collect(),
+        _ => entries,
+    };
+
+    let mut result = ScoopCacheClearView::default();
+    for entry in chosen {
+        if entry.versioned {
+            result.skipped += 1;
+            continue;
+        }
+        match fs::remove_file(dir.join(&entry.file_name)) {
+            Ok(()) => {
+                result.deleted += 1;
+                result.freed += entry.length;
+            }
+            Err(error) => result.failed.push(format!("{}: {error}", entry.file_name)),
+        }
+    }
+    Ok(result)
+}
+
+/// `<root>\cache`: every download Scoop kept.
+fn cache_dir(root: &Path) -> PathBuf {
+    root.join("cache")
+}
+
+/// The apps installed from more than one version at once: `apps\<name>` holds
+/// version folders next to the `current` link.
+fn versioned_apps(root: &Path) -> BTreeSet<String> {
+    let Ok(entries) = fs::read_dir(root.join("apps")) else {
+        return BTreeSet::new();
+    };
+    entries
+        .flatten()
+        .filter(|entry| entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false))
+        .filter(|entry| {
+            fs::read_dir(entry.path())
+                .map(|versions| {
+                    versions
+                        .flatten()
+                        .filter(|version| {
+                            version.file_type().map(|kind| kind.is_dir()).unwrap_or(false)
+                                && !version
+                                    .file_name()
+                                    .to_string_lossy()
+                                    .eq_ignore_ascii_case("current")
+                        })
+                        .count()
+                        > 1
+                })
+                .unwrap_or(false)
+        })
+        .map(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase())
+        .collect()
+}
+
+/// `name#version#hash.ext` — the name and version Scoop wrote into the file name.
+fn parse_cache_name(file_name: &str) -> Option<(String, String)> {
+    let mut parts = file_name.split('#');
+    let name = parts.next().unwrap_or_default();
+    let version = parts.next()?;
+    if name.is_empty() || version.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), version.to_string()))
+}
+
+fn cache_entries(root: &Path) -> Vec<ScoopCacheEntryView> {
+    let versioned = versioned_apps(root);
+    let Ok(entries) = fs::read_dir(cache_dir(root)) else {
+        return Vec::new();
+    };
+
+    let mut files: Vec<ScoopCacheEntryView> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let path = entry.path();
+            let metadata = fs::metadata(&path).ok()?;
+            if !metadata.is_file() {
+                return None;
+            }
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            let (name, version) = parse_cache_name(&file_name)?;
+            Some(ScoopCacheEntryView {
+                versioned: versioned.contains(&name.to_ascii_lowercase()),
+                file_name,
+                name,
+                version,
+                length: metadata.len(),
+            })
+        })
+        .collect();
+
+    files.sort_by(|left, right| {
+        left.name
+            .to_ascii_lowercase()
+            .cmp(&right.name.to_ascii_lowercase())
+            .then(left.version.cmp(&right.version))
+    });
+    files
+}
+
+/// What is installed on disk, by lowercased app name.
+fn installed_versions(root: &Path) -> BTreeMap<String, String> {
+    read_apps(root, false)
+        .into_iter()
+        .filter_map(|app| {
+            app.version
+                .map(|version| (app.name.to_ascii_lowercase(), version))
+        })
+        .collect()
+}
+
+// --- Shims ------------------------------------------------------------------
+
+/// One shim in `shims`: the launcher Scoop puts on `PATH`.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopShimView {
+    name: String,
+    /// What the shim runs: the `.shim` file's `path`, or the script itself.
+    target: String,
+    /// The app under `apps\<name>`, when the target is inside one.
+    app: Option<String>,
+    args: Option<String>,
+    global: bool,
+    /// A `<name>.exe.shimmed` sits next to it: the shim is out of the way.
+    hidden: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopShimRequest {
+    name: String,
+    target: String,
+    args: Option<String>,
+    global: bool,
+}
+
+#[tauri::command(async)]
+pub fn scoop_shims() -> Result<Vec<ScoopShimView>, String> {
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Hides a shim or brings it back: the launcher is renamed, nothing is deleted.
+#[tauri::command(async)]
+pub fn scoop_shim_toggle(name: String) -> Result<Vec<ScoopShimView>, String> {
+    let name = name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+
+    let mut changed = false;
+    for (dir, _) in shim_dirs() {
+        let exe = dir.join(format!("{name}.exe"));
+        let hidden = dir.join(format!("{name}.exe.shimmed"));
+        if exe.is_file() {
+            fs::rename(&exe, &hidden)
+                .map_err(|error| format!("Failed to hide {}: {error}", exe.display()))?;
+            changed = true;
+        } else if hidden.is_file() {
+            fs::rename(&hidden, &exe)
+                .map_err(|error| format!("Failed to show {}: {error}", hidden.display()))?;
+            changed = true;
+        }
+    }
+
+    if !changed {
+        return Err(format!("'{name}' has no launcher in the shims folder."));
+    }
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Deletes every file that belongs to a shim: the `.shim`, the launcher and the
+/// renamed copies next to them.
+#[tauri::command(async)]
+pub fn scoop_shim_remove(name: String) -> Result<Vec<ScoopShimView>, String> {
+    let name = name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+
+    // `<name>.` and not `<name>`: `dark` must not take `darktable` with it.
+    let prefix = format!("{}.", name.to_ascii_lowercase());
+    let mut removed = 0;
+    for (dir, _) in shim_dirs() {
+        let Ok(entries) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            if !file_name.to_ascii_lowercase().starts_with(&prefix) || !entry.path().is_file() {
+                continue;
+            }
+            fs::remove_file(entry.path())
+                .map_err(|error| format!("Failed to delete {file_name}: {error}"))?;
+            removed += 1;
+        }
+    }
+
+    if removed == 0 {
+        return Err(format!("'{name}' has no files in the shims folder."));
+    }
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// Writes a shim for a target of the user's choosing.
+#[tauri::command(async)]
+pub fn scoop_shim_add(request: ScoopShimRequest) -> Result<Vec<ScoopShimView>, String> {
+    let name = request.name.trim();
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not a shim name."));
+    }
+    let target = request.target.trim();
+    if target.is_empty() {
+        return Err("A shim needs the path of what it runs.".to_string());
+    }
+
+    let scoop = root_view(PathKind::Scoop).target;
+    let dir = if request.global {
+        root_view(PathKind::Global).target.join("shims")
+    } else {
+        scoop.join("shims")
+    };
+    fs::create_dir_all(&dir)
+        .map_err(|error| format!("Failed to create {}: {error}", dir.display()))?;
+
+    // A shim is the pair: the `.shim` file saying what to run, and Scoop's own
+    // `shim.exe` launcher that reads it.
+    let template = scoop
+        .join("apps")
+        .join("scoop")
+        .join("current")
+        .join("shim.exe");
+    if !template.is_file() {
+        return Err(format!(
+            "Scoop's shim.exe is not in {}; is the install complete?",
+            template.display()
+        ));
+    }
+
+    let mut text = format!("path = \"{target}\"\n");
+    if let Some(args) = request
+        .args
+        .as_deref()
+        .map(str::trim)
+        .filter(|args| !args.is_empty())
+    {
+        text.push_str(&format!("args = {args}\n"));
+    }
+
+    let shim_file = dir.join(format!("{name}.shim"));
+    fs::write(&shim_file, text)
+        .map_err(|error| format!("Failed to write {}: {error}", shim_file.display()))?;
+    let exe = dir.join(format!("{name}.exe"));
+    fs::copy(&template, &exe)
+        .map_err(|error| format!("Failed to write {}: {error}", exe.display()))?;
+
+    Ok(read_shims(&shim_dirs()))
+}
+
+/// `<root>\shims`, and the global one, which is a folder of its own.
+fn shim_dirs() -> Vec<(PathBuf, bool)> {
+    let scoop = root_view(PathKind::Scoop).target;
+    let global = root_view(PathKind::Global).target;
+    let mut dirs = vec![(scoop.join("shims"), false)];
+    if !same_path(&scoop, &global) {
+        dirs.push((global.join("shims"), true));
+    }
+    dirs
+}
+
+/// The `path` and `args` a `.shim` file carries.
+fn read_shim_lines(text: &str) -> (Option<String>, Option<String>) {
+    let mut target = None;
+    let mut args = None;
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let value = value.trim();
+        // Scoop writes `path = "…"`, so only the enclosing pair is quoting; an
+        // argument list carries its own quotes and they have to survive.
+        let value = value
+            .strip_prefix('"')
+            .and_then(|rest| rest.strip_suffix('"'))
+            .unwrap_or(value)
+            .to_string();
+        match key.trim().to_ascii_lowercase().as_str() {
+            "path" if !value.is_empty() => target = Some(value),
+            "args" => args = if value.is_empty() { None } else { Some(value) },
+            _ => {}
+        }
+    }
+    (target, args)
+}
+
+/// `…\apps\<name>\…` → `<name>`: which app a shim belongs to.
+fn app_of_shim_target(target: &str) -> Option<String> {
+    let parts: Vec<&str> = target.split(['\\', '/']).collect();
+    let index = parts
+        .iter()
+        .position(|part| part.eq_ignore_ascii_case("apps"))?;
+    parts
+        .get(index + 1)
+        .filter(|name| !name.is_empty())
+        .map(|name| (*name).to_string())
+}
+
+fn read_shims(dirs: &[(PathBuf, bool)]) -> Vec<ScoopShimView> {
+    let mut shims: BTreeMap<String, ScoopShimView> = BTreeMap::new();
+    for (dir, global) in dirs {
+        let Ok(entries) = fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let file_name = entry.file_name().to_string_lossy().to_string();
+            // The launcher and its hidden twin are not rows of their own: a row
+            // is the `.shim` file, or the bare script of a shim written by hand.
+            if file_name.ends_with(".exe") || file_name.ends_with(".exe.shimmed") {
+                continue;
+            }
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            let Some(name) = path.file_stem().map(|stem| stem.to_string_lossy().to_string()) else {
+                continue;
+            };
+            let key = name.to_ascii_lowercase();
+            if shims.contains_key(&key) {
+                continue;
+            }
+
+            let shim_file = dir.join(format!("{name}.shim"));
+            let (target, args) = if shim_file.is_file() {
+                let text = fs::read_to_string(&shim_file).unwrap_or_default();
+                let (target, args) = read_shim_lines(&text);
+                // A `.shim` without a `path` runs nothing; the file itself is
+                // the only honest answer, and it does not depend on which of the
+                // shim's files the folder happened to list first.
+                (
+                    target.unwrap_or_else(|| shim_file.display().to_string()),
+                    args,
+                )
+            } else {
+                (path.display().to_string(), None)
+            };
+
+            shims.insert(
+                key,
+                ScoopShimView {
+                    hidden: dir.join(format!("{name}.exe.shimmed")).is_file(),
+                    app: app_of_shim_target(&target),
+                    target,
+                    args,
+                    global: *global,
+                    name,
+                },
+            );
+        }
+    }
+    shims.into_values().collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        bin_names, check_uninstall_targets, clone_proxy, flag_field, install_script_text,
-        is_inside, is_package_name, license_fields, notes_field, parse_bucket_name,
-        parse_bucket_spec, parse_spec, parse_version, read_app_json, read_json, run_script_text,
-        same_path, same_repository, set_app_hold, string_list, strip_verbatim, text_of,
-        EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
-        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        app_of_shim_target, bin_names, cache_entries, check_uninstall_targets, clone_proxy,
+        flag_field, install_script_text, is_inside, is_package_name, license_fields, notes_field,
+        parse_bucket_name, parse_bucket_spec, parse_cache_name, parse_spec, parse_version,
+        read_app_json, read_json, read_shim_lines, read_shims, run_script_text, same_path,
+        same_repository, set_app_hold, string_list, strip_verbatim, text_of, EffectiveMode,
+        EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE,
+        LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -2754,5 +3472,93 @@ mod tests {
         assert!(!is_package_name("extras/7zip"));
         assert!(!is_package_name("-rf"));
         assert!(!is_package_name("7zip & del x"));
+    }
+
+    #[test]
+    fn a_cache_file_says_which_app_and_version_it_is() {
+        assert_eq!(
+            parse_cache_name("7zip#24.08#3f2c1ab.7z"),
+            Some(("7zip".to_string(), "24.08".to_string()))
+        );
+        // The older three-part names are still names Scoop wrote.
+        assert_eq!(
+            parse_cache_name("git#2.45.1"),
+            Some(("git".to_string(), "2.45.1".to_string()))
+        );
+        // Anything else is not a download this page can date.
+        assert_eq!(parse_cache_name("readme.txt"), None);
+        assert_eq!(parse_cache_name("#1.0.0#hash.zip"), None);
+    }
+
+    #[test]
+    fn the_cache_is_read_with_the_apps_it_belongs_to() {
+        let root = std::env::temp_dir().join(format!("wingharness-cache-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let cache = root.join("cache");
+        fs::create_dir_all(&cache).unwrap();
+        fs::write(cache.join("demo#1.0.0#abc.zip"), "old").unwrap();
+        fs::write(cache.join("demo#2.0.0#def.zip"), "new").unwrap();
+        fs::write(cache.join("other#1.0.0#ghi.zip"), "other").unwrap();
+        fs::write(cache.join("notes.txt"), "not a download").unwrap();
+
+        // `demo` holds two versions at once, so its downloads are kept; `other`
+        // holds one, so its download is fair game.
+        fs::create_dir_all(root.join("apps/demo/1.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/demo/2.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/other/1.0.0")).unwrap();
+        fs::create_dir_all(root.join("apps/other/current")).unwrap();
+
+        let entries = cache_entries(&root);
+        assert_eq!(entries.len(), 3);
+        let versioned: Vec<bool> = entries.iter().map(|entry| entry.versioned).collect();
+        assert_eq!(versioned, vec![true, true, false]);
+        assert_eq!(entries.iter().map(|entry| entry.length).sum::<u64>(), 11);
+
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn a_shim_file_is_read_as_scoop_writes_it() {
+        let (target, args) = read_shim_lines(
+            "path = \"C:\\scoop\\apps\\7zip\\current\\7z.exe\"\r\nargs = \r\n",
+        );
+        let target = target.unwrap();
+        assert_eq!(target, r"C:\scoop\apps\7zip\current\7z.exe");
+        assert_eq!(args, None);
+        assert_eq!(app_of_shim_target(&target).as_deref(), Some("7zip"));
+
+        let (_, args) = read_shim_lines("path = \"x.exe\"\nargs = --quiet \"a b\"\n");
+        assert_eq!(args.as_deref(), Some("--quiet \"a b\""));
+
+        // A shim written by hand carries anything that is not `path`/`args`.
+        assert_eq!(read_shim_lines("portable = true"), (None, None));
+        assert_eq!(app_of_shim_target(r"D:\tools\custom.exe"), None);
+    }
+
+    #[test]
+    fn a_shim_is_listed_once_per_name() {
+        let root = std::env::temp_dir().join(format!("wingharness-shim-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let shims = root.join("shims");
+        fs::create_dir_all(&shims).unwrap();
+        // The four files one Scoop shim leaves behind, plus a hidden one and a
+        // bare script someone put there by hand.
+        for name in ["dark.exe", "dark.shim", "dark.ps1", "dark.cmd", "scoopx.exe.shimmed"] {
+            fs::write(shims.join(name), "").unwrap();
+        }
+        fs::write(shims.join("scoopx.shim"), "path = \"C:\\bin\\scoopx.exe\"\n").unwrap();
+        fs::write(shims.join("handwritten.cmd"), "").unwrap();
+
+        let listed = read_shims(&[(shims.clone(), false)]);
+        let names: Vec<&str> = listed.iter().map(|shim| shim.name.as_str()).collect();
+        assert_eq!(names, vec!["dark", "handwritten", "scoopx"]);
+
+        let dark = &listed[0];
+        assert_eq!(dark.target, shims.join("dark.shim").display().to_string());
+        assert_eq!(dark.app, None);
+        assert!(!dark.hidden);
+        assert!(listed[2].hidden);
+
+        fs::remove_dir_all(&root).unwrap();
     }
 }

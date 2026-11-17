@@ -274,6 +274,74 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 `scoop uninstall scoop` 会连 Scoop 本体和它装的所有软件一起删掉，所以
 `scoop_plan_run` 直接拒绝这个名字，而不是把它当作可选目标。
 
+## 诊断 tab
+
+四张卡片，四个问题：这台机器为 Scoop 准备好了没有、能腾出多少空间、下载缓存里是
+什么、shim 里是什么。这些全部从磁盘读，只有两个会改动软件的按钮经过终端。
+
+### 检查
+
+`scoop_checkup` 只读，每项检查回一行。一行里带一个 **id**、是否通过、量到的值，以及
+失败时能修好它的动作。句子留在页面里：后端发的是 `git` 而不是
+`Git is installed`，所以一行永远不会「半翻译」，加一项检查也只需要在两份语言文件里
+各加一行。
+
+| Id | 通过条件 | 修复 |
+| --- | --- | --- |
+| `git` | `git --version` 退出码为 0 | 安装 `git` 软件 |
+| `mainBucket` | `<scoop>/buckets/main` 是个目录 | 克隆 `ScoopInstaller/Main` |
+| `developerMode` | `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock` 下的 `AllowDevelopmentWithoutDevLicense` 为 `1` | 打开 `ms-settings:developers` |
+| `longPaths` | `HKLM\SYSTEM\CurrentControlSet\Control\FileSystem` 下的 `LongPathsEnabled` 为 `1` | 打开 `ms-settings:developers` |
+| `ntfs` | 安装目录所在的卷报的是 `NTFS` | 打开 `ms-settings:disksandvolumes` |
+| `helper` | `apps/<helper>/current` 存在，`7zip`、`dark`、`innounp`、`lessmsi` 逐个看 | 安装那个软件 |
+
+注册表和卷都是读出来的，不是起进程问出来的 —— 前者用 `windows-registry`，后者用
+`GetVolumeInformationW` —— 所以一次检查只花一条 `git --version`，中文
+Windows 上也照样读到 `NTFS`。**安装**和**克隆**就是页面本来就有的动作：走的是同一份
+安装计划和同一个克隆，连代理都一样，日志与终端也是那一个。**打开设置**是
+`scoop_open_settings`，它把固定的 `ms-settings:` 地址交给 `explorer.exe`；命令只接受
+`developers` 和 `disksandvolumes`，别的一律拒绝，因为那个值会一路走到 shell。
+
+### 清理
+
+一张卡片背后是两套机制，因为这是两个不同的问题：
+
+- **旧版本**跑 `scoop cleanup *`，也就是 Scoop 自己按根目录扫的那条命令；全局根里有
+  软件、且用户级那一遍跑到了，就在后面追加 `scoop cleanup -g *`。它和其它运行一样，
+  结果在终端里。
+- **过期的下载**由页面自己做。`scoop cache rm *` 会把所有文件一起带走，包括一个软件
+  装过好几个版本、切换时还要用的那些，所以 `scoop_cache_clear(…, outdatedOnly)` 拿
+  每个文件的版本和已装的版本比，只删过期的。
+
+### 下载缓存
+
+`scoop_cache_entries` 自己读 `<scoop>/cache`。Scoop 把每个文件命名成
+`name#version#hash.ext`，页面要显示的软件、版本和大小全在里面，不必再问 CLI；目录总量
+就是列出来的那些之和。装过多个版本的软件 —— `apps/<app>` 里在 `current` 旁边还有别的
+版本目录 —— 会被标成 **多版本**，它的文件在这里删不掉：切换版本正需要它们。
+`scoop_cache_clear` 把这种文件算作 `skipped` 而不是悄悄跳过，行上的删除按钮也置灰并
+把原因写在提示里。
+
+### shim
+
+`scoop_shims` 走 `shims` 和 `global/shims`。一行是一个名字：`.shim` 文件说明跑什么
+（`path`、`args`），旁边那个 `.exe` 是 Scoop 启动器的副本，所以启动器和它的
+`.exe.shimmed` 孪生文件会被折进这一行，而不单独列出。所有动作都是文件操作，所以一个
+都不需要终端：
+
+- **隐藏 / 显示**把 `<name>.exe` 改名成 `<name>.exe.shimmed` 再改回来 —— Scoop 自己
+  就是把命令从 `PATH` 里拿掉而不删 shim 的。
+- **删除**删掉所有以 `<name>.` 开头的文件 —— 那个点正是让 `dark` 不会连带删掉
+  `darktable` 的东西。
+- **添加**写 `.shim` 文件，并把 `apps/scoop/current/shim.exe` 复制到它旁边，本地根或
+  全局根都行。
+
+### 署名
+
+设置 tab 最后一张卡片说的是 WingHarness 而不是 Scoop：软件名、`getVersion()` 拿到的
+版本、`GPL-3.0-only` 许可证、作者和源码仓库的链接，再加一个和「关于」窗口同样的更新
+检查。它刻意不做成进那个窗口的第二个入口 —— 它需要的两个按钮各自就是一次调用。
+
 ## 命令
 
 | 命令 | 参数 | 返回 |
@@ -283,12 +351,20 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、代理同步、`scoop update`、`scoop update *`、单个软件更新或卸载写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、代理同步、`scoop update`、`scoop update *`、单个软件更新、`scoop cleanup *` 或卸载写入 `run.cmd` |
 | `scoop_set_hold` | `name`、`global`、`hold` | 在软件自己的安装信息里写入或清除固定标记；返回两个根目录刷新后的软件列表 |
 | `scoop_add_bucket` | `request` | 用 `git-core` 把桶克隆到 `<scoop>/buckets/<桶名>`，代理来自本页；返回桶名、目录与日志 |
 | `scoop_remove_bucket` | `spec` | 删除 `<scoop>/buckets/<桶名>`；返回桶名、目录与日志 |
 | `scoop_package_info` | `name`、`bucket`、`global` | 从已克隆的桶或已安装的软件读取一份清单：版本、许可证、说明、依赖、建议、命令、路径与原文 |
 | `scoop_bucket_info` | `name` | 该桶的 `bucket/*.json` 名称，以及克隆的远程地址、分支、提交、提交时间与最近提交标题 |
+| `scoop_checkup` | — | 每项检查一行：id、是否通过、量到的值，失败时还有修复动作 |
+| `scoop_open_settings` | `page` | 打开 `ms-settings:developers` 或 `ms-settings:disksandvolumes` |
+| `scoop_cache_entries` | — | 把 `<scoop>\cache` 读成文件：软件、版本、大小，以及是否属于多版本软件 |
+| `scoop_cache_clear` | `files`、`outdatedOnly` | 删除指定文件、只删过期的、或全删；返回腾出的字节、跳过的文件与失败项 |
+| `scoop_shims` | — | 本地与全局的 shim：名字、目标、所属软件、参数、是否全局、是否隐藏 |
+| `scoop_shim_add` | `request` | 写入 `<name>.shim` 并复制一份 `shim.exe`；返回刷新后的列表 |
+| `scoop_shim_toggle` | `name` | 改启动器的名字来隐藏或显示 shim；返回刷新后的列表 |
+| `scoop_shim_remove` | `name` | 删掉这个 shim 的所有文件；返回刷新后的列表 |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。
@@ -301,6 +377,11 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 - **本地搜索只看到已克隆的桶。** 从未克隆的桶靠**联网搜索**发现，它会在需要时
   克隆。
 - **同一时刻只有一个任务**，且没有输入：脚本不可交互。
+- **`scoop cleanup -g *` 需要管理员窗口**，和 `scoop update -g *` 一模一样，所以在
+  普通窗口里发起的全局清扫会在终端里报出它的拒绝，全局根保持原样。
+- **缓存与 shim 的改动是文件操作**，由本页做而不是 `scoop cache rm` 和 `scoop shim`，
+  所以跟着的是 Scoop 的目录结构而不是它的代码：多版本软件的下载在缓存管理里永远删不
+  掉，从这里加的 shim 也不会登记到别处。
 - **系统模式使用 Windows 报告的设置**，包括 PAC 网址；Scoop 的 HTTP 代理设置无法
   按地址处理它。
 

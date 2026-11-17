@@ -124,10 +124,18 @@ export interface ScoopInstallRequest extends ScoopLocationRequest {
 }
 
 export interface ScoopRunRequest {
-  kind: "install" | "search" | "config" | "update" | "apps-update" | "app-update" | "uninstall";
+  kind:
+    | "install"
+    | "search"
+    | "config"
+    | "update"
+    | "apps-update"
+    | "app-update"
+    | "cleanup"
+    | "uninstall";
   /**
    * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
-   * `update` and `apps-update` take nothing.
+   * `update`, `apps-update` and `cleanup` take nothing.
    */
   spec: string;
   /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
@@ -196,3 +204,71 @@ export interface ScoopBucketInfo {
 export type ScoopDetailTarget =
   | { kind: "package"; name: string; bucket: string | null; global: boolean }
   | { kind: "bucket"; name: string };
+
+/** What the checkup offers for a failed row. */
+export type ScoopCheckupFix =
+  | { kind: "installPackage"; package: string }
+  | { kind: "installBucket"; name: string; url: string }
+  | { kind: "openSettings"; page: string };
+
+/** The checks the diagnostics tab runs, in the order they are shown. */
+export type ScoopCheckupId =
+  | "git"
+  | "mainBucket"
+  | "developerMode"
+  | "longPaths"
+  | "ntfs"
+  | "helper";
+
+/** One row of the checkup. */
+export interface ScoopCheckupItem {
+  id: ScoopCheckupId;
+  ok: boolean;
+  /** What was measured: the git version, the filesystem, the helper's name. */
+  value: string | null;
+  fix: ScoopCheckupFix | null;
+}
+
+/** One download Scoop kept, named `name#version#hash.ext`. */
+export interface ScoopCacheEntry {
+  fileName: string;
+  name: string;
+  version: string;
+  length: number;
+  /** The app is installed from several versions, so the file stays. */
+  versioned: boolean;
+}
+
+export interface ScoopCache {
+  path: string;
+  total: number;
+  entries: ScoopCacheEntry[];
+}
+
+export interface ScoopCacheClear {
+  deleted: number;
+  skipped: number;
+  freed: number;
+  failed: string[];
+}
+
+/** One launcher on `PATH`. */
+export interface ScoopShim {
+  name: string;
+  /** What the shim runs: the `.shim` file's `path`, or the script itself. */
+  target: string;
+  /** The app under `apps\<name>`, when the target is inside one. */
+  app: string | null;
+  args: string | null;
+  global: boolean;
+  /** Renamed to `<name>.exe.shimmed`: the shim is out of the way. */
+  hidden: boolean;
+}
+
+/** A shim to write: the `.shim` file and a copy of Scoop's launcher. */
+export interface ScoopShimRequest {
+  name: string;
+  target: string;
+  args?: string | null;
+  global: boolean;
+}

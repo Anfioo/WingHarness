@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { ScoopBucketsPanel } from "@/components/scoop/buckets-panel";
 import { ScoopDetailSheet } from "@/components/scoop/detail-sheet";
+import { ScoopDiagnosticsPanel } from "@/components/scoop/diagnostics-panel";
 import { ScoopInstallPanel } from "@/components/scoop/install-panel";
 import { ScoopOverviewPanel } from "@/components/scoop/overview-panel";
 import { ScoopRunDock } from "@/components/scoop/run-dock";
@@ -22,7 +23,7 @@ function ScoopLoadingScreen() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex shrink-0 items-center gap-1">
-        {[0, 1, 2, 3].map((tab) => (
+        {[0, 1, 2, 3, 4].map((tab) => (
           <Skeleton key={tab} className="h-8 w-24 rounded-md" />
         ))}
       </div>
@@ -124,6 +125,7 @@ export default function ScoopPage() {
               <TabsTrigger value="overview">{t("scoop.tabs.overview")}</TabsTrigger>
               <TabsTrigger value="search">{t("scoop.tabs.search")}</TabsTrigger>
               <TabsTrigger value="buckets">{t("scoop.tabs.buckets")}</TabsTrigger>
+              <TabsTrigger value="diagnostics">{t("scoop.tabs.diagnostics")}</TabsTrigger>
               <TabsTrigger value="settings">{t("scoop.tabs.settings")}</TabsTrigger>
             </TabsList>
 
@@ -135,6 +137,9 @@ export default function ScoopPage() {
             </TabsContent>
             <TabsContent value="buckets" className="min-h-0 flex-1 overflow-auto">
               <ScoopBucketsPanel page={page} />
+            </TabsContent>
+            <TabsContent value="diagnostics" className="min-h-0 flex-1 overflow-auto">
+              <ScoopDiagnosticsPanel page={page} />
             </TabsContent>
             <TabsContent value="settings" className="min-h-0 flex-1 overflow-auto">
               <ScoopSettingsPanel page={page} />

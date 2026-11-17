@@ -30,6 +30,7 @@ export type ScoopRunKind =
   | "update"
   | "apps-update"
   | "app-update"
+  | "cleanup"
   | "uninstall"
   | "config";
 export type ScoopLogTone = "info" | "error" | "done";
@@ -78,6 +79,8 @@ export interface ScoopPageController {
   setAppHold: (app: { name: string; global: boolean }, hold: boolean) => Promise<void>;
   /** Uninstalls one app (`scoop uninstall [-g] [-p] <app>`). */
   uninstallApp: (app: { name: string; global: boolean }, purge: boolean) => Promise<void>;
+  /** Runs `scoop cleanup *`: the versions a newer install replaced. */
+  cleanupApps: () => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
   /** The row whose metadata the detail sheet is showing, if it is open. */
   detail: ScoopDetailTarget | null;
@@ -407,6 +410,14 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
+  /** `scoop cleanup *`: the versions a newer install replaced, one root after
+   * the other. A download cache is not part of it — that one the diagnostics
+   * tab deletes itself, so it can leave the files a rollback needs. */
+  const cleanupApps = useCallback(
+    () => runPlan({ kind: "cleanup", spec: "" }, "cleanup"),
+    [runPlan]
+  );
+
   const syncProxy = useCallback(() => runPlan({ kind: "config", spec: "" }, "config"), [runPlan]);
 
   const clearRun = useCallback(() => {
@@ -456,6 +467,7 @@ export function useScoopPage(): ScoopPageController {
     updateApp,
     setAppHold,
     uninstallApp,
+    cleanupApps,
     searchOnline,
     detail,
     openPackageDetail,
