@@ -129,16 +129,27 @@ is also a line in the run log (`Installer runs as: …`), so the terminal shows 
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
 | `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
+| `scoop-run.ps1` | The wrapper every Scoop call goes through |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
 child's environment (`%SCOOP%`, `%SCOOP_TARGET%`, `%HTTP_PROXY%`,
-`%SCOOP_PROXY_ADDRESS%`) rather than being pasted into the file, which keeps a
-non-ASCII user name or folder out of `cmd.exe`'s encoding problems. `chcp 65001`
-is set for readable output.
+`%SCOOP_PROXY_ADDRESS%`, `%SCOOP_WRAPPER%`) rather than being pasted into the
+file, which keeps a non-ASCII user name or folder out of `cmd.exe`'s encoding
+problems. `chcp 65001` is set for readable output.
 
-`scoop.cmd` is invoked with `call`: without it a batch file transfers control
-and `exit /b` inside the shim would end the script before the second command or
-the exit-code line.
+Scoop itself is PowerShell, so a call is never pure `cmd`: what the scripts pin
+is the *host*. They call `powershell.exe -File "%SCOOP_WRAPPER%" …` rather than
+`%SCOOP%\shims\scoop.cmd`, because that shim chooses its own host with
+`where /q pwsh.exe` — the same machine would run Scoop on whichever PowerShell
+is on `PATH` — and because it drops the exit code: Scoop's `exec` is
+`& $path @args`, whose status only lands in `$LASTEXITCODE`, so the shim exits
+`0` even after a failure. Windows PowerShell 5.1 is always present and is
+already the installer's host, so the wrapper gets both: a fixed host, and the
+real status.
+
+The wrapper formats the command's output with `Out-String -Stream` before it
+exits. That is what keeps a table such as `scoop bucket list` visible: a bare
+`exit` ends the process while the formatter still holds the objects.
 
 Each script
 

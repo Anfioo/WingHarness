@@ -29,6 +29,37 @@ const INSTALL_SCRIPT: &str = include_str!("../../resources/scoop/install.ps1");
 const INSTALL_SCRIPT_NAME: &str = "install.ps1";
 const INSTALL_CMD_NAME: &str = "install.cmd";
 const RUN_CMD_NAME: &str = "run.cmd";
+/// Every Scoop call goes through this wrapper instead of `shims\scoop.cmd`.
+///
+/// The `.cmd` shim picks its host with `where /q pwsh.exe`, so the same machine
+/// runs Scoop on whatever PowerShell happens to be on `PATH`, and it loses the
+/// exit code: `scoop.ps1` ends with `exec`, whose `& $path @args` only sets
+/// `$LASTEXITCODE` in the caller, so the process still exits 0 after a failure.
+/// Calling the entry script through this wrapper pins Windows PowerShell 5.1
+/// (always present, and already the host of the installer), keeps the output —
+/// `Out-String -Stream` formats inside the statement, so the final `exit`
+/// cannot drop a buffered table — and returns the real status.
+const RUN_WRAPPER_NAME: &str = "scoop-run.ps1";
+const RUN_WRAPPER: &str = r#"# Runs one Scoop command and returns its real exit code.
+#
+# `& $entry @args` alone is not enough: Scoop's own `exec` swallows the status of
+# the script it runs, and a bare `exit` at the end would discard the objects a
+# command such as `bucket list` hands to the formatter. Formatting them here
+# first makes the exit safe.
+$root = $env:SCOOP
+$entry = Join-Path $root 'apps\scoop\current\bin\scoop.ps1'
+if (-not (Test-Path -LiteralPath $entry)) {
+    $entry = Join-Path $root 'shims\scoop.ps1'
+}
+if (-not (Test-Path -LiteralPath $entry)) {
+    Write-Host "[scoop] no Scoop entry script under $root"
+    exit 127
+}
+& $entry @args | Out-String -Stream | Write-Host
+$status = $LASTEXITCODE
+if ($null -eq $status) { $status = 0 }
+exit $status
+"#;
 /// Folder under the data directory holding the generated scripts. It is
 /// deliberately not inside the Scoop root: the default install folder is
 /// `<data dir>/scoop`, and generated files must not land in the package tree.
@@ -276,6 +307,32 @@ fn install_script_path() -> PathBuf {
     work_dir().join(INSTALL_SCRIPT_NAME)
 }
 
+fn run_wrapper_path() -> PathBuf {
+    work_dir().join(RUN_WRAPPER_NAME)
+}
+
+/// One line of a generated script that hands `<args>` to the wrapper.
+///
+/// The wrapper path is a variable: a non-ASCII user name would otherwise put
+/// the data directory's encoding into a script that has to stay ASCII. No
+/// `call` is needed — `powershell.exe` is a program, not a batch file.
+fn scoop_call(script: &mut String, args: &str) {
+    script.push_str("powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%SCOOP_WRAPPER%\" ");
+    script.push_str(args);
+    script.push_str("\r\n");
+}
+
+/// The `scoop config` arguments for one proxy mode. The quiet form carries a
+/// `cmd` redirect, which only works at the end of the line: any further text
+/// would be swallowed as the redirect target.
+fn proxy_config_args(proxy: &EffectiveProxy) -> String {
+    let mut args = format!("config {}", proxy.config_args());
+    if proxy.config_quiet() {
+        args.push_str(" >nul 2>&1");
+    }
+    args
+}
+
 fn resolve_choice(choice: &ScoopPathChoice, kind: PathKind) -> Result<PathBuf, String> {
     match choice.location.as_str() {
         "user" => user_path(kind).ok_or_else(|| {
@@ -484,8 +541,8 @@ fn read_buckets(target: &Path) -> Vec<ScoopBucketView> {
 
 /// Runs a captured child with a hard deadline.
 ///
-/// The Scoop commands are off the main thread, but a PowerShell or `scoop.cmd`
-/// that never exits would still leave the page waiting forever. A child that
+/// The Scoop commands are off the main thread, but a PowerShell command that
+/// never exits would still leave the page waiting forever. A child that
 /// outlives the deadline is killed together with its descendants.
 fn run_with_timeout(mut command: Command, seconds: u64, label: &str) -> Result<std::process::Output, String> {
     let mut child = command
@@ -513,27 +570,38 @@ fn run_with_timeout(mut command: Command, seconds: u64, label: &str) -> Result<s
 
 /// A small installer is not a version source; ask the installed CLI once.
 fn scoop_version(root: &Path) -> Option<String> {
-    let shim = root.join("shims").join("scoop.cmd");
-    if !shim.is_file() {
-        return None;
-    }
-
-    let command = {
-        let mut command = Command::new("cmd");
-        command
-            .arg("/d")
-            .arg("/c")
-            .arg(&shim)
-            .arg("--version")
-            .env("SCOOP", root)
-            .env("SCOOP_GLOBAL", root);
-        command
-    };
+    let entry = scoop_entry_script(root)?;
+    let mut command = Command::new("powershell.exe");
+    command
+        .args(["-NoProfile", "-ExecutionPolicy", "Bypass", "-File"])
+        .arg(&entry)
+        .arg("--version")
+        .env("SCOOP", root)
+        .env("SCOOP_GLOBAL", root);
     let output = run_with_timeout(command, 20, "scoop --version").ok()?;
 
     let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
     text.push_str(&String::from_utf8_lossy(&output.stderr));
     parse_version(&text)
+}
+
+/// The script that runs Scoop, preferring the real one over a shim so a stale
+/// absolute path in `shims\scoop.cmd` cannot send the call to another install.
+fn scoop_entry_script(root: &Path) -> Option<PathBuf> {
+    let entry = root
+        .join("apps")
+        .join("scoop")
+        .join("current")
+        .join("bin")
+        .join("scoop.ps1");
+    if entry.is_file() {
+        return Some(entry);
+    }
+    let shim = root.join("shims").join("scoop.ps1");
+    if shim.is_file() {
+        return Some(shim);
+    }
+    None
 }
 
 /// Scoop prints `Current Scoop version:` followed by `v0.5.2 …`; the first
@@ -820,12 +888,18 @@ impl EffectiveProxy {
 
     /// Arguments after `scoop config`. `%SCOOP_PROXY_ADDRESS%` is expanded by
     /// `cmd.exe`; the address never enters the script text itself.
-    fn config_command(&self) -> &'static str {
+    fn config_args(&self) -> &'static str {
         match self.mode {
             EffectiveMode::Custom => "proxy \"%SCOOP_PROXY_ADDRESS%\"",
             EffectiveMode::None => "proxy none",
-            EffectiveMode::System => "rm proxy >nul 2>&1",
+            // Removing a setting that is not there is an error to Scoop, and on
+            // System mode with no stored proxy that is the ordinary case.
+            EffectiveMode::System => "rm proxy",
         }
+    }
+
+    fn config_quiet(&self) -> bool {
+        matches!(self.mode, EffectiveMode::System)
     }
 }
 
@@ -1127,7 +1201,15 @@ fn set_user_env(_values: &[(&str, &str)]) -> Result<(), String> {
 // ---------------------------------------------------------------------------
 // Plans
 
-fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEnvVar> {
+fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Result<Vec<ScoopEnvVar>, String> {
+    // Refreshed on every plan: a newer app build can change the wrapper, and a
+    // stale copy would keep running the old one.
+    let wrapper = run_wrapper_path();
+    fs::create_dir_all(work_dir())
+        .map_err(|error| format!("Failed to create {}: {error}", work_dir().display()))?;
+    fs::write(&wrapper, RUN_WRAPPER)
+        .map_err(|error| format!("Failed to write {}: {error}", wrapper.display()))?;
+
     let mut values = vec![
         ("SCOOP", applied.scoop.root.display().to_string()),
         ("SCOOP_GLOBAL", applied.global.root.display().to_string()),
@@ -1140,6 +1222,7 @@ fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEn
             "SCOOP_INSTALL_PS1",
             install_script_path().display().to_string(),
         ),
+        ("SCOOP_WRAPPER", wrapper.display().to_string()),
         ("SCOOP_PROXY_LABEL", proxy.label()),
         (
             "SCOOP_PROXY_ADDRESS",
@@ -1152,13 +1235,13 @@ fn environment(applied: &AppliedLocation, proxy: &EffectiveProxy) -> Vec<ScoopEn
     ];
     values.extend(proxy.env());
 
-    values
+    Ok(values
         .into_iter()
         .map(|(name, value)| ScoopEnvVar {
             name: name.to_string(),
             value,
         })
-        .collect()
+        .collect())
 }
 
 /// The real folder behind `SCOOP`: where the installed apps live.
@@ -1193,15 +1276,15 @@ pub(crate) fn prepare_scoop_command(subcommand: &str, app: &str) -> Result<Scoop
     let applied = current_location()?;
     let proxy = effective_proxy("inherit", None);
 
-    let mut env = environment(&applied, &proxy);
+    let mut env = environment(&applied, &proxy)?;
     env.push(ScoopEnvVar {
         name: "SCOOP_PLUGIN_APP".to_string(),
         value: app.to_string(),
     });
 
-    let script = format!(
-        "@echo off\r\nchcp 65001 >nul\r\ncall \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} \"%SCOOP_PLUGIN_APP%\"\r\nexit /b %ERRORLEVEL%\r\n"
-    );
+    let mut script = String::from("@echo off\r\nchcp 65001 >nul\r\n");
+    scoop_call(&mut script, &format!("{subcommand} \"%SCOOP_PLUGIN_APP%\""));
+    script.push_str("exit /b %ERRORLEVEL%\r\n");
     let path = write_script(&format!("plugin-{subcommand}.cmd"), &script)?;
 
     Ok(ScoopCommand { script: path, env })
@@ -1249,10 +1332,8 @@ fn install_script_text(proxy: &EffectiveProxy, run_as_admin: bool) -> String {
     // address would close the block early.
     script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_done\r\n");
     script.push_str("echo [scoop] configuring the Scoop proxy for future installs\r\n");
-    script.push_str(&format!(
-        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-        proxy.config_command()
-    ));
+    let config = proxy_config_args(proxy);
+    scoop_call(&mut script, &config);
     script.push_str(":scoop_done\r\n");
     script.push_str("exit /b %SCOOP_EXIT%\r\n");
     script
@@ -1268,47 +1349,41 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
     script.push_str("echo [scoop] SCOOP_GLOBAL link : %SCOOP_GLOBAL%\r\n");
     script.push_str("echo [scoop] SCOOP_GLOBAL real : %SCOOP_GLOBAL_TARGET%\r\n");
 
-    let config = format!(
-        "call \"%SCOOP%\\shims\\scoop.cmd\" config {}\r\n",
-        proxy.config_command()
-    );
+    let config = proxy_config_args(proxy);
 
-    // `call` is required: invoking a batch file without it transfers control
-    // and `exit /b` inside scoop.cmd would end this script before the next line.
     if kind == "config" {
         script.push_str("echo [scoop] applying the proxy to Scoop\r\n");
-        script.push_str(&config);
+        scoop_call(&mut script, &config);
     } else if kind == "bucket" {
         script.push_str(
             "echo [scoop] command: scoop bucket add %SCOOP_BUCKET_NAME% %SCOOP_BUCKET_URL%\r\n",
         );
-        script.push_str(&config);
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"\r\n",
+        scoop_call(&mut script, &config);
+        scoop_call(
+            &mut script,
+            "bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"",
         );
     } else if kind == "bucket-rm" {
         // Removing a bucket deletes its clone only: the apps installed from it
         // stay where they are, so this needs no proxy either.
         script.push_str("echo [scoop] command: scoop bucket rm %SCOOP_BUCKET_NAME%\r\n");
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" bucket rm \"%SCOOP_BUCKET_NAME%\"\r\n",
-        );
+        scoop_call(&mut script, "bucket rm \"%SCOOP_BUCKET_NAME%\"");
     } else if kind == "update" {
         // No app argument: Scoop updates itself and every cloned bucket.
         script.push_str("echo [scoop] command: scoop update\r\n");
-        script.push_str(&config);
-        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update");
     } else if kind == "apps-update" {
         // `*` is every app in one root, and Scoop skips the held ones itself,
         // which is the whole point of holding: a pinned version stays put.
         script.push_str("echo [scoop] command: scoop update *\r\n");
-        script.push_str(&config);
-        script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update *\r\n");
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update *");
         if update_globals {
             script.push_str("set \"SCOOP_EXIT=%ERRORLEVEL%\"\r\n");
             script.push_str("if not \"%SCOOP_EXIT%\"==\"0\" goto scoop_run_done\r\n");
             script.push_str("echo [scoop] command: scoop update -g *\r\n");
-            script.push_str("call \"%SCOOP%\\shims\\scoop.cmd\" update -g *\r\n");
+            scoop_call(&mut script, "update -g *");
         }
     } else if kind == "app-update" || kind == "hold" || kind == "unhold" {
         let subcommand = if kind == "app-update" { "update" } else { kind };
@@ -1318,29 +1393,29 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
         // Holding is a metadata write: it downloads nothing, so the proxy is
         // irrelevant to it.
         if kind == "app-update" {
-            script.push_str(&config);
+            scoop_call(&mut script, &config);
         }
-        script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
-        ));
+        scoop_call(
+            &mut script,
+            &format!("{subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%"),
+        );
     } else if kind == "uninstall" {
         // Scoop keeps the app's `persist` folder unless it is given `-p`, which
         // is what a reinstall needs to find the user's settings again.
         script.push_str(
             "echo [scoop] command: scoop uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
         );
-        script.push_str(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%\r\n",
+        scoop_call(
+            &mut script,
+            "uninstall %SCOOP_GLOBAL_FLAG% %SCOOP_PURGE_FLAG% %SCOOP_APP_ARGS%",
         );
     } else {
         let subcommand = if kind == "search" { "search" } else { "install" };
         script.push_str(&format!(
             "echo [scoop] command: scoop {subcommand} %SCOOP_APP_ARGS%\r\n"
         ));
-        script.push_str(&config);
-        script.push_str(&format!(
-            "call \"%SCOOP%\\shims\\scoop.cmd\" {subcommand} %SCOOP_APP_ARGS%\r\n"
-        ));
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, &format!("{subcommand} %SCOOP_APP_ARGS%"));
     }
 
     script.push_str(":scoop_run_done\r\n");
@@ -1601,7 +1676,7 @@ pub fn scoop_prepare_install(request: ScoopInstallRequest) -> Result<ScoopPlanVi
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
 
     let script = install_script_text(&proxy, request.run_as_admin);
-    let env = environment(&applied, &proxy);
+    let env = environment(&applied, &proxy)?;
     let mut log = std::mem::take(&mut applied.log);
     log.push(format!("Installer: {}", install_script_path().display()));
     log.push(format!(
@@ -1629,7 +1704,7 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
     let applied = current_location()?;
     let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
 
-    let mut env = environment(&applied, &proxy);
+    let mut env = environment(&applied, &proxy)?;
     let folder_line = format!("Folder: {}", applied.scoop.target.display());
     let global_flag = if request.global { "-g" } else { "" };
     let update_globals = request.kind == "apps-update" && has_global_apps(&applied);
@@ -1767,9 +1842,9 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
 mod tests {
     use super::{
         check_uninstall_targets, flag_field, install_script_text, is_inside, parse_bucket_name,
-        parse_bucket_spec, parse_spec, parse_version, read_app_json, same_path, strip_verbatim,
-        EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
-        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        parse_bucket_spec, parse_spec, parse_version, read_app_json, run_script_text, same_path,
+        strip_verbatim, EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE,
+        APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1851,6 +1926,51 @@ mod tests {
         };
         assert!(!install_script_text(&proxy, false).contains("-RunAsAdmin"));
         assert!(install_script_text(&proxy, true).contains("-RunAsAdmin"));
+    }
+
+    #[test]
+    fn scoop_runs_through_the_pinned_wrapper() {
+        let proxy = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: None,
+            source: "settings",
+        };
+        for text in [
+            install_script_text(&proxy, false),
+            run_script_text("config", &proxy, false),
+            run_script_text("install", &proxy, false),
+            run_script_text("bucket", &proxy, false),
+            run_script_text("bucket-rm", &proxy, false),
+            run_script_text("update", &proxy, false),
+            run_script_text("apps-update", &proxy, true),
+            run_script_text("app-update", &proxy, false),
+            run_script_text("uninstall", &proxy, false),
+            run_script_text("search", &proxy, false),
+        ] {
+            // The `.cmd` shim picks its host with `where /q pwsh.exe`, so it is
+            // never the way in: the wrapper pins Windows PowerShell and returns
+            // the real exit code.
+            assert!(!text.contains("scoop.cmd"));
+            assert!(text.contains("-File \"%SCOOP_WRAPPER%\""));
+            // It is run by `cmd.exe`, so it must survive a non-ASCII code page.
+            assert!(text.is_ascii(), "not ASCII: {text}");
+        }
+    }
+
+    #[test]
+    fn the_proxy_redirect_stays_at_the_end_of_its_line() {
+        let system = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: None,
+            source: "settings",
+        };
+        let script = run_script_text("config", &system, false);
+        let line = script
+            .lines()
+            .find(|line| line.contains("config rm proxy"))
+            .expect("the removal line is missing");
+        // Anything after the redirect would become its target.
+        assert!(line.ends_with(">nul 2>&1"), "{line}");
     }
 
     #[test]

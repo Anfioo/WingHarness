@@ -110,14 +110,23 @@ PowerShell 调用加上 `-RunAsAdmin`，别的不变：Scoop 仍然装进上面�
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
 | `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
+| `scoop-run.ps1` | 每一次 Scoop 调用都经过的包装脚本 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
-（`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`）传递，而不是
-拼进文件，从而避免非 ASCII 用户名或目录在 `cmd.exe` 里的编码问题。为让输出可读，
-脚本开头会 `chcp 65001`。
+（`%SCOOP%`、`%SCOOP_TARGET%`、`%HTTP_PROXY%`、`%SCOOP_PROXY_ADDRESS%`、
+`%SCOOP_WRAPPER%`）传递，而不是拼进文件，从而避免非 ASCII 用户名或目录在
+`cmd.exe` 里的编码问题。为让输出可读，脚本开头会 `chcp 65001`。
 
-调用 `scoop.cmd` 时必须用 `call`：否则批处理会把控制权交给对方，shim 里的
-`exit /b` 会在第二条命令和退出码那行之前就结束整个脚本。
+Scoop 本身是 PowerShell，所以调用不可能纯 `cmd`；脚本固定的是**宿主**。它们调用
+`powershell.exe -File "%SCOOP_WRAPPER%" …`，而不是 `%SCOOP%\shims\scoop.cmd`：
+后者的宿主由 `where /q pwsh.exe` 自行决定，同一台机器会跑在 `PATH` 上碰到的任意
+PowerShell 上；而且它会吞掉退出码 —— Scoop 的 `exec` 是 `& $path @args`，状态只落到
+`$LASTEXITCODE`，于是失败之后 shim 仍然退出 `0`。Windows PowerShell 5.1 始终存在，
+安装脚本本来也用它，因此包装脚本两者兼得：固定宿主，以及真实状态。
+
+包装脚本在退出前先用 `Out-String -Stream` 把命令输出格式化。`scoop bucket list`
+这类表格之所以还能看见，靠的就是这一步：裸的 `exit` 会在格式化器仍持有对象时结束
+进程。
 
 每个脚本都会
 

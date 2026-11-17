@@ -138,9 +138,9 @@ impl NoWindow for std::process::Command {
 /// Kills `child` and everything it spawned.
 ///
 /// `Child::kill` only reaches the direct child. The shells we start fan out —
-/// `cmd` → `scoop.cmd` → PowerShell, or `bash` → `svn` — and the grandchildren
-/// inherit the pipes, so they have to go too or the reader threads never see
-/// EOF and the pipes stay open.
+/// `cmd` → `powershell.exe` → `scoop.ps1` → `git`, or `bash` → `svn` — and the
+/// grandchildren inherit the pipes, so they have to go too or the reader
+/// threads never see EOF and the pipes stay open.
 #[cfg(windows)]
 pub fn kill_tree(child: &mut Child) {
     if !kill_tree_of(child.id()) {
