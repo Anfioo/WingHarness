@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { ScoopBucketsPanel } from "@/components/scoop/buckets-panel";
+import { ScoopDetailSheet } from "@/components/scoop/detail-sheet";
 import { ScoopInstallPanel } from "@/components/scoop/install-panel";
 import { ScoopOverviewPanel } from "@/components/scoop/overview-panel";
 import { ScoopRunDock } from "@/components/scoop/run-dock";
@@ -141,6 +142,7 @@ export default function ScoopPage() {
           </Tabs>
         )}
 
+        <ScoopDetailSheet page={page} />
         <ScoopRunDock page={page} />
       </div>
     </AppShell>

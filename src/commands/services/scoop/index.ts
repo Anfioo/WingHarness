@@ -1,9 +1,11 @@
 import { invokeCommand } from "../../base";
 import type {
+  ScoopBucketInfo,
   ScoopBucketRequest,
   ScoopBucketResult,
   ScoopInstallRequest,
   ScoopLocationRequest,
+  ScoopPackageInfo,
   ScoopPlan,
   ScoopRunRequest,
   ScoopSearchHit,
@@ -63,4 +65,24 @@ export function scoopAddBucket(request: ScoopBucketRequest): Promise<ScoopBucket
 /** `scoop bucket rm`: deletes the clone; the apps installed from it stay. */
 export function scoopRemoveBucket(spec: string): Promise<ScoopBucketResult> {
   return invokeCommand<{ spec: string }, ScoopBucketResult>("scoop_remove_bucket", { spec });
+}
+
+/**
+ * What a package's manifest says: version, description, licence, dependencies,
+ * notes and the manifest itself, plus what is installed on disk.
+ */
+export function scoopPackageInfo(
+  name: string,
+  bucket?: string | null,
+  global = false
+): Promise<ScoopPackageInfo> {
+  return invokeCommand<{ name: string; bucket: string | null; global: boolean }, ScoopPackageInfo>(
+    "scoop_package_info",
+    { name, bucket: bucket ?? null, global }
+  );
+}
+
+/** One bucket: its clone's git metadata and the manifests it holds. */
+export function scoopBucketInfo(name: string): Promise<ScoopBucketInfo> {
+  return invokeCommand<{ name: string }, ScoopBucketInfo>("scoop_bucket_info", { name });
 }

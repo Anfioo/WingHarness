@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
-import type { ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
+import type { ScoopDetailTarget, ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
 import {
   scoopAddBucket,
   scoopApplyLocation,
@@ -78,6 +78,11 @@ export interface ScoopPageController {
   /** Uninstalls one app (`scoop uninstall [-g] [-p] <app>`). */
   uninstallApp: (app: { name: string; global: boolean }, purge: boolean) => Promise<void>;
   searchOnline: (spec: string) => Promise<void>;
+  /** The row whose metadata the detail sheet is showing, if it is open. */
+  detail: ScoopDetailTarget | null;
+  openPackageDetail: (name: string, bucket?: string | null, global?: boolean) => void;
+  openBucketDetail: (name: string) => void;
+  closeDetail: () => void;
   syncProxy: () => Promise<void>;
   clearRun: () => void;
   relaunchApp: () => void;
@@ -108,6 +113,7 @@ export function useScoopPage(): ScoopPageController {
   const [lastExit, setLastExit] = useState<number | null>(null);
   const [logs, setLogs] = useState<ScoopLogEntry[]>([]);
   const [restartNeeded, setRestartNeeded] = useState(false);
+  const [detail, setDetail] = useState<ScoopDetailTarget | null>(null);
 
   const logIdRef = useRef(0);
   const runIdRef = useRef(0);
@@ -388,6 +394,16 @@ export function useScoopPage(): ScoopPageController {
     setLogs([]);
   }, []);
 
+  const openPackageDetail = useCallback(
+    (name: string, bucket: string | null = null, global = false) =>
+      setDetail({ kind: "package", name, bucket, global }),
+    []
+  );
+
+  const openBucketDetail = useCallback((name: string) => setDetail({ kind: "bucket", name }), []);
+
+  const closeDetail = useCallback(() => setDetail(null), []);
+
   const relaunchApp = useCallback(() => {
     void relaunch();
   }, []);
@@ -419,6 +435,10 @@ export function useScoopPage(): ScoopPageController {
     setAppHold,
     uninstallApp,
     searchOnline,
+    detail,
+    openPackageDetail,
+    openBucketDetail,
+    closeDetail,
     syncProxy,
     clearRun,
     relaunchApp,

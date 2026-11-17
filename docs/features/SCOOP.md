@@ -202,6 +202,35 @@ extras/vscode git`, and the same forms for search. Tokens are restricted to
 `A-Z a-z 0-9 . - _ + / @`, because the result is expanded by `cmd.exe` and a
 shell metacharacter would be an injection.
 
+## The details sheet
+
+A row that names something can be clicked open: a package from the overview or
+from a local search hit, a bucket from its own row. The sheet comes in from the
+right with what the manifest or the clone actually says, so the list keeps its
+place, and it fills in when the read answers rather than holding the click.
+
+- **A package** — `scoop_package_info` looks the name up in the cloned buckets
+  first and falls back to `apps/<name>/current/scoop-manifest.json`, so a bucket
+  that was updated shows what the next install would get while an app installed
+  earlier still shows its own copy. It returns the version, the installed
+  version, the bucket, the description, the homepage, the licence in either
+  shape (`"MIT"` or `{identifier, url}`), the notes, `depends`, `suggests`, the
+  commands `bin` installs, the manifest path and its raw text. **Details** shows
+  the parsed form; **Manifest** shows the file untouched, which is where
+  anything the parsed form does not understand still is. A package that is not
+  installed gets an **Install** button in the footer.
+- **A bucket** — `scoop_bucket_info` lists the `bucket/*.json` names of that
+  clone and the `RepoSummary` `git-core` reads from it: remote, branch, short
+  hash, committer time and the first line of the last commit. Every name in the
+  list is filterable and opens its own package sheet on top, with a back button
+  in the header.
+
+The sheet keeps its own trail of one to two entries, seeded from the row that
+was clicked, so a bucket and then one of its packages are one sheet rather than
+two stacked dialogs. A response that lands after the sheet closed or moved on is
+dropped, and the overview's `global` flag travels with the row, so a global
+app's installed version is read from `scoopg`.
+
 ## Cloning a bucket
 
 A bucket is a git clone under `<scoop>/buckets/<name>` — that folder *is* the
@@ -316,6 +345,8 @@ so what a run does is visible before and after it starts.
 | `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
 | `scoop_add_bucket` | `request` | clones the bucket into `<scoop>/buckets/<name>` through `git-core`, with the page's proxy; returns its name, folder and log |
 | `scoop_remove_bucket` | `spec` | deletes `<scoop>/buckets/<name>`; returns its name, folder and log |
+| `scoop_package_info` | `name`, `bucket`, `global` | one manifest read from the cloned bucket, or from the installed app: versions, licence, notes, depends, suggests, commands, path and raw text |
+| `scoop_bucket_info` | `name` | the bucket's `bucket/*.json` names plus the clone's remote, branch, commit, committer time and last commit subject |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.

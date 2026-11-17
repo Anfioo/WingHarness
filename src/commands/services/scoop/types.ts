@@ -160,3 +160,47 @@ export interface ScoopBucketResult {
   /** The steps taken, handed to the page's log as they are. */
   log: string[];
 }
+
+/** One package, as its manifest describes it. */
+export interface ScoopPackageInfo {
+  name: string;
+  /** The bucket the details were read from. */
+  bucket: string | null;
+  installed: boolean;
+  global: boolean;
+  /** The manifest's own version: what an install would fetch. */
+  version: string | null;
+  /** What is on disk, which a held app keeps behind `version`. */
+  installedVersion: string | null;
+  description: string | null;
+  homepage: string | null;
+  license: string | null;
+  licenseUrl: string | null;
+  notes: string | null;
+  depends: string[];
+  suggests: string[];
+  /** The commands the manifest puts on `PATH`, aliases included. */
+  bins: string[];
+  manifestPath: string;
+  /** The manifest exactly as it is on disk. */
+  manifest: string;
+}
+
+/** One bucket: the repository its clone came from, and what is in it. */
+export interface ScoopBucketInfo {
+  name: string;
+  path: string;
+  /** Manifest names, sorted: the bucket's catalog. */
+  packages: string[];
+  remote: string | null;
+  branch: string | null;
+  commit: string | null;
+  /** Last commit time, in seconds since the Unix epoch. */
+  committedAt: number | null;
+  subject: string | null;
+}
+
+/** What the detail sheet is showing. */
+export type ScoopDetailTarget =
+  | { kind: "package"; name: string; bucket: string | null; global: boolean }
+  | { kind: "bucket"; name: string };

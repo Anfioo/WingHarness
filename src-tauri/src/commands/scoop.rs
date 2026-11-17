@@ -424,6 +424,13 @@ fn read_json(path: &Path) -> Option<serde_json::Value> {
     serde_json::from_str(&text).ok()
 }
 
+fn is_json_file(path: &Path) -> bool {
+    path.extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| ext.eq_ignore_ascii_case("json"))
+        .unwrap_or(false)
+}
+
 /// Scoop's own record of an installed app, which it writes into `current`:
 /// the manifest it installed from, and the bucket that manifest came from.
 const APP_MANIFEST_FILE: &str = "scoop-manifest.json";
@@ -444,8 +451,11 @@ fn read_app_json(current: &Path, primary: &str, legacy: &str) -> Option<serde_js
 }
 
 fn text_field(value: &Option<serde_json::Value>, key: &str) -> Option<String> {
+    value.as_ref().and_then(|value| text_of(value, key))
+}
+
+fn text_of(value: &serde_json::Value, key: &str) -> Option<String> {
     value
-        .as_ref()?
         .get(key)?
         .as_str()
         .map(str::trim)
@@ -522,13 +532,7 @@ fn read_buckets(target: &Path) -> Vec<ScoopBucketView> {
                 .map(|files| {
                     files
                         .flatten()
-                        .filter(|file| {
-                            file.path()
-                                .extension()
-                                .and_then(|ext| ext.to_str())
-                                .map(|ext| ext.eq_ignore_ascii_case("json"))
-                                .unwrap_or(false)
-                        })
+                        .filter(|file| is_json_file(&file.path()))
                         .count()
                 })
                 .unwrap_or(0);
@@ -748,12 +752,7 @@ pub fn scoop_search(query: String) -> Result<Vec<ScoopSearchHit>, String> {
             };
             for file in files.flatten() {
                 let path = file.path();
-                if !path
-                    .extension()
-                    .and_then(|ext| ext.to_str())
-                    .map(|ext| ext.eq_ignore_ascii_case("json"))
-                    .unwrap_or(false)
-                {
+                if !is_json_file(&path) {
                     continue;
                 }
                 let name = path
@@ -1816,6 +1815,307 @@ pub fn scoop_remove_bucket(spec: String) -> Result<ScoopBucketResult, String> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Details
+//
+// Every row of the page can be opened: a package shows what its manifest says,
+// a bucket shows where its clone came from and what it holds. Both read from
+// disk, so nothing here runs Scoop or touches the network.
+
+/// One package, as its manifest describes it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopPackageInfoView {
+    pub name: String,
+    /// The bucket the details were read from.
+    pub bucket: Option<String>,
+    pub installed: bool,
+    pub global: bool,
+    /// The manifest's own version: what an install would fetch.
+    pub version: Option<String>,
+    /// What is on disk, which a held app keeps behind `version`.
+    pub installed_version: Option<String>,
+    pub description: Option<String>,
+    pub homepage: Option<String>,
+    pub license: Option<String>,
+    pub license_url: Option<String>,
+    pub notes: Option<String>,
+    pub depends: Vec<String>,
+    pub suggests: Vec<String>,
+    /// The commands the manifest puts on `PATH`, aliases included.
+    pub bins: Vec<String>,
+    pub manifest_path: String,
+    /// The manifest exactly as it is on disk.
+    pub manifest: String,
+}
+
+/// One bucket: the repository its clone came from, and what is in it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketInfoView {
+    pub name: String,
+    pub path: String,
+    /// Manifest names, sorted: the bucket's catalog.
+    pub packages: Vec<String>,
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    pub commit: Option<String>,
+    /// Last commit time, in seconds since the Unix epoch.
+    pub committed_at: Option<i64>,
+    pub subject: Option<String>,
+}
+
+/// A manifest read from disk, with the text it was parsed from.
+#[derive(Clone)]
+struct ManifestSource {
+    path: PathBuf,
+    text: String,
+    value: serde_json::Value,
+    bucket: Option<String>,
+}
+
+/// A single manifest name: the character set an app spec allows, without the
+/// separators that would make it a bucket-qualified spec.
+fn is_package_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 100
+        && !name.starts_with('-')
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || ".-_+@".contains(c))
+}
+
+/// A manifest field that may be written as one string or as a list of them.
+fn string_list(manifest: &serde_json::Value, key: &str) -> Vec<String> {
+    match manifest.get(key) {
+        Some(serde_json::Value::String(text)) => vec![text.clone()],
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| item.as_str().map(str::to_string))
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `notes` is shown as it would be printed, one entry per line.
+fn notes_field(manifest: &serde_json::Value) -> Option<String> {
+    let lines = string_list(manifest, "notes");
+    if lines.is_empty() {
+        None
+    } else {
+        Some(lines.join("\n"))
+    }
+}
+
+/// `license` is either an identifier or `{ identifier, url }`.
+fn license_fields(manifest: &serde_json::Value) -> (Option<String>, Option<String>) {
+    match manifest.get("license") {
+        Some(serde_json::Value::String(identifier)) => (Some(identifier.clone()), None),
+        Some(value) => (
+            value.get("identifier").and_then(|text| text.as_str()).map(str::to_string),
+            value.get("url").and_then(|text| text.as_str()).map(str::to_string),
+        ),
+        None => (None, None),
+    }
+}
+
+/// The commands a manifest exposes. `bin` is a string, a list of strings, a
+/// list of `[path, alias]` pairs, or a list of `{ path: alias }` objects.
+fn bin_names(manifest: &serde_json::Value) -> Vec<String> {
+    match manifest.get("bin") {
+        Some(serde_json::Value::String(name)) => vec![name.clone()],
+        Some(serde_json::Value::Array(items)) => items
+            .iter()
+            .filter_map(|item| match item {
+                serde_json::Value::String(name) => Some(name.clone()),
+                serde_json::Value::Array(pair) => pair
+                    .get(1)
+                    .or_else(|| pair.first())
+                    .and_then(|value| value.as_str())
+                    .map(str::to_string),
+                serde_json::Value::Object(alias) => match alias.iter().next() {
+                    // `{ "path\\to.exe": "command" }`: the command is what a
+                    // person types, so it is the alias and not the path.
+                    Some((path, command)) => Some(command.as_str().unwrap_or(path).to_string()),
+                    None => None,
+                },
+                _ => None,
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// `<root>\buckets\<bucket>\bucket\<name>.json`, when that manifest is there.
+fn bucket_manifest(root: &Path, bucket: &str, name: &str) -> Option<PathBuf> {
+    let path = root
+        .join("buckets")
+        .join(bucket)
+        .join("bucket")
+        .join(format!("{name}.json"));
+    path.is_file().then_some(path)
+}
+
+/// The manifest a cloned bucket holds for `name`, and which bucket that was.
+///
+/// The named bucket is tried first, then the buckets on disk in turn: a row
+/// can carry a bucket that is gone, and the manifest is often still there.
+fn find_bucket_manifest(
+    root: &Path,
+    name: &str,
+    bucket: Option<&str>,
+) -> Option<(PathBuf, String)> {
+    if let Some(bucket) = bucket {
+        if let Some(path) = bucket_manifest(root, bucket, name) {
+            return Some((path, bucket.to_string()));
+        }
+    }
+
+    let entries = fs::read_dir(root.join("buckets")).ok()?;
+    for entry in entries.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let candidate = entry.file_name().to_string_lossy().to_string();
+        if let Some(path) = bucket_manifest(root, &candidate, name) {
+            return Some((path, candidate));
+        }
+    }
+    None
+}
+
+/// `apps\<name>\current\scoop-manifest.json`, the manifest Scoop installed from.
+fn installed_manifest(root: &Path, name: &str) -> Option<PathBuf> {
+    let current = root.join("apps").join(name).join("current");
+    [APP_MANIFEST_FILE, LEGACY_MANIFEST_FILE]
+        .iter()
+        .map(|file| current.join(file))
+        .find(|path| path.is_file())
+}
+
+fn manifest_source(path: &Path, bucket: Option<String>) -> Option<ManifestSource> {
+    // Manifests are written by other tools and may carry a BOM, which
+    // `serde_json` refuses.
+    let text = fs::read_to_string(path)
+        .ok()?
+        .trim_start_matches('\u{feff}')
+        .to_string();
+    let value = serde_json::from_str(&text).ok()?;
+    Some(ManifestSource {
+        path: path.to_path_buf(),
+        text,
+        value,
+        bucket,
+    })
+}
+
+/// Everything the manifest of one package says, plus what is installed.
+#[tauri::command(async)]
+pub fn scoop_package_info(
+    name: String,
+    bucket: Option<String>,
+    global: bool,
+) -> Result<ScoopPackageInfoView, String> {
+    let name = name.trim().to_string();
+    if !is_package_name(&name) {
+        return Err(format!("'{name}' is not an app name."));
+    }
+
+    let scoop = root_view(PathKind::Scoop);
+    let global_root = root_view(PathKind::Global);
+    let install_root = if global {
+        &global_root.target
+    } else {
+        &scoop.target
+    };
+
+    let installed = installed_manifest(install_root, &name)
+        .and_then(|path| manifest_source(&path, None));
+    // The bucket's manifest wins: it is the version an install would fetch,
+    // while the installed one only says what is on disk today.
+    let source = find_bucket_manifest(&scoop.target, &name, bucket.as_deref())
+        .and_then(|(path, bucket)| manifest_source(&path, Some(bucket)))
+        .or_else(|| installed.clone())
+        .ok_or_else(|| {
+            format!("No cloned bucket holds a manifest for '{name}'. Update the buckets first.")
+        })?;
+
+    let installed_bucket = || {
+        let current = install_root.join("apps").join(&name).join("current");
+        let install = read_app_json(&current, APP_INSTALL_FILE, LEGACY_INSTALL_FILE);
+        text_field(&install, "bucket")
+    };
+    let (license, license_url) = license_fields(&source.value);
+
+    Ok(ScoopPackageInfoView {
+        bucket: source
+            .bucket
+            .clone()
+            .or_else(installed_bucket)
+            .or(bucket)
+            .filter(|bucket| !bucket.is_empty()),
+        installed: installed.is_some(),
+        installed_version: installed
+            .as_ref()
+            .and_then(|installed| text_of(&installed.value, "version")),
+        version: text_of(&source.value, "version"),
+        description: text_of(&source.value, "description"),
+        homepage: text_of(&source.value, "homepage"),
+        notes: notes_field(&source.value),
+        depends: string_list(&source.value, "depends"),
+        suggests: string_list(&source.value, "suggests"),
+        bins: bin_names(&source.value),
+        manifest_path: source.path.display().to_string(),
+        manifest: source.text,
+        name,
+        global,
+        license,
+        license_url,
+    })
+}
+
+/// One bucket: its clone's git metadata and the manifests it holds.
+#[tauri::command(async)]
+pub fn scoop_bucket_info(name: String) -> Result<ScoopBucketInfoView, String> {
+    let applied = current_location()?;
+    let name = parse_bucket_name(&name)?;
+    let dir = buckets_dir(&applied);
+    let path = dir.join(&name);
+    if !is_inside(&path, &dir) || !path.is_dir() {
+        return Err(format!("The '{name}' bucket is not installed."));
+    }
+
+    let mut packages: Vec<String> = fs::read_dir(path.join("bucket"))
+        .map(|files| {
+            files
+                .flatten()
+                .filter(|file| is_json_file(&file.path()))
+                .filter_map(|file| {
+                    file.path()
+                        .file_stem()
+                        .map(|stem| stem.to_string_lossy().to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    packages.sort_by(|left, right| left.to_lowercase().cmp(&right.to_lowercase()));
+
+    // A bucket is a clone, so where it came from and how old it is are git's
+    // to answer; a folder that is not a repository simply has none of it.
+    let summary = git_core::remote::summarize(&path.to_string_lossy()).unwrap_or_default();
+
+    Ok(ScoopBucketInfoView {
+        name,
+        path: path.display().to_string(),
+        packages,
+        remote: summary.remote,
+        branch: summary.branch,
+        commit: summary.commit,
+        committed_at: summary.committed_at,
+        subject: summary.subject,
+    })
+}
+
 #[tauri::command(async)]
 pub fn scoop_apply_location(request: ScoopLocationRequest) -> Result<ScoopStatusView, String> {
     apply_location(&request.scoop, &request.scoop_global)?;
@@ -1968,11 +2268,11 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_uninstall_targets, clone_proxy, flag_field, install_script_text, is_inside,
-        parse_bucket_name, parse_bucket_spec, parse_spec, parse_version, read_app_json,
-        run_script_text, same_path, same_repository, strip_verbatim, EffectiveMode,
-        EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE,
-        LEGACY_MANIFEST_FILE,
+        bin_names, check_uninstall_targets, clone_proxy, flag_field, install_script_text,
+        is_inside, is_package_name, license_fields, notes_field, parse_bucket_name,
+        parse_bucket_spec, parse_spec, parse_version, read_app_json, run_script_text, same_path,
+        same_repository, string_list, strip_verbatim, EffectiveMode, EffectiveProxy, PathKind,
+        APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -2273,5 +2573,61 @@ mod tests {
             source: "page",
         };
         assert_eq!(clone_proxy(&none), None);
+    }
+
+    #[test]
+    fn a_manifest_may_write_a_list_as_one_value() {
+        let manifest = serde_json::json!({
+            "depends": ["7zip", "git"],
+            "suggests": "vcredist",
+            "notes": ["First line.", "Second line."],
+        });
+        assert_eq!(string_list(&manifest, "depends"), vec!["7zip", "git"]);
+        assert_eq!(string_list(&manifest, "suggests"), vec!["vcredist"]);
+        assert_eq!(
+            notes_field(&manifest).as_deref(),
+            Some("First line.\nSecond line.")
+        );
+        assert_eq!(notes_field(&serde_json::json!({})), None);
+    }
+
+    #[test]
+    fn a_license_is_read_in_either_shape() {
+        let bare = serde_json::json!({ "license": "MIT" });
+        assert_eq!(license_fields(&bare), (Some("MIT".to_string()), None));
+
+        let full = serde_json::json!({
+            "license": { "identifier": "Freeware", "url": "https://example.invalid/licence" },
+        });
+        assert_eq!(
+            license_fields(&full),
+            (
+                Some("Freeware".to_string()),
+                Some("https://example.invalid/licence".to_string())
+            )
+        );
+
+        assert_eq!(license_fields(&serde_json::json!({})), (None, None));
+    }
+
+    #[test]
+    fn bin_entries_are_read_in_every_shape() {
+        // A bare path, a `[path, alias]` pair, and a `{ path: alias }` object.
+        let manifest = serde_json::json!({
+            "bin": ["foo.exe", ["bar.exe", "baz"], { "qux.exe": "quux" }],
+        });
+        assert_eq!(bin_names(&manifest), vec!["foo.exe", "baz", "quux"]);
+        assert!(bin_names(&serde_json::json!({})).is_empty());
+    }
+
+    #[test]
+    fn only_a_plain_name_reaches_the_manifest_reader() {
+        assert!(is_package_name("7zip"));
+        assert!(is_package_name("notepadplusplus"));
+        assert!(is_package_name("python312"));
+        assert!(!is_package_name(""));
+        assert!(!is_package_name("extras/7zip"));
+        assert!(!is_package_name("-rf"));
+        assert!(!is_package_name("7zip & del x"));
     }
 }

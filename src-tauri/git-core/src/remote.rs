@@ -895,6 +895,49 @@ pub fn origin_url(path: &str) -> Option<String> {
     remote.url().map(|url| url.to_string())
 }
 
+/// What a clone says about itself: where it came from and how fresh it is.
+///
+/// Every field is optional because a folder can be a repository without an
+/// `origin`, without a checked-out `HEAD`, or without any commit at all — a
+/// bucket cloned a second ago is exactly that.
+#[derive(Clone, Default)]
+pub struct RepoSummary {
+    pub remote: Option<String>,
+    pub branch: Option<String>,
+    /// Short hash of `HEAD`.
+    pub commit: Option<String>,
+    /// Committer time of `HEAD`, in seconds since the Unix epoch.
+    pub committed_at: Option<i64>,
+    /// First line of the `HEAD` commit message.
+    pub subject: Option<String>,
+}
+
+/// `RepoSummary` for the repository at `path`, or `None` when there is none.
+pub fn summarize(path: &str) -> Option<RepoSummary> {
+    let repo = Repository::open(path).ok()?;
+    let mut summary = RepoSummary {
+        remote: origin_url(path),
+        ..RepoSummary::default()
+    };
+
+    let Ok(head) = repo.head() else {
+        return Some(summary);
+    };
+    if head.is_branch() {
+        summary.branch = head.shorthand().map(str::to_string);
+    }
+
+    if let Some(oid) = head.target() {
+        summary.commit = Some(oid.to_string().chars().take(7).collect());
+        if let Ok(commit) = repo.find_commit(oid) {
+            summary.committed_at = Some(commit.time().seconds());
+            summary.subject = commit.summary().map(str::to_string);
+        }
+    }
+
+    Some(summary)
+}
+
 #[allow(dead_code)]
 pub fn checkout_head_force(repo: &Repository) -> AppResult<()> {
     let mut builder = CheckoutBuilder::new();

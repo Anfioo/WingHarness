@@ -106,7 +106,12 @@ export function ScoopSearchPanel({ page }: { page: ScoopPageController }) {
           <ul className="divide-border divide-y">
             {hits.map((hit) => (
               <li key={`${hit.bucket}/${hit.name}`} className="flex items-start gap-3 px-4 py-2">
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => page.openPackageDetail(hit.name, hit.bucket, false)}
+                  title={t("scoop.search.openDetail", { app: hit.name })}
+                  className="hover:bg-muted/60 focus-visible:ring-ring min-w-0 flex-1 rounded-md text-start focus-visible:ring-2 focus-visible:outline-none"
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{hit.name}</span>
                     {hit.version && (
@@ -133,7 +138,7 @@ export function ScoopSearchPanel({ page }: { page: ScoopPageController }) {
                       {hit.description}
                     </p>
                   )}
-                </div>
+                </button>
                 <Button
                   variant="ghost"
                   size="sm"
