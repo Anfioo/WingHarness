@@ -127,8 +127,6 @@ export interface ScoopRunRequest {
     | "install"
     | "search"
     | "config"
-    | "bucket"
-    | "bucket-rm"
     | "update"
     | "apps-update"
     | "app-update"
@@ -137,8 +135,7 @@ export interface ScoopRunRequest {
     | "uninstall";
   /**
    * An app spec (`7zip`, `scoop install extras/vscode`, `scoop update 7zip`);
-   * for `bucket`, `<name> <url>`; for `bucket-rm`, `<name>`; `update` and
-   * `apps-update` take nothing.
+   * `update` and `apps-update` take nothing.
    */
   spec: string;
   /** The app lives under `SCOOP_GLOBAL`, so the command carries `-g`. */
@@ -147,4 +144,19 @@ export interface ScoopRunRequest {
   purge?: boolean;
   proxyMode: ScoopProxyMode;
   proxyUrl?: string | null;
+}
+
+/** A bucket the app clones itself, with the page's proxy. */
+export interface ScoopBucketRequest {
+  /** `<name> <url>`, or a bare repository URL. */
+  spec: string;
+  proxyMode: ScoopProxyMode;
+  proxyUrl?: string | null;
+}
+
+export interface ScoopBucketResult {
+  name: string;
+  path: string;
+  /** The steps taken, handed to the page's log as they are. */
+  log: string[];
 }

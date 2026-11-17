@@ -80,6 +80,9 @@ Scoop 保存的是 `[user:pass@]host:port`，并会自己补上 `http://`，所�
 `SCOOP_PROXY_ADDRESS` 是去掉协议的地址。`socks5://` 也按同样方式传入，并在日志里
 提示：Scoop 本身只认识 HTTP 代理。
 
+克隆桶是例外，因为它不经过 Scoop：同一个代理地址会以完整 URL 交给 libgit2 —— 系统
+设置里只有 `host:port`，所以会补上 `http://` —— 而 `socks5://` 在这里是可用的。
+
 ## 安装脚本
 
 官方 `install.ps1` 随仓库放在 `src-tauri/resources/scoop/install.ps1`（Unlicense，
@@ -109,7 +112,7 @@ PowerShell 调用加上 `-RunAsAdmin`，别的不变：Scoop 仍然装进上面�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
 | `scoop-run.ps1` | 每一次 Scoop 调用都经过的包装脚本 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
@@ -164,34 +167,42 @@ PowerShell 上；而且它会吞掉退出码 —— Scoop 的 `exec` 是 `& $pat
 
 ## 克隆桶
 
-**桶**页用 `scoop bucket add` 克隆桶；下面这一行输入接受这些写法，开头的单词都可
-省略：
+桶就是 `<scoop>/buckets/<桶名>` 下的一个 git 克隆，这个目录**本身就是**注册信息，
+`scoop bucket add` 除了三次校验之外只是一句 `git clone`。所以**桶**页直接自己克隆：
+走仓库自带的 `git-core`（`git2`，libgit2 随包编译），不经过 PowerShell、不需要用户
+自己装 `git.exe`，页面里的代理也真正生效。下面这一行输入接受这些写法，开头的单词都
+可省略：
 
 | 输入 | 结果 |
 | --- | --- |
-| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` —— 使用内置的官方桶表 |
-| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `extras` | 从 `https://github.com/ScoopInstaller/Extras` 克隆为 `extras` —— 使用内置的官方桶表 |
+| `extras https://github.com/ScoopInstaller/Extras` | 同上，从给定地址克隆 |
 | `https://github.com/ScoopInstaller/Extras` | 桶名取仓库名并转小写 |
 | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | 同上，按终端里的写法原样识别 |
 | `extras/7zip` | `scoop install extras/7zip`，从已克隆的桶安装 |
 | `scoop install extras/7zip` | 同上 |
 
 裸的 `owner/repo` 一律按安装处理，而不是克隆：`scoop install` 就是这么读的，而不
-写名字时用地址形式克隆桶。前端解析这一行，后端在写 `run.cmd` 之前再解析一次
-—— 桶名与地址通过子进程环境变量传入并加引号，两者都限定在桶名与 git 地址允许的
-字符内。
+写名字时用地址形式克隆桶。前端解析这一行，`scoop_add_bucket` 再解析一次，两者都
+限定在桶名与 git 地址允许的字符内。
 
-克隆任务以 0 退出时会刷新桶列表。从不存在的桶安装 `<桶名>/<清单名>` 时会直接拦下
-并提示：Scoop 会询问是否添加该桶，而终端没有输入通道。
+克隆完全用不到 `SCOOP`、`SCOOP_GLOBAL` 和 `.cmd` 脚本，所以运行区显示的是日志与
+进度而不是终端：`scoop_add_bucket` 发出 `scoop-bucket-progress`，页面每四分之一记
+一行，免得大桶的百分比把日志刷满；克隆本身的报错也写进日志。克隆返回后就刷新桶列表。Scoop
+克隆前的三项校验照样保留：目录已存在、或另一个桶已经指向同一个仓库（比较时忽略
+协议、结尾斜杠与 `.git`），都直接拒绝并说明原因；克隆失败会把半成品目录删掉，不
+留下一个空桶。从不存在的桶安装 `<桶名>/<清单名>` 时仍会直接拦下并提示：Scoop 会
+询问是否添加该桶，而终端没有输入通道。
 
 ### 删除桶
 
-桶行上的垃圾桶按钮先要求确认，然后执行 `scoop bucket rm <桶名>`，删掉
-`<scoop>/buckets/<桶名>` 这个克隆。Scoop 只删目录和它的缓存条目，别的都不动：从该
-桶安装的软件仍然是安装状态、仍然列在页面上，但那个桶的清单没了，本地搜索也就不再
-提供它里面的新软件。确认对话框把这句写清楚，因为这一点最出乎意料。
+桶行上的垃圾桶按钮先要求确认，然后执行 `scoop_remove_bucket`，删掉
+`<scoop>/buckets/<桶名>` 这个克隆。删除前桶名已限定为字母、数字、点、减号与下划
+线，并再校验一次结果确实位于 `buckets` 之内。从该桶安装的软件仍然是安装状态、仍
+然列在页面上，但那个桶的清单没了，本地搜索也就不再提供它里面的新软件。确认对话框
+把这句写清楚，因为这一点最出乎意料。
 
-一次运行删一个桶，任何桶都能删，包括 `main` —— Scoop 本身允许，页面就跟着允许。
+一次删一个桶，任何桶都能删，包括 `main` —— Scoop 本身允许，页面就跟着允许。
 
 ## 更新清单与软件
 
@@ -247,7 +258,9 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、克隆或删除桶、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
+| `scoop_add_bucket` | `request` | 用 `git-core` 把桶克隆到 `<scoop>/buckets/<桶名>`，代理来自本页；返回桶名、目录与日志 |
+| `scoop_remove_bucket` | `spec` | 删除 `<scoop>/buckets/<桶名>`；返回桶名、目录与日志 |
 
 `local_shell_start` 新增可选的 `command`、`cwd` 与 `env`；带上它们时执行一行命令
 后退出，而不是打开交互式 shell。

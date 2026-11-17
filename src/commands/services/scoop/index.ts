@@ -1,5 +1,7 @@
 import { invokeCommand } from "../../base";
 import type {
+  ScoopBucketRequest,
+  ScoopBucketResult,
   ScoopInstallRequest,
   ScoopLocationRequest,
   ScoopPlan,
@@ -46,4 +48,19 @@ export function scoopPrepareInstall(request: ScoopInstallRequest): Promise<Scoop
 /** Prepares `scoop install …`, `scoop search …` or a proxy sync. */
 export function scoopPlanRun(request: ScoopRunRequest): Promise<ScoopPlan> {
   return invokeCommand<{ request: ScoopRunRequest }, ScoopPlan>("scoop_plan_run", { request });
+}
+
+/**
+ * `scoop bucket add`, done by the app: a bucket is a git clone under
+ * `<root>\buckets\<name>`, cloned through the bundled git with this proxy.
+ */
+export function scoopAddBucket(request: ScoopBucketRequest): Promise<ScoopBucketResult> {
+  return invokeCommand<{ request: ScoopBucketRequest }, ScoopBucketResult>("scoop_add_bucket", {
+    request,
+  });
+}
+
+/** `scoop bucket rm`: deletes the clone; the apps installed from it stay. */
+export function scoopRemoveBucket(spec: string): Promise<ScoopBucketResult> {
+  return invokeCommand<{ spec: string }, ScoopBucketResult>("scoop_remove_bucket", { spec });
 }

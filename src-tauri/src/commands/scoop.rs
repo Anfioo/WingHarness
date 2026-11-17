@@ -11,6 +11,10 @@
 //! The vendor installer is bundled from `resources/scoop/install.ps1` at build
 //! time; nothing is downloaded at run time. It is Unlicense (public domain);
 //! see `THIRD_PARTY_NOTICES.md`.
+//!
+//! Buckets are the exception to the scripts: a bucket is a git clone under
+//! `<root>\buckets\<name>`, so the app clones and deletes them itself through
+//! `git-core` instead of asking Scoop to shell out to `git.exe`.
 
 use std::collections::BTreeSet;
 use std::env;
@@ -19,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter};
 
 use crate::config::{self, ProxyMode};
 use crate::proc::NoWindow;
@@ -227,11 +232,11 @@ pub struct ScoopInstallRequest {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScoopRunRequest {
-    /// `install`, `search`, `config`, `bucket`, `bucket-rm`, `update`,
-    /// `apps-update`, `app-update`, `hold`, `unhold` or `uninstall`.
+    /// `install`, `search`, `config`, `update`, `apps-update`, `app-update`,
+    /// `hold`, `unhold` or `uninstall`. Buckets have their own commands, since
+    /// they are cloned by the app rather than by Scoop.
     pub kind: String,
-    /// `7zip`, `scoop install 7zip`; for a bucket, `<name> <url>`; for
-    /// `bucket-rm`, `<name>`; `update` and `apps-update` take nothing.
+    /// `7zip` or `scoop install 7zip`; `update` and `apps-update` take nothing.
     pub spec: String,
     /// The app lives under `SCOOP_GLOBAL`, so the command carries `-g`.
     #[serde(default)]
@@ -1354,20 +1359,6 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
     if kind == "config" {
         script.push_str("echo [scoop] applying the proxy to Scoop\r\n");
         scoop_call(&mut script, &config);
-    } else if kind == "bucket" {
-        script.push_str(
-            "echo [scoop] command: scoop bucket add %SCOOP_BUCKET_NAME% %SCOOP_BUCKET_URL%\r\n",
-        );
-        scoop_call(&mut script, &config);
-        scoop_call(
-            &mut script,
-            "bucket add \"%SCOOP_BUCKET_NAME%\" \"%SCOOP_BUCKET_URL%\"",
-        );
-    } else if kind == "bucket-rm" {
-        // Removing a bucket deletes its clone only: the apps installed from it
-        // stay where they are, so this needs no proxy either.
-        script.push_str("echo [scoop] command: scoop bucket rm %SCOOP_BUCKET_NAME%\r\n");
-        scoop_call(&mut script, "bucket rm \"%SCOOP_BUCKET_NAME%\"");
     } else if kind == "update" {
         // No app argument: Scoop updates itself and every cloned bucket.
         script.push_str("echo [scoop] command: scoop update\r\n");
@@ -1623,7 +1614,8 @@ fn parse_bucket_name(spec: &str) -> Result<String, String> {
 }
 
 /// The repository name of a clone URL, lowercased the way Scoop names buckets.
-fn bucket_name_from_url(url: &str) -> Result<String, String> {    let repo = url
+fn bucket_name_from_url(url: &str) -> Result<String, String> {
+    let repo = url
         .trim_end_matches('/')
         .rsplit('/')
         .next()
@@ -1662,6 +1654,166 @@ fn is_bucket_url(url: &str) -> bool {
         && url
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || ".:/_-~".contains(c))
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketRequest {
+    /// `<name> <url>` or a bare repository URL, as the bucket form accepts it.
+    pub spec: String,
+    #[serde(default = "default_proxy_mode")]
+    pub proxy_mode: String,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScoopBucketResult {
+    pub name: String,
+    pub path: String,
+    pub log: Vec<String>,
+}
+
+/// `<root>\buckets`, the only place Scoop looks for a bucket.
+fn buckets_dir(applied: &AppliedLocation) -> PathBuf {
+    applied.scoop.target.join("buckets")
+}
+
+/// Compares repository addresses the way a person would: the scheme, a trailing
+/// slash and a trailing `.git` do not make it a different repository.
+fn same_repository(left: &str, right: &str) -> bool {
+    fn normalize(url: &str) -> String {
+        let url = url.trim().trim_end_matches('/');
+        let url = url.strip_suffix(".git").unwrap_or(url);
+        let url = url
+            .strip_prefix("https://")
+            .or_else(|| url.strip_prefix("http://"))
+            .unwrap_or(url);
+        url.trim_end_matches('/').to_ascii_lowercase()
+    }
+    normalize(left) == normalize(right)
+}
+
+/// The bucket already holding `url`, if any. Scoop refuses a second clone of
+/// the same repository, so a copy added under another name must not happen.
+fn bucket_with_remote(dir: &Path, url: &str) -> Option<String> {
+    for entry in fs::read_dir(dir).ok()?.flatten() {
+        if !entry.file_type().map(|kind| kind.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let path = entry.path();
+        if let Some(remote) = git_core::remote::origin_url(&path.to_string_lossy()) {
+            if same_repository(&remote, url) {
+                return Some(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    None
+}
+
+/// The proxy libgit2 should use. `None` leaves it to git's own configuration,
+/// which is the right answer when the page asks for a direct connection.
+fn clone_proxy(proxy: &EffectiveProxy) -> Option<String> {
+    match proxy.mode {
+        EffectiveMode::None => None,
+        // libgit2 wants a full URL, and the Windows system setting is a bare
+        // `host:port`; a page or settings override already has a scheme.
+        EffectiveMode::System | EffectiveMode::Custom => {
+            proxy.url.as_deref().and_then(normalize_proxy_url)
+        }
+    }
+}
+
+/// Clones `url` into `<buckets>\<name>` and returns the folder it landed in.
+fn clone_bucket(
+    app: &AppHandle,
+    dir: &Path,
+    name: &str,
+    url: &str,
+    proxy: Option<String>,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(dir)
+        .map_err(|error| format!("Failed to create {}: {error}", dir.display()))?;
+    let path = dir.join(name);
+    if path.exists() {
+        return Err(format!(
+            "The '{name}' bucket already exists. Remove it first, or pick another name."
+        ));
+    }
+    if let Some(other) = bucket_with_remote(dir, url) {
+        return Err(format!("{url} is already cloned as the '{other}' bucket."));
+    }
+
+    let emitter = app.clone();
+    let target = path.to_string_lossy().to_string();
+    match git_core::remote::clone_with_proxy(url, &target, None, proxy.as_deref(), move |pct| {
+        let _ = emitter.emit("scoop-bucket-progress", pct);
+    }) {
+        Ok(_) => Ok(path),
+        Err(error) => {
+            // Half a clone is worse than none: Scoop would count the folder as
+            // a bucket, and its manifests would be missing.
+            let _ = fs::remove_dir_all(&path);
+            Err(format!("Failed to clone {url}: {error}"))
+        }
+    }
+}
+
+/// `scoop bucket add`, without Scoop. A bucket is a git clone under
+/// `<root>\buckets\<name>` — that folder *is* the registration — so cloning it
+/// here keeps the call inside the app: no PowerShell, no `git.exe`, and the
+/// page's proxy is actually used, which libgit2 will not pick up on its own.
+#[tauri::command(async)]
+pub fn scoop_add_bucket(
+    app: AppHandle,
+    request: ScoopBucketRequest,
+) -> Result<ScoopBucketResult, String> {
+    let applied = current_location()?;
+    let (name, url) = parse_bucket_spec(&request.spec)?;
+    let proxy = effective_proxy(&request.proxy_mode, request.proxy_url.as_deref());
+    let path = clone_bucket(&app, &buckets_dir(&applied), &name, &url, clone_proxy(&proxy))?;
+
+    Ok(ScoopBucketResult {
+        log: vec![
+            format!("Scoop command: scoop bucket add {name} {url} (cloned by the app)"),
+            format!("Proxy: {}", proxy.label()),
+            format!("Bucket folder: {}", path.display()),
+        ],
+        name,
+        path: path.display().to_string(),
+    })
+}
+
+/// `scoop bucket rm`, without Scoop: the clone goes, and the apps installed
+/// from it stay where they are.
+#[tauri::command(async)]
+pub fn scoop_remove_bucket(spec: String) -> Result<ScoopBucketResult, String> {
+    let applied = current_location()?;
+    let name = parse_bucket_name(&spec)?;
+    let dir = buckets_dir(&applied);
+    let path = dir.join(&name);
+    // The name is already limited to letters, digits, dots, dashes and
+    // underscores; this is the second lock on a recursive delete.
+    if !is_inside(&path, &dir) {
+        return Err(format!("'{name}' is not inside {}", dir.display()));
+    }
+    if !path.is_dir() {
+        return Err(format!("The '{name}' bucket is not installed."));
+    }
+    fs::remove_dir_all(&path)
+        .map_err(|error| format!("Failed to delete {}: {error}", path.display()))?;
+
+    let log = vec![
+        format!("Scoop command: scoop bucket rm {name} (deleted by the app)"),
+        format!("Removed: {}", path.display()),
+        "Apps installed from this bucket stay installed.".to_string(),
+    ];
+    Ok(ScoopBucketResult {
+        name,
+        path: path.display().to_string(),
+        log,
+    })
 }
 
 #[tauri::command(async)]
@@ -1712,31 +1864,6 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
         vec![
             "Scoop command: scoop config (proxy only)".to_string(),
             folder_line,
-        ]
-    } else if request.kind == "bucket" {
-        let (name, url) = parse_bucket_spec(&request.spec)?;
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_NAME".to_string(),
-            value: name.clone(),
-        });
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_URL".to_string(),
-            value: url.clone(),
-        });
-        vec![
-            format!("Scoop command: scoop bucket add {name} {url}"),
-            folder_line,
-        ]
-    } else if request.kind == "bucket-rm" {
-        let name = parse_bucket_name(&request.spec)?;
-        env.push(ScoopEnvVar {
-            name: "SCOOP_BUCKET_NAME".to_string(),
-            value: name.clone(),
-        });
-        vec![
-            format!("Scoop command: scoop bucket rm {name}"),
-            folder_line,
-            "Apps installed from this bucket stay installed.".to_string(),
         ]
     } else if request.kind == "update" {
         vec![
@@ -1841,10 +1968,11 @@ fn check_uninstall_targets(args: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        check_uninstall_targets, flag_field, install_script_text, is_inside, parse_bucket_name,
-        parse_bucket_spec, parse_spec, parse_version, read_app_json, run_script_text, same_path,
-        strip_verbatim, EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE,
-        APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        check_uninstall_targets, clone_proxy, flag_field, install_script_text, is_inside,
+        parse_bucket_name, parse_bucket_spec, parse_spec, parse_version, read_app_json,
+        run_script_text, same_path, same_repository, strip_verbatim, EffectiveMode,
+        EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE,
+        LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -1939,8 +2067,6 @@ mod tests {
             install_script_text(&proxy, false),
             run_script_text("config", &proxy, false),
             run_script_text("install", &proxy, false),
-            run_script_text("bucket", &proxy, false),
-            run_script_text("bucket-rm", &proxy, false),
             run_script_text("update", &proxy, false),
             run_script_text("apps-update", &proxy, true),
             run_script_text("app-update", &proxy, false),
@@ -2105,5 +2231,47 @@ mod tests {
         assert!(is_inside(Path::new(r"C:\a\b"), Path::new(r"C:\a")));
         assert!(!is_inside(Path::new(r"C:\a"), Path::new(r"C:\a")));
         assert!(!is_inside(Path::new(r"C:\ab"), Path::new(r"C:\a")));
+    }
+
+    #[test]
+    fn repository_addresses_compare_the_way_a_person_would() {
+        // The same repository, written the three ways a bucket URL arrives.
+        assert!(same_repository(
+            "https://github.com/ScoopInstaller/Extras",
+            "https://github.com/ScoopInstaller/Extras.git"
+        ));
+        assert!(same_repository(
+            "https://GitHub.com/ScoopInstaller/Extras/",
+            "https://github.com/scoopinstaller/extras"
+        ));
+        assert!(!same_repository(
+            "https://github.com/ScoopInstaller/Extras",
+            "https://github.com/ScoopInstaller/Main"
+        ));
+    }
+
+    #[test]
+    fn a_clone_proxy_is_always_a_full_url() {
+        let custom = EffectiveProxy {
+            mode: EffectiveMode::Custom,
+            url: Some("socks5://127.0.0.1:7891".to_string()),
+            source: "page",
+        };
+        assert_eq!(clone_proxy(&custom).as_deref(), Some("socks5://127.0.0.1:7891"));
+
+        // The Windows setting is a bare `host:port`; libgit2 wants a scheme.
+        let system = EffectiveProxy {
+            mode: EffectiveMode::System,
+            url: Some("127.0.0.1:7890".to_string()),
+            source: "settings",
+        };
+        assert_eq!(clone_proxy(&system).as_deref(), Some("http://127.0.0.1:7890"));
+
+        let none = EffectiveProxy {
+            mode: EffectiveMode::None,
+            url: None,
+            source: "page",
+        };
+        assert_eq!(clone_proxy(&none), None);
     }
 }

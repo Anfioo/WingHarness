@@ -200,6 +200,10 @@ const scoop = {
     exitedFail: "The process exited with code {{code}}.",
     prepareFailed: "Could not prepare the run: {{message}}",
     adopted: "Now using {{path}}.",
+    bucketCloning: "Cloning the '{{name}}' bucket with the app's git…",
+    bucketProgress: "Cloning '{{name}}': {{percent}}%",
+    bucketAdded: "The '{{name}}' bucket is ready to install from.",
+    bucketRemoved: "The '{{name}}' bucket is gone; its apps stay installed.",
   },
 };
 

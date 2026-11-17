@@ -190,6 +190,10 @@ const scoop = {
     exitedFail: "进程已退出，退出码 {{code}}。",
     prepareFailed: "准备运行失败：{{message}}",
     adopted: "已接管 {{path}}。",
+    bucketCloning: "正在用应用自带的 git 克隆桶「{{name}}」…",
+    bucketProgress: "克隆「{{name}}」：{{percent}}%",
+    bucketAdded: "桶「{{name}}」已就绪，可以直接安装其中的应用。",
+    bucketRemoved: "桶「{{name}}」已删除；从它安装的应用会保留。",
   },
 };
 

@@ -1120,16 +1120,20 @@ export type {
   MoinTrigger,
 } from "./services/moin/types";
 export {
+  scoopAddBucket,
   scoopApplyLocation,
   scoopInstalled,
   scoopPlanRun,
   scoopPrepareInstall,
+  scoopRemoveBucket,
   scoopSearch,
   scoopStatus,
 } from "./services/scoop";
 export type {
   ScoopApp,
   ScoopBucket,
+  ScoopBucketRequest,
+  ScoopBucketResult,
   ScoopEnvVar,
   ScoopInstallRequest,
   ScoopLocation,

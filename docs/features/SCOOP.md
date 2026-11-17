@@ -94,6 +94,10 @@ so `SCOOP_PROXY_ADDRESS` is the URL with its scheme removed. A `socks5://` URL i
 passed through the same way, with a warning in the log: Scoop itself only
 understands HTTP proxies.
 
+Bucket clones are the exception, because they do not go through Scoop: the same
+address is handed to libgit2 as a full URL — the system setting is a bare
+`host:port`, so it gains `http://` — and a `socks5://` proxy works there.
+
 ## The installer
 
 The official `install.ps1` is bundled at
@@ -128,7 +132,7 @@ is also a line in the run log (`Installer runs as: …`), so the terminal shows 
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / `scoop bucket add` / `scoop bucket rm` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
 | `scoop-run.ps1` | The wrapper every Scoop call goes through |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
@@ -200,13 +204,18 @@ shell metacharacter would be an injection.
 
 ## Cloning a bucket
 
-The **Buckets** tab clones a bucket with `scoop bucket add`; the one input line
-takes any of these, and the leading words are optional:
+A bucket is a git clone under `<scoop>/buckets/<name>` — that folder *is* the
+registration, which is why `scoop bucket add` is only a `git clone` with three
+parity checks in front of it. The **Buckets** tab therefore clones the bucket
+itself, through the bundled `git-core` (`git2`, with libgit2 vendored in): no
+PowerShell, no `git.exe` for the user to install, and the page's proxy actually
+applies. The one input line takes any of these, and the leading words are
+optional:
 
 | Input | Result |
 | --- | --- |
-| `extras` | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
-| `extras https://github.com/ScoopInstaller/Extras` | `scoop bucket add extras …` |
+| `extras` | `extras` cloned from `https://github.com/ScoopInstaller/Extras` — the built-in table of official buckets |
+| `extras https://github.com/ScoopInstaller/Extras` | the same, from the address given |
 | `https://github.com/ScoopInstaller/Extras` | the name is the repository name, lowercased |
 | `scoop bucket add extras https://github.com/ScoopInstaller/Extras` | the same, read the way it is typed in a terminal |
 | `extras/7zip` | `scoop install extras/7zip`, from a bucket that is already cloned |
@@ -214,12 +223,17 @@ takes any of these, and the leading words are optional:
 
 A bare `owner/repo` is deliberately an install, not a clone: that is how
 `scoop install` reads it, and the URL form is how a bucket is cloned without
-naming it. The frontend parses the line, and the backend parses it again before
-writing `run.cmd` — the name and the address travel in the child's
-environment, quoted, and both are restricted to what a bucket name and a git URL
-can contain.
+naming it. The frontend parses the line and `scoop_add_bucket` parses it again;
+both are restricted to what a bucket name and a git URL can contain.
 
-The bucket list is refreshed when a clone exits with code 0. Installing
+`SCOOP`, `SCOOP_GLOBAL` and a `.cmd` script play no part in a clone, so the run
+dock shows the log and its progress rather than a terminal: `scoop_add_bucket`
+emits `scoop-bucket-progress` and the page logs every quarter of it, so a big
+bucket does not bury the log in percentages. The bucket list is refreshed when the clone returns. The
+checks Scoop makes before cloning are kept: an existing folder, or another
+bucket already pointing at the same repository (compared without scheme,
+trailing slash or `.git`), is refused with a message, and a clone that fails
+half-way is deleted again so no empty bucket is left behind. Installing
 `<bucket>/<manifest>` from a bucket that is not cloned yet is refused with a
 message instead of run: Scoop would ask whether to add it, and the terminal has
 no input path.
@@ -227,14 +241,15 @@ no input path.
 ### Removing a bucket
 
 The trash button on a bucket's row asks for confirmation and then runs
-`scoop bucket rm <name>`, which deletes the clone under
-`<scoop>/buckets/<name>`. Scoop removes the folder and its cache entry and
-nothing else: apps installed from that bucket stay installed and stay listed,
-but the bucket's manifests are gone, so a local search no longer offers new apps
-from it. The confirmation says so, because that is the part that surprises.
+`scoop_remove_bucket`, which deletes the clone under `<scoop>/buckets/<name>`.
+The name is limited to letters, digits, dots, dashes and underscores before the
+recursive delete, and the result is checked to sit inside `buckets` first. Apps
+installed from that bucket stay installed and stay listed, but the bucket's
+manifests are gone, so a local search no longer offers new apps from it. The
+confirmation says so, because that is the part that surprises.
 
-One bucket per run, and any bucket can go, `main` included — Scoop itself allows
-that, and the page follows it.
+One bucket at a time, and any bucket can go, `main` included — Scoop itself
+allows that, and the page follows it.
 
 ## Updating the catalog and the apps
 
@@ -298,7 +313,9 @@ so what a run does is visible before and after it starts.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a bucket clone or removal, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
+| `scoop_add_bucket` | `request` | clones the bucket into `<scoop>/buckets/<name>` through `git-core`, with the page's proxy; returns its name, folder and log |
+| `scoop_remove_bucket` | `spec` | deletes `<scoop>/buckets/<name>`; returns its name, folder and log |
 
 `local_shell_start` gained optional `command`, `cwd` and `env`; with them it runs
 a line and exits instead of opening an interactive shell.

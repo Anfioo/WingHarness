@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
 import type { ScoopPlan, ScoopRunRequest, ScoopStatus } from "@/commands";
 import {
+  scoopAddBucket,
   scoopApplyLocation,
   scoopInstalled,
   scoopPlanRun,
   scoopPrepareInstall,
+  scoopRemoveBucket,
   scoopStatus,
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -268,16 +271,75 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
-  /** `scoop bucket add <name> <url>`; the bucket list refreshes on success. */
+  /**
+   * Clones a bucket with the app's own git, so the page's proxy applies and
+   * nothing depends on Scoop finding a `git.exe` for itself.
+   */
   const addBucket = useCallback(
-    (name: string, url: string) => runPlan({ kind: "bucket", spec: `${name} ${url}` }, "bucket"),
-    [runPlan]
+    async (name: string, url: string) => {
+      if (running || !beginPreparation()) return;
+      setRunning("bucket");
+      setPlan(null);
+      setRun(null);
+      setLastExit(null);
+      appendLog(t("scoop.run.bucketCloning", { name }), "info");
+      // A quarter at a time: a large bucket takes a minute, and a line per
+      // percent would bury every other entry in the log.
+      let reached = 0;
+      const unlisten = await listen<number>("scoop-bucket-progress", (event) => {
+        const mark = Math.floor(event.payload / 25) * 25;
+        if (mark > reached && mark < 100) {
+          reached = mark;
+          appendLog(t("scoop.run.bucketProgress", { name, percent: mark }));
+        }
+      });
+      try {
+        const result = await scoopAddBucket({
+          spec: `${name} ${url}`,
+          proxyMode: prefs.proxyMode,
+          proxyUrl: prefs.proxyUrl,
+        });
+        result.log.forEach((line) => appendLog(line));
+        appendLog(t("scoop.run.bucketAdded", { name: result.name }), "done");
+        setLastExit(0);
+        await refresh(true);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        // No process ran, so there is no exit code to report; the dock only
+        // needs to know the attempt ended badly.
+        setLastExit(1);
+      } finally {
+        unlisten();
+        setRunning(null);
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, prefs, refresh, running, t]
   );
 
-  /** `scoop bucket rm <name>`: the clone goes, the apps stay. */
+  /** Deletes a bucket's clone: the apps installed from it stay installed. */
   const removeBucket = useCallback(
-    (name: string) => runPlan({ kind: "bucket-rm", spec: name }, "bucket-rm"),
-    [runPlan]
+    async (name: string) => {
+      if (running || !beginPreparation()) return;
+      setRunning("bucket-rm");
+      setPlan(null);
+      setRun(null);
+      setLastExit(null);
+      try {
+        const result = await scoopRemoveBucket(name);
+        result.log.forEach((line) => appendLog(line));
+        appendLog(t("scoop.run.bucketRemoved", { name: result.name }), "done");
+        setLastExit(0);
+        await refresh(true);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        setLastExit(1);
+      } finally {
+        setRunning(null);
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, refresh, running, t]
   );
 
   /** `scoop update`: Scoop itself and every cloned bucket. */
