@@ -14,7 +14,13 @@ type ExtractResponse = { ok: true; files: ExtractedFile[] } | { ok: false; error
 /** `postMessage` in a worker takes a transfer list, not the window options object. */
 type WorkerScope = { postMessage(message: unknown, transfer?: Transferable[]): void };
 
-const MAX_FILES = 256;
+/**
+ * A sanity bound, not a policy: the runtime archives hold a handful of files,
+ * while the Codeg server archive is a static export with ~1300 of them and grows
+ * with the app. The unpacked-size cap below is what actually bounds a hostile
+ * archive, since both checks run after the entries are already in memory.
+ */
+const MAX_FILES = 20_000;
 const MAX_TOTAL_BYTES = 1024 * 1024 * 1024;
 
 self.onmessage = async (event: MessageEvent<ExtractRequest>) => {
