@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-release-check"
+description = "Enables the codeg_release_check command without any pre-configured scope."
+commands.allow = ["codeg_release_check"]
+
+[[permission]]
+identifier = "deny-codeg-release-check"
+description = "Denies the codeg_release_check command without any pre-configured scope."
+commands.deny = ["codeg_release_check"]

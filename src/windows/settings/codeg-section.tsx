@@ -9,9 +9,11 @@ import {
   codegStop,
   CODEG_STATUS_EVENT,
   type CodegConfig,
+  type CodegMode,
   type CodegServerStatus,
   type CodegView,
 } from "@/commands";
+import { CodegInstallPanel } from "@/components/codeg-install-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,14 +24,20 @@ import { cn } from "@/lib/utils";
 /**
  * The Codeg partition of the Settings window.
  *
- * Two halves: where Codeg lives (a draft of `config.codeg`, saved the way every
- * other section saves), and the server process itself, which this app owns and
- * starts for the user. A path or port change only reaches the server on the next
- * start, so the restart button sits right there.
+ * Two halves: where Codeg lives, and the server process itself, which this app
+ * owns and starts for the user. A path or port change only reaches the server on
+ * the next start, so the restart button sits right there.
+ *
+ * `mode` decides where "where it lives" comes from. An installed Codeg has no
+ * paths to set — the archive the app unpacked under the data directory names
+ * them, and the partition only shows them, with the install and update controls
+ * beside. Development Codeg points at a checkout, so its paths are editable and
+ * its partition exists only in a development build.
  */
-export function CodegSection() {
+export function CodegSection({ mode }: { mode: CodegMode }) {
   const { t } = useAppTranslation();
   const { draft, setDraft, loading } = useConfigDraft("codeg config");
+  const dev = mode === "dev";
 
   const [server, setServer] = useState<CodegView | null>(null);
   const [busy, setBusy] = useState(false);
@@ -102,7 +110,9 @@ export function CodegSection() {
   if (loading || !draft) {
     return (
       <div className="space-y-6">
-        <h2 className="text-lg font-semibold">{t("codeg.settings.title")}</h2>
+        <h2 className="text-lg font-semibold">
+          {dev ? t("codeg.settings.devTitle") : t("codeg.settings.title")}
+        </h2>
         <Skeleton className="h-4 w-40" />
         <Skeleton className="h-40 w-full" />
       </div>
@@ -112,12 +122,14 @@ export function CodegSection() {
   const status = server?.server ?? { status: "stopped" as const };
   const running = status.status === "ready" || status.status === "starting";
   const message = failure ?? (status.status === "failed" ? status.message : null);
+  const title = dev ? t("codeg.settings.devTitle") : t("codeg.settings.title");
+  const description = dev ? t("codeg.settings.devDescription") : t("codeg.settings.description");
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">{t("codeg.settings.title")}</h2>
-        <p className="text-muted-foreground mt-1 text-sm">{t("codeg.settings.description")}</p>
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="text-muted-foreground mt-1 text-sm">{description}</p>
       </div>
 
       {/* Server: state, controls, and why when it failed. */}
@@ -132,7 +144,7 @@ export function CodegSection() {
               variant="outline"
               size="sm"
               disabled={busy || running}
-              onClick={() => void act(codegStart)}
+              onClick={() => void act(() => codegStart(mode))}
             >
               <Play />
               {t("codeg.settings.start")}
@@ -150,7 +162,7 @@ export function CodegSection() {
               variant="outline"
               size="sm"
               disabled={busy}
-              onClick={() => void act(codegRestart)}
+              onClick={() => void act(() => codegRestart(mode))}
             >
               <RotateCw className={cn(busy && "animate-spin")} />
               {t("codeg.settings.restart")}
@@ -191,45 +203,74 @@ export function CodegSection() {
         </div>
       </section>
 
-      {/* Where Codeg lives. */}
+      {/* Where Codeg lives: an installed archive it owns, or a checkout. */}
       <section className="space-y-3">
         <div className="space-y-0.5">
-          <h3 className="text-sm font-semibold">{t("codeg.settings.paths")}</h3>
-          <p className="text-muted-foreground text-xs">{t("codeg.settings.pathsHint")}</p>
+          <h3 className="text-sm font-semibold">
+            {dev ? t("codeg.settings.paths") : t("codeg.settings.install.title")}
+          </h3>
+          <p className="text-muted-foreground text-xs">
+            {dev ? t("codeg.settings.pathsHint") : t("codeg.settings.install.description")}
+          </p>
         </div>
 
-        <label className="block space-y-1">
-          <span className="text-xs font-medium">{t("codeg.settings.repoPath")}</span>
-          <Input
-            className="font-mono text-xs"
-            value={draft.codeg.repoPath}
-            onChange={(event) => update({ repoPath: event.target.value })}
-          />
-        </label>
+        {dev ? (
+          <>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium">{t("codeg.settings.repoPath")}</span>
+              <Input
+                className="font-mono text-xs"
+                value={draft.codeg.repoPath}
+                onChange={(event) => update({ repoPath: event.target.value })}
+              />
+            </label>
 
-        <label className="block space-y-1">
-          <span className="text-xs font-medium">{t("codeg.settings.staticDir")}</span>
-          <Input
-            className="font-mono text-xs"
-            value={draft.codeg.staticDir}
-            onChange={(event) => update({ staticDir: event.target.value })}
-          />
-          <span className="text-muted-foreground block text-[11px]">
-            {t("codeg.settings.staticDirHint")}
-          </span>
-        </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium">{t("codeg.settings.staticDir")}</span>
+              <Input
+                className="font-mono text-xs"
+                value={draft.codeg.staticDir}
+                onChange={(event) => update({ staticDir: event.target.value })}
+              />
+              <span className="text-muted-foreground block text-[11px]">
+                {t("codeg.settings.staticDirHint")}
+              </span>
+            </label>
 
-        <label className="block space-y-1">
-          <span className="text-xs font-medium">{t("codeg.settings.serverPath")}</span>
-          <Input
-            className="font-mono text-xs"
-            value={draft.codeg.serverPath}
-            onChange={(event) => update({ serverPath: event.target.value })}
+            <label className="block space-y-1">
+              <span className="text-xs font-medium">{t("codeg.settings.serverPath")}</span>
+              <Input
+                className="font-mono text-xs"
+                value={draft.codeg.serverPath}
+                onChange={(event) => update({ serverPath: event.target.value })}
+              />
+              <span className="text-muted-foreground block text-[11px]">
+                {t("codeg.settings.serverPathHint")}
+              </span>
+            </label>
+          </>
+        ) : (
+          <CodegInstallPanel
+            install={
+              server?.install ?? {
+                dir: "",
+                staticDir: "",
+                serverPath: "",
+                installed: false,
+                version: null,
+                tag: null,
+              }
+            }
+            mode={mode}
+            running={running}
+            onBeforeInstall={async () => {
+              await codegStop();
+            }}
+            onInstalled={() => {
+              refresh();
+            }}
           />
-          <span className="text-muted-foreground block text-[11px]">
-            {t("codeg.settings.serverPathHint")}
-          </span>
-        </label>
+        )}
 
         <div className="flex gap-3">
           <label className="block w-32 space-y-1">

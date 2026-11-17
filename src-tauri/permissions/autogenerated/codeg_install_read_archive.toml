@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-install-read-archive"
+description = "Enables the codeg_install_read_archive command without any pre-configured scope."
+commands.allow = ["codeg_install_read_archive"]
+
+[[permission]]
+identifier = "deny-codeg-install-read-archive"
+description = "Denies the codeg_install_read_archive command without any pre-configured scope."
+commands.deny = ["codeg_install_read_archive"]

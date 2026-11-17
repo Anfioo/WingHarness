@@ -8,7 +8,11 @@ const codeg = {
     starting: "正在启动 Codeg 服务…",
     stopped: "Codeg 服务未运行",
     failed: "Codeg 服务启动失败",
-    hint: "在「设置 → Codeg（开发）」里检查路径、端口与数据目录。",
+    hintDev: "在「设置 → Codeg（开发）」里检查路径、端口与数据目录。",
+    hintInstalled: "在「设置 → Codeg」里检查安装、端口与数据目录。",
+    installTitle: "还没有安装 Codeg 服务",
+    installHint:
+      "服务与静态站点来自 Codeg 发布包：下载后按 sha256 校验，再解压到数据目录下的 codeg-server 文件夹。装在这里，服务马上就能启动。",
     start: "启动服务",
     stop: "停止服务",
     restart: "重启服务",
@@ -19,9 +23,12 @@ const codeg = {
     languageFailed: "无法设置 Codeg 语言：{{message}}",
   },
   settings: {
-    title: "Codeg（开发）",
+    title: "Codeg",
     description:
-      "让 Codeg 与本应用一起运行，并作为独立 webview 嵌进来：codeg-server 由本应用启动与托管，Codeg 页面的外观与语言跟随本应用。仅用于开发模式。",
+      "让 Codeg 作为独立 webview 嵌进应用：codeg-server 由本应用启动与托管，Codeg 页面的外观与语言跟随本应用。服务与静态站点从 Codeg 发布包下载，校验后解压到数据目录下的 codeg-server 文件夹，有新版本在这里更新。",
+    devTitle: "Codeg（开发）",
+    devDescription:
+      "开发模式：跑的是本机 Codeg 检出里自己编译的 codeg-server 与导出的静态站点，改完代码重启服务即可看到效果。只在开发构建里出现。",
     server: "服务",
     serverHint:
       "应用在回环地址上启动 codeg-server，并在应用退出时停止它。改过路径或端口后需要重新启动才生效。",
@@ -51,6 +58,30 @@ const codeg = {
     tokenCopied: "令牌已复制",
     log: "服务输出",
     logEmpty: "暂无输出。",
+    install: {
+      title: "服务与静态站点",
+      description:
+        "从 Codeg 发布包下载 codeg-server-web 压缩包（可执行文件加 web 导出），校验 sha256 后解压安装。安装位置跟随数据目录，不需要也不能手动指定。",
+      present: "已安装",
+      missing: "未安装",
+      check: "检查更新",
+      checking: "检查中…",
+      latest: "最新版本 {{version}}（{{endpoint}}）",
+      upToDate: "已是最新版本。",
+      installAction: "安装 {{version}}",
+      updateAction: "更新到 {{version}}",
+      openFolder: "打开目录",
+      staticDir: "静态站点目录",
+      serverPath: "codeg-server 可执行文件",
+      hint: "这两个位置由数据目录决定，只读；更新时整份替换。",
+      missingHint: "装好之后回到 Codeg 页即可启动服务。",
+      missingHintDev: "开发模式不使用这份安装，它只供 Codeg 页使用。",
+      downloading: "正在下载",
+      unpacking: "正在解压",
+      writing: "正在写入 {{done}}/{{total}}",
+      bytes: "{{received}} / {{total}}",
+      installedToast: "Codeg 服务已安装（{{version}}）",
+    },
   },
 };
 

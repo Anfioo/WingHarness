@@ -30,6 +30,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 
 | Module | Commands | Count |
 |--------|----------|-------|
+| `commands/codeg.rs` | `codeg_browser_apply_theme`, `codeg_browser_close`, `codeg_browser_close_all`, `codeg_browser_devtools`, `codeg_browser_navigate`, `codeg_browser_open`, `codeg_browser_reload`, `codeg_browser_set_bounds`, `codeg_browser_set_visible`, `codeg_browser_url`, `codeg_install_clear`, `codeg_install_finish`, `codeg_install_read_archive`, `codeg_install_write_file`, `codeg_release_check`, `codeg_restart`, `codeg_set_language`, `codeg_start`, `codeg_state`, `codeg_stop` — the server, the installed archive and the child webview behind the Codeg page | 20 |
 | `commands/config.rs` | `get_config`, `save_config`, `set_data_dir` | 3 |
 | `commands/db.rs` | `db_apply_edits`, `db_cancel`, `db_completion`, `db_connect`, `db_connected`, `db_databases`, `db_ddl`, `db_disconnect`, `db_execute`, `db_explain`, `db_finish_transaction`, `db_history`, `db_object_ddl`, `db_queries`, `db_query_delete`, `db_query_read`, `db_query_write`, `db_remove_history`, `db_save_settings`, `db_save_sources`, `db_save_window_tabs`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_settings`, `db_sources`, `db_statements`, `db_table_details`, `db_table_page`, `db_tables`, `db_test`, `db_window_tabs` | 33 |
 | `commands/devtools.rs` | `open_devtools` | 1 |
