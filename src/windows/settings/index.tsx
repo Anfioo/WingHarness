@@ -32,9 +32,11 @@ import {
   Cpu,
   Download,
   Code2,
+  Wrench,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
+import { DEV_BUILD } from "@/lib/dev-flag";
 
 type SettingSection =
   | "appearance"
@@ -51,7 +53,8 @@ type SettingSection =
   | "ports"
   | "runtime"
   | "download"
-  | "codeg";
+  | "codeg"
+  | "codegDev";
 
 export default function SettingsPage() {
   const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
@@ -133,6 +136,17 @@ export default function SettingsPage() {
       label: t("codeg.settings.title"),
       icon: Code2,
     },
+    // A developer's partition: it edits the paths of a Codeg checkout, so a
+    // packaged build has nothing for it to point at.
+    ...(DEV_BUILD
+      ? [
+          {
+            id: "codegDev" as SettingSection,
+            label: t("codeg.settings.devTitle"),
+            icon: Wrench,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -193,7 +207,9 @@ export default function SettingsPage() {
 
           {activeSection === "runtime" && <RuntimeSection />}
 
-          {activeSection === "codeg" && <CodegSection />}
+          {activeSection === "codeg" && <CodegSection mode="installed" />}
+
+          {activeSection === "codegDev" && <CodegSection mode="dev" />}
         </div>
       </div>
     </WindowFrame>

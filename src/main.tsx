@@ -46,6 +46,7 @@ const pageMap = {
   "/notes": lazy(() => import("./pages/notes/index")),
   "/moin": lazy(() => import("./pages/moin/index")),
   "/codeg": lazy(() => import("./pages/codeg/index")),
+  "/codeg-dev": lazy(() => import("./pages/codeg/dev")),
   "/file-preview": lazy(() => import("./pages/file-preview/index")),
   "/preview-window": lazy(() => import("./pages/preview-window/index")),
   "/cc-switch": lazy(() => import("./pages/cc-switch/index")),

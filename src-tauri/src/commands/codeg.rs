@@ -1,16 +1,21 @@
-//! The commands the Codeg page and its settings section call.
+//! The commands the Codeg pages and their settings partitions call.
 //!
-//! Two groups. The server commands ([`codeg_state`], [`codeg_start`], …) are
+//! Three groups. The server commands ([`codeg_state`], [`codeg_start`], …) are
 //! plain async calls: starting a process and polling it until it answers have
-//! nothing to do with the window system. The page commands
+//! nothing to do with the window system. The install commands
+//! (`codeg_install_*`, `codeg_release_check`) are the archive side of production
+//! Codeg — the download itself goes through the moin engine and the unpacking
+//! through 7z-wasm, exactly like a runtime. The page commands
 //! (`codeg_browser_*`) follow [`crate::commands::plugin_browser`] exactly — each
 //! is `async` and every webview call goes through a blocking thread, because on
 //! Windows a child webview's operations must run on the main thread and the call
 //! that gets them there blocks while it waits.
 
+use tauri::ipc::{Request, Response};
 use tauri::AppHandle;
 
-use crate::codeg::server::{self, CodegView, Status};
+use crate::codeg::install::{self, InstallView, ReleaseView};
+use crate::codeg::server::{self, CodegView, Mode, Status};
 use crate::codeg::webview::{self, Theme};
 use crate::plugins::browser::Bounds;
 
@@ -24,19 +29,21 @@ where
         .map_err(|error| format!("Codeg task failed: {error}"))?
 }
 
-/// The configuration, the server's state, the token and the server's output.
+/// The configuration, the installed archive, the server's state, the token and
+/// the server's output.
 ///
-/// Read by the settings section (status, token, log) and by the Codeg page
-/// (whether it can show anything yet), so one call answers both.
+/// Read by both settings partitions (status, token, log) and by the Codeg page
+/// (whether it can show anything yet), so one call answers all of them.
 #[tauri::command]
 pub fn codeg_state(app: AppHandle) -> CodegView {
     server::view(&app)
 }
 
-/// Starts the server and waits until it answers.
+/// Starts the server for `mode` (`dev` or `installed`) and waits until it
+/// answers. A server already running the other mode is stopped first.
 #[tauri::command]
-pub async fn codeg_start(app: AppHandle) -> Result<Status, String> {
-    server::start(app).await
+pub async fn codeg_start(app: AppHandle, mode: String) -> Result<Status, String> {
+    server::start(app, Mode::parse(&mode)?).await
 }
 
 /// Stops the server and everything it spawned.
@@ -45,11 +52,11 @@ pub fn codeg_stop(app: AppHandle) -> Status {
     server::stop(&app)
 }
 
-/// Restarts the server, so a changed path or port takes effect.
+/// Restarts the server for `mode`, so a changed path or port takes effect.
 #[tauri::command]
-pub async fn codeg_restart(app: AppHandle) -> Result<Status, String> {
+pub async fn codeg_restart(app: AppHandle, mode: String) -> Result<Status, String> {
     server::stop(&app);
-    server::start(app).await
+    server::start(app, Mode::parse(&mode)?).await
 }
 
 /// Sets Codeg's own language (`zh_cn` or `en`).
@@ -59,6 +66,55 @@ pub async fn codeg_restart(app: AppHandle) -> Result<Status, String> {
 #[tauri::command]
 pub async fn codeg_set_language(app: AppHandle, language: String) -> Result<(), String> {
     server::set_language(&app, &language).await
+}
+
+/// Asks the published `server.json` what the newest `codeg-server` archive is.
+///
+/// GitHub first, then the Cloudflare mirror. The answer also carries what is
+/// installed and whether the manifest names something newer, so one call is
+/// enough to render the whole install card.
+#[tauri::command]
+pub async fn codeg_release_check() -> Result<ReleaseView, String> {
+    install::release().await
+}
+
+/// Verifies a downloaded archive against the manifest and hands its bytes to
+/// the frontend to be unpacked.
+#[tauri::command]
+pub fn codeg_install_read_archive(
+    path: String,
+    sha256: String,
+    size: u64,
+) -> Result<Response, String> {
+    install::read_archive(&path, &sha256, size)
+}
+
+/// Empties the install folder before a new archive is written into it.
+#[tauri::command]
+pub fn codeg_install_clear(app: AppHandle) -> Result<(), String> {
+    install::clear(&app)
+}
+
+/// Writes one unpacked entry into the install folder.
+///
+/// Raw body, so a 60 MiB executable never becomes an array of numbers:
+/// `[name length: u32 LE][name: UTF-8][content]`.
+#[tauri::command]
+pub fn codeg_install_write_file(request: Request<'_>) -> Result<(), String> {
+    install::write_file(request)
+}
+
+/// Records a finished install once both halves are on disk.
+#[tauri::command]
+pub fn codeg_install_finish(
+    version: String,
+    tag: String,
+    sha256: String,
+    size: u64,
+    endpoint: String,
+    url: String,
+) -> Result<InstallView, String> {
+    install::finish(version, tag, sha256, size, endpoint, url)
 }
 
 /// Opens the Codeg page where the caller's placeholder is.

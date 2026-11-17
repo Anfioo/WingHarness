@@ -1,5 +1,14 @@
+import { invoke } from "@tauri-apps/api/core";
 import { invokeCommand } from "../../base";
-import type { CodegBounds, CodegServerStatus, CodegTheme, CodegView } from "./types";
+import type {
+  CodegBounds,
+  CodegInstall,
+  CodegMode,
+  CodegRelease,
+  CodegServerStatus,
+  CodegTheme,
+  CodegView,
+} from "./types";
 
 /**
  * Codeg, embedded as a native webview rather than a plugin.
@@ -18,14 +27,20 @@ import type { CodegBounds, CodegServerStatus, CodegTheme, CodegView } from "./ty
  */
 export const CODEG_STATUS_EVENT = "codeg-status";
 
-/** The configuration, the server's state, the token and the server's output. */
+/** The configuration, the installed archive, the server's state, the token and
+ * the server's output. */
 export function codegState(): Promise<CodegView> {
   return invokeCommand("codeg_state", {});
 }
 
-/** Starts the server and waits until it answers on its port. */
-export function codegStart(): Promise<CodegServerStatus> {
-  return invokeCommand("codeg_start", {});
+/**
+ * Starts the server for `mode` and waits until it answers on its port.
+ *
+ * A server already running the other mode is stopped first: one process serves
+ * one export, and both modes share the port.
+ */
+export function codegStart(mode: CodegMode): Promise<CodegServerStatus> {
+  return invokeCommand("codeg_start", { mode });
 }
 
 /** Stops the server and every process it started. */
@@ -33,9 +48,69 @@ export function codegStop(): Promise<CodegServerStatus> {
   return invokeCommand("codeg_stop", {});
 }
 
-/** Restarts the server, so a changed path or port takes effect. */
-export function codegRestart(): Promise<CodegServerStatus> {
-  return invokeCommand("codeg_restart", {});
+/** Restarts the server for `mode`, so a changed path or port takes effect. */
+export function codegRestart(mode: CodegMode): Promise<CodegServerStatus> {
+  return invokeCommand("codeg_restart", { mode });
+}
+
+/**
+ * Asks the published `server.json` what the newest `codeg-server` archive is.
+ *
+ * GitHub is tried first, then the Cloudflare mirror. The answer carries the
+ * installed version and whether the manifest names something newer.
+ */
+export function codegReleaseCheck(): Promise<CodegRelease> {
+  return invokeCommand("codeg_release_check", {});
+}
+
+/**
+ * Verifies a downloaded archive against the manifest and hands its bytes back.
+ *
+ * The command takes a raw body, so the archive never passes through JSON: the
+ * checksum is compared in the backend, which is the side that cares.
+ */
+export async function codegInstallReadArchive(
+  path: string,
+  sha256: string,
+  size: number
+): Promise<Uint8Array> {
+  const body = await invoke<ArrayBuffer>("codeg_install_read_archive", { path, sha256, size });
+  return new Uint8Array(body);
+}
+
+/** Empties the install folder before a new archive is written into it. */
+export function codegInstallClear(): Promise<void> {
+  return invokeCommand("codeg_install_clear", {});
+}
+
+/**
+ * Writes one unpacked entry into the install folder.
+ *
+ * The command takes a raw body, so the bytes never pass through JSON:
+ * `[name length: u32 LE][name: UTF-8][content]`.
+ */
+export async function codegInstallWriteFile(
+  relativePath: string,
+  bytes: Uint8Array
+): Promise<void> {
+  const name = new TextEncoder().encode(relativePath.replace(/\\/g, "/"));
+  const payload = new Uint8Array(4 + name.length + bytes.length);
+  new DataView(payload.buffer).setUint32(0, name.length, true);
+  payload.set(name, 4);
+  payload.set(bytes, 4 + name.length);
+  await invoke("codeg_install_write_file", payload);
+}
+
+/** Records a finished install once both halves are on disk. */
+export function codegInstallFinish(release: CodegRelease): Promise<CodegInstall> {
+  return invokeCommand("codeg_install_finish", {
+    version: release.version,
+    tag: release.tag,
+    sha256: release.sha256,
+    size: release.size,
+    endpoint: release.endpoint,
+    url: release.url,
+  });
 }
 
 /**

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-install-finish"
+description = "Enables the codeg_install_finish command without any pre-configured scope."
+commands.allow = ["codeg_install_finish"]
+
+[[permission]]
+identifier = "deny-codeg-install-finish"
+description = "Denies the codeg_install_finish command without any pre-configured scope."
+commands.deny = ["codeg_install_finish"]

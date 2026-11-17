@@ -142,7 +142,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [API_CLIENT.md](./docs/features/API_CLIENT.md) — REST client driven by an OpenAPI or Swagger document
 - [CC_SWITCH.md](./docs/features/CC_SWITCH.md) — provider management for the AI coding CLIs
 - [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) — the Claude chat, history and workflow pages
-- [CODEG.md](./docs/features/CODEG.md) — Codeg embedded as a native child webview, with the server the app owns
+- [CODEG.md](./docs/features/CODEG.md) — Codeg embedded as a native child webview, with the server the app owns and the release archive it installs
 - [DATABASE.md](./docs/features/DATABASE.md) — data sources, their tabbed windows, the SQL console, table data and object management
 - [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) — the viewer subsystem and how to add a format
 - [FRP.md](./docs/features/FRP.md) — the FRP console, `frpc` processes and generated configs

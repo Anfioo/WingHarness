@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import type { ComponentType, CSSProperties } from "react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
+import { DEV_BUILD } from "@/lib/dev-flag";
 
 export type AppRouteGroup =
   | "workspace"
@@ -72,7 +73,8 @@ export type AppRouteId =
   | "mdEditor"
   | "ports"
   | "moin"
-  | "codeg";
+  | "codeg"
+  | "codegDev";
 
 export type AppRoute = {
   id: AppRouteId;
@@ -84,9 +86,14 @@ export type AppRoute = {
   icon: AppRouteIcon;
   scope: string;
   items: string[];
+  /**
+   * A developer's affordance rather than a feature of the shipped app: the
+   * route is dropped from a packaged build. See [`appRoutes`].
+   */
+  devOnly?: boolean;
 };
 
-export const appRoutes: AppRoute[] = [
+const routeTable: AppRoute[] = [
   {
     id: "project",
     group: "agents",
@@ -374,15 +381,39 @@ export const appRoutes: AppRoute[] = [
     id: "codeg",
     group: "codeg",
     path: "/codeg",
-    title: "Codeg（开发）",
+    title: "Codeg",
     navLabel: "Codeg",
     description:
-      "把 Codeg 作为一个独立窗口嵌进应用：服务由应用自己启动与托管，页面是原生 webview，不是 iframe。Codeg 内部切页（例如打开它自己的设置）会在页签栏多出一个页签，点回去就回到那个路由；同一个 Codeg 永远只有一个 webview。外观方向的明暗、配色预设与语言都跟随本应用，只单向同步。路径、端口与独立数据目录在「设置 - Codeg（开发）」里配置。",
+      "把 Codeg 作为一个独立窗口嵌进应用：服务由应用自己启动与托管，页面是原生 webview，不是 iframe。codeg-server 与它的静态站点从 Codeg 发布包下载，校验 sha256 后解压到数据目录下的 codeg-server 文件夹，有新版本可在「设置 - Codeg」里更新。Codeg 内部切页（例如打开它自己的设置）会在页签栏多出一个页签，点回去就回到那个路由；同一个 Codeg 永远只有一个 webview。外观方向的明暗、配色预设与语言都跟随本应用，只单向同步。",
     icon: Code2,
+    scope: "嵌入 Codeg / 安装版",
+    items: ["下载与更新 codeg-server", "自动启动服务", "路由 → 页签", "外观与语言跟随"],
+  },
+  {
+    id: "codegDev",
+    group: "codeg",
+    path: "/codeg-dev",
+    title: "Codeg（开发）",
+    navLabel: "Codeg 开发",
+    description:
+      "同一个 Codeg 页面，跑的是本机 Codeg 检出里自己编译的 codeg-server 与 next 导出的静态站点：改完 Codeg 代码不用等发布，重启服务就是新版本。仓库、静态导出与可执行文件的路径在「设置 - Codeg（开发）」里配置，端口与数据目录与安装版共用。打包构建里这一页与它的设置分区都不存在。",
+    icon: Wrench,
     scope: "嵌入 Codeg / 开发模式",
-    items: ["自动启动 codeg-server", "路由 → 页签", "外观与语言跟随", "独立数据目录"],
+    items: ["指向本地检出", "自编译 codeg-server", "路由 → 页签", "仅开发构建"],
+    devOnly: true,
   },
 ];
+
+/**
+ * The routes this build carries.
+ *
+ * A `devOnly` route needs a Codeg checkout on the machine, so a packaged build
+ * drops it here rather than hiding it in the sidebar: the sidebar, the sidebar
+ * manager and the by-path lookups then all read the same list, and a layout file
+ * still naming the route resolves to nothing instead of to a page that cannot
+ * work.
+ */
+export const appRoutes = routeTable.filter((route) => !route.devOnly || DEV_BUILD);
 
 export const workspaceRoutes = appRoutes.filter((route) => route.group === "workspace");
 export const ecosystemRoutes = appRoutes.filter((route) => route.group === "ecosystem");

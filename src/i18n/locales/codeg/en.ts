@@ -8,7 +8,11 @@ const codeg = {
     starting: "Starting the Codeg server…",
     stopped: "The Codeg server is not running",
     failed: "The Codeg server could not start",
-    hint: "Check the paths, the port and the data directory under Settings → Codeg (dev).",
+    hintDev: "Check the paths, the port and the data directory under Settings → Codeg (dev).",
+    hintInstalled: "Check the install, the port and the data directory under Settings → Codeg.",
+    installTitle: "The Codeg server is not installed yet",
+    installHint:
+      "The server and its static export come from the Codeg release: the archive is verified against its SHA-256 and unpacked into a codeg-server folder under the data directory. Install it here and the server starts right away.",
     start: "Start server",
     stop: "Stop server",
     restart: "Restart server",
@@ -19,9 +23,12 @@ const codeg = {
     languageFailed: "Could not set the Codeg language: {{message}}",
   },
   settings: {
-    title: "Codeg (dev)",
+    title: "Codeg",
     description:
-      "Run Codeg alongside this app and embed it as its own webview: the app starts and owns codeg-server, and the Codeg page follows this app's appearance and language. Development only.",
+      "Codeg embedded as its own webview: the app starts and owns codeg-server, and the Codeg page follows this app's appearance and language. The server and its static export are downloaded from the Codeg release, verified, and unpacked into a codeg-server folder under the data directory; a new release is installed here.",
+    devTitle: "Codeg (dev)",
+    devDescription:
+      "Development mode: runs a codeg-server built from the Codeg checkout on this machine, with the static export beside it, so a rebuilt binary is one restart away. Only a development build has it.",
     server: "Server",
     serverHint:
       "The app starts codeg-server on loopback and stops it when the app quits. A path or port change takes effect on the next start.",
@@ -52,6 +59,30 @@ const codeg = {
     tokenCopied: "Token copied",
     log: "Server output",
     logEmpty: "Nothing yet.",
+    install: {
+      title: "Server and static site",
+      description:
+        "Downloads the codeg-server-web archive (the executable with the web export beside it), verifies its SHA-256 and unpacks it. Both paths follow the data directory, so they are neither editable nor worth editing.",
+      present: "Installed",
+      missing: "Not installed",
+      check: "Check for updates",
+      checking: "Checking…",
+      latest: "Latest is {{version}} ({{endpoint}})",
+      upToDate: "Already up to date.",
+      installAction: "Install {{version}}",
+      updateAction: "Update to {{version}}",
+      openFolder: "Open folder",
+      staticDir: "Static site directory",
+      serverPath: "codeg-server executable",
+      hint: "Both paths follow the data directory and are read-only; an update replaces the whole folder.",
+      missingHint: "Once installed, the Codeg page can start the server.",
+      missingHintDev: "The dev mode does not run this install; only the Codeg page does.",
+      downloading: "Downloading",
+      unpacking: "Unpacking",
+      writing: "Writing {{done}}/{{total}}",
+      bytes: "{{received}} / {{total}}",
+      installedToast: "Codeg server installed ({{version}})",
+    },
   },
 };
 
