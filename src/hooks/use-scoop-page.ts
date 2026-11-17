@@ -9,6 +9,7 @@ import {
   scoopPlanRun,
   scoopPrepareInstall,
   scoopRemoveBucket,
+  scoopSetHold,
   scoopStatus,
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -29,7 +30,6 @@ export type ScoopRunKind =
   | "update"
   | "apps-update"
   | "app-update"
-  | "hold"
   | "uninstall"
   | "config";
 export type ScoopLogTone = "info" | "error" | "done";
@@ -73,7 +73,8 @@ export interface ScoopPageController {
   updateApps: () => Promise<void>;
   /** Updates one app (`scoop update <app>`), global apps included. */
   updateApp: (app: { name: string; global: boolean }) => Promise<void>;
-  /** Pins an app at its version (`scoop hold`), or releases it. */
+  /** Pins an app at its version, or releases it. Scoop keeps the pin in the
+   * app's own install record, so this is a file write and not a run. */
   setAppHold: (app: { name: string; global: boolean }, hold: boolean) => Promise<void>;
   /** Uninstalls one app (`scoop uninstall [-g] [-p] <app>`). */
   uninstallApp: (app: { name: string; global: boolean }, purge: boolean) => Promise<void>;
@@ -369,12 +370,33 @@ export function useScoopPage(): ScoopPageController {
     [runPlan]
   );
 
-  /** `scoop hold` / `scoop unhold`: Scoop records the pin in the app's own
-   * install info, which is the same flag `scoop update *` reads. */
+  /**
+   * Pins an app or releases it. Scoop's `hold` is only a flag written into the
+   * app's own install record, which the backend writes directly: no process,
+   * no terminal, and the row flips as soon as the write lands.
+   */
   const setAppHold = useCallback(
-    (app: { name: string; global: boolean }, hold: boolean) =>
-      runPlan({ kind: hold ? "hold" : "unhold", spec: app.name, global: app.global }, "hold"),
-    [runPlan]
+    async (app: { name: string; global: boolean }, hold: boolean) => {
+      if (!beginPreparation()) return;
+      try {
+        const apps = await scoopSetHold(app.name, app.global, hold);
+        setStatus((current) => (current ? { ...current, apps } : current));
+        appendLog(
+          hold
+            ? t("scoop.run.appHeld", { app: app.name })
+            : t("scoop.run.appUnheld", { app: app.name }),
+          "done"
+        );
+        // No process ran, so the dock only needs to know the write landed.
+        setLastExit(0);
+      } catch (error) {
+        appendLog(t("scoop.run.prepareFailed", { message: messageOf(error) }), "error");
+        setLastExit(1);
+      } finally {
+        endPreparation();
+      }
+    },
+    [appendLog, beginPreparation, endPreparation, t]
   );
 
   /** `scoop uninstall [-g] [-p] <app>`: Scoop keeps the app's persist folder

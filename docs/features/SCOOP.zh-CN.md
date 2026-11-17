@@ -112,7 +112,7 @@ PowerShell 调用加上 `-RunAsAdmin`，别的不变：Scoop 仍然装进上面�
 | --- | --- |
 | `install.ps1` | 随应用附带的安装脚本，每次刷新 |
 | `install.cmd` | 自己不建任何东西；运行安装脚本，然后写入代理设置 |
-| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`，或一次代理同步 |
+| `run.cmd` | 一次 `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop uninstall`，或一次代理同步 |
 | `scoop-run.ps1` | 每一次 Scoop 调用都经过的包装脚本 |
 
 批处理文件里只有 ASCII。路径与代理值通过子进程环境
@@ -243,14 +243,20 @@ PowerShell 上；而且它会吞掉退出码 —— Scoop 的 `exec` 是 `& $pat
 
 ### 固定版本
 
-行内的**固定版本**执行 `scoop hold <app>`，**取消固定**执行 `scoop unhold <app>`。
-Scoop 把固定写成软件自己安装信息里的 `hold: true`（`scoop-install.json`，旧安装是
-`install.json`），此后每次 `scoop update *` 都会跳过它 —— 跳过是 Scoop 自己做的，
-页面不做任何过滤。该行随后显示**已固定**徽标，**更新**按钮变为不可用：Scoop 拒绝
-更新被固定的软件，所以要更新得先取消固定，而那只有一次点击。
+固定不需要 Scoop 跑一条命令：`scoop hold` 只是把 `hold: true` 写进软件自己的安装
+信息（`scoop-install.json`，旧版 Scoop 装的是 `install.json`），而 `scoop update *`
+正是看这个标记决定跳过谁。那也正好是页面本来就要读的文件（为了拿到软件所属的桶），
+所以 `scoop_set_hold` 自己写这个标记：一次文件写入，不起 PowerShell、不开终端，写完
+这一行就翻转。写入方式与 Scoop 一致 —— 读出整条记录、只改或删一个键、再整条写回，
+Scoop 放进去的其它字段一个不丢；旧版 Scoop 留下的 BOM 也能读。
 
-页面直接读那个文件里的标记，不启动 `scoop` 进程，所以状态一到徽标就是准的；固定
-任务以 0 退出时会刷新状态，徽标随之翻转。
+**取消固定**是删掉这个键，而不是写 `hold: false`：只有 `true` 才算固定，`scoop unhold`
+留下的 `null` 与删掉等价，页面两种都按未固定处理。命令顺带返回两个根目录刷新后的
+软件列表，所以改一个标记不必重读整份清单。
+
+被固定的行显示**已固定**徽标，**更新**按钮变为不可用：Scoop 拒绝更新被固定的软件，
+所以要更新得先取消固定，而那只有一次点击。`scoop update *` 里的跳过来自 Scoop 自己，
+页面不做任何过滤。
 
 ## 卸载软件
 
@@ -277,7 +283,8 @@ Scoop 默认保留 `<scoop>/persist/<app>` 目录，软件的设置就放在那�
 | `scoop_search` | `query` | 本地命中的桶、版本、描述与是否已安装 |
 | `scoop_apply_location` | `request` | 把两个链接与变量指向所选目录，并返回新状态 |
 | `scoop_prepare_install` | `request` | 创建两个目录与链接、写入变量与 `install.cmd`，返回计划 |
-| `scoop_plan_run` | `request` | 为安装、搜索、代理同步、`scoop update`、`scoop update *`、单个软件更新、固定/取消固定或卸载写入 `run.cmd` |
+| `scoop_plan_run` | `request` | 为安装、搜索、代理同步、`scoop update`、`scoop update *`、单个软件更新或卸载写入 `run.cmd` |
+| `scoop_set_hold` | `name`、`global`、`hold` | 在软件自己的安装信息里写入或清除固定标记；返回两个根目录刷新后的软件列表 |
 | `scoop_add_bucket` | `request` | 用 `git-core` 把桶克隆到 `<scoop>/buckets/<桶名>`，代理来自本页；返回桶名、目录与日志 |
 | `scoop_remove_bucket` | `spec` | 删除 `<scoop>/buckets/<桶名>`；返回桶名、目录与日志 |
 | `scoop_package_info` | `name`、`bucket`、`global` | 从已克隆的桶或已安装的软件读取一份清单：版本、许可证、说明、依赖、建议、命令、路径与原文 |

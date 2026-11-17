@@ -450,6 +450,7 @@ const COMMANDS: &[&str] = &[
     "scoop_prepare_install",
     "scoop_remove_bucket",
     "scoop_search",
+    "scoop_set_hold",
     "scoop_status",
     "save_config",
     "save_text_file",

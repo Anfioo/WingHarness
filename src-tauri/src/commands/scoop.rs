@@ -719,6 +719,82 @@ fn status() -> ScoopStatusView {
 }
 
 // ---------------------------------------------------------------------------
+// Pinning
+//
+// A pin is not a command Scoop has to run: `scoop hold` only writes `hold:
+// true` into the app's own install record, which is a file this app already
+// reads. Writing it here costs one file write instead of a PowerShell session,
+// and it keeps working when the CLI or the proxy is having a bad day.
+
+/// Pins an installed app at its version, or releases it.
+///
+/// Returns the refreshed app list of both roots, so the page never re-reads the
+/// whole catalog for a flag flip.
+#[tauri::command(async)]
+pub fn scoop_set_hold(name: String, global: bool, hold: bool) -> Result<Vec<ScoopAppView>, String> {
+    let root = if global {
+        root_view(PathKind::Global).target
+    } else {
+        root_view(PathKind::Scoop).target
+    };
+    set_app_hold(&root, name.trim(), hold)?;
+    Ok(read_all_apps(
+        &root_view(PathKind::Scoop).target,
+        &root_view(PathKind::Global).target,
+    ))
+}
+
+/// Writes the pin into the record Scoop keeps for the installed app.
+fn set_app_hold(root: &Path, name: &str, hold: bool) -> Result<(), String> {
+    if !is_package_name(name) {
+        return Err(format!("'{name}' is not an app name."));
+    }
+
+    // `current` is a junction over the installed version, and a write through
+    // it lands in that version's folder, which is where Scoop keeps the record.
+    let current = root.join("apps").join(name).join("current");
+    if !current.is_dir() {
+        return Err(format!(
+            "'{name}' is not installed under {}.",
+            root.display()
+        ));
+    }
+
+    let path = [APP_INSTALL_FILE, LEGACY_INSTALL_FILE]
+        .iter()
+        .map(|file| current.join(file))
+        .find(|path| path.is_file())
+        .ok_or_else(|| {
+            format!(
+                "Neither {APP_INSTALL_FILE} nor {LEGACY_INSTALL_FILE} is in {}.",
+                current.display()
+            )
+        })?;
+
+    let text = fs::read_to_string(&path)
+        .map_err(|error| format!("Failed to read {}: {error}", path.display()))?;
+    // The record is written by Scoop and by other tools; a BOM is not JSON.
+    let mut value: serde_json::Value = serde_json::from_str(text.trim_start_matches('\u{feff}'))
+        .map_err(|error| format!("{} is not valid JSON: {error}", path.display()))?;
+    let object = value
+        .as_object_mut()
+        .ok_or_else(|| format!("{} is not a JSON object.", path.display()))?;
+
+    if hold {
+        object.insert("hold".to_string(), serde_json::Value::Bool(true));
+    } else {
+        // `scoop unhold` leaves the key behind as `null`; dropping it reads the
+        // same way, because only `true` is a pin.
+        object.remove("hold");
+    }
+
+    let text = serde_json::to_string_pretty(&value)
+        .map_err(|error| format!("Failed to encode {}: {error}", path.display()))?;
+    fs::write(&path, format!("{text}\n"))
+        .map_err(|error| format!("Failed to write {}: {error}", path.display()))
+}
+
+// ---------------------------------------------------------------------------
 // Catalog and search
 
 #[tauri::command(async)]
@@ -1375,20 +1451,12 @@ fn run_script_text(kind: &str, proxy: &EffectiveProxy, update_globals: bool) -> 
             script.push_str("echo [scoop] command: scoop update -g *\r\n");
             scoop_call(&mut script, "update -g *");
         }
-    } else if kind == "app-update" || kind == "hold" || kind == "unhold" {
-        let subcommand = if kind == "app-update" { "update" } else { kind };
-        script.push_str(&format!(
-            "echo [scoop] command: scoop {subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n"
-        ));
-        // Holding is a metadata write: it downloads nothing, so the proxy is
-        // irrelevant to it.
-        if kind == "app-update" {
-            scoop_call(&mut script, &config);
-        }
-        scoop_call(
-            &mut script,
-            &format!("{subcommand} %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%"),
+    } else if kind == "app-update" {
+        script.push_str(
+            "echo [scoop] command: scoop update %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%\r\n",
         );
+        scoop_call(&mut script, &config);
+        scoop_call(&mut script, "update %SCOOP_GLOBAL_FLAG% %SCOOP_APP_ARGS%");
     } else if kind == "uninstall" {
         // Scoop keeps the app's `persist` folder unless it is given `-p`, which
         // is what a reinstall needs to find the user's settings again.
@@ -1495,7 +1563,7 @@ fn parse_spec(spec: &str) -> Result<String, String> {
     // The verb is optional and either one: a line typed in a terminal reads as
     // `scoop update 7zip`, a line typed into a box on this page as `7zip`.
     if let Some(first) = tokens.first() {
-        if ["install", "search", "update", "hold", "unhold", "uninstall"]
+        if ["install", "search", "update", "uninstall"]
             .iter()
             .any(|verb| first.eq_ignore_ascii_case(verb))
         {
@@ -2179,10 +2247,7 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             lines.push("Global apps follow with scoop update -g *.".to_string());
         }
         lines
-    } else if request.kind == "app-update"
-        || request.kind == "hold"
-        || request.kind == "unhold"
-    {
+    } else if request.kind == "app-update" {
         let args = parse_spec(&request.spec)?;
         env.push(ScoopEnvVar {
             name: "SCOOP_APP_ARGS".to_string(),
@@ -2192,13 +2257,8 @@ pub fn scoop_plan_run(request: ScoopRunRequest) -> Result<ScoopPlanView, String>
             name: "SCOOP_GLOBAL_FLAG".to_string(),
             value: global_flag.to_string(),
         });
-        let subcommand = if request.kind == "app-update" {
-            "update"
-        } else {
-            request.kind.as_str()
-        };
         vec![
-            format!("Scoop command: scoop {subcommand} {global_flag} {args}"),
+            format!("Scoop command: scoop update {global_flag} {args}"),
             folder_line,
         ]
     } else if request.kind == "uninstall" {
@@ -2270,12 +2330,77 @@ mod tests {
     use super::{
         bin_names, check_uninstall_targets, clone_proxy, flag_field, install_script_text,
         is_inside, is_package_name, license_fields, notes_field, parse_bucket_name,
-        parse_bucket_spec, parse_spec, parse_version, read_app_json, run_script_text, same_path,
-        same_repository, string_list, strip_verbatim, EffectiveMode, EffectiveProxy, PathKind,
-        APP_INSTALL_FILE, APP_MANIFEST_FILE, LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
+        parse_bucket_spec, parse_spec, parse_version, read_app_json, read_json, run_script_text,
+        same_path, same_repository, set_app_hold, string_list, strip_verbatim, text_of,
+        EffectiveMode, EffectiveProxy, PathKind, APP_INSTALL_FILE, APP_MANIFEST_FILE,
+        LEGACY_INSTALL_FILE, LEGACY_MANIFEST_FILE,
     };
     use std::fs;
     use std::path::{Path, PathBuf};
+
+    #[test]
+    fn a_pin_is_written_into_the_install_record() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-write-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let current = root.join("apps/demo/current");
+        fs::create_dir_all(&current).unwrap();
+        let info = current.join(APP_INSTALL_FILE);
+        fs::write(&info, r#"{"bucket":"main","architecture":"64bit"}"#).unwrap();
+
+        set_app_hold(&root, "demo", true).unwrap();
+        let value = read_json(&info).unwrap();
+        assert_eq!(value.get("hold"), Some(&serde_json::json!(true)));
+        // Everything Scoop wrote is still there: this rewrites one key, not the
+        // whole record.
+        assert_eq!(text_of(&value, "bucket").as_deref(), Some("main"));
+        assert_eq!(text_of(&value, "architecture").as_deref(), Some("64bit"));
+
+        set_app_hold(&root, "demo", false).unwrap();
+        let value = read_json(&info).unwrap();
+        assert!(value.get("hold").is_none());
+        assert_eq!(text_of(&value, "bucket").as_deref(), Some("main"));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_legacy_record_is_pinned_too() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let current = root.join("apps/demo/current");
+        fs::create_dir_all(&current).unwrap();
+        let info = current.join(LEGACY_INSTALL_FILE);
+        // The BOM an older Scoop wrote, which is why the read strips it.
+        fs::write(&info, "\u{feff}{\"bucket\":\"main\"}").unwrap();
+
+        set_app_hold(&root, "demo", true).unwrap();
+        assert_eq!(
+            read_json(&info).and_then(|value| value.get("hold").cloned()),
+            Some(serde_json::json!(true))
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn only_an_installed_app_can_be_pinned() {
+        let root =
+            std::env::temp_dir().join(format!("wingharness-pin-missing-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+
+        // No `apps` folder at all.
+        assert!(set_app_hold(&root, "demo", true).is_err());
+        // A name that could walk out of `apps` never reaches the file system.
+        assert!(set_app_hold(&root, "../demo", true).is_err());
+
+        // The folder is there but carries no record.
+        fs::create_dir_all(root.join("apps/demo/current")).unwrap();
+        assert!(set_app_hold(&root, "demo", true).is_err());
+
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn app_metadata_is_read_under_either_name() {
@@ -2409,7 +2534,7 @@ mod tests {
         );
         assert_eq!(parse_spec("scoop search 7z").unwrap(), "7z");
         assert_eq!(parse_spec("scoop update 7zip").unwrap(), "7zip");
-        assert_eq!(parse_spec("scoop hold 7zip").unwrap(), "7zip");
+        assert_eq!(parse_spec("scoop uninstall 7zip").unwrap(), "7zip");
     }
 
     #[test]

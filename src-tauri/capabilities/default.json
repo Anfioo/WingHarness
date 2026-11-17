@@ -496,6 +496,7 @@
     "allow-scoop-prepare-install",
     "allow-scoop-remove-bucket",
     "allow-scoop-search",
+    "allow-scoop-set-hold",
     "allow-scoop-status",
     "allow-set-data-dir",
     "allow-shaic-agent-detail",

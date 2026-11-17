@@ -250,6 +250,8 @@ const scoop = {
     bucketProgress: "Cloning '{{name}}': {{percent}}%",
     bucketAdded: "The '{{name}}' bucket is ready to install from.",
     bucketRemoved: "The '{{name}}' bucket is gone; its apps stay installed.",
+    appHeld: "{{app}} is pinned at its current version.",
+    appUnheld: "{{app}} is no longer pinned.",
   },
 };
 

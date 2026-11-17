@@ -132,7 +132,7 @@ is also a line in the run log (`Installer runs as: …`), so the terminal shows 
 | --- | --- |
 | `install.ps1` | The bundled installer, refreshed each time |
 | `install.cmd` | Creates nothing itself; runs the installer and then sets the proxy |
-| `run.cmd` | One `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop hold` / `scoop uninstall`, or the proxy sync |
+| `run.cmd` | One `scoop install` / `scoop search` / `scoop update` / `scoop update *` / `scoop uninstall`, or the proxy sync |
 | `scoop-run.ps1` | The wrapper every Scoop call goes through |
 
 The batch files are ASCII-only. Paths and proxy values travel through the
@@ -302,17 +302,25 @@ global apps alone. A global app's row carries `-g` too.
 
 ### Pinning a version
 
-**Pin** on a row runs `scoop hold <app>`; **Unpin** runs `scoop unhold <app>`.
-Scoop records the pin as `hold: true` in the app's own install info
-(`scoop-install.json`, or `install.json` on an older install), and every later
-`scoop update *` skips it — the skip is Scoop's own, so the page does not filter
-anything itself. The row then shows a **Pinned** badge and its **Update** button
-is disabled: Scoop refuses to update a held app, so the way through is to unpin
-it first, which is one click away.
+A pin is not a command Scoop has to run. `scoop hold` only writes `hold: true`
+into the app's own install info — `scoop-install.json`, or `install.json` on an
+install made by an older Scoop — and `scoop update *` skips an app whose record
+says `true`. That is the same file the page already reads for an app's bucket, so
+`scoop_set_hold` writes the flag itself: one file write, no PowerShell, no
+terminal, and the row flips as soon as the write answers. The record is read, one
+key is set or dropped, and the whole object is written back, so nothing else
+Scoop put in it is lost; a BOM an older Scoop left behind is tolerated on the
+way in.
 
-The page reads the flag from that file rather than from a `scoop` process, so
-the badge is right the moment the status lands, and it flips when the hold run
-exits with 0 (the run refreshes the status).
+**Unpin** drops the key instead of writing `hold: false`, which reads the same
+way, because only `true` is a pin — `scoop unhold` leaves the key behind as
+`null` and the page treats both the same. The command answers with the refreshed
+app list of both roots, so a flag flip never re-reads the whole catalog.
+
+A pinned row shows a **Pinned** badge and its **Update** button is disabled:
+Scoop refuses to update a held app, so the way through is to unpin it first,
+which is one click away. The skip inside `scoop update *` is Scoop's own, so the
+page does not filter anything itself.
 
 ## Uninstalling an app
 
@@ -342,7 +350,8 @@ so what a run does is visible before and after it starts.
 | `scoop_search` | `query` | local hits with bucket, version, description, installed flag |
 | `scoop_apply_location` | `request` | points both links and variables at the chosen folders; returns the new status |
 | `scoop_prepare_install` | `request` | creates both folders and links, writes the variables, writes `install.cmd`; returns the plan |
-| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a proxy sync, `scoop update`, `scoop update *`, one app's update, a hold / unhold, or an uninstall |
+| `scoop_plan_run` | `request` | writes `run.cmd` for install, search, a proxy sync, `scoop update`, `scoop update *`, one app's update, or an uninstall |
+| `scoop_set_hold` | `name`, `global`, `hold` | writes or clears the pin in the app's own install record; returns the refreshed app list of both roots |
 | `scoop_add_bucket` | `request` | clones the bucket into `<scoop>/buckets/<name>` through `git-core`, with the page's proxy; returns its name, folder and log |
 | `scoop_remove_bucket` | `spec` | deletes `<scoop>/buckets/<name>`; returns its name, folder and log |
 | `scoop_package_info` | `name`, `bucket`, `global` | one manifest read from the cloned bucket, or from the installed app: versions, licence, notes, depends, suggests, commands, path and raw text |

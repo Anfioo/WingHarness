@@ -424,6 +424,7 @@ macro_rules! all_commands {
             crate::commands::scoop::scoop_prepare_install,
             crate::commands::scoop::scoop_remove_bucket,
             crate::commands::scoop::scoop_search,
+            crate::commands::scoop::scoop_set_hold,
             crate::commands::scoop::scoop_status,
             crate::commands::sidebar::sidebar_get,
             crate::commands::sidebar::sidebar_set,

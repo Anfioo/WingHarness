@@ -240,6 +240,8 @@ const scoop = {
     bucketProgress: "克隆「{{name}}」：{{percent}}%",
     bucketAdded: "桶「{{name}}」已就绪，可以直接安装其中的应用。",
     bucketRemoved: "桶「{{name}}」已删除；从它安装的应用会保留。",
+    appHeld: "{{app}} 已固定在当前版本。",
+    appUnheld: "{{app}} 已取消固定。",
   },
 };
 

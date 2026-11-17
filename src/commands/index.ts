@@ -1129,6 +1129,7 @@ export {
   scoopPrepareInstall,
   scoopRemoveBucket,
   scoopSearch,
+  scoopSetHold,
   scoopStatus,
 } from "./services/scoop";
 export type {

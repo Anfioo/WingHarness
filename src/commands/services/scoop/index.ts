@@ -1,5 +1,6 @@
 import { invokeCommand } from "../../base";
 import type {
+  ScoopApp,
   ScoopBucketInfo,
   ScoopBucketRequest,
   ScoopBucketResult,
@@ -85,4 +86,16 @@ export function scoopPackageInfo(
 /** One bucket: its clone's git metadata and the manifests it holds. */
 export function scoopBucketInfo(name: string): Promise<ScoopBucketInfo> {
   return invokeCommand<{ name: string }, ScoopBucketInfo>("scoop_bucket_info", { name });
+}
+
+/**
+ * Pins an installed app at its version, or releases it. Scoop keeps the pin in
+ * the app's own install record, so this is one file write and not a run;
+ * the refreshed app list comes back with it.
+ */
+export function scoopSetHold(name: string, global: boolean, hold: boolean): Promise<ScoopApp[]> {
+  return invokeCommand<{ name: string; global: boolean; hold: boolean }, ScoopApp[]>(
+    "scoop_set_hold",
+    { name, global, hold }
+  );
 }
