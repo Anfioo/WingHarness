@@ -120,12 +120,38 @@ export type {
   AgentOption,
   AiConfig,
   AppConfig,
+  CodegConfig,
   ConfigView,
   FilePreviewConfig,
   ProxyConfig,
   ProxyMode,
   ProxyStatus,
 } from "./services/config/types";
+export {
+  CODEG_STATUS_EVENT,
+  codegBrowserApplyTheme,
+  codegBrowserClose,
+  codegBrowserCloseAll,
+  codegBrowserDevtools,
+  codegBrowserNavigate,
+  codegBrowserOpen,
+  codegBrowserReload,
+  codegBrowserSetBounds,
+  codegBrowserSetVisible,
+  codegBrowserUrl,
+  codegRestart,
+  codegSetLanguage,
+  codegStart,
+  codegState,
+  codegStop,
+} from "./services/codeg";
+export type {
+  CodegBounds,
+  CodegServerStatus,
+  CodegSettings,
+  CodegTheme,
+  CodegView,
+} from "./services/codeg/types";
 export { greet } from "./services/greet";
 export { previewBytes, previewMetadata } from "./services/file-preview";
 export type { PreviewMeta } from "./services/file-preview";

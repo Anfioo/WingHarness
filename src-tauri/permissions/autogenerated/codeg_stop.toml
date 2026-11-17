@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-stop"
+description = "Enables the codeg_stop command without any pre-configured scope."
+commands.allow = ["codeg_stop"]
+
+[[permission]]
+identifier = "deny-codeg-stop"
+description = "Denies the codeg_stop command without any pre-configured scope."
+commands.deny = ["codeg_stop"]

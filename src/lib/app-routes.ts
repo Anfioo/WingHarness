@@ -3,6 +3,7 @@ import {
   Bot,
   Boxes,
   Building2,
+  Code2,
   Database,
   FolderGit2,
   FolderSync,
@@ -35,7 +36,8 @@ export type AppRouteGroup =
   | "frp"
   | "mdEditor"
   | "ports"
-  | "moin";
+  | "moin"
+  | "codeg";
 
 /**
  * 侧栏 / 页头用的图标。大多是 lucide 图标，但 CC Switch 用它自己的品牌 logo
@@ -69,7 +71,8 @@ export type AppRouteId =
   | "project"
   | "mdEditor"
   | "ports"
-  | "moin";
+  | "moin"
+  | "codeg";
 
 export type AppRoute = {
   id: AppRouteId;
@@ -366,6 +369,18 @@ export const appRoutes: AppRoute[] = [
     icon: Download,
     scope: "HTTP/HTTPS 下载 / 队列 / 分类",
     items: ["多连接分段下载", "队列与续传", "分类规则", "浏览器扩展"],
+  },
+  {
+    id: "codeg",
+    group: "codeg",
+    path: "/codeg",
+    title: "Codeg（开发）",
+    navLabel: "Codeg",
+    description:
+      "把 Codeg 作为一个独立窗口嵌进应用：服务由应用自己启动与托管，页面是原生 webview，不是 iframe。Codeg 内部切页（例如打开它自己的设置）会在页签栏多出一个页签，点回去就回到那个路由；同一个 Codeg 永远只有一个 webview。外观方向的明暗、配色预设与语言都跟随本应用，只单向同步。路径、端口与独立数据目录在「设置 - Codeg（开发）」里配置。",
+    icon: Code2,
+    scope: "嵌入 Codeg / 开发模式",
+    items: ["自动启动 codeg-server", "路由 → 页签", "外观与语言跟随", "独立数据目录"],
   },
 ];
 

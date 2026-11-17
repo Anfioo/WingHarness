@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-codeg-browser-devtools"
+description = "Enables the codeg_browser_devtools command without any pre-configured scope."
+commands.allow = ["codeg_browser_devtools"]
+
+[[permission]]
+identifier = "deny-codeg-browser-devtools"
+description = "Denies the codeg_browser_devtools command without any pre-configured scope."
+commands.deny = ["codeg_browser_devtools"]

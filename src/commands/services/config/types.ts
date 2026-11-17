@@ -11,8 +11,30 @@ export interface AppConfig {
   aiConfig: AiConfig;
   proxy: ProxyConfig;
   filePreview: FilePreviewConfig;
+  /** How the app launches and embeds the Codeg app. */
+  codeg: CodegConfig;
   /** Networked mode shows the sidebar's account menu; standalone hides it. */
   networked: boolean;
+}
+
+/**
+ * Where Codeg lives, and the sandbox it is given.
+ *
+ * Everything but `port` is a path on this machine; `dataDir` is empty by
+ * default, which means `<data dir>/codeg` — a directory of its own, so the
+ * embedded copy never touches the Codeg installation the user runs themselves.
+ */
+export interface CodegConfig {
+  /** Codeg's checkout, used as the server's working directory. */
+  repoPath: string;
+  /** Codeg's static export, served by the server. */
+  staticDir: string;
+  /** The `codeg-server` binary. */
+  serverPath: string;
+  /** Port the server listens on, on loopback. */
+  port: number;
+  /** Codeg's data directory; empty means `<data dir>/codeg`. */
+  dataDir: string;
 }
 
 /**
