@@ -55,23 +55,6 @@ impl Sampler {
     }
 }
 
-/// The seam the service clients plug into. The A0 service crate exposes the
-/// clients but not their frame readers yet; the sampler still creates them and
-/// calls this seam every frame, so the inherent `enrich` methods that B2 adds
-/// take over without touching the sampling loop. Remove this trait once both
-/// clients ship their readers.
-trait EnrichFrame {
-    fn enrich(&mut self, snapshot: &mut Snapshot, interval: Duration);
-}
-
-impl EnrichFrame for NetworkClient {
-    fn enrich(&mut self, _snapshot: &mut Snapshot, _interval: Duration) {}
-}
-
-impl EnrichFrame for DiskClient {
-    fn enrich(&mut self, _snapshot: &mut Snapshot, _interval: Duration) {}
-}
-
 fn run(rx: Receiver<Control>) {
     let mut collector = Collector::new();
     // Needs administrator rights; without them the network columns stay empty.
@@ -118,6 +101,9 @@ fn run(rx: Receiver<Control>) {
         let mut snapshot = collector.sample();
         network.enrich(&mut snapshot, interval);
         disk.enrich(&mut snapshot, interval);
+        if let Some(reason) = disk.new_failure() {
+            eprintln!("[argus] disk enrichment unavailable: {reason}");
+        }
 
         // A failed send means the page went away; stop rather than sample into
         // nothing. The next `argus_snapshot_start` spawns a fresh thread.

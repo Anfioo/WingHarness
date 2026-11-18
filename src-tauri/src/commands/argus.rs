@@ -11,7 +11,7 @@ use argus_core::collector::Snapshot;
 use argus_core::details::{self, ProcessDetails};
 use argus_core::models::ArgusSettings;
 use argus_core::{ArgusError, ArgusErrorCode};
-use argus_service::ServiceStatus;
+use argus_service::{Operation, Reply, Routed, ServiceStatus};
 use tauri::State;
 use tauri::ipc::Channel;
 
@@ -110,7 +110,20 @@ pub fn argus_kill_process(
             "The task manager cannot end its own process.",
         ));
     }
-    let result = privileged(&state, || actions::terminate(pid, create_time, force));
+    let result = route_operation(
+        &state,
+        || actions::terminate(pid, create_time, force),
+        Operation::Terminate {
+            pid,
+            create_time,
+            force,
+        },
+        |reply| match reply {
+            Reply::Done => Ok(()),
+            Reply::Error(error) => Err(map_action_error(error)),
+            other => Err(unexpected_reply(other)),
+        },
+    );
     state.refresh();
     result
 }
@@ -126,10 +139,34 @@ pub fn argus_kill_process_tree(
             "The task manager cannot end its own process.",
         ));
     }
-    let result = actions::terminate_tree_with(pid, create_time, |pid, create_time| {
-        actions::terminate(pid, create_time, false)
-    })
-    .map_err(|error| privileged_failure(&state, error));
+    let result =
+        actions::terminate_tree_with(
+            pid,
+            create_time,
+            |pid, create_time| match actions::terminate(pid, create_time, false) {
+                Ok(()) => Ok(()),
+                Err(ActionError::AccessDenied) if !state.elevated => {
+                    match argus_service::route(Operation::Terminate {
+                        pid,
+                        create_time,
+                        force: false,
+                    }) {
+                        Routed::Replied(Reply::Done) => Ok(()),
+                        Routed::Replied(Reply::Error(error)) => Err(error),
+                        Routed::Replied(other) => Err(ActionError::Os(format!(
+                            "unexpected reply from the privileged service: {other:?}"
+                        ))),
+                        Routed::Outdated => Err(ActionError::ServiceOutdated),
+                        Routed::Absent | Routed::Denied => Err(ActionError::AccessDenied),
+                    }
+                }
+                Err(error) => Err(error),
+            },
+        )
+        .map_err(|error| match error {
+            ActionError::ServiceOutdated => service_outdated(),
+            other => map_action_error(other),
+        });
     state.refresh();
     result
 }
@@ -141,7 +178,20 @@ pub fn argus_set_priority(
     create_time: i64,
     priority: Priority,
 ) -> Result<Priority, ArgusError> {
-    let result = privileged(&state, || actions::set_priority(pid, create_time, priority));
+    let result = route_operation(
+        &state,
+        || actions::set_priority(pid, create_time, priority),
+        Operation::Priority {
+            pid,
+            create_time,
+            priority,
+        },
+        |reply| match reply {
+            Reply::Priority(actual) => Ok(actual),
+            Reply::Error(error) => Err(map_action_error(error)),
+            other => Err(unexpected_reply(other)),
+        },
+    );
     state.refresh();
     result
 }
@@ -153,9 +203,20 @@ pub fn argus_set_efficiency(
     create_time: i64,
     on: bool,
 ) -> Result<(), ArgusError> {
-    let result = privileged(&state, || {
-        actions::set_efficiency_mode(pid, create_time, on)
-    });
+    let result = route_operation(
+        &state,
+        || actions::set_efficiency_mode(pid, create_time, on),
+        Operation::Efficiency {
+            pid,
+            create_time,
+            on,
+        },
+        |reply| match reply {
+            Reply::Done => Ok(()),
+            Reply::Error(error) => Err(map_action_error(error)),
+            other => Err(unexpected_reply(other)),
+        },
+    );
     state.refresh();
     result
 }
@@ -175,45 +236,50 @@ pub fn argus_service_manage(
     Ok(status)
 }
 
-/// Runs an action with the host's own rights. When those fall short, the
-/// privileged service is what makes the same action possible; its state decides
-/// whether that is an install hint or a protocol problem.
-fn privileged<T>(
+/// Runs an operation with the host's own rights first. When the host is denied
+/// and is not elevated, the same operation is handed to the privileged service;
+/// the service's answer is authoritative and the host never retries locally.
+fn route_operation<T>(
     state: &ArgusState,
     local: impl FnOnce() -> Result<T, ActionError>,
+    operation: Operation,
+    on_reply: impl FnOnce(Reply) -> Result<T, ArgusError>,
 ) -> Result<T, ArgusError> {
-    local().map_err(|error| privileged_failure(state, error))
-}
-
-fn privileged_failure(state: &ArgusState, error: ActionError) -> ArgusError {
-    if state.elevated || !matches!(error, ActionError::AccessDenied) {
-        return map_action_error(error);
-    }
-    match service::status() {
-        Ok(status) if status.incompatible => ArgusError::new(
-            ArgusErrorCode::ServiceUnavailable,
-            "The privileged service speaks an incompatible protocol; updating it is required.",
-        ),
-        Ok(status) if status.state == "running" => {
-            // The service is the only path left, but its operation router is
-            // not exposed to the host yet (see B3.md "待协调").
-            eprintln!("argus privileged action denied locally while the service is running");
-            ArgusError {
-                code: ArgusErrorCode::AccessDenied,
-                message:
-                    "Access denied. The privileged service is required to change this process."
-                        .into(),
-                detail: Some(
-                    "The privileged service is running; host routing is not wired yet.".into(),
-                ),
+    match local() {
+        Ok(value) => Ok(value),
+        Err(ActionError::AccessDenied) if !state.elevated => {
+            match argus_service::route(operation) {
+                Routed::Replied(reply) => on_reply(reply),
+                Routed::Outdated => Err(service_outdated()),
+                Routed::Absent => Err(service_absent()),
+                Routed::Denied => Err(ArgusError::new(
+                    ArgusErrorCode::AccessDenied,
+                    "The privileged service refused to change this process.",
+                )),
             }
         }
-        Ok(_) => ArgusError::new(
-            ArgusErrorCode::AccessDenied,
-            "Access denied. Install the privileged service to change protected processes.",
-        ),
-        Err(error) => error,
+        Err(error) => Err(map_action_error(error)),
     }
+}
+
+fn service_outdated() -> ArgusError {
+    ArgusError::new(
+        ArgusErrorCode::ServiceUnavailable,
+        "The privileged service speaks an incompatible protocol; updating it is required.",
+    )
+}
+
+fn service_absent() -> ArgusError {
+    ArgusError::new(
+        ArgusErrorCode::AccessDenied,
+        "Access denied. Install or start the privileged service to change protected processes.",
+    )
+}
+
+fn unexpected_reply(reply: Reply) -> ArgusError {
+    ArgusError::internal(format!(
+        "Unexpected reply from the privileged service: {reply:?}"
+    ))
 }
 
 /// The page's stable error surface: the UI branches on `code`, and `message`
