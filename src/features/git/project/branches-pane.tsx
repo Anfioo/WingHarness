@@ -38,6 +38,10 @@ const ACTIVE = "bg-primary/10 text-foreground";
 const IDLE = "text-muted-foreground hover:bg-muted hover:text-foreground";
 const FOCUS = "bg-muted text-foreground";
 
+/** The commit file tree's rhythm: one level per 14px, leaves one step further in. */
+const INDENT_STEP = 14;
+const LEAF_INDENT = 14;
+
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 
 function Section({
@@ -118,7 +122,9 @@ function RefRow({
   onContextMenu: (event: ReactMouseEvent, branch: BranchInfo) => void;
   onToggleFolder: (key: string) => void;
 }) {
-  const indent = { paddingLeft: 6 + row.depth * 10 };
+  const indent = {
+    paddingLeft: 6 + row.depth * INDENT_STEP + (row.type === "branch" ? LEAF_INDENT : 0),
+  };
 
   if (row.type === "folder") {
     return (
