@@ -480,6 +480,8 @@ macro_rules! all_commands {
             crate::commands::tray::quit_app,
             crate::commands::tray::tray_menu_set_expanded,
             crate::commands::tray::update_tray_menu,
+            crate::commands::tray_apps::tray_apps_list,
+            crate::commands::tray_apps::tray_apps_save,
             crate::commands::updater::cancel_update_download,
             crate::commands::updater::check_for_update,
             crate::commands::updater::download_and_install_update,

@@ -18,6 +18,7 @@ const scoop = {
     overview: "Overview",
     search: "Search & install",
     buckets: "Buckets",
+    tray: "Tray menu",
     diagnostics: "Diagnostics",
     settings: "Settings",
   },

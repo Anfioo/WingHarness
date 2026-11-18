@@ -384,8 +384,14 @@ export type {
   StoreStatus,
   SyncStatus,
 } from "./services/shaic/types";
-export { quitApp, setTrayMenuExpanded, updateTrayMenu } from "./services/tray";
-export type { TrayMenuLayout } from "./services/tray/types";
+export {
+  quitApp,
+  setTrayMenuExpanded,
+  trayAppsList,
+  trayAppsSave,
+  updateTrayMenu,
+} from "./services/tray";
+export type { TrayApp, TrayAppsView, TrayMenuLayout } from "./services/tray/types";
 export {
   cancelUpdateDownload,
   checkForUpdate,

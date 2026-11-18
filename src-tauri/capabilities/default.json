@@ -719,6 +719,8 @@
     "allow-term-write",
     "allow-theme-fonts-css",
     "allow-tray-menu-set-expanded",
+    "allow-tray-apps-list",
+    "allow-tray-apps-save",
     "allow-tree-files",
     "allow-unstage-all",
     "allow-unstage-file",

@@ -44,7 +44,8 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/scoop.rs` | `scoop_apply_location`, `scoop_installed`, `scoop_plan_run`, `scoop_prepare_install`, `scoop_search`, `scoop_status` — the fixed link, user environment variables and generated `.cmd` scripts behind the Scoop page | 6 |
 | `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
-| `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
+| `commands/tray.rs` | `quit_app`, `tray_menu_set_expanded`, `update_tray_menu` | 3 |
+| `commands/tray_apps.rs` | `tray_apps_list`, `tray_apps_save` — the Scoop shortcuts behind the tray's apps menu, and the user's pin, hide and order lists | 2 |
 | `commands/updater.rs` | `cancel_update_download`, `check_for_update`, `download_and_install_update`, `is_update_download_active` | 4 |
 
 `commands/fs_guard.rs` is not a command module: it is the path guard every
@@ -167,6 +168,10 @@ aria2 backends, settings, batched events and the extension-only loopback RPC.
 the RPC listener after proxy setup and stops it on exit. The crate is adapted
 from [moin](https://github.com/exxvius/moin) (MIT); `moin-core/UPSTREAM.md`
 records what differs. See [../docs/features/MOIN.md](../docs/features/MOIN.md).
+
+`commands/tray_apps.rs` reads Scoop's Start Menu shortcuts for the tray's
+second-level apps menu and keeps `<data dir>/tray.json`. See
+[../docs/features/TRAY_MENU.md](../docs/features/TRAY_MENU.md).
 
 `plugins/` is the app's own tray — the native icon and, on Windows, its themed
 right-click menu. Not to be confused with Tauri plugins (the `tauri-plugin-*`

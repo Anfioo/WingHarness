@@ -22,4 +22,5 @@ pub mod scoop;
 pub mod sidebar;
 pub mod theme;
 pub mod tray;
+pub mod tray_apps;
 pub mod updater;

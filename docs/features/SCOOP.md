@@ -7,9 +7,14 @@ apps and buckets.
 
 It is one sidebar page with two states. Until an install exists on disk it shows
 the install screen only. Once Scoop is installed the tabs are **概览**
-(Overview), **搜索安装** (Search & install), **桶** (Buckets) and **设置**
-(Settings). A run dock at the bottom shows the exact script, its step log and the
-terminal it runs in.
+(Overview), **搜索安装** (Search & install), **桶** (Buckets), **托盘菜单**
+(Tray menu), **诊断** (Diagnostics) and **设置** (Settings). A run dock at the
+bottom shows the exact script, its step log and the terminal it runs in.
+
+The **托盘菜单** tab curates the tray's second-level apps menu — which Scoop
+shortcuts appear, which sit above the divider, and the order they are drawn in.
+It is the same settings screen the tray's **编辑托盘菜单…** row opens;
+[TRAY_MENU.md](./TRAY_MENU.md) owns its behaviour and data.
 
 ## Folders, the links and the environment
 

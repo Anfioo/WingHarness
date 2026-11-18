@@ -160,3 +160,4 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console
 - [TERMINAL.md](./docs/features/TERMINAL.md) — the pseudo-console page
 - [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) — the About window's third-party licence dialog
+- [TRAY_MENU.md](./docs/features/TRAY_MENU.md) — the tray popup, its apps' second-level menu and the Scoop tab that curates it
