@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Read-only ADL2 ABI from GPUOpen's display-library headers. PMLog covers
 //! modern Radeon GPUs; Overdrive 5/6 supplies the older-driver fallback.
 

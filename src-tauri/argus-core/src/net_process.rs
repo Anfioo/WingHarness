@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Per-process network traffic from the kernel's own network events (the
 //! `Microsoft-Windows-Kernel-Network` ETW provider, which Resource Monitor also
 //! reads). Starting an ETW session needs administrator rights or membership in

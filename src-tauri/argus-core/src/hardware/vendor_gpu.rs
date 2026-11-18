@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Optional vendor telemetry. SDK calls run on one bounded worker; the sampler
 //! only reads a fresh cache. All libraries come from System32, all exports are
 //! read-only, and adapters are matched by the full PCI bus/device/function.

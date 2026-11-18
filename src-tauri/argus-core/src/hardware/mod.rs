@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Device-level telemetry for the performance view: CPU identity, clocks,
 //! memory modules, physical disks, network adapters and GPUs.
 //!

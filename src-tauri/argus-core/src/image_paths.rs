@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Process image paths without opening the process.
 //!
 //! `SystemProcessIdInformation` returns the NT image path for any PID with no

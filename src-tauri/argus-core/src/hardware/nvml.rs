@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Board power and GPU-core activity from NVML (`nvml.dll`, which the
 //! driver installs in System32). WDDM's adapter perf data leaves power empty
 //! on NVIDIA cards and only ever gives it as a share of the budget. Loaded from

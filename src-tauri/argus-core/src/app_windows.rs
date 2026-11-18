@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Which processes own an app window: the test Task Manager uses to list a
 //! process under "Apps" rather than "Background processes".
 

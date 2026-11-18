@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Per-instance WebView2 identity. Executable metadata alone is shared by all hosts.
 
 use std::sync::Arc;

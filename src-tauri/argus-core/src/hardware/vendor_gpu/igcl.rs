@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Read-only IGCL 1.0 power API (Intel's igcl_api.h). Integrated/older GPUs
 //! without a power domain keep their WDDM telemetry; no package-power guess.
 

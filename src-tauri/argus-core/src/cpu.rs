@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Native CPU counters and checked cycle accounting shared by the samplers.
 
 use std::time::Instant;

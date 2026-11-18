@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! System-wide counters: CPU (total and per logical processor) and memory.
 
 use std::mem::size_of;

@@ -16,6 +16,25 @@ WingHarness 以 GNU Affero 通用公共许可证第 3 版（仅此版本，AGPL-
 
 ## 1. 来源项目
 
+### Argus
+
+- 项目：[Argus](https://github.com/Ray-lea/Argus)
+- 版本：0.3.4
+- 许可证：AGPL-3.0-or-later
+- 许可证文本：[LICENSE](./LICENSE)——与本项目使用的 AGPL-3.0 文本相同
+
+Argus
+Copyright (c) Argus contributors
+Licensed under the GNU Affero General Public License v3.0.
+Portions of argus-core and argus-service are adapted from Argus.
+
+`src-tauri/argus-core` 是任务管理器页面背后的采样与进程控制引擎；
+`src-tauri/argus-service` 是它可选的特权 Windows 服务。移植部分保留 Argus 的
+AGPL-3.0-or-later 条款，合并作品以 AGPL-3.0-only 分发。PawnIO 驱动、传感器服务、
+任务管理器替换、管理员助手、句柄查询，以及历史、规则、启动项与连接模块均未移植。
+移植记录见 `src-tauri/argus-core/UPSTREAM.md` 与
+`src-tauri/argus-service/UPSTREAM.md`。
+
 ### angkorgit
 
 - 项目：[angkorgit](https://github.com/cheat2001/angkorgit)

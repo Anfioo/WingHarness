@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Public diagnostic logs accept classifications, never free-form errors.
 //! Redacting a few path patterns cannot protect arbitrary exception payloads.
 

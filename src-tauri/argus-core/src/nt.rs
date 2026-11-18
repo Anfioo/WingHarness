@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Native API structures not (fully) exposed by the `windows` crate.
 //! Layouts follow the phnt headers (System Informer) for x64.
 

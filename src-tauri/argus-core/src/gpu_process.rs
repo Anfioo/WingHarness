@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Per-process GPU usage from the `GPU Engine` and `GPU Process Memory`
 //! performance counters. Windows publishes them for every process to standard
 //! users (Task Manager's GPU columns read the same data), and one PDH

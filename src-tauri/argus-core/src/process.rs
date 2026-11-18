@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Process enumeration and per-process rates.
 //!
 //! One `NtQuerySystemInformation(SystemProcessInformation)` call returns every

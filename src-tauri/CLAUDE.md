@@ -31,6 +31,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | Module | Commands | Count |
 |--------|----------|-------|
 | `commands/codeg.rs` | `codeg_browser_apply_theme`, `codeg_browser_close`, `codeg_browser_close_all`, `codeg_browser_devtools`, `codeg_browser_navigate`, `codeg_browser_open`, `codeg_browser_reload`, `codeg_browser_set_bounds`, `codeg_browser_set_visible`, `codeg_browser_url`, `codeg_install_clear`, `codeg_install_finish`, `codeg_install_read_archive`, `codeg_install_write_file`, `codeg_release_check`, `codeg_restart`, `codeg_set_language`, `codeg_start`, `codeg_state`, `codeg_stop` — the server, the installed archive and the child webview behind the Codeg page | 20 |
+| `commands/argus.rs` | `argus_kill_process`, `argus_kill_process_tree`, `argus_process_details`, `argus_refresh`, `argus_service_manage`, `argus_service_status`, `argus_set_efficiency`, `argus_set_interval`, `argus_set_priority`, `argus_settings_get`, `argus_settings_set`, `argus_snapshot_start`, `argus_snapshot_stop` — the task manager page's sampling channel, process actions and optional service | 13 |
 | `commands/config.rs` | `get_config`, `save_config`, `set_data_dir` | 3 |
 | `commands/db.rs` | `db_apply_edits`, `db_cancel`, `db_completion`, `db_connect`, `db_connected`, `db_databases`, `db_ddl`, `db_disconnect`, `db_execute`, `db_explain`, `db_finish_transaction`, `db_history`, `db_object_ddl`, `db_queries`, `db_query_delete`, `db_query_read`, `db_query_write`, `db_remove_history`, `db_save_settings`, `db_save_sources`, `db_save_window_tabs`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_settings`, `db_sources`, `db_statements`, `db_table_details`, `db_table_page`, `db_tables`, `db_test`, `db_window_tabs` | 33 |
 | `commands/devtools.rs` | `open_devtools` | 1 |
@@ -160,6 +161,16 @@ termination, the one-shot elevated kill, and the `settings.json` store under
 the crate keeps no Tauri state of its own. It is adapted from
 [Porter](https://github.com/t21dev/porter-app) (MIT); `ports-core/UPSTREAM.md`
 records what differs. See [../docs/features/PORTS.md](../docs/features/PORTS.md).
+
+`argus-core/` and `argus-service/` are workspace members: the sampling and
+process-control engine and the optional LocalSystem service behind the task
+manager page. `src/lib.rs` sets `argus_core::paths::CONFIG_DIR` to
+`<data dir>/argus` and manages one `ArgusState`; `src/argus/` owns the sampler
+thread, the service bridge and the settings file, and `main.rs` dispatches the
+service and helper modes before Tauri initialises. Both crates are adapted from
+[Argus](https://github.com/Ray-lea/Argus) 0.3.4 (AGPL-3.0-or-later); their
+`UPSTREAM.md` records and [../docs/features/TASK_MANAGER.md](../docs/features/TASK_MANAGER.md)
+describe the port.
 
 `moin-core/` is a workspace member: the HTTP/HTTPS download engine behind the
 moin page — SQLite tasks, queue and resume state, category rules, built-in and

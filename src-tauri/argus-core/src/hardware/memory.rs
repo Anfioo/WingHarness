@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Installed memory modules, from the SMBIOS tables (type 17, Memory Device).
 
 use windows::Win32::System::SystemInformation::{

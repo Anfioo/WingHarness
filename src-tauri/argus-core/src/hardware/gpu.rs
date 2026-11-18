@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! GPUs via the D3DKMT kernel-mode thunks (the same source Task Manager uses):
 //! per-engine utilization from node running time, memory from segment
 //! residency, temperature/fan/power/memory clock from the WDDM 2.4+ adapter

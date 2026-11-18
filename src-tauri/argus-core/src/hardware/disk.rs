@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Physical disks: identity via storage IOCTLs, activity via IOCTL_DISK_PERFORMANCE.
 //! Every IOCTL used here is FILE_ANY_ACCESS, so no elevation is needed.
 

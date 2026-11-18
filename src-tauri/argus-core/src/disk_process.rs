@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! Per-process storage counters, separate from general file/network/device I/O.
 //! Newer Windows exposes a numeric trailer in the ordinary process query;
 //! older systems use SystemFullProcessInformation through the broker.

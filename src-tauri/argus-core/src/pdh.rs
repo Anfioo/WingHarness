@@ -1,3 +1,6 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
 //! A thin wrapper over the Performance Data Helper (PDH) API for the counters
 //! Windows publishes to every user: one query per consumer, collected once per
 //! sample, with wildcard counters read back as (instance, value) pairs.
