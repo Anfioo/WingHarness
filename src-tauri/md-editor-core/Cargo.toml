@@ -2,7 +2,7 @@
 name = "md-editor-core"
 version = "0.0.1"
 description = "Markdown editor engine: document I/O, encoding fallback, settings, recent files and session state."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

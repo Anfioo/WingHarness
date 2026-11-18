@@ -1,3 +1,4 @@
+pub mod argus;
 pub mod ccs;
 pub mod claude_chat;
 pub mod claude_fork;
@@ -22,4 +23,5 @@ pub mod scoop;
 pub mod sidebar;
 pub mod theme;
 pub mod tray;
+pub mod tray_apps;
 pub mod updater;

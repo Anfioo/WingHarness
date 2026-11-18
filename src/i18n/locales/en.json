@@ -17,7 +17,7 @@
     "viewRepo": "View Repository",
     "thirdParty": "Third-party licenses",
     "licensesTitle": "Third-party licenses",
-    "licensesDescription": "WingHarness is distributed under GPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
+    "licensesDescription": "WingHarness is distributed under AGPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
     "licenseSources": "Source projects",
     "licenseNotices": "Full notices",
     "licenseMoin": "moin MIT",
@@ -51,6 +51,15 @@
     "previewOff": "Space preview is off",
     "openFile": "Open File…",
     "quit": "Quit",
+    "apps": "Apps",
+    "appsCount_one": "{{count}} app",
+    "appsCount_other": "{{count}} apps",
+    "appsPanel": {
+      "loading": "Reading installed apps…",
+      "empty": "No apps to launch yet",
+      "emptyHint": "Scoop writes a Start Menu shortcut for each app that has one; install one and it appears here.",
+      "edit": "Edit Tray Menu…"
+    },
     "clashPanel": {
       "core": "Core",
       "on": "On",
@@ -2316,6 +2325,37 @@
       "spawnFailed": "frpc could not be started.",
       "notImplemented": "This feature is not connected yet.",
       "internal": "The FRP engine hit an internal error."
+    }
+  },
+  "trayApps": {
+    "subtitle": "Choose which apps the tray's second-level menu offers, their order, and which of them sit at the top.",
+    "dragHint": "Drag a row to reorder it. Dropping across the divider pins or unpins the app.",
+    "search": "Search apps",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "summary": "{{showing}} of {{total}} shown · {{pinned}} pinned · {{hidden}} hidden",
+    "folder": "Shortcuts are read from {{folder}}",
+    "noFolder": "Scoop has not written its Start Menu folder yet; install an app from the Scoop page first.",
+    "loadFailed": "Could not read the apps:",
+    "saveFailed": "Could not save the tray settings.",
+    "launchFailed": "The app could not be launched.",
+    "empty": {
+      "none": "No app shortcuts found",
+      "search": "No app matches “{{query}}”.",
+      "hint": "Only apps with a Start Menu shortcut are listed; they live in {{folder}}."
+    },
+    "action": {
+      "pin": "Pin to the top",
+      "unpin": "Unpin",
+      "hide": "Hide from the tray",
+      "show": "Show in the tray",
+      "launch": "Launch {{name}}",
+      "drag": "Drag to reorder",
+      "dragDisabled": "Clear the search to reorder"
+    },
+    "preview": {
+      "title": "Second-level menu",
+      "description": "What the tray's Apps row opens."
     }
   }
 }

@@ -1,0 +1,24 @@
+// Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
+// See UPSTREAM.md for the porting record.
+
+use windows::Win32::System::Registry::{HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ, RegGetValueW};
+use windows::core::PCWSTR;
+
+use crate::util::from_wide;
+
+pub(crate) fn reg_string(subkey: PCWSTR, value: PCWSTR) -> Option<String> {
+    let mut buf = [0u16; 512];
+    let mut size = (buf.len() * 2) as u32;
+    let err = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            subkey,
+            value,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    };
+    err.is_ok().then(|| from_wide(&buf).trim().to_owned())
+}

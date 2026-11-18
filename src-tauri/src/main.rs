@@ -10,5 +10,13 @@ fn main() {
         std::process::exit(code);
     }
 
+    // The privileged service, its UAC install helper and the uninstaller's
+    // removal entry point are also this executable relaunched with an
+    // `--argus-*` flag. They must run before Tauri initialises, or the service
+    // would start a GUI and the helpers would never return an exit code.
+    if let Some(code) = argus_service::run_mode() {
+        std::process::exit(code);
+    }
+
     wingharness_lib::run()
 }

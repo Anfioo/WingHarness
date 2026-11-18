@@ -2,10 +2,10 @@
 
 WingHarness — Copyright (C) 2026 Anfioo
 
-WingHarness is distributed under the GNU General Public License, version 3 only
-(GPL-3.0-only); see [LICENSE](./LICENSE). This file records the third-party work
-redistributed with it and the terms each part keeps. It does not alter the
-license of the project's own code.
+WingHarness is distributed under the GNU Affero General Public License, version
+3 only (AGPL-3.0-only); see [LICENSE](./LICENSE). This file records the
+third-party work redistributed with it and the terms each part keeps. It does
+not alter the license of the project's own code.
 
 The English text of this file is authoritative; a Chinese translation is in
 [THIRD_PARTY_NOTICES.zh-CN.md](./THIRD_PARTY_NOTICES.zh-CN.md). The inventory of
@@ -16,6 +16,27 @@ including the ones whose code is **not** in this repository — is
 ---
 
 ## 1. Source projects
+
+### Argus
+
+- Project: [Argus](https://github.com/Ray-lea/Argus)
+- Version: 0.3.4
+- License: AGPL-3.0-or-later
+- License text: [LICENSE](./LICENSE) — the same AGPL-3.0 text this project uses
+
+Argus
+Copyright (c) Argus contributors
+Licensed under the GNU Affero General Public License v3.0.
+Portions of argus-core and argus-service are adapted from Argus.
+
+`src-tauri/argus-core` is the sampling and process-control engine behind the
+task manager page; `src-tauri/argus-service` is its optional privileged Windows
+service. The ported portions keep Argus's AGPL-3.0-or-later terms, and the
+combined work is distributed under AGPL-3.0-only. The PawnIO driver, sensor
+service, Task Manager replacement, admin helpers, handle queries and the
+history, rules, startup-item and connection modules were not carried over. See
+`src-tauri/argus-core/UPSTREAM.md` and `src-tauri/argus-service/UPSTREAM.md`
+for the porting records.
 
 ### angkorgit
 
@@ -63,14 +84,15 @@ behaviour port of jetbrains-cc-gui; one generic helper (`cn.ts`) was copied.
 - Project: [MangoDisk](https://github.com/harry0703/MangoDisk)
 - Version: 1.2.2
 - License: GPL-3.0-only
-- License text: [LICENSE](./LICENSE)
+- License text: [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - Copyright: the MangoDisk contributors.
 
 The system tools module (`src-tauri/systools-core` and the systools pages) is
 derived from MangoDisk: disk analysis, duplicate files, large files, startup
 items, application uninstall / leftovers, and system settings. Ten files were
-byte-identical at import. Those portions are redistributed under GPL-3.0-only;
-the full license text is in [LICENSE](./LICENSE). The ported subsystem is
+byte-identical at import. Those portions remain under GPL-3.0-only, and the
+full GPL text is in [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt); the
+combined work is distributed under AGPL-3.0-only. The ported subsystem is
 Windows-only; macOS and Linux code paths were not carried over.
 
 ### McpHub
@@ -104,6 +126,31 @@ loopback RPC remains in `rpc.rs`; `extension/` carries the adapted MV3 source.
 BitTorrent, media scraping, self-update, old-data migration and in-app aria2c
 installation were not carried over. See `src-tauri/moin-core/UPSTREAM.md` for
 the porting record.
+
+### OneMail
+
+- Project: [OneMail](https://github.com/zhihui-hu/one-mail)
+- Version: 0.1.0 (commit `181ccb6`)
+- License: AGPL-3.0-only
+- License text: [LICENSE](./LICENSE)
+
+OneMail / Copyright (c) Huzhihui / Licensed under the GNU Affero General Public
+License v3.0 only (AGPL-3.0-only). The upstream repository has no `LICENSE`
+file; its README states the licence.
+
+`src-tauri/one-mail-core` and the `/one-mail` page are adapted from OneMail:
+the account model and provider presets, IMAP synchronisation, MIME parsing,
+SMTP sending, conversation aggregation, the composer, the outbox and the
+sanitized reading view, including the message-HTML preparer, the HTML-to-text
+conversion and the conversation layout. The crate is reworked for this app's
+storage, command and UI layers; no upstream file is byte-identical. OAuth, the
+Gmail and Graph sync providers, the AI assistant, backup/restore, the background
+supervisor and the upstream window helpers were not carried over. The provider
+marks under `src/assets/one-mail/provider-icons/` come from the same upstream
+set; the Simple Icons marks are CC0-1.0 and the Outlook and NetEase favicons are
+used only to identify those services. WingHarness as a whole is AGPL-3.0-only;
+the files under `src-tauri/one-mail-core/` keep their attribution headers, and
+`src-tauri/one-mail-core/UPSTREAM.md` records the modifications.
 
 ### openidea
 
@@ -201,14 +248,15 @@ not carried over. See `src-tauri/space-preview-core/UPSTREAM.md` and
 
 - Project: [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
 - License: GPL-3.0-only
-- License text: [LICENSE](./LICENSE)
+- License text: [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - Copyright: the TizuMark contributors.
 
 The Markdown editor module (`src-tauri/md-editor-core` and the md-editor pages)
 is a port of TizuMark. Its native PDF export (WebView2 `PrintToPdf`, built on
 `webview2-com` / `windows`), outline extraction and export approach are
-substantial ports and remain under GPL-3.0-only. The frontend is a rewrite for
-React 19 and CodeMirror 6 rather than a copy of TizuMark's implementation.
+substantial ports and remain under GPL-3.0-only, included in the combined
+AGPL-3.0-only work. The frontend is a rewrite for React 19 and CodeMirror 6
+rather than a copy of TizuMark's implementation.
 
 ### tweakcn
 
@@ -336,6 +384,8 @@ its crate source.
 
 | Crate | License |
 |-------|---------|
+| `async-imap` | MIT OR Apache-2.0 |
+| `async-native-tls` | MIT OR Apache-2.0 |
 | `async-trait` | MIT OR Apache-2.0 |
 | `base64` | MIT OR Apache-2.0 |
 | `blake3` | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception |
@@ -354,7 +404,9 @@ its crate source.
 | `hex` | MIT OR Apache-2.0 |
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
+| `lettre` | MIT |
 | `log` | MIT OR Apache-2.0 |
+| `mailparse` | 0BSD |
 | `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
@@ -371,6 +423,7 @@ its crate source.
 | `serde_yaml_ng` | MIT |
 | `serde_yml` | MIT OR Apache-2.0 |
 | `sha2` | MIT OR Apache-2.0 |
+| `sqlx` | MIT OR Apache-2.0 |
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-plugin-dialog` | Apache-2.0 OR MIT |
 | `tauri-plugin-global-shortcut` | Apache-2.0 OR MIT |
@@ -382,6 +435,7 @@ its crate source.
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |
@@ -409,13 +463,13 @@ exceptions are:
 | `lightningcss`, `lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`, `vite` | Build-time only; not redistributed in the application. |
 | `buffers` | none stated | `exceljs` → `unzipper` → `binary` | **Not redistributed.** Vite resolves ExcelJS's `browser` entry (`dist/exceljs.min.js`), which uses JSZip and contains no `unzipper`, `binary` or `buffers` code. |
 
-MPL-2.0 is a file-level copyleft and is compatible with GPL-3.0-only; the
+MPL-2.0 is a file-level copyleft and is compatible with AGPL-3.0-only; the
 MPL-2.0 components above are build tooling and are not redistributed. The
 Apache-2.0 text is reproduced in
 [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt).
 
 The MIT, BSD, ISC, Apache-2.0, MPL-2.0 and LGPL components are compatible with
-GPL-3.0-only: the combined work is distributed under GPL-3.0-only, while each
+AGPL-3.0-only: the combined work is distributed under AGPL-3.0-only, while each
 library keeps its own terms. `7z-wasm` is covered separately by the notice in
 §3, which must accompany distribution.
 

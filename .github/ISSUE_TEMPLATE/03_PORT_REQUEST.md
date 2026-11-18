@@ -21,9 +21,9 @@ assignees: ""
 
 ## Licence check
 
-WingHarness is GPL-3.0-only. Code may be ported from GPL-3.0, MIT, BSD, ISC,
-Apache-2.0, MPL-2.0 and LGPL projects. AGPL-3.0 and unlicensed projects cannot
-be used.
+WingHarness is AGPL-3.0-only. Code may be ported from AGPL-3.0, GPL-3.0, MIT,
+BSD, ISC, Apache-2.0, MPL-2.0 and LGPL projects. Unlicensed projects, and
+licences the gate in `docs/UPSTREAM_PROJECTS.md` rejects, cannot be used.
 
 - [ ] The upstream licence is on the allowed list
 - [ ] The licence file is present in the upstream repository

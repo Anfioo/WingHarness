@@ -6,13 +6,14 @@ system-maintenance utility.
 - Upstream version at import: **1.2.2**
 - Upstream commit: **1497794** (2026-11-01)
 - License: GPL-3.0-only — Copyright (c) the MangoDisk contributors. The full
-  text is this repository's `LICENSE`.
+  text is `licenses/GPL-3.0.txt`.
 - Imported subtrees: the system-tools engine and the systools pages.
 
 ## Status
 
 Ten files were byte-identical at import. The crate and its pages are now
-maintained here; they are the reason WingHarness as a whole is GPL-3.0-only.
+maintained here. They remain GPL-3.0-only and are included in the project's
+AGPL-3.0-only combined work under GPLv3 §13.
 
 ## Divergences at import
 

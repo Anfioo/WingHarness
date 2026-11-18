@@ -17,6 +17,7 @@ import { PortsSection } from "./ports-section.tsx";
 import { RuntimeSection } from "./runtime-section.tsx";
 import { DownloadSection } from "./download-section.tsx";
 import { CodegSection } from "./codeg-section.tsx";
+import { OneMailSection } from "./one-mail-section.tsx";
 import {
   Palette,
   Keyboard,
@@ -32,6 +33,7 @@ import {
   Cpu,
   Download,
   Code2,
+  Mail,
   Wrench,
 } from "lucide-react";
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
@@ -53,6 +55,7 @@ type SettingSection =
   | "ports"
   | "runtime"
   | "download"
+  | "oneMail"
   | "codeg"
   | "codegDev";
 
@@ -90,6 +93,11 @@ export default function SettingsPage() {
       id: "download" as SettingSection,
       label: t("settings.download.title"),
       icon: Download,
+    },
+    {
+      id: "oneMail" as SettingSection,
+      label: t("oneMail.settings.title"),
+      icon: Mail,
     },
     {
       id: "data" as SettingSection,
@@ -190,6 +198,8 @@ export default function SettingsPage() {
           {activeSection === "proxy" && <ProxySection />}
 
           {activeSection === "download" && <DownloadSection />}
+
+          {activeSection === "oneMail" && <OneMailSection />}
 
           {activeSection === "data" && <DataSection />}
 

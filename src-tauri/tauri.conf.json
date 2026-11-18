@@ -34,7 +34,7 @@
 				"transparent": true,
 				"center": true,
 				"shadow": false,
-				"visible": true
+				"visible": false
 			},
 			{
 				"label": "tray-menu",

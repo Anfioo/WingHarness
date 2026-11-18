@@ -2,7 +2,7 @@
 name = "ports-core"
 version = "0.0.1"
 description = "Ports page engine: TCP listener enumeration, pinned ports and process termination."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

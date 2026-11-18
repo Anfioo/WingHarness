@@ -16,6 +16,8 @@ example of each platform feature are done; what the app is *for* is yours to add
 | Frontend | `src/` | TypeScript/React | Routing, windows, i18n, editor, viewers | [src/CLAUDE.md](./src/CLAUDE.md) |
 | Backend | `src-tauri/` | Rust | Commands, config, tray, theme fonts | [src-tauri/CLAUDE.md](./src-tauri/CLAUDE.md) |
 | Download <!-- moin --> | `src-tauri/moin-core/`, `src/pages/moin/`, `extension/` | Rust/React/JavaScript | HTTP downloads, queue, categories, aria2 and browser capture | [MOIN.md](./docs/features/MOIN.md) |
+| Mail <!-- one-mail --> | `src-tauri/one-mail-core/`, `src/pages/one-mail/` | Rust/React | IMAP/SMTP accounts, sync, conversations, sanitized reading, compose and outbox | [ONE_MAIL.md](./docs/features/ONE_MAIL.md) |
+| Task manager <!-- argus --> | `src-tauri/argus-core/`, `src-tauri/argus-service/`, `src/pages/task-manager/` | Rust/React | Process sampling and actions, performance charts, optional privileged service | [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) |
 | Documentation | `docs/` | Markdown | Cross-cutting guides at the root; one guide per feature under `docs/features/` | — |
 
 Both module guides are loaded automatically when working inside those
@@ -118,11 +120,12 @@ instead of description. The Claude pages' guide is therefore `CLAUDE_CODE.md`.
 
 ### Licensing and upstream code
 
-WingHarness is GPL-3.0-only. Any code carried over from another project must
+WingHarness is AGPL-3.0-only. Any code carried over from another project must
 pass the licence gate in [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md)
-before it is copied: GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL are
-allowed; AGPL-3.0 and unlicensed projects are not. A ported file keeps an
-attribution header, a whole subsystem gets an `UPSTREAM.md`, and the notices in
+before it is copied: AGPL-3.0, GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL
+are allowed; unlicensed projects and EPL-2.0 without a secondary-licence grant
+are not. A ported file keeps an attribution header, a whole subsystem gets an
+`UPSTREAM.md`, and the notices in
 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and the porting record are
 updated in the same change.
 
@@ -150,6 +153,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [MCP_HUB.md](./docs/features/MCP_HUB.md) — the local MCP gateway
 - [MD_EDITOR.md](./docs/features/MD_EDITOR.md) — the multi-tab Markdown editor
 - [NOTES.md](./docs/features/NOTES.md) — Markdown notes in the data directory
+- [ONE_MAIL.md](./docs/features/ONE_MAIL.md) — IMAP/SMTP accounts, sync, person-centric conversations, sanitized reading, compose and the outbox
 - [PLUGINS.md](./docs/features/PLUGINS.md) — the plugin format and its generated settings UI
 - [PORTS.md](./docs/features/PORTS.md) — TCP listening ports, pinned ports and ending the process behind a port
 - [PROJECT.md](./docs/features/PROJECT.md) — the project file explorer and editor
@@ -158,5 +162,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [SERVERS.md](./docs/features/SERVERS.md) — the SSH / SFTP server manager
 - [SVN.md](./docs/features/SVN.md) — the Subversion workspace
 - [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console
+- [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) — processes in three views, the performance charts and the optional privileged service
 - [TERMINAL.md](./docs/features/TERMINAL.md) — the pseudo-console page
 - [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) — the About window's third-party licence dialog
+- [TRAY_MENU.md](./docs/features/TRAY_MENU.md) — the tray popup, its apps' second-level menu and the Scoop tab that curates it

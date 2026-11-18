@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-snapshot-start"
+description = "Enables the argus_snapshot_start command without any pre-configured scope."
+commands.allow = ["argus_snapshot_start"]
+
+[[permission]]
+identifier = "deny-argus-snapshot-start"
+description = "Denies the argus_snapshot_start command without any pre-configured scope."
+commands.deny = ["argus_snapshot_start"]

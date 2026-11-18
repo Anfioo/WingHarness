@@ -6,7 +6,7 @@ Markdown editor with native PDF export.
 - Upstream version at import: **1.2.5**
 - Upstream commit: **e39ce47** (2026-11-03)
 - License: GPL-3.0-only — Copyright (c) the TizuMark contributors. The full
-  text is this repository's `LICENSE`.
+  text is `licenses/GPL-3.0.txt`.
 - Imported portions: the native PDF export (WebView2 `PrintToPdf`, built on
   `webview2-com` / `windows`), outline extraction and the export approach.
 

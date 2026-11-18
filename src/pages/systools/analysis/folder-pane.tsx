@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronRight, ListTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,14 @@ import { cn } from "@/lib/utils";
 import { FileEntryContextMenu } from "../components/file-entry-context-menu";
 import { listingRemainderSelection } from "./layout";
 import { AnalysisEntryIcon } from "./entry-icon";
+import { EntryHoverCard } from "./entry-hover-card";
 
 const ROW_HEIGHT = 30;
 
 type FolderPaneProps = {
   listing: AnalysisDirectoryListing;
+  /** Bytes of the folder above the listing; null when it is the scan root. */
+  parentBytes: number | null;
   selectedPath: string | null;
   disabled: boolean;
   onActivate: (entry: DirectoryEntryInfo) => void;
@@ -33,6 +36,7 @@ type FolderPaneProps = {
 /** Ranked direct children of the browsed folder with proportional size bars. */
 export function FolderPane({
   listing,
+  parentBytes,
   selectedPath,
   disabled,
   onActivate,
@@ -43,6 +47,11 @@ export function FolderPane({
 }: FolderPaneProps) {
   const { t, language } = useAppTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [hover, setHover] = useState<{
+    entry: DirectoryEntryInfo;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const entries = useMemo(() => sortAnalysisEntries(listing.entries, "bytes", "desc"), [listing]);
   const remainder = useMemo(() => listingRemainderSelection(listing), [listing]);
@@ -58,6 +67,7 @@ export function FolderPane({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
+    setHover(null);
   }, [listing.path]);
 
   return (
@@ -111,8 +121,12 @@ export function FolderPane({
                       selected && "bg-primary/10"
                     )}
                     style={{ height: ROW_HEIGHT }}
-                    title={entry.path}
                     onClick={() => onActivate(entry)}
+                    onPointerEnter={(event) => {
+                      if (disabled) return;
+                      setHover({ entry, x: event.clientX, y: event.clientY });
+                    }}
+                    onPointerLeave={() => setHover(null)}
                     disabled={disabled}
                   >
                     <span
@@ -124,7 +138,7 @@ export function FolderPane({
                         opacity: 0.55,
                       }}
                     />
-                    <AnalysisEntryIcon entry={entry} />
+                    <AnalysisEntryIcon entry={entry} className="size-4" />
                     <span className="min-w-0 flex-1 truncate text-xs">{entry.name}</span>
                     <span className="text-muted-foreground text-[10px] tabular-nums">
                       {formatShare(entry.bytes, listing.bytes, language)}
@@ -147,6 +161,16 @@ export function FolderPane({
           })}
         </div>
       </div>
+
+      {!disabled && hover ? (
+        <EntryHoverCard
+          entry={hover.entry}
+          folderBytes={listing.bytes}
+          parentBytes={parentBytes}
+          x={hover.x}
+          y={hover.y}
+        />
+      ) : null}
 
       {listing.truncated ? (
         <button

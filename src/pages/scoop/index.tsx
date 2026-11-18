@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "@/components/app-shell";
 import { ScoopBucketsPanel } from "@/components/scoop/buckets-panel";
 import { ScoopDetailSheet } from "@/components/scoop/detail-sheet";
@@ -8,12 +9,15 @@ import { ScoopOverviewPanel } from "@/components/scoop/overview-panel";
 import { ScoopRunDock } from "@/components/scoop/run-dock";
 import { ScoopSearchPanel } from "@/components/scoop/search-panel";
 import { ScoopSettingsPanel } from "@/components/scoop/settings-panel";
+import { ScoopTrayPanel } from "@/components/scoop/tray-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useScoopPage } from "@/hooks/use-scoop-page";
+import { useRouter } from "@/lib/router";
+import { isScoopTab, SCOOP_TAB_EVENT, scoopTabFromSearch, type ScoopTab } from "@/lib/scoop-tabs";
 
 /**
  * The page's own shape, drawn while the status is read: the tab row, then the
@@ -60,12 +64,36 @@ function ScoopLoadingScreen() {
  */
 export default function ScoopPage() {
   const { t } = useAppTranslation();
+  const { search } = useRouter();
   const page = useScoopPage();
   // The install folder says "installed" long before the catalog is read, so the
   // badge and the loading screen never claim "not installed" about an install
   // that is there. `status` overrules it as soon as it arrives.
   const installed = page.status?.installed ?? page.quickInstalled ?? false;
-  const [tab, setTab] = useState("overview");
+  // `install` is not a tab in the list: it is the pre-install screen that
+  // replaces the whole `Tabs` while there is nothing on disk.
+  const [tab, setTab] = useState<ScoopTab | "install">(
+    () => scoopTabFromSearch(search) ?? "overview"
+  );
+
+  // The tray popup's "Edit tray menu" row lands on `?tab=tray`; read that on
+  // mount and whenever another window navigates the page somewhere else.
+  useEffect(() => {
+    const next = scoopTabFromSearch(search);
+    if (next) setTab(next);
+  }, [search]);
+
+  // The same row also emits this event, because navigating to a URL that is
+  // already current is a no-op: without it, coming back to the tab after
+  // clicking another one would leave the clicked tab showing.
+  useEffect(() => {
+    const unlisten = listen<ScoopTab>(SCOOP_TAB_EVENT, (event) => {
+      if (isScoopTab(event.payload)) setTab(event.payload);
+    });
+    return () => {
+      void unlisten.then((off) => off());
+    };
+  }, []);
 
   // The install tab only exists while there is nothing installed; the tab list
   // and this effect keep the selected value legal when that state flips.
@@ -120,11 +148,18 @@ export default function ScoopPage() {
             <ScoopInstallPanel page={page} />
           </div>
         ) : (
-          <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-2">
+          <Tabs
+            value={tab}
+            onValueChange={(value) => {
+              if (isScoopTab(value)) setTab(value);
+            }}
+            className="min-h-0 flex-1 gap-2"
+          >
             <TabsList className="shrink-0">
               <TabsTrigger value="overview">{t("scoop.tabs.overview")}</TabsTrigger>
               <TabsTrigger value="search">{t("scoop.tabs.search")}</TabsTrigger>
               <TabsTrigger value="buckets">{t("scoop.tabs.buckets")}</TabsTrigger>
+              <TabsTrigger value="tray">{t("scoop.tabs.tray")}</TabsTrigger>
               <TabsTrigger value="diagnostics">{t("scoop.tabs.diagnostics")}</TabsTrigger>
               <TabsTrigger value="settings">{t("scoop.tabs.settings")}</TabsTrigger>
             </TabsList>
@@ -137,6 +172,9 @@ export default function ScoopPage() {
             </TabsContent>
             <TabsContent value="buckets" className="min-h-0 flex-1 overflow-auto">
               <ScoopBucketsPanel page={page} />
+            </TabsContent>
+            <TabsContent value="tray" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <ScoopTrayPanel />
             </TabsContent>
             <TabsContent value="diagnostics" className="min-h-0 flex-1 overflow-auto">
               <ScoopDiagnosticsPanel page={page} />

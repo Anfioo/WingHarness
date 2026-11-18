@@ -1,0 +1,83 @@
+[package]
+name = "argus-core"
+version = "0.1.0"
+description = "Process, system and hardware sampling plus process control for the task manager page."
+edition = "2024"
+rust-version = "1.99.1"
+license = "AGPL-3.0-only"
+authors = ["Anfioo"]
+
+[dependencies]
+log = "0.4"
+png = "0.18"
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+# One feature set for the whole crate. The list is copied verbatim from the
+# upstream Argus workspace manifest: it is the union of what argus-core needs
+# and what tauri/tao/wry/webview2-com turn on, so Cargo compiles a single copy
+# of `windows` instead of a second one without those features.
+windows = { version = "0.62", features = [
+  "ApplicationModel",
+  "Data_Xml_Dom",
+  "Management_Deployment",
+  "Storage_Search",
+  "UI_ViewManagement",
+  "Wdk_Foundation",
+  "Wdk_Storage_FileSystem",
+  "Wdk_Graphics_Direct3D",
+  "Wdk_System_SystemInformation",
+  "Wdk_System_Threading",
+  "Win32_Devices_DeviceAndDriverInstallation",
+  "Win32_Devices_Display",
+  "Win32_Graphics_Gdi",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_NetworkManagement_Ndis",
+  "Win32_Networking_WinSock",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_Security_Cryptography",
+  "Win32_Security_WinTrust",
+  "Win32_Storage_FileSystem",
+  "Win32_System_Com",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_Diagnostics_Etw",
+  "Win32_System_Environment",
+  "Win32_System_IO",
+  "Win32_System_Ioctl",
+  "Win32_System_JobObjects",
+  "Win32_System_Performance",
+  "Win32_System_Pipes",
+  "Win32_System_Power",
+  "Win32_System_ProcessStatus",
+  "Win32_System_Registry",
+  "Win32_System_RestartManager",
+  "Win32_System_Services",
+  "Win32_System_StationsAndDesktops",
+  "Win32_System_SystemInformation",
+  "Win32_System_SystemServices",
+  "Win32_System_TaskScheduler",
+  "Win32_System_Threading",
+  "Win32_System_Time",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_PropertiesSystem",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_Devices_HumanInterfaceDevice",
+  "Win32_Globalization",
+  "Win32_Graphics_Dwm",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_DataExchange",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Ole",
+  "Win32_System_Variant",
+  "Win32_System_WinRT",
+  "Win32_System_WindowsProgramming",
+  "Win32_UI_Accessibility",
+  "Win32_UI_Controls",
+  "Win32_UI_HiDpi",
+  "Win32_UI_Input_Ime",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_Input_Pointer",
+  "Win32_UI_Input_Touch",
+  "Win32_UI_TextServices",
+] }
