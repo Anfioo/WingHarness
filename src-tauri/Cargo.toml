@@ -25,6 +25,7 @@ members = [
     "space-preview-core",
     "ports-core",
     "moin-core",
+    "one-mail-core",
 ]
 resolver = "2"
 
@@ -92,6 +93,10 @@ space-preview-core = { path = "space-preview-core" }
 ports-core = { path = "ports-core" }
 # The moin download engine: HTTP tasks, resumable transfers and persistence.
 moin-core = { path = "moin-core" }
+# The one-mail engine: accounts, IMAP/SMTP transport, MIME parsing, conversation
+# aggregation and compose. The mail protocol crates stay inside it, so the root
+# crate never links a second protocol stack.
+one-mail-core = { path = "one-mail-core" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
