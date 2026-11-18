@@ -54,7 +54,7 @@ impl ArgusState {
     /// Sends a control message to the running sampler, if any.
     pub fn send(&self, control: sampler::Control) {
         if let Some(sampler) = self.sampler().as_ref() {
-            sampler.send(control);
+            let _ = sampler.send(control);
         }
     }
 
@@ -67,7 +67,7 @@ impl ArgusState {
     /// Stops and forgets the sampler thread.
     pub fn stop_sampler(&self) {
         if let Some(sampler) = self.sampler().take() {
-            sampler.send(sampler::Control::Stop);
+            let _ = sampler.send(sampler::Control::Stop);
         }
     }
 }

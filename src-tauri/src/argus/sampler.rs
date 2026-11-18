@@ -50,8 +50,10 @@ impl Sampler {
         Self { tx }
     }
 
-    pub fn send(&self, control: Control) {
-        let _ = self.tx.send(control);
+    /// Sends a control message; `false` means the thread has already exited,
+    /// so this handle can no longer deliver anything.
+    pub fn send(&self, control: Control) -> bool {
+        self.tx.send(control).is_ok()
     }
 }
 

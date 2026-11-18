@@ -30,11 +30,20 @@ pub fn argus_snapshot_start(
     if sampler.is_none() {
         *sampler = Some(crate::argus::sampler::Sampler::spawn());
     }
-    if let Some(sampler) = sampler.as_ref() {
-        sampler.send(crate::argus::sampler::Control::Subscribe(
-            channel,
+    let subscribe = |running: &crate::argus::sampler::Sampler| {
+        running.send(crate::argus::sampler::Control::Subscribe(
+            channel.clone(),
             settings.interval_ms,
-        ));
+        ))
+    };
+    // The previous page may have gone away without a stop, in which case the
+    // thread exited by itself; its handle is dead, so replace it instead of
+    // leaving this page subscribed to nothing.
+    if !sampler.as_ref().is_some_and(subscribe) {
+        *sampler = Some(crate::argus::sampler::Sampler::spawn());
+        if let Some(running) = sampler.as_ref() {
+            subscribe(running);
+        }
     }
     Ok(())
 }
