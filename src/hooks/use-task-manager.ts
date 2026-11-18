@@ -18,6 +18,7 @@ import {
   type Priority,
   type ServiceStatus,
   type Snapshot,
+  type TreeKillReport,
 } from "@/commands";
 
 export type TaskManagerTab = "processes" | "performance";
@@ -39,7 +40,7 @@ export type TaskManagerState = {
   uninstallService: () => Promise<void>;
   updateService: () => Promise<void>;
   killProcess: (pid: number, createTime: number, force?: boolean) => Promise<void>;
-  killTree: (pid: number, createTime: number) => Promise<void>;
+  killTree: (pid: number, createTime: number) => Promise<TreeKillReport | null>;
   setPriority: (pid: number, createTime: number, priority: Priority) => Promise<void>;
   setEfficiency: (pid: number, createTime: number, on: boolean) => Promise<void>;
 };
@@ -151,12 +152,14 @@ class TaskManagerStore {
     }
   };
 
-  killTree = async (pid: number, createTime: number): Promise<void> => {
+  killTree = async (pid: number, createTime: number): Promise<TreeKillReport | null> => {
     try {
-      await argusKillProcessTree(pid, createTime);
+      const report = await argusKillProcessTree(pid, createTime);
       this.update({ error: null });
+      return report;
     } catch (failure) {
       this.update({ error: toArgusError(failure) });
+      return null;
     }
   };
 

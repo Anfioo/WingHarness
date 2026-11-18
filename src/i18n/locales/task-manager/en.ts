@@ -271,6 +271,7 @@ const taskManager = {
   toast: {
     killDone: "Ended {{name}}",
     killTreeDone: "Ended {{name}} and {{count}} child processes",
+    killTreePartial: "Ended {{name}} and {{count}} child processes; {{failed}} could not be ended.",
     priorityDone: "{{name}} is now {{priority}}",
     efficiencyOn: "Efficiency mode on for {{name}}",
     efficiencyOff: "Efficiency mode off for {{name}}",

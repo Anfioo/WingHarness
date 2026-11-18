@@ -186,6 +186,36 @@ export function ProcessesTab() {
 
   const { killProcess, killTree, setPriority, setEfficiency, refresh, setPaused, paused } = page;
 
+  // A tree kill can end the root and leave protected children alive, so the
+  // toast follows the report instead of assuming every child is gone.
+  const runTreeAction = useCallback(
+    async (process: ProcessRow) => {
+      const name = processLabel(process);
+      const report = await killTree(process.pid, process.createTime);
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 0);
+      });
+      const failure = errorRef.current;
+      if (failure) {
+        toast.error(t(argusErrorKey(failure.code)));
+        return;
+      }
+      const children = Math.max((report?.terminated ?? 1) - 1, 0);
+      if (report && report.failed > 0) {
+        toast.warning(
+          t("taskManager.toast.killTreePartial", {
+            name,
+            count: children,
+            failed: report.failed,
+          })
+        );
+        return;
+      }
+      toast.success(t("taskManager.toast.killTreeDone", { name, count: children }));
+    },
+    [killTree, t]
+  );
+
   const requestKill = useCallback((process: ProcessRow) => {
     setPending({ kind: "kill", process });
   }, []);
@@ -275,10 +305,7 @@ export function ProcessesTab() {
       return;
     }
     if (target.kind === "killTree") {
-      void runAction(
-        () => killTree(process.pid, process.createTime),
-        t("taskManager.toast.killTreeDone", { name, count: target.count })
-      );
+      void runTreeAction(process);
       return;
     }
     void runAction(

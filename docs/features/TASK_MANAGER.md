@@ -133,7 +133,9 @@ can be copied from the sheet.
 The page never ends its own process: the host rejects that PID, and the menu
 disables the action on the executable the page runs from. Ending a system
 process needs the privileged service — the host tries locally first and hands
-the operation to the service only on `access-denied`.
+the operation to the service only on `access-denied`. A tree kill reports what
+actually happened: the toast follows the returned `TreeKillReport`, so children
+that could not be ended are called out instead of being counted as successes.
 
 ## Performance tab
 

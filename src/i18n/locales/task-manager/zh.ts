@@ -258,6 +258,7 @@ const taskManager = {
   toast: {
     killDone: "已结束 {{name}}",
     killTreeDone: "已结束 {{name}} 及其 {{count}} 个子进程",
+    killTreePartial: "已结束 {{name}} 及其 {{count}} 个子进程；{{failed}} 个未能结束。",
     priorityDone: "已将 {{name}} 设为{{priority}}",
     efficiencyOn: "已为 {{name}} 启用效率模式",
     efficiencyOff: "已为 {{name}} 关闭效率模式",
