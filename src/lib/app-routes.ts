@@ -12,6 +12,7 @@ import {
   GitBranch,
   GitFork,
   History,
+  Mail,
   NotebookPen,
   Network,
   Download,
@@ -37,6 +38,7 @@ export type AppRouteGroup =
   | "frp"
   | "mdEditor"
   | "ports"
+  | "oneMail"
   | "moin"
   | "codeg";
 
@@ -72,6 +74,7 @@ export type AppRouteId =
   | "project"
   | "mdEditor"
   | "ports"
+  | "oneMail"
   | "moin"
   | "codeg"
   | "codegDev";
@@ -176,6 +179,18 @@ const routeTable: AppRoute[] = [
     icon: Plug,
     scope: "本机",
     items: ["监听端口", "固定端口", "结束进程"],
+  },
+  {
+    id: "oneMail",
+    group: "oneMail",
+    path: "/one-mail",
+    title: "邮件",
+    navLabel: "邮件",
+    description:
+      "按往来人聚合的邮箱：账号栏切换账号与文件夹，中间列出会话，右侧按话题展开收发记录。邮件只从服务器拉取到本机数据目录，正文进入视口后再取，HTML 正文净化后显示并默认阻断远程图片。",
+    icon: Mail,
+    scope: "侧栏页面 / 账号 + 会话 + 对话",
+    items: ["账号与文件夹同步", "按往来人聚合的会话", "Markdown 写信与发件箱", "FTS5 搜索与筛选"],
   },
   {
     id: "servers",

@@ -27,6 +27,8 @@ import scoopEn from "./locales/scoop/en";
 import scoopZh from "./locales/scoop/zh";
 import codegEn from "./locales/codeg/en";
 import codegZh from "./locales/codeg/zh";
+import oneMailEn from "./locales/one-mail/en";
+import oneMailZh from "./locales/one-mail/zh";
 
 i18n
   .use(LanguageDetector)
@@ -48,6 +50,7 @@ i18n
           spacePreview: spacePreviewEn,
           scoop: scoopEn,
           codeg: codegEn,
+          oneMail: oneMailEn,
         },
       },
       zh: {
@@ -65,6 +68,7 @@ i18n
           spacePreview: spacePreviewZh,
           scoop: scoopZh,
           codeg: codegZh,
+          oneMail: oneMailZh,
         },
       },
     },
