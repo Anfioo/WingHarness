@@ -31,6 +31,7 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | Module | Commands | Count |
 |--------|----------|-------|
 | `commands/codeg.rs` | `codeg_browser_apply_theme`, `codeg_browser_close`, `codeg_browser_close_all`, `codeg_browser_devtools`, `codeg_browser_navigate`, `codeg_browser_open`, `codeg_browser_reload`, `codeg_browser_set_bounds`, `codeg_browser_set_visible`, `codeg_browser_url`, `codeg_install_clear`, `codeg_install_finish`, `codeg_install_read_archive`, `codeg_install_write_file`, `codeg_release_check`, `codeg_restart`, `codeg_set_language`, `codeg_start`, `codeg_state`, `codeg_stop` — the server, the installed archive and the child webview behind the Codeg page | 20 |
+| `commands/argus.rs` | `argus_kill_process`, `argus_kill_process_tree`, `argus_process_details`, `argus_refresh`, `argus_service_manage`, `argus_service_status`, `argus_set_efficiency`, `argus_set_interval`, `argus_set_priority`, `argus_settings_get`, `argus_settings_set`, `argus_snapshot_start`, `argus_snapshot_stop` — the task manager page's sampling channel, process actions and optional service | 13 |
 | `commands/config.rs` | `get_config`, `save_config`, `set_data_dir` | 3 |
 | `commands/db.rs` | `db_apply_edits`, `db_cancel`, `db_completion`, `db_connect`, `db_connected`, `db_databases`, `db_ddl`, `db_disconnect`, `db_execute`, `db_explain`, `db_finish_transaction`, `db_history`, `db_object_ddl`, `db_queries`, `db_query_delete`, `db_query_read`, `db_query_write`, `db_remove_history`, `db_save_settings`, `db_save_sources`, `db_save_window_tabs`, `db_schema_objects`, `db_schemas`, `db_set_manual_commit`, `db_set_password`, `db_settings`, `db_sources`, `db_statements`, `db_table_details`, `db_table_page`, `db_tables`, `db_test`, `db_window_tabs` | 33 |
 | `commands/devtools.rs` | `open_devtools` | 1 |
@@ -44,7 +45,8 @@ its own; `all_commands!` in `src/invoke.rs` is the authoritative total):
 | `commands/scoop.rs` | `scoop_apply_location`, `scoop_installed`, `scoop_plan_run`, `scoop_prepare_install`, `scoop_search`, `scoop_status` — the fixed link, user environment variables and generated `.cmd` scripts behind the Scoop page | 6 |
 | `space-preview-core` (over the crate) | `sp_agent_set_enabled`, `sp_agent_status`, `sp_cancel_file_navigation`, `sp_file_icon`, `sp_hide_preview`, `sp_initial_paths`, `sp_inspect_file`, `sp_list_directory`, `sp_navigate_file_selection`, `sp_open_preview`, `sp_preferences_get`, `sp_preferences_save`, `sp_probe_presentation`, `sp_read_html_resource`, `sp_read_prefix`, `sp_read_range`, `sp_render_presentation`, `sp_write_text` | 18 |
 | `commands/theme.rs` | `theme_fonts_css` | 1 |
-| `commands/tray.rs` | `quit_app`, `update_tray_menu` | 2 |
+| `commands/tray.rs` | `quit_app`, `tray_menu_set_expanded`, `update_tray_menu` | 3 |
+| `commands/tray_apps.rs` | `tray_apps_list`, `tray_apps_save` — the Scoop shortcuts behind the tray's apps menu, and the user's pin, hide and order lists | 2 |
 | `commands/updater.rs` | `cancel_update_download`, `check_for_update`, `download_and_install_update`, `is_update_download_active` | 4 |
 
 `commands/fs_guard.rs` is not a command module: it is the path guard every
@@ -160,6 +162,16 @@ the crate keeps no Tauri state of its own. It is adapted from
 [Porter](https://github.com/t21dev/porter-app) (MIT); `ports-core/UPSTREAM.md`
 records what differs. See [../docs/features/PORTS.md](../docs/features/PORTS.md).
 
+`argus-core/` and `argus-service/` are workspace members: the sampling and
+process-control engine and the optional LocalSystem service behind the task
+manager page. `src/lib.rs` sets `argus_core::paths::CONFIG_DIR` to
+`<data dir>/argus` and manages one `ArgusState`; `src/argus/` owns the sampler
+thread, the service bridge and the settings file, and `main.rs` dispatches the
+service and helper modes before Tauri initialises. Both crates are adapted from
+[Argus](https://github.com/Ray-lea/Argus) 0.3.4 (AGPL-3.0-or-later); their
+`UPSTREAM.md` records and [../docs/features/TASK_MANAGER.md](../docs/features/TASK_MANAGER.md)
+describe the port.
+
 `moin-core/` is a workspace member: the HTTP/HTTPS download engine behind the
 moin page — SQLite tasks, queue and resume state, category rules, built-in and
 aria2 backends, settings, batched events and the extension-only loopback RPC.
@@ -167,6 +179,21 @@ aria2 backends, settings, batched events and the extension-only loopback RPC.
 the RPC listener after proxy setup and stops it on exit. The crate is adapted
 from [moin](https://github.com/exxvius/moin) (MIT); `moin-core/UPSTREAM.md`
 records what differs. See [../docs/features/MOIN.md](../docs/features/MOIN.md).
+
+`one-mail-core/` is a workspace member: the mail engine behind the `/one-mail`
+page — the SQLite store and migrations, provider presets and accounts,
+IMAP/SMTP transport, MIME parsing, sync orchestration, conversation
+aggregation, FTS5 search, compose and the outbox. `src/lib.rs` sets
+`one_mail_core::paths::CONFIG_DIR` to `<data dir>/one-mail`, manages an
+`OneMailState` (lazy pool plus the single sync lock) and shuts the pool down on
+exit. The crate is adapted from
+[OneMail](https://github.com/zhihui-hu/one-mail) (AGPL-3.0-only);
+`one-mail-core/UPSTREAM.md` records what differs. See
+[../docs/features/ONE_MAIL.md](../docs/features/ONE_MAIL.md).
+
+`commands/tray_apps.rs` reads Scoop's Start Menu shortcuts for the tray's
+second-level apps menu and keeps `<data dir>/tray.json`. See
+[../docs/features/TRAY_MENU.md](../docs/features/TRAY_MENU.md).
 
 `plugins/` is the app's own tray — the native icon and, on Windows, its themed
 right-click menu. Not to be confused with Tauri plugins (the `tauri-plugin-*`
@@ -180,6 +207,14 @@ frontend (`createWindow()` in `src/lib/window.ts`), which is why they do not
 appear there. Every label the frontend can create — including the `database-*`
 data source windows and the `project-*` project windows — is listed in
 `capabilities/default.json`.
+
+`main` is declared `visible: false` on purpose: the window-state plugin cannot
+restore the saved size and position until the event loop starts, which is after
+the webview is built and the setup hook has run. A visible window would therefore
+sit on screen at its config size for that whole stretch and then jump to the
+restored geometry. `plugins/system_tray.rs` shows it in its `window_created`
+hook instead — that plugin is registered after `window-state`, so the window's
+first frame is already the restored one. Do not flip `visible` back to `true`.
 
 ## Key Dependencies
 
@@ -217,6 +252,7 @@ src-tauri/
 ├── space-preview-core/     # Workspace crate: preview I/O, encodings, presentations, icons, space agent
 ├── db-core/                # Workspace crate: the database engine (settings, pools, history, workspace, plans)
 ├── moin-core/              # Workspace crate: HTTP downloads, queue, categories, aria2 and extension RPC
+├── one-mail-core/          # Workspace crate: mail accounts, IMAP/SMTP, MIME, conversations, compose and outbox
 ├── icons/
 └── src/
     ├── main.rs             # Entry point

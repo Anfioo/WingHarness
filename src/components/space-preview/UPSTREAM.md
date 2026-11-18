@@ -10,7 +10,7 @@ previewer.
   checkout
 - License: MIT — see
   [licenses/SpacePreview-LICENSE.txt](../../licenses/SpacePreview-LICENSE.txt).
-  MIT is one-way compatible with this project's GPL-3.0-only.
+  MIT is one-way compatible with this project's AGPL-3.0-only.
 - Imported subtree: `src/lib/*.ts`, `src/lib/worker/`, `src/components/*.tsx`,
   `src/styles.css`
 

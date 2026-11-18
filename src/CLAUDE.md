@@ -22,8 +22,11 @@ CSS v4 + shadcn/ui.
   `preview-window` (the hidden standalone preview window), `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
   `mcp-hub`, `clash`, `plugins`, `private-registry`, `moin` (HTTP/HTTPS
-  downloads, categories and settings at `/moin`), `scoop` (install, apps and
-  buckets at `/scoop`)
+  downloads, categories and settings at `/moin`), `one-mail` (IMAP/SMTP mail,
+  conversations, compose and outbox at `/one-mail`), `scoop` (install, apps,
+  buckets and the tray menu settings at `/scoop`), `task-manager` (the process
+  table, performance charts and the optional privileged service at
+  `/task-manager`)
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
   main-window page), `app-sidebar.tsx`, `window-frame.tsx`, `title-bar.tsx`,
@@ -78,11 +81,13 @@ functions and types — it is the only thing components import:
 | `local-shell` | the terminal's pseudo-console, and its font list |
 | `moin` | 29 commands for HTTP downloads, queue actions, categories, settings, aria2 detection and extension RPC |
 | `notes` | the Markdown store |
+| `one-mail` | 32 commands for accounts and folders, conversation and message reading, sync, compose / outbox and settings |
 | `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
 | `space-preview` | the space preview engine's `sp_*` commands: file inspection and ranged reads, text write-back, preferences, the standalone window, system icons and the Windows space agent |
+| `task-manager` | the thirteen `argus_*` commands: the snapshot channel, process details and actions, settings and the optional privileged service |
 | `projects` | the recent-project list, the active project, and remember / forget / set-active |
 | `theme` | the CSS for a theme preset's web fonts |
-| `tray` | quitting, and updating the tray menu labels |
+| `tray` | quitting, expanding the tray popup for a flyout, updating the tray menu labels, and the apps behind the tray's second-level menu |
 | `updater` | update download and install |
 
 ```typescript

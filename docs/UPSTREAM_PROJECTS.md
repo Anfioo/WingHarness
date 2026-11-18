@@ -9,9 +9,9 @@ MaBangProjectsWorkflows → WingHarness.
 
 This file is the single record of that chain. It exists for two reasons:
 
-1. **Licence hygiene.** WingHarness is GPL-3.0-only. A port is only allowed from
-   a licence that is compatible with it, and the notice must travel with the
-   code.
+1. **Licence hygiene.** WingHarness is AGPL-3.0-only. A port is only allowed
+   from a licence that is compatible with it, and the notice must travel with
+   the code.
 2. **Porting record.** It says which upstreams are already here, and which ones
    must never be taken.
 
@@ -32,13 +32,13 @@ Only these licences may be ported into WingHarness:
 
 | Upstream licence | Port allowed? | Why |
 |------------------|---------------|-----|
-| GPL-3.0-only / GPL-3.0-or-later | Yes | Same licence as this project. |
-| MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with GPL-3.0. |
-| Apache-2.0 | Yes | One-way compatible with GPL-3.0. |
-| MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with GPL-3.0. |
+| AGPL-3.0 | Yes | Same licence as this project. |
+| GPL-3.0-only / GPL-3.0-or-later | Yes | GPLv3 §13 allows combining it with this AGPLv3 project; the ported portion keeps its GPL notice. |
+| MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with AGPL-3.0. |
+| Apache-2.0 | Yes | One-way compatible with AGPL-3.0. |
+| MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with AGPL-3.0. |
 | Unlicense / public domain | Yes | No conditions; a copy may carry no notice, but this project records it anyway. |
-| EPL-2.0 | **No** | Only compatible through EPL-2.0's Secondary License notice; without it in the source (elkjs and `@viz-js/viz` do not carry it) the code cannot be combined with GPL-3.0. |
-| AGPL-3.0 | **No** | Would require the whole project to become AGPL-3.0. |
+| EPL-2.0 | **No** | Only compatible through EPL-2.0's Secondary License notice; without it in the source (elkjs and `@viz-js/viz` do not carry it) the code cannot be combined with AGPL-3.0. |
 | No licence file | **No** | Default copyright: all rights reserved. Ask the author first. |
 | "All rights reserved", non-commercial, or custom terms | **No** | Incompatible. |
 
@@ -55,6 +55,7 @@ for the project name (2026-11-05).
 
 | Upstream | Licence | Module | Evidence |
 |----------|---------|--------|----------|
+| [Argus](https://github.com/Ray-lea/Argus) | AGPL-3.0-or-later | `src-tauri/argus-core`, `src-tauri/argus-service`, `task-manager` page and `src-tauri/src/argus` | 0.3.4 at `709b26d3` (2026-10-26); the engines are ported and trimmed, the UI is a React rewrite; `argus-core/UPSTREAM.md` and `argus-service/UPSTREAM.md` |
 | [tweakcn](https://github.com/jnsahaj/tweakcn) | Apache-2.0 | `src/lib/theme/presets.json` | Generated data snapshot; `licenses/tweakcn-LICENSE.txt` |
 | [MangoDisk](https://github.com/harry0703/MangoDisk) | GPL-3.0-only | `systools-core`, `systools` page | 10 byte-identical files at import; `systools-core/UPSTREAM.md` |
 | [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor) | GPL-3.0-only | `md-editor-core`, `md-editor` page | Rewritten, no identical files; `md-editor-core/UPSTREAM.md` |
@@ -73,20 +74,32 @@ for the project name (2026-11-05).
 
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
 | [ScoopInstaller/Install](https://github.com/ScoopInstaller/Install) | Unlicense | `src-tauri/resources/scoop/install.ps1` | Bundled unchanged on 2026-11-13; SHA-256 `94f983b1…f2512`; `THIRD_PARTY_NOTICES.md` |
+| [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`, `one-mail` page | 0.1.0 at `181ccb6`; engine rewritten for this app's storage and command layers, UI rebuilt on this app's components, and the mail-HTML preparer / HTML-to-text conversion ported directly; `one-mail-core/UPSTREAM.md` |
 
 **Notes on this group**
 
-- **MangoDisk** and **TizuMark** are GPL-3.0-only. They are why WingHarness is
-  GPL-3.0-only rather than MIT.
+- **MangoDisk** and **TizuMark** are GPL-3.0-only and are included in this
+  AGPL-3.0-only work under GPLv3 §13. Their portions keep their GPL-3.0-only
+  notice; the full GPL text is in `licenses/GPL-3.0.txt`. They are why the
+  project stayed copyleft rather than moving to a permissive licence.
 - **cc-switch** is mostly integrated rather than copied: the app reads
   `~/.cc-switch/cc-switch.db`. The only byte-identical file is its `hermes.png`
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
   `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core`,
-  `space-preview-core` and `moin-core`. The preview's two halves each have one —
-  the Rust crate and the frontend viewers. The license text of each upstream is in `licenses/`;
+  `argus-core`, `argus-service`, `space-preview-core`, `moin-core` and
+  `one-mail-core`. The preview's two halves each have one — the Rust crate and
+  the frontend viewers. The license text of each upstream is in `licenses/`;
   GPL upstreams point at the project's own `LICENSE`.
+- **Argus** is AGPL-3.0-or-later, the same licence family as this project, so
+  the ported crates keep the AGPL notice and point at the project's own
+  `LICENSE`. Only the core monitoring path came across: history, rules,
+  services, startup items, connections, file locks, handles, the PawnIO driver,
+  the sensor service and the Task Manager replacement were not ported.
+- **OneMail** is AGPL-3.0-only, like this project. Only the mail engine, the
+  preparer and the HTML-to-text conversion were carried over; OAuth,
+  Gmail/Graph sync, AI, backup and the background supervisor were not ported.
 
 ### Reference only — no code copied
 
@@ -133,4 +146,6 @@ Use this for every feature carried over.
 | 2026-11-10 | SpacePreview recorded as **Ported**: its Rust side became `space-preview-core` and its engines/viewers became `src/lib/space-preview` and `src/components/space-preview`, behind the upgraded File Preview page, the standalone preview window and the editors' preview tabs. The CAD/3D/RAW/design-thumbnail and Graphviz (EPL-2.0) branches were not carried over. |
 | 2026-11-10 | Licence audit follow-up: mermaid pulled `elkjs` (EPL-2.0) into the bundle; `vite.config.ts` now aliases it to `src/lib/elk-stub.ts` so the code is not redistributed. `buffers` (no licence) was confirmed not to reach the Excel viewer bundle because Vite resolves ExcelJS's browser build. |
 | 2026-11-11 | moin 0.4.0 (`79e7587`, MIT) ported as `src-tauri/moin-core`, the download page and `extension/`; `moin-core/UPSTREAM.md` and `licenses/moin-LICENSE.txt` added, notices updated. The general daemon was replaced by embedded commands/events; the extension RPC and aria2 backend were retained. |
+| 2026-11-18 | Argus 0.3.4 (`709b26d3`, AGPL-3.0-or-later) ported as `src-tauri/argus-core` and `src-tauri/argus-service`, behind the task manager page at `/task-manager`. The port was done after the project switched to AGPL-3.0-only, so the ported code keeps its AGPL notice and the combined work is AGPL-3.0-only; the repository's GPL-3.0-only upstreams (MangoDisk, TizuMark) keep their own notice and are combined under GPLv3 §13 as before. The PawnIO driver, sensors, Task Manager replacement, admin helpers, handle queries and the history, rules, startup and connection modules were not carried over. `argus-core/UPSTREAM.md`, `argus-service/UPSTREAM.md` and the guide pair `docs/features/TASK_MANAGER.md` / `.zh-CN.md` added. |
+| 2026-11-18 | OneMail 0.1.0 (`181ccb6`, AGPL-3.0-only) ported as `src-tauri/one-mail-core` and the `/one-mail` page; `one-mail-core/UPSTREAM.md` and the guide pair `docs/features/ONE_MAIL.md` / `.zh-CN.md` added. OAuth, Gmail/Graph sync, AI, backup and the background supervisor were not carried over. |
 

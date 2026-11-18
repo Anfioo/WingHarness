@@ -32,6 +32,10 @@ export const DEFAULT_GROUP_NAMES: Record<AppRouteGroup, string> = {
   mdEditor: "Markdown",
   // Same deal again: the ports page is listed in 「其他」.
   ports: "端口",
+  // Same deal again: the task manager is listed in 「其他」.
+  taskManager: "任务管理器",
+  // Same deal again: the mail page is listed in 「其他」.
+  oneMail: "邮件",
   moin: "下载",
   // Same deal again: the Codeg page is listed in 「其他」.
   codeg: "Codeg",

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Loader2, Plus, RefreshCw, Rss, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
+  clashApply,
   clashProfileSelect,
   clashSubscriptionAdd,
   clashSubscriptionList,
@@ -70,6 +71,7 @@ export function SubscriptionsTab({
 
   const [items, setItems] = useState<ClashSubscription[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [activating, setActivating] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ name: "", url: "" });
   const [pendingDelete, setPendingDelete] = useState<ClashSubscription | null>(null);
@@ -104,6 +106,11 @@ export function SubscriptionsTab({
       setBusy(item.name);
       try {
         await clashSubscriptionUpdate(item.name);
+        // Downloading into the profile that is in force is a switch in all but
+        // name: without a compile the core keeps routing on the old file.
+        if (item.profile === activeProfile) {
+          await clashApply(true);
+        }
         toast.success(t("clash.subs.updated", { name: item.name }));
       } catch (error) {
         toast.error(String(error));
@@ -113,7 +120,7 @@ export function SubscriptionsTab({
         await refresh();
       }
     },
-    [load, refresh, t]
+    [activeProfile, load, refresh, t]
   );
 
   const submit = useCallback(async () => {
@@ -149,15 +156,27 @@ export function SubscriptionsTab({
 
   const activateProfile = useCallback(
     async (id: string) => {
+      const previous = activeProfile;
+      setActivating(id);
       try {
+        // Selecting only records the choice; the switch is not real until the
+        // profile is compiled into run/config.yaml and reloaded.
         await clashProfileSelect(id);
-        await refresh();
-        toast.success(t("clash.messages.saved"));
+        await clashApply(true);
+        toast.success(t("clash.messages.applied"));
       } catch (error) {
+        // Leave the profile that is actually in force selected when the new one
+        // fails to compile, so the page does not claim a switch that never ran.
+        if (previous && previous !== id) {
+          await clashProfileSelect(previous).catch(() => undefined);
+        }
         toast.error(String(error));
+      } finally {
+        setActivating(null);
+        await refresh();
       }
     },
-    [refresh, t]
+    [activeProfile, refresh, t]
   );
 
   return (
@@ -190,7 +209,8 @@ export function SubscriptionsTab({
                     item={item}
                     active={activeProfile === item.profile}
                     busy={busy === item.name}
-                    disabled={busy !== null}
+                    activating={activating === item.profile}
+                    disabled={busy !== null || activating !== null}
                     onUpdate={() => void update(item)}
                     onActivate={() => void activateProfile(item.profile)}
                     onDelete={() => setPendingDelete(item)}
@@ -209,6 +229,8 @@ export function SubscriptionsTab({
                     key={profile.id}
                     profile={profile}
                     active={activeProfile === profile.id}
+                    activating={activating === profile.id}
+                    disabled={busy !== null || activating !== null}
                     onActivate={() => void activateProfile(profile.id)}
                   />
                 ))
@@ -304,6 +326,7 @@ function SubscriptionCard({
   item,
   active,
   busy,
+  activating,
   disabled,
   onUpdate,
   onActivate,
@@ -312,6 +335,7 @@ function SubscriptionCard({
   item: ClashSubscription;
   active: boolean;
   busy: boolean;
+  activating: boolean;
   disabled: boolean;
   onUpdate: () => void;
   onActivate: () => void;
@@ -351,7 +375,8 @@ function SubscriptionCard({
         >
           C
         </span>
-        {active && <Check className="text-primary size-3.5 shrink-0" />}
+        {activating && <Loader2 className="text-primary size-3.5 shrink-0 animate-spin" />}
+        {!activating && active && <Check className="text-primary size-3.5 shrink-0" />}
         {item.error && (
           <Badge variant="destructive" className="shrink-0" title={item.error}>
             {t("clash.subs.failed")}
@@ -424,10 +449,14 @@ function SubscriptionCard({
 function LocalCard({
   profile,
   active,
+  activating,
+  disabled,
   onActivate,
 }: {
   profile: ClashProfile;
   active: boolean;
+  activating: boolean;
+  disabled: boolean;
   onActivate: () => void;
 }) {
   return (
@@ -435,12 +464,14 @@ function LocalCard({
       role="button"
       tabIndex={0}
       aria-pressed={active}
-      onClick={() => !active && onActivate()}
+      aria-busy={activating}
+      aria-disabled={disabled}
+      onClick={() => !active && !disabled && onActivate()}
       onKeyDown={(event) => {
         if (event.target !== event.currentTarget) return;
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
-        if (!active) onActivate();
+        if (!active && !disabled) onActivate();
       }}
       className={cn(
         "flex items-center gap-2 rounded-lg border px-3.5 py-2.5 transition-colors",
@@ -450,7 +481,8 @@ function LocalCard({
       <span className="truncate text-sm font-medium" title={profile.id}>
         {profile.name}
       </span>
-      {active && <Check className="text-primary size-3.5 shrink-0" />}
+      {activating && <Loader2 className="text-primary size-3.5 shrink-0 animate-spin" />}
+      {!activating && active && <Check className="text-primary size-3.5 shrink-0" />}
       <span className="text-muted-foreground ml-auto shrink-0 font-mono text-[11px] tabular-nums">
         {formatBytes(profile.size)}
       </span>

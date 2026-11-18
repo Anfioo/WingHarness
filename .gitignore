@@ -56,3 +56,4 @@ examples/plugin-showcase/generated.yml
 # wasm engines and the PDF.js data files are fetched at runtime, not bundled.
 public/engines/
 public/pdfjs/
+.openidea

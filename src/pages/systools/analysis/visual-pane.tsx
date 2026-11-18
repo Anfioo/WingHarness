@@ -28,6 +28,8 @@ type VisualPaneProps = {
   viewMode: AnalysisViewId;
   treemapDepth: number;
   sunburstDepth: number;
+  /** Bytes of the displayed folder's parent; null at the scan root. */
+  parentBytes: number | null;
   canGoUp: boolean;
   selectedPath: string | null;
   disabled: boolean;
@@ -50,6 +52,7 @@ export function VisualPane({
   viewMode,
   treemapDepth,
   sunburstDepth,
+  parentBytes,
   canGoUp,
   selectedPath,
   disabled,
@@ -137,6 +140,7 @@ export function VisualPane({
             listing={listing}
             hierarchy={hierarchy}
             depth={treemapDepth}
+            parentBytes={parentBytes}
             selectedPath={selectedPath}
             disabled={disabled}
             onSelect={onSelect}

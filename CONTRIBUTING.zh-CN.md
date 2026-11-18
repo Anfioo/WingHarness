@@ -91,14 +91,15 @@ chore(deps): bump tauri to 2.12
 
 ## 从上游项目移植代码
 
-WingHarness 采用 GPL-3.0-only，功能是一个一个从其他开源项目移植过来的。复制之前
+WingHarness 采用 AGPL-3.0-only，功能是一个一个从其他开源项目移植过来的。复制之前
 请先读 [docs/UPSTREAM_PROJECTS.zh-CN.md](docs/UPSTREAM_PROJECTS.zh-CN.md)。
 
 简要规则：
 
-- **允许：** GPL-3.0、MIT、BSD、ISC、Apache-2.0、MPL-2.0、LGPL。
-- **禁止：** AGPL-3.0，以及任何没有许可证文件的项目。默认版权是「保留所有权利」，
-  须先取得作者许可。
+- **允许：** AGPL-3.0、GPL-3.0、MIT、BSD、ISC、Apache-2.0、MPL-2.0、LGPL。
+- **禁止：** 任何没有许可证文件的项目，或被
+  [docs/UPSTREAM_PROJECTS.zh-CN.md](docs/UPSTREAM_PROJECTS.zh-CN.md) 的准入表拒绝的
+  许可证。默认版权是「保留所有权利」，须先取得作者许可。
 - 每个移植文件保留署名头。
 - 记录上游版本与你的改动，写进移植记录，或为整个子系统写一个目录级 `UPSTREAM.md`。
 - 不要只看中间副本，务必核对**原始项目**的许可证。
@@ -119,15 +120,15 @@ WingHarness 采用 GPL-3.0-only，功能是一个一个从其他开源项目移�
 
 ## 贡献的许可
 
-WingHarness 以 GNU 通用公共许可证第 3 版（仅此版本）发布。
+WingHarness 以 GNU Affero 通用公共许可证第 3 版（仅此版本）发布。
 
-除非你明确另行声明，你有意提交以纳入本项目的任何贡献，均按 GPL-3.0-only 接受，
+除非你明确另行声明，你有意提交以纳入本项目的任何贡献，均按 AGPL-3.0-only 接受，
 并且你声明自己有权提交它。**你保留自己作品的版权。**
 
 提交贡献即表示你确认：
 
 - 代码由你编写，或来自其许可证允许此种使用的来源；
-- 你没有复制 AGPL-3.0、无许可证或其他不兼容项目的代码；
+- 你没有复制无许可证或其他不兼容项目的代码；
 - 任何来自上游的部分都已在拉取请求中说明，并记录在
   [docs/UPSTREAM_PROJECTS.zh-CN.md](docs/UPSTREAM_PROJECTS.zh-CN.md) 中。
 

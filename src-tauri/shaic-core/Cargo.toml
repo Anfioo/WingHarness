@@ -2,7 +2,7 @@
 name = "shaic-core"
 version = "0.0.1"
 edition = "2024"
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 description = "AI config-sync engine for the AI config page."
 rust-version = "1.85"
 publish = false

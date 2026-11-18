@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-one-mail-outbox-get"
+description = "Enables the one_mail_outbox_get command without any pre-configured scope."
+commands.allow = ["one_mail_outbox_get"]
+
+[[permission]]
+identifier = "deny-one-mail-outbox-get"
+description = "Denies the one_mail_outbox_get command without any pre-configured scope."
+commands.deny = ["one_mail_outbox_get"]

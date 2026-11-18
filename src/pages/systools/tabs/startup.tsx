@@ -4,6 +4,7 @@ import { AlertTriangle, Play, RefreshCw, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { systoolsRevealInFileManager } from "@/commands/services/systools";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import {
   APPLICATION_ICON_BATCH_SIZE,
@@ -17,18 +18,24 @@ import {
   cancelStartupChange,
   cancelStartupScan,
   executeStartupChange,
-  matchesSourceFilter,
+  filterStartupGroups,
+  manageableArtifactsForGroup,
   nextDesiredState,
+  nextGroupDesiredState,
   prepareStartupChange,
   scanStartupItems,
-  sourceFilterOf,
+  startupGroupState,
+  startupStateCounts,
+  visibleStartupGroups,
   type StartupArtifact,
   type StartupCatalog,
   type StartupChangeItemResult,
   type StartupChangePlan,
   type StartupDesiredState,
+  type StartupOwnerGroup,
   type StartupScanProgress,
-  type StartupSourceFilter,
+  type StartupStateCounts,
+  type StartupStateFilter,
 } from "@/lib/systools/startup";
 import { ChangePlanDialog } from "../components/startup/change-plan-dialog";
 import { ChangeQueue, type StartupQueueEntry } from "../components/startup/change-queue";
@@ -92,7 +99,8 @@ export function StartupTab() {
   const [cancellingScan, setCancellingScan] = useState(false);
   const [scanProgress, setScanProgress] = useState<StartupScanProgress | null>(null);
   const [scanElapsedSeconds, setScanElapsedSeconds] = useState(0);
-  const [filter, setFilter] = useState<StartupSourceFilter>("all");
+  const [filter, setFilter] = useState<StartupStateFilter>("all");
+  const [showSystemItems, setShowSystemItems] = useState(false);
   const [query, setQuery] = useState("");
   const [queue, setQueue] = useState<ReadonlyMap<string, StartupDesiredState>>(() => new Map());
   const [plans, setPlans] = useState<StartupChangePlan[]>([]);
@@ -137,42 +145,24 @@ export function StartupTab() {
     return () => window.clearInterval(timer);
   }, [scanning]);
 
-  const counts = useMemo(() => {
-    const next: Record<StartupSourceFilter, number> = {
-      all: 0,
-      registry: 0,
-      folder: 0,
-      service: 0,
-      task: 0,
-      app: 0,
-      advanced: 0,
-    };
-    for (const artifact of artifacts) {
-      next.all += 1;
-      next[sourceFilterOf(artifact.sourceKind)] += 1;
-    }
-    return next;
-  }, [artifacts]);
-
-  const visibleArtifacts = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    return artifacts.filter((artifact) => {
-      if (!matchesSourceFilter(artifact, filter)) return false;
-      if (!needle) return true;
-      return [
-        artifact.displayName,
-        artifact.ownerName,
-        artifact.publisher,
-        artifact.summary,
-        artifact.target.path,
-        artifact.target.executableName,
-      ].some((value) => typeof value === "string" && value.toLocaleLowerCase().includes(needle));
-    });
-  }, [artifacts, filter, query]);
-
   const artifactsById = useMemo(
     () => new Map(artifacts.map((artifact) => [artifact.itemId, artifact])),
     [artifacts]
+  );
+
+  const displayedGroups = useMemo(
+    () => visibleStartupGroups(catalog?.groups ?? [], artifactsById, showSystemItems),
+    [catalog, artifactsById, showSystemItems]
+  );
+
+  const counts = useMemo<StartupStateCounts>(
+    () => startupStateCounts(displayedGroups, artifactsById),
+    [displayedGroups, artifactsById]
+  );
+
+  const visibleGroups = useMemo(
+    () => filterStartupGroups(displayedGroups, artifactsById, query, filter),
+    [displayedGroups, artifactsById, query, filter]
   );
 
   const queueEntries = useMemo<StartupQueueEntry[]>(() => {
@@ -190,7 +180,7 @@ export function StartupTab() {
     return entries;
   }, [queue, artifactsById]);
 
-  const resetKey = `${filter}\u0000${query}`;
+  const resetKey = `${filter}\u0000${query}\u0000${showSystemItems}`;
   const busy = phase === "preparing" || phase === "executing";
   const dialogPhase: DialogPhase =
     phase === "preparing"
@@ -201,17 +191,18 @@ export function StartupTab() {
           ? "done"
           : "reviewing";
 
-  // Resolve row and group icons once per catalog; failures fall back to initials.
+  // Resolve one icon per listed group; failures fall back to the initials badge.
   const iconPaths = useMemo(() => {
     const paths = new Set<string>();
-    for (const artifact of artifacts) {
-      if (artifact.iconPath) paths.add(artifact.iconPath);
-    }
-    for (const group of catalog?.groups ?? []) {
-      if (group.iconPath) paths.add(group.iconPath);
+    for (const group of displayedGroups) {
+      const fallback = group.itemIds
+        .map((itemId) => artifactsById.get(itemId)?.iconPath)
+        .find((path): path is string => Boolean(path));
+      const path = group.iconPath ?? fallback;
+      if (path) paths.add(path);
     }
     return [...paths];
-  }, [artifacts, catalog]);
+  }, [displayedGroups, artifactsById]);
 
   useEffect(() => {
     const missing = iconPaths.filter((path) => !iconsRef.current.has(path));
@@ -322,6 +313,28 @@ export function StartupTab() {
       else next.set(artifact.itemId, nextDesiredState(artifact));
       return next;
     });
+  }
+
+  function toggleGroup(group: StartupOwnerGroup) {
+    const state = startupGroupState(group, artifactsById);
+    if (state !== "enabled" && state !== "disabled") return;
+    const desired = nextGroupDesiredState(state);
+    setQueue((previous) => {
+      const next = new Map(previous);
+      for (const artifact of manageableArtifactsForGroup(group, artifactsById)) {
+        if (startupToggleBlockedKey(artifact)) continue;
+        next.set(artifact.itemId, desired);
+      }
+      return next;
+    });
+  }
+
+  async function reveal(path: string) {
+    try {
+      await systoolsRevealInFileManager(path);
+    } catch {
+      toast.error(t("systools.errors.operationFailed"));
+    }
   }
 
   function removeQueued(itemId: string) {
@@ -484,6 +497,8 @@ export function StartupTab() {
           counts={counts}
           query={query}
           onQueryChange={setQuery}
+          showSystemItems={showSystemItems}
+          onShowSystemItemsChange={setShowSystemItems}
           scanning={scanning}
           cancellingScan={cancellingScan}
           hasCatalog={catalog !== null}
@@ -562,41 +577,33 @@ export function StartupTab() {
 
             <div className="text-muted-foreground flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 text-xs">
               <span className="text-foreground font-medium">
-                {t("systools.startup.summary.items", {
-                  count: catalog.summary.itemCount,
-                })}
+                {t("systools.startup.summary.programs", { count: displayedGroups.length })}
               </span>
               <span>
                 {t("systools.startup.summary.enabled")}{" "}
-                <span className="tabular-nums">{catalog.summary.enabledCount}</span>
+                <span className="text-foreground tabular-nums">{counts.enabled}</span>
               </span>
               <span>
                 {t("systools.startup.summary.disabled")}{" "}
-                <span className="tabular-nums">{catalog.summary.disabledCount}</span>
+                <span className="tabular-nums">{counts.disabled}</span>
               </span>
               <span>
-                {t("systools.startup.summary.unknown")}{" "}
-                <span className="tabular-nums">{catalog.summary.unknownStateCount}</span>
-              </span>
-              <span>
-                {t("systools.startup.summary.elevation")}{" "}
-                <span className="tabular-nums">{catalog.summary.elevationRequiredCount}</span>
-              </span>
-              <span>
-                {t("systools.startup.summary.system")}{" "}
-                <span className="tabular-nums">{catalog.summary.systemItemCount}</span>
+                {t("systools.startup.summary.leftover")}{" "}
+                <span className="tabular-nums">{counts.leftover}</span>
               </span>
             </div>
 
-            {visibleArtifacts.length > 0 ? (
+            {visibleGroups.length > 0 ? (
               <StartupList
-                catalog={catalog}
-                artifacts={visibleArtifacts}
+                groups={visibleGroups}
+                artifactsById={artifactsById}
                 icons={icons}
                 queue={queue}
                 resetKey={resetKey}
                 blockedReason={blockedReason}
-                onToggle={toggleItem}
+                onToggleArtifact={toggleItem}
+                onToggleGroup={toggleGroup}
+                onReveal={(path) => void reveal(path)}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">

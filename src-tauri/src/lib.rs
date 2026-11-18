@@ -1,3 +1,4 @@
+mod argus;
 pub mod ccs;
 mod codeg;
 mod commands;
@@ -22,6 +23,11 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                // The task manager keeps `settings.json` under `<data dir>/argus`,
+                // so the whole feature moves with the data directory like the
+                // others. The state owns the sampler thread; exit stops it.
+                let _ = argus_core::paths::CONFIG_DIR.set(config::dir().join("argus"));
+                app.manage(argus::ArgusState::default());
                 // The download engine keeps `downloads.db`, `settings.json`,
                 // `categories.json` and the aria2 session files under
                 // `<data dir>/moin`, so the whole feature moves with the data
@@ -93,6 +99,14 @@ pub fn run() {
                 // The ports page keeps `settings.json` under `<data dir>/ports`,
                 // so the whole feature moves with the data directory.
                 let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
+                // The mail engine keeps `onemail.db` (accounts, messages, FTS5,
+                // outbox) and `settings.json` under `<data dir>/one-mail`. The
+                // directory is sensitive: it holds mailbox passwords in clear
+                // text, so it is named here once and never written elsewhere.
+                let _ = one_mail_core::paths::CONFIG_DIR.set(config::dir().join("one-mail"));
+                app.manage(one_mail_core::state::OneMailState::new(
+                    app.handle().clone(),
+                ));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
@@ -173,6 +187,9 @@ pub fn run() {
         // not stopped here it keeps running, and keeps the port it holds, long
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
+            // The sampler thread is owned by the task manager page; leaving it
+            // running would keep sampling after the window is gone.
+            argus::shutdown(app);
             if let Some(moin) = app.try_state::<moin_core::MoinState>() {
                 moin_core::shutdown(&moin);
             }
@@ -210,6 +227,14 @@ pub fn run() {
             // still open on the server: close both before the process goes.
             if let Some(db) = app.try_state::<commands::db::DbState>() {
                 tauri::async_runtime::block_on(db.shutdown());
+            }
+            // The mail engine holds a SQLite pool (and possibly a sync in
+            // flight): stop both so the WAL is checkpointed before exit.
+            if app
+                .try_state::<one_mail_core::state::OneMailState>()
+                .is_some()
+            {
+                one_mail_core::state::shutdown(app);
             }
             // codeg-server holds its port and keeps working — a database
             // client, a workspace scan — for as long as nothing kills it, and

@@ -5,7 +5,6 @@ import { remoteFetch, remotePull, remotePush } from "@/commands";
 import { pickRemote, pushSetsUpstream } from "@/lib/git-core";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { HelpTip } from "@/components/ui/help-tip";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -18,6 +17,7 @@ import {
 import { confirmDialog } from "@/components/confirm";
 import { PushRejectedDialog } from "@/components/git/push-rejected-dialog";
 import { useAppTranslation } from "@/hooks/use-app-translation";
+import { Hint } from "@/features/git/diff/diff-ui";
 import { useRepo } from "@/features/git/repository-store";
 import { fetchRemotes, fetchResultMessage } from "@/features/git/repository/fetchRemotes";
 import { toastOutcome } from "@/features/git/toast-outcome";
@@ -126,9 +126,9 @@ export function RemoteActions() {
 
   return (
     <div className="flex items-center gap-1">
-      <HelpTip title={fetchHint}>
+      <Hint label={fetchHint}>
         <Button
-          variant="secondary"
+          variant="ghost"
           size="sm"
           disabled={!!busy || remotes.length === 0}
           onClick={() =>
@@ -157,12 +157,12 @@ export function RemoteActions() {
           <RefreshCw className={busy === fetchLabel ? "animate-spin" : ""} />
           {fetchLabel}
         </Button>
-      </HelpTip>
+      </Hint>
 
       <div className="flex">
-        <HelpTip title={pullHint}>
+        <Hint label={pullHint}>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             className="rounded-r-none"
             disabled={!!busy || remotes.length === 0}
@@ -172,7 +172,7 @@ export function RemoteActions() {
             {pullLabel}
             {status && status.behind > 0 && <Badge>{capCount(status.behind)}</Badge>}
           </Button>
-        </HelpTip>
+        </Hint>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -229,9 +229,9 @@ export function RemoteActions() {
       </div>
 
       <div className="flex">
-        <HelpTip title={pushHint}>
+        <Hint label={pushHint}>
           <Button
-            variant="secondary"
+            variant="ghost"
             size="sm"
             className="rounded-r-none"
             disabled={!!busy || remotes.length === 0}
@@ -243,7 +243,7 @@ export function RemoteActions() {
             {pushLabel}
             {status && status.ahead > 0 && <Badge>{capCount(status.ahead)}</Badge>}
           </Button>
-        </HelpTip>
+        </Hint>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -311,7 +311,7 @@ export function RemoteActions() {
         </DropdownMenu>
       </div>
 
-      <HelpTip title={t("gitRepo.remote.actions.editRemoteHint")}>
+      <Hint label={t("gitRepo.remote.actions.editRemoteHint")}>
         <Button
           variant="ghost"
           size="icon-sm"
@@ -325,7 +325,7 @@ export function RemoteActions() {
         >
           <Pencil />
         </Button>
-      </HelpTip>
+      </Hint>
 
       <PushRejectedDialog
         open={pushRejected}

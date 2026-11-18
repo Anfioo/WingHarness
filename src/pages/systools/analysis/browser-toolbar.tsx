@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronRight, House, Table2 } from "lucide-react";
+import { ArrowUp, ChevronRight, House } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import type { AnalysisBreadcrumb } from "@/lib/systools/storage";
@@ -7,24 +7,20 @@ import { cn } from "@/lib/utils";
 type BrowserToolbarProps = {
   breadcrumbs: AnalysisBreadcrumb[];
   canGoUp: boolean;
-  detailsOpen: boolean;
   disabled: boolean;
   onNavigate: (path: string) => void;
   onUp: () => void;
   onHome: () => void;
-  onToggleDetails: () => void;
 };
 
-/** Breadcrumbs plus parent/home navigation and the details-panel toggle. */
+/** Breadcrumbs plus parent/home navigation. */
 export function BrowserToolbar({
   breadcrumbs,
   canGoUp,
-  detailsOpen,
   disabled,
   onNavigate,
   onUp,
   onHome,
-  onToggleDetails,
 }: BrowserToolbarProps) {
   const { t } = useAppTranslation();
   const visible = breadcrumbs.length > 4 ? breadcrumbs.slice(-4) : breadcrumbs;
@@ -85,18 +81,6 @@ export function BrowserToolbar({
           );
         })}
       </div>
-
-      <Button
-        variant="ghost"
-        size="xs"
-        className="shrink-0 gap-1 text-[11px]"
-        onClick={onToggleDetails}
-        aria-pressed={detailsOpen}
-        title={t("systools.analysis.toggleDetails")}
-      >
-        <Table2 className="size-3.5" />
-        {t("systools.analysis.details")}
-      </Button>
     </div>
   );
 }

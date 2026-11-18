@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-set-interval"
+description = "Enables the argus_set_interval command without any pre-configured scope."
+commands.allow = ["argus_set_interval"]
+
+[[permission]]
+identifier = "deny-argus-set-interval"
+description = "Denies the argus_set_interval command without any pre-configured scope."
+commands.deny = ["argus_set_interval"]

@@ -15,7 +15,7 @@ app or going online.
 - **moin MIT** — the complete upstream MIT license text, embedded in the app in a
   separate scrollable pane so the required copyright and permission notices are
   available offline.
-- The application's own licence, GPL-3.0-only, is stated in the header.
+- The application's own licence, AGPL-3.0-only, is stated in the header.
 
 ## Where the content comes from
 

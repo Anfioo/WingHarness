@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tray-apps-save"
+description = "Enables the tray_apps_save command without any pre-configured scope."
+commands.allow = ["tray_apps_save"]
+
+[[permission]]
+identifier = "deny-tray-apps-save"
+description = "Denies the tray_apps_save command without any pre-configured scope."
+commands.deny = ["tray_apps_save"]

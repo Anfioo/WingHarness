@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-service-status"
+description = "Enables the argus_service_status command without any pre-configured scope."
+commands.allow = ["argus_service_status"]
+
+[[permission]]
+identifier = "deny-argus-service-status"
+description = "Denies the argus_service_status command without any pre-configured scope."
+commands.deny = ["argus_service_status"]

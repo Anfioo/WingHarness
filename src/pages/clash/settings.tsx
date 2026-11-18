@@ -81,6 +81,7 @@ export function SettingsTab({
   const [pendingDelete, setPendingDelete] = useState<{ kind: Kind; id: string } | null>(null);
 
   const dirty = content !== saved;
+  const activeProfile = summary?.activeProfile ?? null;
 
   const openItem = useCallback(async (kind: Kind, id: string) => {
     setSelected({ kind, id });
@@ -101,7 +102,10 @@ export function SettingsTab({
     if (tab === "rules") {
       return summary.rules[0] ? { kind: "rules" as Kind, id: summary.rules[0].filename } : null;
     }
-    return summary.profiles[0] ? { kind: "profiles" as Kind, id: summary.profiles[0].id } : null;
+    // Apply compiles whatever is open, so open the profile already in force.
+    // Opening the first file instead would make an untouched Apply switch away.
+    const profile = summary.profiles.find((item) => item.active) ?? summary.profiles[0];
+    return profile ? { kind: "profiles" as Kind, id: profile.id } : null;
   }, [summary, tab]);
 
   useEffect(() => {
@@ -130,8 +134,17 @@ export function SettingsTab({
         toast.info(t("clash.editor.saveFirst"));
         return;
       }
+      // Apply is the switch: the profile open in the editor becomes the active
+      // one and is compiled, so no separate radio click is needed. Preview only
+      // compiles, so it must not move the active choice.
+      const previous = activeProfile;
+      const target = selected?.kind === "profiles" ? selected.id : null;
+      const switching = mode === "apply" && target !== null && target !== previous;
       setBusy(mode);
       try {
+        if (switching && target) {
+          await clashProfileSelect(target);
+        }
         const next = mode === "preview" ? await clashPreview() : await clashApply(true);
         setResult(next);
         setView("output");
@@ -140,12 +153,17 @@ export function SettingsTab({
         );
         await refresh();
       } catch (error) {
+        // A failed compile did not change the config in force; put the previous
+        // choice back so the list does not show a switch that never happened.
+        if (switching && previous) {
+          await clashProfileSelect(previous).catch(() => undefined);
+        }
         toast.error(String(error));
       } finally {
         setBusy(null);
       }
     },
-    [dirty, refresh, t]
+    [activeProfile, dirty, refresh, selected, t]
   );
 
   const askName = useCallback((title: string, onSubmit: (value: string) => void) => {
@@ -260,19 +278,6 @@ export function SettingsTab({
     [refresh]
   );
 
-  const selectProfile = useCallback(
-    async (profile: ClashProfile) => {
-      try {
-        await clashProfileSelect(profile.id);
-        toast.success(t("clash.messages.saved"));
-        await refresh();
-      } catch (error) {
-        toast.error(String(error));
-      }
-    },
-    [refresh, t]
-  );
-
   return (
     <div className="flex min-h-0 flex-1">
       <aside className="flex w-56 shrink-0 flex-col border-r">
@@ -328,7 +333,6 @@ export function SettingsTab({
                 profile={profile}
                 active={selected?.kind === "profiles" && selected.id === profile.id}
                 onOpen={() => void openItem("profiles", profile.id)}
-                onUse={() => void selectProfile(profile)}
               />
             ))
           ) : (
@@ -478,12 +482,10 @@ function ProfileRow({
   profile,
   active,
   onOpen,
-  onUse,
 }: {
   profile: ClashProfile;
   active: boolean;
   onOpen: () => void;
-  onUse: () => void;
 }) {
   return (
     <div
@@ -493,14 +495,10 @@ function ProfileRow({
       )}
       onClick={onOpen}
     >
+      {/* Read-only: the dot says which profile is in force. The switch itself
+          is the Apply button, so clicking it would only fake a selection. */}
       <span
-        role="radio"
-        aria-checked={profile.active}
-        title={profile.active ? "active" : "activate"}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (!profile.active) onUse();
-        }}
+        aria-hidden
         className={cn(
           "size-3 shrink-0 rounded-full border",
           profile.active ? "border-primary bg-primary" : "border-muted-foreground/50"

@@ -2,9 +2,9 @@
 
 WingHarness — 版权所有 (C) 2026 Anfioo
 
-WingHarness 以 GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）发布，见
-[LICENSE](./LICENSE)。本文件记录随程序一同分发的第三方作品，以及各部分各自保留的
-条款。它不改变本项目自身代码的许可证。
+WingHarness 以 GNU Affero 通用公共许可证第 3 版（仅此版本，AGPL-3.0-only）发布，
+见 [LICENSE](./LICENSE)。本文件记录随程序一同分发的第三方作品，以及各部分各自
+保留的条款。它不改变本项目自身代码的许可证。
 
 本文件是 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 的中文译本；两者如有
 出入，以英文版为准。
@@ -15,6 +15,25 @@ WingHarness 以 GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only
 ---
 
 ## 1. 来源项目
+
+### Argus
+
+- 项目：[Argus](https://github.com/Ray-lea/Argus)
+- 版本：0.3.4
+- 许可证：AGPL-3.0-or-later
+- 许可证文本：[LICENSE](./LICENSE)——与本项目使用的 AGPL-3.0 文本相同
+
+Argus
+Copyright (c) Argus contributors
+Licensed under the GNU Affero General Public License v3.0.
+Portions of argus-core and argus-service are adapted from Argus.
+
+`src-tauri/argus-core` 是任务管理器页面背后的采样与进程控制引擎；
+`src-tauri/argus-service` 是它可选的特权 Windows 服务。移植部分保留 Argus 的
+AGPL-3.0-or-later 条款，合并作品以 AGPL-3.0-only 分发。PawnIO 驱动、传感器服务、
+任务管理器替换、管理员助手、句柄查询，以及历史、规则、启动项与连接模块均未移植。
+移植记录见 `src-tauri/argus-core/UPSTREAM.md` 与
+`src-tauri/argus-service/UPSTREAM.md`。
 
 ### angkorgit
 
@@ -58,13 +77,14 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 - 项目：[MangoDisk](https://github.com/harry0703/MangoDisk)
 - 版本：1.2.2
 - 许可证：GPL-3.0-only
-- 许可证文本：[LICENSE](./LICENSE)
+- 许可证文本：[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - 版权：MangoDisk 贡献者。
 
 系统工具模块（`src-tauri/systools-core` 与 systools 页面）派生自 MangoDisk：
 磁盘分析、重复文件、大文件、启动项、应用卸载 / 残留清理与系统设置。导入时有
-10 个文件逐字节一致。这些部分以 GPL-3.0-only 分发；完整许可证文本见
-[LICENSE](./LICENSE)。移植的子系统仅支持 Windows；未携带 macOS 与 Linux 代码。
+10 个文件逐字节一致。这些部分仍适用 GPL-3.0-only，完整 GPL 文本见
+[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)；组合作品以 AGPL-3.0-only 分发。
+移植的子系统仅支持 Windows；未携带 macOS 与 Linux 代码。
 
 ### McpHub
 
@@ -92,6 +112,26 @@ Licensed under the MIT License.
 用命令与事件驱动。`rpc.rs` 保留了仅供扩展使用的 `/ping` 与 `/add` 回环 RPC，
 `extension/` 承载改编后的 MV3 源码。BitTorrent、媒体站点抓取、自更新、旧数据迁移和
 应用内 aria2c 安装没有移植。移植记录见 `src-tauri/moin-core/UPSTREAM.md`。
+
+### OneMail
+
+- 项目：[OneMail](https://github.com/zhihui-hu/one-mail)
+- 版本：0.1.0（提交 `181ccb6`）
+- 许可证：AGPL-3.0-only
+- 许可证文本：[LICENSE](./LICENSE)
+
+OneMail / Copyright (c) Huzhihui / 按 GNU Affero 通用公共许可证第 3 版（仅此版本，
+AGPL-3.0-only）授权。上游仓库没有 `LICENSE` 文件，许可证由其 README 声明。
+
+`src-tauri/one-mail-core` 与 `/one-mail` 页面改编自 OneMail：账号模型与服务商预设、
+IMAP 同步、MIME 解析、SMTP 发送、会话聚合、写信、发件箱以及净化后的阅读界面，
+包括邮件 HTML 预处理器、HTML 转纯文本与对话布局。该 crate 已按本仓的存储、命令与
+UI 层重写，没有逐字节相同的上游文件。OAuth、Gmail 与 Graph 同步器、AI 助手、
+备份／恢复、后台 supervisor 以及上游的窗口辅助代码未移植。
+`src/assets/one-mail/provider-icons/` 下的服务商图标来自同一上游集合；Simple Icons
+图标为 CC0-1.0，Outlook 与网易图标仅用于标识对应服务。WingHarness 整体为
+AGPL-3.0-only；`src-tauri/one-mail-core/` 下的文件保留归属声明，修改内容记录在
+`src-tauri/one-mail-core/UPSTREAM.md`。
 
 ### openidea
 
@@ -179,13 +219,14 @@ Rust 侧（文件探测与分段读取、带编码的文本写回、HTML 资源�
 
 - 项目：[TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
 - 许可证：GPL-3.0-only
-- 许可证文本：[LICENSE](./LICENSE)
+- 许可证文本：[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - 版权：TizuMark 贡献者。
 
 Markdown 编辑器模块（`src-tauri/md-editor-core` 与 md-editor 页面）移植自
 TizuMark。其原生 PDF 导出（WebView2 `PrintToPdf`，基于 `webview2-com` /
-`windows`）、大纲提取与导出方案都是实质性移植，仍适用 GPL-3.0-only。前端是面向
-React 19 与 CodeMirror 6 的重写，不是 TizuMark 实现的复制。
+`windows`）、大纲提取与导出方案都是实质性移植，仍适用 GPL-3.0-only，并入本
+AGPL-3.0-only 组合作品。前端是面向 React 19 与 CodeMirror 6 的重写，不是 TizuMark
+实现的复制。
 
 ### tweakcn
 
@@ -309,6 +350,8 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 
 | crate | 许可证 |
 |-------|--------|
+| `async-imap` | MIT OR Apache-2.0 |
+| `async-native-tls` | MIT OR Apache-2.0 |
 | `async-trait` | MIT OR Apache-2.0 |
 | `base64` | MIT OR Apache-2.0 |
 | `blake3` | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception |
@@ -327,7 +370,9 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `hex` | MIT OR Apache-2.0 |
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
+| `lettre` | MIT |
 | `log` | MIT OR Apache-2.0 |
+| `mailparse` | 0BSD |
 | `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
@@ -344,6 +389,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `serde_yaml_ng` | MIT |
 | `serde_yml` | MIT OR Apache-2.0 |
 | `sha2` | MIT OR Apache-2.0 |
+| `sqlx` | MIT OR Apache-2.0 |
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-plugin-dialog` | Apache-2.0 OR MIT |
 | `tauri-plugin-global-shortcut` | Apache-2.0 OR MIT |
@@ -355,6 +401,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |
@@ -381,12 +428,12 @@ Apache-2.0、BSD、ISC 或其兼容组合。例外如下：
 | `lightningcss`、`lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`、`vite` | 仅构建期使用，不随应用分发。 |
 | `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | **不随产物分发。** Vite 解析的是 ExcelJS 的 `browser` 入口（`dist/exceljs.min.js`），该构建使用 JSZip，不含 `unzipper`、`binary` 或 `buffers` 代码。 |
 
-MPL-2.0 是文件级著佐权，与 GPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
+MPL-2.0 是文件级著佐权，与 AGPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
 产物分发。Apache-2.0 全文见
 [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)。
 
-上面这些 MIT、BSD、ISC、Apache-2.0、MPL-2.0 与 LGPL 组件与 GPL-3.0-only 兼容：
-组合作品以 GPL-3.0-only 分发，各库保留自己的条款。`7z-wasm` 单独适用 §3 的声明，
+上面这些 MIT、BSD、ISC、Apache-2.0、MPL-2.0 与 LGPL 组件与 AGPL-3.0-only 兼容：
+组合作品以 AGPL-3.0-only 分发，各库保留自己的条款。`7z-wasm` 单独适用 §3 的声明，
 分发时必须一并附上。
 
 ---
