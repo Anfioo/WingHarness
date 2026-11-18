@@ -515,6 +515,53 @@ mod tests {
     }
 
     #[test]
+    fn walks_a_nested_alternative_inside_mixed_and_numbers_every_leaf() {
+        let message = b"Subject: Nested\r\nFrom: a@example.com\r\n\
+            Message-ID: <nested@example.com>\r\nDate: Sat, 9 Aug 2026 12:00:00 +0000\r\n\
+            Content-Type: multipart/mixed; boundary=outer\r\n\r\n\
+            --outer\r\n\
+            Content-Type: multipart/alternative; boundary=inner\r\n\r\n\
+            --inner\r\n\
+            Content-Type: text/plain; charset=utf-8\r\n\r\n\
+            plain body\r\n\
+            --inner\r\n\
+            Content-Type: text/html; charset=utf-8\r\n\r\n\
+            <p>html body</p>\r\n\
+            --inner--\r\n\
+            --outer\r\n\
+            Content-Type: application/pdf; name=\"report.pdf\"\r\n\
+            Content-Disposition: attachment; filename=\"report.pdf\"\r\n\
+            Content-Transfer-Encoding: base64\r\n\r\n\
+            JVBERi0xLjQK\r\n\
+            --outer--\r\n"
+            .to_vec();
+        let parsed = parse(&message).expect("parse message");
+
+        assert_eq!(parsed.body_text.as_deref(), Some("plain body"));
+        assert_eq!(parsed.body_html.as_deref(), Some("<p>html body</p>"));
+        assert_eq!(parsed.attachments.len(), 1);
+        assert_eq!(parsed.attachments[0].filename, "report.pdf");
+        // The mixed message has two parts; the attachment is the second one.
+        assert_eq!(parsed.attachments[0].part_id.as_deref(), Some("2"));
+    }
+
+    #[test]
+    fn decodes_an_rfc2231_attachment_name() {
+        let message = raw(&[
+            ("Content-Type: text/plain; charset=utf-8", "Body"),
+            (
+                "Content-Type: application/pdf\r\n\
+                 Content-Disposition: attachment; filename*=UTF-8''%E6%8A%A5%E5%91%8A.pdf",
+                "JVBERi0xLjQK",
+            ),
+        ]);
+        let parsed = parse(&message).expect("parse message");
+
+        assert_eq!(parsed.attachments.len(), 1);
+        assert_eq!(parsed.attachments[0].filename, "报告.pdf");
+    }
+
+    #[test]
     fn decodes_a_gb18030_body() {
         let message = raw(&[(
             "Content-Type: text/plain; charset=\"gb18030\"\r\nContent-Transfer-Encoding: base64",
