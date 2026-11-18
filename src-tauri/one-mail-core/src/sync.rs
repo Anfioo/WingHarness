@@ -71,6 +71,9 @@ pub async fn start(state: &OneMailState, input: SyncInput) -> OneMailResult<Sync
         let mut runtime = state.sync().lock().await;
         runtime.running = false;
         runtime.account_id = None;
+        // `started_at` describes the live run only; the finished time lives in
+        // the static last-result record.
+        runtime.started_at = None;
     }
     let error = match &outcome {
         Ok(report) => report.error.clone(),

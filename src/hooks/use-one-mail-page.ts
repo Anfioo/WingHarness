@@ -231,6 +231,7 @@ export function useOneMailPage(): OneMailPageState {
   // The event handlers and the sync timer outlive a render, so they read the
   // latest values through refs instead of a stale closure.
   const settingsRef = useRef<OneMailSettings | null>(null);
+  const accountsRef = useRef<AccountSummary[]>([]);
   const pageActiveRef = useRef(pageActive);
   const conversationRequest = useRef(0);
   const requestedBodies = useRef<Set<number>>(new Set());
@@ -238,6 +239,10 @@ export function useOneMailPage(): OneMailPageState {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
 
   useEffect(() => {
     pageActiveRef.current = pageActive;
@@ -463,9 +468,18 @@ export function useOneMailPage(): OneMailPageState {
     async (accountId?: number) => {
       setSyncing(true);
       try {
+        // A mailbox that has never synced runs a full window scan. Only a
+        // refresh announces new mail, so this also keeps the first scan from
+        // notifying once per message.
+        const targets = accountsRef.current.filter((account) => {
+          if (accountId !== undefined) return account.accountId === accountId;
+          if (selectedAccountId !== null) return account.accountId === selectedAccountId;
+          return true;
+        });
+        const mode = targets.some((account) => account.lastSyncAt === null) ? "full" : "refresh";
         const report = await oneMailSyncStart({
           accountId: accountId ?? selectedAccountId,
-          mode: "refresh",
+          mode,
         });
         if (!report.ok && report.error) setError(report.error);
         await Promise.all([

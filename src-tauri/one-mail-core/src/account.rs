@@ -748,103 +748,41 @@ fn column_bool(row: &SqliteRow, column: &str) -> OneMailResult<bool> {
 // ---------------------------------------------------------------------------
 
 fn auth_kind_str(value: AuthKind) -> &'static str {
-    match value {
-        AuthKind::Oauth2 => "oauth2",
-        AuthKind::AppPassword => "app_password",
-        AuthKind::Password => "password",
-        AuthKind::Bridge => "bridge",
-        AuthKind::Manual => "manual",
-    }
+    value.as_str()
 }
 
 fn parse_auth_kind(value: &str) -> OneMailResult<AuthKind> {
-    match value {
-        "oauth2" => Ok(AuthKind::Oauth2),
-        "app_password" => Ok(AuthKind::AppPassword),
-        "password" => Ok(AuthKind::Password),
-        "bridge" => Ok(AuthKind::Bridge),
-        "manual" => Ok(AuthKind::Manual),
-        other => Err(OneMailError::database(format!(
-            "The stored auth type {other} is unknown."
-        ))),
-    }
+    AuthKind::parse(value)
+        .ok_or_else(|| OneMailError::database(format!("The stored auth type {value} is unknown.")))
 }
 
 fn security_str(value: Security) -> &'static str {
-    match value {
-        Security::SslTls => "ssl_tls",
-        Security::Starttls => "starttls",
-        Security::None => "none",
-    }
+    value.as_str()
 }
 
 fn parse_security(value: &str) -> OneMailResult<Security> {
-    match value {
-        "ssl_tls" => Ok(Security::SslTls),
-        "starttls" => Ok(Security::Starttls),
-        "none" => Ok(Security::None),
-        other => Err(OneMailError::database(format!(
-            "The stored security mode {other} is unknown."
-        ))),
-    }
+    Security::parse(value).ok_or_else(|| {
+        OneMailError::database(format!("The stored security mode {value} is unknown."))
+    })
 }
 
 fn account_status_str(value: AccountStatus) -> &'static str {
-    match value {
-        AccountStatus::Active => "active",
-        AccountStatus::Disabled => "disabled",
-        AccountStatus::Syncing => "syncing",
-        AccountStatus::AuthError => "auth_error",
-        AccountStatus::SyncError => "sync_error",
-        AccountStatus::NetworkError => "network_error",
-    }
+    value.as_str()
 }
 
 fn parse_account_status(value: &str) -> OneMailResult<AccountStatus> {
-    match value {
-        "active" => Ok(AccountStatus::Active),
-        "disabled" => Ok(AccountStatus::Disabled),
-        "syncing" => Ok(AccountStatus::Syncing),
-        "auth_error" => Ok(AccountStatus::AuthError),
-        "sync_error" => Ok(AccountStatus::SyncError),
-        "network_error" => Ok(AccountStatus::NetworkError),
-        other => Err(OneMailError::database(format!(
-            "The stored account status {other} is unknown."
-        ))),
-    }
+    AccountStatus::parse(value).ok_or_else(|| {
+        OneMailError::database(format!("The stored account status {value} is unknown."))
+    })
 }
 
 fn folder_role_str(value: FolderRole) -> &'static str {
-    match value {
-        FolderRole::Inbox => "inbox",
-        FolderRole::Sent => "sent",
-        FolderRole::Drafts => "drafts",
-        FolderRole::Trash => "trash",
-        FolderRole::Junk => "junk",
-        FolderRole::Archive => "archive",
-        FolderRole::AllMail => "all_mail",
-        FolderRole::Important => "important",
-        FolderRole::Starred => "starred",
-        FolderRole::Custom => "custom",
-    }
+    value.as_str()
 }
 
 fn parse_folder_role(value: &str) -> OneMailResult<FolderRole> {
-    match value {
-        "inbox" => Ok(FolderRole::Inbox),
-        "sent" => Ok(FolderRole::Sent),
-        "drafts" => Ok(FolderRole::Drafts),
-        "trash" => Ok(FolderRole::Trash),
-        "junk" => Ok(FolderRole::Junk),
-        "archive" => Ok(FolderRole::Archive),
-        "all_mail" => Ok(FolderRole::AllMail),
-        "important" => Ok(FolderRole::Important),
-        "starred" => Ok(FolderRole::Starred),
-        "custom" => Ok(FolderRole::Custom),
-        other => Err(OneMailError::database(format!(
-            "The stored folder role {other} is unknown."
-        ))),
-    }
+    FolderRole::parse(value)
+        .ok_or_else(|| OneMailError::database(format!("The stored folder role {value} is unknown.")))
 }
 
 // ---------------------------------------------------------------------------

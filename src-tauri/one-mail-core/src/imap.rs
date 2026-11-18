@@ -603,6 +603,7 @@ async fn save_message(
             OneMailError::database(format!("Could not save a message summary: {error}"))
         })?;
         save_addresses(&mut transaction, message_id, headers).await?;
+        index_headers(&mut transaction, message_id, account_id, folder.folder_id, headers).await?;
         message_id
     } else {
         let stored = sqlx::query_scalar::<_, i64>(
@@ -659,6 +660,7 @@ async fn save_message(
         .map_err(|error| {
             OneMailError::database(format!("Could not update a message summary: {error}"))
         })?;
+        index_headers(&mut transaction, message_id, account_id, folder.folder_id, headers).await?;
         message_id
     };
 
@@ -699,6 +701,42 @@ async fn save_addresses(
             })?;
         }
     }
+    Ok(())
+}
+
+/// Keep the FTS row in step with the header fields. `body_load` replaces the row
+/// with the full subject, participants and body later; indexing the header here
+/// is what lets a search find a message that has never been opened.
+async fn index_headers(
+    transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    message_id: i64,
+    account_id: i64,
+    folder_id: i64,
+    headers: &ParsedHeaders,
+) -> OneMailResult<()> {
+    sqlx::query("DELETE FROM message_search WHERE message_id = ?1")
+        .bind(message_id)
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| {
+            OneMailError::database(format!("Could not clear a search row: {error}"))
+        })?;
+    sqlx::query(
+        "INSERT INTO message_search
+             (message_id, account_id, folder_id, subject, from_name, from_email, snippet, body_text)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, NULL)",
+    )
+    .bind(message_id)
+    .bind(account_id)
+    .bind(folder_id)
+    .bind(headers.subject.clone())
+    .bind(headers.from_name.clone())
+    .bind(headers.from_email.clone())
+    .execute(&mut **transaction)
+    .await
+    .map_err(|error| {
+        OneMailError::database(format!("Could not index a message header: {error}"))
+    })?;
     Ok(())
 }
 
@@ -1040,6 +1078,14 @@ mod tests {
                 .await
                 .expect("count the participants");
         assert_eq!(addresses, 1, "the update must not duplicate participants");
+
+        let indexed: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM message_search WHERE message_search MATCH 'Quarterly rep'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("search the header index");
+        assert_eq!(indexed, 1, "a synced header must be searchable before it is opened");
 
         let (last_uid, uid_validity): (i64, String) = sqlx::query_as(
             "SELECT last_uid, uid_validity FROM folder_sync_states WHERE folder_id = ?1",

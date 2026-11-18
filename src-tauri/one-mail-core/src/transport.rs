@@ -97,40 +97,26 @@ impl MailAccount {
 // ---------------------------------------------------------------------------
 
 pub(crate) fn security_from_str(value: &str) -> Security {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "starttls" | "tls" | "start_tls" => Security::Starttls,
-        "none" | "plain" | "insecure" => Security::None,
-        "ssl_tls" | "ssl" | "tls_wrapper" => Security::SslTls,
-        other => {
-            log::warn!("Unknown IMAP/SMTP security value {other:?}, assuming ssl_tls");
-            Security::SslTls
-        }
-    }
+    let normalized = value.trim().to_ascii_lowercase();
+    let security = match normalized.as_str() {
+        // Aliases written by older rows and by the source application.
+        "tls" | "start_tls" => Some(Security::Starttls),
+        "plain" | "insecure" => Some(Security::None),
+        "ssl" | "tls_wrapper" => Some(Security::SslTls),
+        other => Security::parse(other),
+    };
+    security.unwrap_or_else(|| {
+        log::warn!("Unknown IMAP/SMTP security value {normalized:?}, assuming ssl_tls");
+        Security::SslTls
+    })
 }
 
 pub(crate) fn auth_kind_from_str(value: &str) -> AuthKind {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "oauth2" => AuthKind::Oauth2,
-        "app_password" => AuthKind::AppPassword,
-        "bridge" => AuthKind::Bridge,
-        "manual" => AuthKind::Manual,
-        _ => AuthKind::Password,
-    }
+    AuthKind::parse(value.trim().to_ascii_lowercase().as_str()).unwrap_or(AuthKind::Password)
 }
 
 pub(crate) fn role_from_str(value: &str) -> FolderRole {
-    match value.trim().to_ascii_lowercase().as_str() {
-        "inbox" => FolderRole::Inbox,
-        "sent" => FolderRole::Sent,
-        "drafts" => FolderRole::Drafts,
-        "trash" => FolderRole::Trash,
-        "junk" => FolderRole::Junk,
-        "archive" => FolderRole::Archive,
-        "all_mail" => FolderRole::AllMail,
-        "important" => FolderRole::Important,
-        "starred" => FolderRole::Starred,
-        _ => FolderRole::Custom,
-    }
+    FolderRole::parse(value.trim().to_ascii_lowercase().as_str()).unwrap_or(FolderRole::Custom)
 }
 
 // ---------------------------------------------------------------------------

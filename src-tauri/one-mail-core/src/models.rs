@@ -111,6 +111,233 @@ pub enum OutboxStatus {
 }
 
 // ---------------------------------------------------------------------------
+// Enum <-> stored text
+// ---------------------------------------------------------------------------
+//
+// The SQLite columns store the same snake_case strings the enums serialize as.
+// Every lane goes through these two methods instead of keeping a private copy,
+// so a new variant cannot drift between the store, the transport and the
+// conversation queries.
+
+impl AuthKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AuthKind::Oauth2 => "oauth2",
+            AuthKind::AppPassword => "app_password",
+            AuthKind::Password => "password",
+            AuthKind::Bridge => "bridge",
+            AuthKind::Manual => "manual",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "oauth2" => Some(AuthKind::Oauth2),
+            "app_password" => Some(AuthKind::AppPassword),
+            "password" => Some(AuthKind::Password),
+            "bridge" => Some(AuthKind::Bridge),
+            "manual" => Some(AuthKind::Manual),
+            _ => None,
+        }
+    }
+}
+
+impl Security {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Security::SslTls => "ssl_tls",
+            Security::Starttls => "starttls",
+            Security::None => "none",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "ssl_tls" => Some(Security::SslTls),
+            "starttls" => Some(Security::Starttls),
+            "none" => Some(Security::None),
+            _ => None,
+        }
+    }
+}
+
+impl FolderRole {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            FolderRole::Inbox => "inbox",
+            FolderRole::Sent => "sent",
+            FolderRole::Drafts => "drafts",
+            FolderRole::Trash => "trash",
+            FolderRole::Junk => "junk",
+            FolderRole::Archive => "archive",
+            FolderRole::AllMail => "all_mail",
+            FolderRole::Important => "important",
+            FolderRole::Starred => "starred",
+            FolderRole::Custom => "custom",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "inbox" => Some(FolderRole::Inbox),
+            "sent" => Some(FolderRole::Sent),
+            "drafts" => Some(FolderRole::Drafts),
+            "trash" => Some(FolderRole::Trash),
+            "junk" => Some(FolderRole::Junk),
+            "archive" => Some(FolderRole::Archive),
+            "all_mail" => Some(FolderRole::AllMail),
+            "important" => Some(FolderRole::Important),
+            "starred" => Some(FolderRole::Starred),
+            "custom" => Some(FolderRole::Custom),
+            _ => None,
+        }
+    }
+}
+
+impl AccountStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            AccountStatus::Active => "active",
+            AccountStatus::Disabled => "disabled",
+            AccountStatus::Syncing => "syncing",
+            AccountStatus::AuthError => "auth_error",
+            AccountStatus::SyncError => "sync_error",
+            AccountStatus::NetworkError => "network_error",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "active" => Some(AccountStatus::Active),
+            "disabled" => Some(AccountStatus::Disabled),
+            "syncing" => Some(AccountStatus::Syncing),
+            "auth_error" => Some(AccountStatus::AuthError),
+            "sync_error" => Some(AccountStatus::SyncError),
+            "network_error" => Some(AccountStatus::NetworkError),
+            _ => None,
+        }
+    }
+}
+
+impl BodyStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BodyStatus::None => "none",
+            BodyStatus::Loading => "loading",
+            BodyStatus::Ready => "ready",
+            BodyStatus::Error => "error",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "none" => Some(BodyStatus::None),
+            "loading" => Some(BodyStatus::Loading),
+            "ready" => Some(BodyStatus::Ready),
+            "error" => Some(BodyStatus::Error),
+            _ => None,
+        }
+    }
+}
+
+impl BodyDisplayMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BodyDisplayMode::Text => "text",
+            BodyDisplayMode::Html => "html",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "text" => Some(BodyDisplayMode::Text),
+            "html" => Some(BodyDisplayMode::Html),
+            _ => None,
+        }
+    }
+}
+
+impl RemoteImagesPolicy {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RemoteImagesPolicy::Block => "block",
+            RemoteImagesPolicy::Load => "load",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "block" => Some(RemoteImagesPolicy::Block),
+            "load" => Some(RemoteImagesPolicy::Load),
+            _ => None,
+        }
+    }
+}
+
+impl SyncMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            SyncMode::Refresh => "refresh",
+            SyncMode::Full => "full",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "refresh" => Some(SyncMode::Refresh),
+            "full" => Some(SyncMode::Full),
+            _ => None,
+        }
+    }
+}
+
+impl ComposeKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ComposeKind::New => "new",
+            ComposeKind::Reply => "reply",
+            ComposeKind::ReplyAll => "reply_all",
+            ComposeKind::Forward => "forward",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "new" => Some(ComposeKind::New),
+            "reply" => Some(ComposeKind::Reply),
+            "reply_all" => Some(ComposeKind::ReplyAll),
+            "forward" => Some(ComposeKind::Forward),
+            _ => None,
+        }
+    }
+}
+
+impl OutboxStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OutboxStatus::Draft => "draft",
+            OutboxStatus::Queued => "queued",
+            OutboxStatus::Sending => "sending",
+            OutboxStatus::Sent => "sent",
+            OutboxStatus::Failed => "failed",
+            OutboxStatus::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "draft" => Some(OutboxStatus::Draft),
+            "queued" => Some(OutboxStatus::Queued),
+            "sending" => Some(OutboxStatus::Sending),
+            "sent" => Some(OutboxStatus::Sent),
+            "failed" => Some(OutboxStatus::Failed),
+            "cancelled" => Some(OutboxStatus::Cancelled),
+            _ => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Providers and accounts
 // ---------------------------------------------------------------------------
 
@@ -656,5 +883,96 @@ impl Default for OneMailSettings {
             sync_window_days: 90,
             notify_on_new_mail: true,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_enum_round_trips_through_its_stored_text() {
+        for value in [
+            AuthKind::Oauth2,
+            AuthKind::AppPassword,
+            AuthKind::Password,
+            AuthKind::Bridge,
+            AuthKind::Manual,
+        ] {
+            assert_eq!(AuthKind::parse(value.as_str()), Some(value));
+        }
+        for value in [Security::SslTls, Security::Starttls, Security::None] {
+            assert_eq!(Security::parse(value.as_str()), Some(value));
+        }
+        for value in [
+            FolderRole::Inbox,
+            FolderRole::Sent,
+            FolderRole::Drafts,
+            FolderRole::Trash,
+            FolderRole::Junk,
+            FolderRole::Archive,
+            FolderRole::AllMail,
+            FolderRole::Important,
+            FolderRole::Starred,
+            FolderRole::Custom,
+        ] {
+            assert_eq!(FolderRole::parse(value.as_str()), Some(value));
+        }
+        for value in [
+            AccountStatus::Active,
+            AccountStatus::Disabled,
+            AccountStatus::Syncing,
+            AccountStatus::AuthError,
+            AccountStatus::SyncError,
+            AccountStatus::NetworkError,
+        ] {
+            assert_eq!(AccountStatus::parse(value.as_str()), Some(value));
+        }
+        for value in [
+            BodyStatus::None,
+            BodyStatus::Loading,
+            BodyStatus::Ready,
+            BodyStatus::Error,
+        ] {
+            assert_eq!(BodyStatus::parse(value.as_str()), Some(value));
+        }
+        for value in [BodyDisplayMode::Text, BodyDisplayMode::Html] {
+            assert_eq!(BodyDisplayMode::parse(value.as_str()), Some(value));
+        }
+        for value in [RemoteImagesPolicy::Block, RemoteImagesPolicy::Load] {
+            assert_eq!(RemoteImagesPolicy::parse(value.as_str()), Some(value));
+        }
+        for value in [SyncMode::Refresh, SyncMode::Full] {
+            assert_eq!(SyncMode::parse(value.as_str()), Some(value));
+        }
+        for value in [
+            ComposeKind::New,
+            ComposeKind::Reply,
+            ComposeKind::ReplyAll,
+            ComposeKind::Forward,
+        ] {
+            assert_eq!(ComposeKind::parse(value.as_str()), Some(value));
+        }
+        for value in [
+            OutboxStatus::Draft,
+            OutboxStatus::Queued,
+            OutboxStatus::Sending,
+            OutboxStatus::Sent,
+            OutboxStatus::Failed,
+            OutboxStatus::Cancelled,
+        ] {
+            assert_eq!(OutboxStatus::parse(value.as_str()), Some(value));
+        }
+    }
+
+    #[test]
+    fn stored_text_matches_the_serialized_values() {
+        assert_eq!(FolderRole::AllMail.as_str(), "all_mail");
+        assert_eq!(ComposeKind::ReplyAll.as_str(), "reply_all");
+        assert_eq!(AuthKind::AppPassword.as_str(), "app_password");
+        assert_eq!(Security::SslTls.as_str(), "ssl_tls");
+        assert_eq!(AccountStatus::NetworkError.as_str(), "network_error");
+        assert_eq!(OutboxStatus::Cancelled.as_str(), "cancelled");
+        assert_eq!(AuthKind::parse("not_a_kind"), None);
     }
 }

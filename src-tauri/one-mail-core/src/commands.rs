@@ -32,13 +32,7 @@ use crate::{account, compose, conversation, message, provider, search, settings,
 
 #[tauri::command]
 pub async fn one_mail_providers_list() -> OneMailResult<Vec<ProviderPreset>> {
-    // `presets()` has no error case; an empty table is how the A0 stub says
-    // "B1 has not landed yet". B1 makes it non-empty and this check goes away.
-    let presets = provider::presets();
-    if presets.is_empty() {
-        return Err(OneMailError::not_implemented());
-    }
-    Ok(presets.to_vec())
+    Ok(provider::presets().to_vec())
 }
 
 #[tauri::command]

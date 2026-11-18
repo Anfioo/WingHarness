@@ -13,6 +13,7 @@ const oneMail = {
     confirm: "确认",
     empty: "这里还没有内容。",
     search: "搜索",
+    copy: "复制",
   },
   accounts: {
     title: "账号",
@@ -46,6 +47,7 @@ const oneMail = {
     password: "密码或授权码",
     passwordKeep: "留空表示保持原密码。",
     passwordPlaceholder: "••••••",
+    appPasswordHint: "该服务商需要使用应用专用密码或授权码，而不是登录密码。",
     imapHost: "IMAP 主机",
     imapPort: "IMAP 端口",
     imapSecurity: "IMAP 加密",
@@ -95,6 +97,7 @@ const oneMail = {
     yesterday: "昨天",
     last7Days: "近 7 天",
     searchPlaceholder: "搜索邮件",
+    refresh: "刷新",
   },
   thread: {
     reply: "回复",
@@ -109,6 +112,8 @@ const oneMail = {
     showQuoted: "显示引用",
     hideQuoted: "收起引用",
     attachments: "附件",
+    attachmentUnavailable: "当前版本不支持保存收到的附件。",
+    selectConversation: "选择一封会话开始阅读。",
     noSubject: "(无主题)",
   },
   compose: {
@@ -145,6 +150,7 @@ const oneMail = {
     sent: "已发送",
     retry: "重试",
     retrying: "重试中…",
+    edit: "继续编辑",
     delete: "删除",
     empty: "发件箱是空的。",
     onlyBcc: "这封邮件只有密送收件人，因此只出现在发件箱，不在会话列表里。",

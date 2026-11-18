@@ -13,6 +13,7 @@ const oneMail = {
     confirm: "Confirm",
     empty: "Nothing here yet.",
     search: "Search",
+    copy: "Copy",
   },
   accounts: {
     title: "Accounts",
@@ -46,6 +47,8 @@ const oneMail = {
     password: "Password or app password",
     passwordKeep: "Leave empty to keep the stored password.",
     passwordPlaceholder: "••••••",
+    appPasswordHint:
+      "This provider needs an app-specific password or authorization code, not your login password.",
     imapHost: "IMAP host",
     imapPort: "IMAP port",
     imapSecurity: "IMAP security",
@@ -95,6 +98,7 @@ const oneMail = {
     yesterday: "Yesterday",
     last7Days: "Last 7 days",
     searchPlaceholder: "Search mail",
+    refresh: "Refresh",
   },
   thread: {
     reply: "Reply",
@@ -109,6 +113,8 @@ const oneMail = {
     showQuoted: "Show quoted text",
     hideQuoted: "Hide quoted text",
     attachments: "Attachments",
+    attachmentUnavailable: "Received attachments cannot be saved in this version.",
+    selectConversation: "Select a conversation to read it.",
     noSubject: "(no subject)",
   },
   compose: {
@@ -145,6 +151,7 @@ const oneMail = {
     sent: "Sent",
     retry: "Retry",
     retrying: "Retrying…",
+    edit: "Continue editing",
     delete: "Delete",
     empty: "The outbox is empty.",
     onlyBcc:
