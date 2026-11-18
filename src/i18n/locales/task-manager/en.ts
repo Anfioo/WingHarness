@@ -19,12 +19,55 @@ const taskManager = {
   },
   service: {
     label: "Privileged service",
+    description:
+      "Runs as a Windows service to act on system processes and to collect per-process network and disk traffic for this page.",
     state: {
       notInstalled: "Not installed",
       stopped: "Stopped",
       running: "Running",
+      startPending: "Starting",
+      stopPending: "Stopping",
       unavailable: "Unavailable",
+      incompatible: "Incompatible",
       unknown: "Unknown",
+    },
+    open: "Open service panel",
+    unknown: "—",
+    checking: "Checking the service status…",
+    authorized: "This Windows account",
+    notAuthorized: "Not authorized for this account",
+    errorDetails: "Error details",
+    busy: "Waiting for administrator permission…",
+    cancelled: "The operation was cancelled. The service was not changed.",
+    enabledHint:
+      "The service is running: system processes and per-process network traffic are available.",
+    stoppedHint:
+      "The service is installed but stopped. Update the service to install and start it again.",
+    unavailableHint:
+      "The service is installed but cannot be reached right now. Recheck, or update the service after an app upgrade.",
+    incompatibleHint:
+      "The service version is incompatible. Update the service to install the version that matches the app, or uninstall it and install it again.",
+    details: {
+      status: "Status",
+      version: "Version",
+      account: "Authorized account",
+      reported: "Reported state",
+    },
+    actions: {
+      install: "Install",
+      uninstall: "Uninstall",
+      update: "Update service",
+      recheck: "Recheck",
+    },
+    install: {
+      title: "Install the privileged service?",
+      body: "Installing asks Windows for administrator permission (UAC). If you cancel the prompt, nothing changes.\n\nOnce installed, this Windows account can use the service to end processes of any user (except critical system processes), change their priority and efficiency mode, and see per-process network and disk traffic. Other programs running under this account can use the same operations, so install it only on an account you use yourself.\n\nThe service starts with Windows. It can be uninstalled here at any time.",
+      action: "Install",
+    },
+    uninstall: {
+      title: "Uninstall the privileged service?",
+      body: "Uninstalling asks Windows for administrator permission (UAC). If you cancel the prompt, the service keeps running.\n\nThe service is stopped and removed. The app keeps running: actions on system processes fall back to the current permissions, and per-process network traffic becomes unavailable.",
+      action: "Uninstall",
     },
   },
   error: {
@@ -43,7 +86,63 @@ const taskManager = {
   },
   settings: {
     title: "Task manager settings",
-    placeholder: "The sampling interval and the service install/uninstall actions live here.",
+    description: "How often this page collects data, and the optional privileged service.",
+    save: "Save",
+    interval: {
+      label: "Sampling interval",
+      option: "{{ms}} ms",
+      description:
+        "How often a new snapshot is collected. Shorter intervals update faster and cost more CPU.",
+      lifecycle:
+        "Sampling runs only while the task manager page is open. Leaving the page stops it; opening it again starts a fresh sample.",
+    },
+    service: {
+      description:
+        "Install the optional service to act on system processes and see per-process network traffic.",
+      open: "Open service panel",
+    },
+  },
+  performance: {
+    summary: { label: "Performance summary", peak: "60 s peak" },
+    chart: { label: "Last 60 seconds" },
+    cpu: {
+      title: "CPU",
+      utilization: "Utilization",
+      speed: "Speed",
+      cores: "Logical processors",
+      total: "Total",
+    },
+    memory: {
+      title: "Memory",
+      used: "In use",
+      commit: "Committed",
+      cached: "Cached",
+      composition: "Composition",
+      segment: { used: "In use", modified: "Modified", standby: "Standby", free: "Free" },
+    },
+    disk: {
+      title: "Disk",
+      read: "Read",
+      write: "Write",
+      active: "Active time",
+      empty: "No disk counters are available.",
+      volume: "Disk {{index}}",
+    },
+    network: {
+      title: "Network",
+      received: "Received",
+      sent: "Sent",
+      empty: "No active network adapter.",
+    },
+    gpu: {
+      title: "GPU",
+      utilization: "Utilization",
+      memory: "GPU memory",
+      engines: "Engines",
+      dedicated: "Dedicated",
+      shared: "Shared",
+      empty: "No GPU is present, or its counters are unavailable.",
+    },
   },
   process: {
     view: { label: "View", apps: "Apps", tree: "Process tree", list: "List" },

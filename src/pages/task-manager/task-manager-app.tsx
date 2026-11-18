@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { RefreshCw, Settings } from "lucide-react";
 import { argusErrorKey } from "@/commands";
-import { ServicePanel, serviceStateKey } from "@/components/task-manager/service-panel";
+import { ServicePanel } from "@/components/task-manager/service-panel";
+import { ServiceBadge } from "@/components/task-manager/service-badge";
 import { TaskManagerSettings } from "@/components/task-manager/task-manager-settings";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useTaskManager, type TaskManagerTab } from "@/hooks/use-task-manager";
@@ -31,9 +31,7 @@ export function TaskManagerApp() {
           <p className="text-muted-foreground text-sm">{t("taskManager.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">
-            {t(serviceStateKey(page.service?.state ?? "notInstalled"))}
-          </Badge>
+          <ServiceBadge service={page.service} />
           <Button variant="outline" size="sm" onClick={() => void page.refresh()}>
             <RefreshCw className="size-4" />
             {t("taskManager.actions.refresh")}
