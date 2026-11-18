@@ -17,7 +17,7 @@
     "viewRepo": "查看仓库",
     "thirdParty": "第三方许可",
     "licensesTitle": "第三方许可",
-    "licensesDescription": "WingHarness 以 GPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
+    "licensesDescription": "WingHarness 以 AGPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
     "licenseSources": "来源项目",
     "licenseNotices": "完整声明",
     "licenseMoin": "moin MIT 许可证",

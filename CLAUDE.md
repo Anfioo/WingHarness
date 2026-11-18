@@ -118,11 +118,12 @@ instead of description. The Claude pages' guide is therefore `CLAUDE_CODE.md`.
 
 ### Licensing and upstream code
 
-WingHarness is GPL-3.0-only. Any code carried over from another project must
+WingHarness is AGPL-3.0-only. Any code carried over from another project must
 pass the licence gate in [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md)
-before it is copied: GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL are
-allowed; AGPL-3.0 and unlicensed projects are not. A ported file keeps an
-attribution header, a whole subsystem gets an `UPSTREAM.md`, and the notices in
+before it is copied: AGPL-3.0, GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL
+are allowed; unlicensed projects and EPL-2.0 without a secondary-licence grant
+are not. A ported file keeps an attribution header, a whole subsystem gets an
+`UPSTREAM.md`, and the notices in
 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and the porting record are
 updated in the same change.
 

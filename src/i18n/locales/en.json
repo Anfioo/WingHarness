@@ -17,7 +17,7 @@
     "viewRepo": "View Repository",
     "thirdParty": "Third-party licenses",
     "licensesTitle": "Third-party licenses",
-    "licensesDescription": "WingHarness is distributed under GPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
+    "licensesDescription": "WingHarness is distributed under AGPL-3.0-only. The projects below are ported into it; every bundled library keeps its own license.",
     "licenseSources": "Source projects",
     "licenseNotices": "Full notices",
     "licenseMoin": "moin MIT",

@@ -103,14 +103,15 @@ could not test (for example, a UI path you could not exercise).
 
 ## Porting code from an upstream project
 
-WingHarness is GPL-3.0-only and ports features from other open-source projects
+WingHarness is AGPL-3.0-only and ports features from other open-source projects
 one at a time. Read [docs/UPSTREAM_PROJECTS.md](docs/UPSTREAM_PROJECTS.md)
 before copying anything.
 
 The short version:
 
-- **Allowed:** GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL-2.0, LGPL.
-- **Forbidden:** AGPL-3.0, and any project with no licence file. Default
+- **Allowed:** AGPL-3.0, GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL-2.0, LGPL.
+- **Forbidden:** any project with no licence file, or one the gate in
+  [docs/UPSTREAM_PROJECTS.md](docs/UPSTREAM_PROJECTS.md) rejects. Default
   copyright is all rights reserved — ask the author first.
 - Keep the attribution header in every ported file.
 - Record the upstream version and what you changed, in the porting record or in
@@ -136,17 +137,18 @@ maintainer directly.
 
 ## Licensing of contributions
 
-WingHarness is released under the GNU General Public License, version 3 only.
+WingHarness is released under the GNU Affero General Public License, version 3
+only.
 
 Unless you explicitly state otherwise, any contribution you intentionally submit
-for inclusion in the project is accepted under GPL-3.0-only, and you represent
+for inclusion in the project is accepted under AGPL-3.0-only, and you represent
 that you are entitled to submit it. **You keep the copyright to your work.**
 
 By submitting a contribution you confirm that:
 
 - you wrote it, or it comes from a source whose licence permits this use;
-- you have not copied code from an AGPL-3.0, unlicensed, or otherwise
-  incompatible project;
+- you have not copied code from an unlicensed or otherwise incompatible
+  project;
 - any upstream-derived portion is declared in the pull request and recorded in
   [docs/UPSTREAM_PROJECTS.md](docs/UPSTREAM_PROJECTS.md).
 

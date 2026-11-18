@@ -3,7 +3,7 @@ name = "wingharness"
 version = "0.0.20"
 description = "WingHarness, a local-first desktop workspace built on Tauri."
 authors = ["Anfioo"]
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 
 # The preview backend is its own package. The workspace root is this directory,

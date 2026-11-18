@@ -6,7 +6,7 @@ that IDE: data sources, connections, introspection and query execution.
 
 - Upstream version at import: **0.1.37** (workspace `version = "0.1.37"`)
 - Upstream commit: **9069c322** (2026-11-06), see the `.dev/openidea` checkout
-- License: Apache-2.0 — one-way compatible with this project's GPL-3.0-only.
+- License: Apache-2.0 — one-way compatible with this project's AGPL-3.0-only.
   The full text is in `licenses/Apache-2.0.txt`.
 - Imported subtree: `crates/ide-db/src/`
 

@@ -2,7 +2,7 @@
 name = "api-core"
 version = "0.0.1"
 description = "HTTP request engine and workspace store for the API client."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

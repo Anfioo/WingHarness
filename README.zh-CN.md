@@ -9,7 +9,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-blue)](./LICENSE)
 
 一个 Tauri v2 桌面应用模板：外壳与原生部分已经接好，写下的第一段代码就是功能，
 而不是窗口边框。
@@ -195,7 +195,7 @@ pnpm release:version
 
 ## 许可证
 
-GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）。见 [LICENSE](./LICENSE)。
+GNU Affero 通用公共许可证第 3 版（仅此版本，AGPL-3.0-only）。见 [LICENSE](./LICENSE)。
 
 版权所有 (C) 2026 Anfioo。
 

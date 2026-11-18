@@ -422,7 +422,7 @@ which is why none of them needs a terminal:
 ### The signature
 
 The Settings tab ends with one card that is about WingHarness rather than about
-Scoop: the app's name, the version from `getVersion()`, the `GPL-3.0-only`
+Scoop: the app's name, the version from `getVersion()`, the `AGPL-3.0-only`
 licence, the author and a link to the source repository, plus the same update
 check the About window offers. It is deliberately not a second way into that
 window — the two buttons it needs are one call each.

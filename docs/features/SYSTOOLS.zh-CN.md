@@ -5,7 +5,7 @@
 独立窗口 `/systools-window?tab=…`。
 
 本模块改编自 [MangoDisk](https://github.com/harry0703/MangoDisk)（GPL-3.0-only），
-这也是本项目采用 GPL-3.0 而非 MIT 的原因。引擎为
+其部分仍适用 GPL-3.0-only，并依 GPLv3 §13 并入本 AGPL-3.0-only 项目。引擎为
 [`src-tauri/systools-core`](../../src-tauri/systools-core)。
 
 ## 六个标签页

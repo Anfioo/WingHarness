@@ -9,7 +9,7 @@ English | [简体中文](./README.zh-CN.md)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-blue)](./LICENSE)
 
 A Tauri v2 desktop template: the shell and the native plumbing are already wired,
 so the first feature you write is a feature and not a window frame.
@@ -203,7 +203,7 @@ route. CI supplies them as the `TAURI_SIGNING_*` repository secrets.
 
 ## License
 
-GNU General Public License, version 3 only (GPL-3.0-only). See
+GNU Affero General Public License, version 3 only (AGPL-3.0-only). See
 [LICENSE](./LICENSE).
 
 Copyright (C) 2026 Anfioo.

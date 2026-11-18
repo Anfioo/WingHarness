@@ -319,7 +319,7 @@ export default function AboutPage() {
               <DialogDescription className="flex flex-wrap items-center gap-2">
                 {t("about.licensesDescription")}
                 <Badge variant="secondary" className="font-mono">
-                  GPL-3.0-only
+                  AGPL-3.0-only
                 </Badge>
               </DialogDescription>
             </DialogHeader>

@@ -6,8 +6,9 @@ analysis, duplicate files and large files. It sits in the sidebar under
 **工作台**, and it can detach into its own window at `/systools-window?tab=…`.
 
 The module is adapted from [MangoDisk](https://github.com/harry0703/MangoDisk)
-(GPL-3.0-only) and is the reason this project is GPL-3.0 rather than MIT. The
-engine is [`src-tauri/systools-core`](../../src-tauri/systools-core).
+(GPL-3.0-only); its portions remain under GPL-3.0-only and are included in this
+AGPL-3.0-only project under GPLv3 §13. The engine is
+[`src-tauri/systools-core`](../../src-tauri/systools-core).
 
 ## The six tabs
 
