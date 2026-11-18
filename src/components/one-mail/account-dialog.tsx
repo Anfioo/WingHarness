@@ -948,6 +948,9 @@ function TestLine({
 }) {
   return (
     <p
+      // The backend detail is English diagnostic text; it stays in the tooltip
+      // so the visible copy is the localized ok / failed line.
+      title={!ok && error ? error : undefined}
       className={cn(
         "flex flex-wrap items-center gap-1.5",
         ok ? "text-foreground" : "text-destructive"
@@ -955,11 +958,6 @@ function TestLine({
     >
       <span className="font-medium">{label}</span>
       <span>{ok ? okText : failedText}</span>
-      {!ok && error && (
-        <span className="text-muted-foreground min-w-0 truncate text-[11px]" title={error}>
-          {error}
-        </span>
-      )}
     </p>
   );
 }

@@ -275,7 +275,9 @@ export default function MessageCard({
             role="alert"
             className="border-destructive/40 bg-destructive/5 text-destructive flex items-center gap-2 rounded-md border px-2 py-1.5 text-xs"
           >
-            <span className="min-w-0 flex-1">{bodyError}</span>
+            <span className="min-w-0 flex-1" title={bodyError}>
+              {t("oneMail.thread.bodyError")}
+            </span>
             <Button type="button" variant="ghost" size="xs" onClick={onLoadBody}>
               <RotateCw aria-hidden className="size-3" />
               {t("oneMail.common.retry")}
