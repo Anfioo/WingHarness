@@ -12,17 +12,18 @@ import { useOneMailPageContext } from "@/pages/one-mail/context";
 import MailFilters from "./mail-filters";
 import { ConversationRow } from "./conversation-row";
 
-/** The fixed row height the virtualizer assumes; the row fills it exactly. */
-const ROW_HEIGHT = 76;
+/** The fixed row height the virtualizer assumes; the row fits inside it. */
+const ROW_HEIGHT = 60;
 const OVERSCAN = 8;
 const SKELETON_ROWS = 6;
 
 /**
- * The conversation lane: the filter bar on top and the virtualized list below.
+ * The conversation lane: the search/filter header on top and the virtualized
+ * person list below.
  *
- * The list owns its scroller (the panel it sits in clips its overflow), and the
- * page state is the only data source — the hook refetches page zero whenever
- * the account, the keyword or the filters change.
+ * The list owns its scroller, and reaching the end of the rendered range asks
+ * the hook for the next page. The hook ignores that call while a page is in
+ * flight or when nothing is left.
  */
 export default function ConversationList() {
   const page = useOneMailPageContext();
@@ -43,8 +44,6 @@ export default function ConversationList() {
   const virtualItems = virtualizer.getVirtualItems();
   const lastIndex = virtualItems.length > 0 ? virtualItems[virtualItems.length - 1].index : -1;
 
-  // Reaching the end of the rendered range asks for the next page; the hook
-  // ignores the call while a page is in flight or when nothing is left.
   useEffect(() => {
     if (!hasMoreConversations || conversationsLoading) return;
     if (lastIndex < conversations.length - 1) return;
@@ -65,8 +64,8 @@ export default function ConversationList() {
   const showError = page.conversationsError !== null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="border-border border-b px-2 py-2">
+    <div className="conversation-list flex h-full min-h-0 flex-col">
+      <div className="shrink-0 px-3 py-2">
         <MailFilters />
       </div>
 
@@ -74,7 +73,7 @@ export default function ConversationList() {
       {showError && conversations.length > 0 && (
         <div
           role="alert"
-          className="border-destructive/40 bg-destructive/5 text-destructive mx-2 mt-2 flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px]"
+          className="border-destructive/40 bg-destructive/5 text-destructive mx-2 mt-1 flex items-center gap-2 rounded-lg border px-2 py-1.5 text-[11px]"
         >
           <AlertCircle aria-hidden className="size-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{page.conversationsError}</span>
@@ -99,7 +98,7 @@ export default function ConversationList() {
           {Array.from({ length: SKELETON_ROWS }, (_, index) => (
             <div
               key={index}
-              className="flex items-center gap-3 px-3"
+              className="flex items-center gap-3 px-3.5"
               style={{ height: ROW_HEIGHT }}
             >
               <Skeleton className="size-9 shrink-0 rounded-full" />
@@ -107,7 +106,6 @@ export default function ConversationList() {
                 <Skeleton className="h-3 w-1/2" />
                 <Skeleton className="h-3 w-4/5" />
               </div>
-              <Skeleton className="h-3 w-8 shrink-0" />
             </div>
           ))}
         </div>
@@ -126,7 +124,7 @@ export default function ConversationList() {
           }
         />
       ) : (
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto pb-2">
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualItems.map((virtualItem) => {
               const conversation = conversations[virtualItem.index];
@@ -135,7 +133,10 @@ export default function ConversationList() {
                 <div
                   key={virtualItem.key}
                   className="absolute inset-x-0 top-0"
-                  style={{ height: ROW_HEIGHT, transform: `translateY(${virtualItem.start}px)` }}
+                  style={{
+                    height: ROW_HEIGHT,
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
                 >
                   <ConversationRow
                     item={conversation}
@@ -146,21 +147,6 @@ export default function ConversationList() {
               );
             })}
           </div>
-        </div>
-      )}
-
-      {conversations.length > 0 && hasMoreConversations && (
-        <div className="border-border flex justify-center border-t px-2 py-1.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={conversationsLoading}
-            onClick={loadMoreConversations}
-          >
-            {conversationsLoading
-              ? t("oneMail.conversations.loadingMore")
-              : t("oneMail.conversations.loadMore")}
-          </Button>
         </div>
       )}
     </div>

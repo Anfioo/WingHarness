@@ -1,0 +1,195 @@
+/* Part of the one-mail module, adapted from OneMail
+   (https://github.com/zhihui-hu/one-mail), AGPL-3.0-only.
+   See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record. */
+
+/* The mail workspace keeps the source project's two-pane palette: a cool
+   sidebar and list, a neutral reading surface and a warmer outgoing bubble. */
+[data-workspace="one-mail"] {
+  --mail-sidebar: #e7f0fc;
+  --mail-list: #eef3fb;
+  --mail-hover: #e5edfa;
+  --mail-selected: #d7e6fb;
+  --mail-background: #f5f5f5;
+  --mail-bubble: #ffffff;
+  --mail-outgoing: #d8e9ff;
+  --mail-outgoing-foreground: #213e62;
+  --mail-avatar: #dce9fa;
+  --mail-avatar-foreground: #34577f;
+}
+
+.dark [data-workspace="one-mail"] {
+  --mail-sidebar: #222d40;
+  --mail-list: #273243;
+  --mail-hover: #2e3d53;
+  --mail-selected: #354c6b;
+  --mail-background: #202020;
+  --mail-bubble: #353535;
+  --mail-outgoing: #294e7e;
+  --mail-outgoing-foreground: #eff6ff;
+  --mail-avatar: #344963;
+  --mail-avatar-foreground: #d9e9ff;
+}
+
+[data-workspace="one-mail"] {
+  background: var(--mail-background);
+}
+
+.one-mail-sidebar {
+  background: var(--mail-sidebar);
+}
+
+.conversation-list {
+  background: var(--mail-list);
+}
+
+.conversation-row:hover {
+  background: var(--mail-hover);
+}
+
+.conversation-row.is-selected {
+  background: var(--mail-selected);
+}
+
+.conversation-avatar {
+  background: var(--mail-avatar);
+  color: var(--mail-avatar-foreground);
+}
+
+.conversation-avatar.is-outgoing {
+  background: var(--mail-outgoing);
+  color: var(--mail-outgoing-foreground);
+}
+
+.conversation-group-avatar {
+  background: var(--muted);
+}
+
+.conversation-unread {
+  background: #e84444;
+  color: #fff;
+}
+
+.conversation-pane,
+.conversation-empty {
+  background: var(--mail-background);
+}
+
+.conversation-bubble {
+  background: var(--mail-bubble);
+  color: var(--foreground);
+}
+
+.conversation-bubble::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.conversation-bubble.is-outgoing {
+  background: var(--mail-outgoing);
+  color: var(--mail-outgoing-foreground);
+  --muted-foreground: #385c87;
+  --accent: #bdd8fa;
+  --accent-foreground: #213e62;
+}
+
+.dark .conversation-bubble.is-outgoing {
+  --muted-foreground: #c4d9f3;
+  --accent: #36629a;
+  --accent-foreground: #eff6ff;
+}
+
+.conversation-bubble.is-outgoing::before {
+  right: -4px;
+  left: auto;
+}
+
+/* The message actions are quiet until the message is hovered or focused. */
+@media (hover: hover) and (pointer: fine) {
+  .conversation-message-actions button {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+  }
+
+  .conversation-message:hover .conversation-message-actions button,
+  .conversation-message:focus-within .conversation-message-actions button {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.conversation-composer {
+  background: var(--mail-bubble);
+  transition: border-color 150ms ease;
+}
+
+.conversation-composer:focus-within {
+  border-color: var(--ring);
+}
+
+.conversation-send {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: none;
+}
+
+.conversation-send:hover:not(:disabled) {
+  background: var(--primary);
+  opacity: 0.9;
+}
+
+/* -------------------------------------------------------------------------
+   Message HTML
+   The sender's layout is inline; these rules only keep it inside the bubble.
+   No border is imposed on tables, cells or quotes — those lines belong to the
+   sender, not to the reading chrome.
+   ------------------------------------------------------------------------- */
+
+.mail-html {
+  overflow-wrap: anywhere;
+}
+
+.mail-html img,
+.mail-html video,
+.mail-html canvas,
+.mail-html svg {
+  max-width: 100% !important;
+}
+
+.mail-html img:not([height]),
+.mail-html video,
+.mail-html canvas,
+.mail-html svg {
+  height: auto;
+}
+
+.mail-html table {
+  max-width: 100% !important;
+}
+
+.mail-html [data-mail-blocked-only="true"],
+.mail-html img[data-mail-blocked-resource="true"]:not([src]):not([srcset]) {
+  display: none !important;
+}
+
+.conversation-html {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-wrap: anywhere;
+  color: #222;
+  background: #fff;
+  padding: 8px;
+  border-radius: 3px;
+}
+
+.conversation-html a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

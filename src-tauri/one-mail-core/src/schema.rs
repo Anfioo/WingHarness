@@ -318,6 +318,24 @@ mod tests {
         }
     }
 
+    /// A database written by a newer build must not be downgraded: the build
+    /// cannot know what that version wrote, so it leaves the file alone.
+    #[tokio::test]
+    async fn a_newer_schema_version_is_left_untouched() {
+        let directory = tempfile::tempdir().unwrap();
+        let pool = store::open_at(&directory.path().join("onemail.db"))
+            .await
+            .unwrap();
+        sqlx::query("PRAGMA user_version = 99")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        migrate(&pool).await.unwrap();
+
+        assert_eq!(read_version(&pool).await.unwrap(), 99);
+    }
+
     #[tokio::test]
     async fn migrating_twice_is_a_no_op() {
         let directory = tempfile::tempdir().unwrap();

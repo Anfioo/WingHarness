@@ -640,6 +640,9 @@ pub struct ConversationThread {
     pub account_id: i64,
     pub participants: Vec<ConversationParticipant>,
     pub groups: Vec<ThreadGroup>,
+    /// True when the thread holds more messages than the 500 the query reads,
+    /// so the view can say the oldest ones are not shown.
+    pub truncated: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

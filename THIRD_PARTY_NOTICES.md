@@ -127,6 +127,31 @@ BitTorrent, media scraping, self-update, old-data migration and in-app aria2c
 installation were not carried over. See `src-tauri/moin-core/UPSTREAM.md` for
 the porting record.
 
+### OneMail
+
+- Project: [OneMail](https://github.com/zhihui-hu/one-mail)
+- Version: 0.1.0 (commit `181ccb6`)
+- License: AGPL-3.0-only
+- License text: [LICENSE](./LICENSE)
+
+OneMail / Copyright (c) Huzhihui / Licensed under the GNU Affero General Public
+License v3.0 only (AGPL-3.0-only). The upstream repository has no `LICENSE`
+file; its README states the licence.
+
+`src-tauri/one-mail-core` and the `/one-mail` page are adapted from OneMail:
+the account model and provider presets, IMAP synchronisation, MIME parsing,
+SMTP sending, conversation aggregation, the composer, the outbox and the
+sanitized reading view, including the message-HTML preparer, the HTML-to-text
+conversion and the conversation layout. The crate is reworked for this app's
+storage, command and UI layers; no upstream file is byte-identical. OAuth, the
+Gmail and Graph sync providers, the AI assistant, backup/restore, the background
+supervisor and the upstream window helpers were not carried over. The provider
+marks under `src/assets/one-mail/provider-icons/` come from the same upstream
+set; the Simple Icons marks are CC0-1.0 and the Outlook and NetEase favicons are
+used only to identify those services. WingHarness as a whole is AGPL-3.0-only;
+the files under `src-tauri/one-mail-core/` keep their attribution headers, and
+`src-tauri/one-mail-core/UPSTREAM.md` records the modifications.
+
 ### openidea
 
 - Project: [openidea](https://github.com/l0ng-ai/openidea)
@@ -359,6 +384,8 @@ its crate source.
 
 | Crate | License |
 |-------|---------|
+| `async-imap` | MIT OR Apache-2.0 |
+| `async-native-tls` | MIT OR Apache-2.0 |
 | `async-trait` | MIT OR Apache-2.0 |
 | `base64` | MIT OR Apache-2.0 |
 | `blake3` | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception |
@@ -377,7 +404,9 @@ its crate source.
 | `hex` | MIT OR Apache-2.0 |
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
+| `lettre` | MIT |
 | `log` | MIT OR Apache-2.0 |
+| `mailparse` | 0BSD |
 | `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
@@ -394,6 +423,7 @@ its crate source.
 | `serde_yaml_ng` | MIT |
 | `serde_yml` | MIT OR Apache-2.0 |
 | `sha2` | MIT OR Apache-2.0 |
+| `sqlx` | MIT OR Apache-2.0 |
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-plugin-dialog` | Apache-2.0 OR MIT |
 | `tauri-plugin-global-shortcut` | Apache-2.0 OR MIT |
@@ -405,6 +435,7 @@ its crate source.
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |

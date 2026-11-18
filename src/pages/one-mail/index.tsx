@@ -9,38 +9,33 @@ import AccountRail from "@/components/one-mail/account-rail";
 import ComposerDialog from "@/components/one-mail/composer-dialog";
 import ConversationList from "@/components/one-mail/conversation-list";
 import ConversationPane from "@/components/one-mail/conversation-pane";
+import MailStatusBar from "@/components/one-mail/mail-status-bar";
 import OutboxPanel from "@/components/one-mail/outbox-panel";
 import RawMessageDialog from "@/components/one-mail/raw-message-dialog";
-import SyncBadge from "@/components/one-mail/sync-badge";
-import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useOneMailPage } from "@/hooks/use-one-mail-page";
 import { OneMailPageProvider } from "./context";
+import "@/components/one-mail/one-mail.css";
 
 /**
- * The one-mail page shell: the header and the three resizable lanes around the
- * page hook. The overlays (compose, account form, raw message, outbox) stay
- * inside the page; no window is opened.
+ * The mail workspace: the account rail, the person list and the thread, plus
+ * the status bar at the foot. The page is full-bleed inside the app shell so
+ * the three lanes own the whole content area; the overlays (compose, account
+ * form, raw message and outbox) stay inside the page and open no windows.
  */
 export default function OneMailPage() {
-  const { t } = useAppTranslation();
   const page = useOneMailPage();
 
   return (
     <OneMailPageProvider value={page}>
       <AppShell>
-        <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-          <header className="flex items-start justify-between gap-4">
-            <div className="space-y-1">
-              <h1 className="text-xl font-semibold">{t("oneMail.title")}</h1>
-              <p className="text-muted-foreground text-sm">{t("oneMail.subtitle")}</p>
-            </div>
-            <SyncBadge />
-          </header>
-
+        <div
+          data-workspace="one-mail"
+          className="bg-background -m-6 flex h-[calc(100%+3rem)] min-h-0 w-[calc(100%+3rem)] flex-col overflow-hidden"
+        >
           {page.error && (
             <div
               role="alert"
-              className="border-destructive/40 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm"
+              className="border-destructive/40 bg-destructive/5 text-destructive shrink-0 border-b px-3 py-1.5 text-xs"
             >
               {page.error}
             </div>
@@ -50,8 +45,10 @@ export default function OneMailPage() {
             <Group id="one-mail-workspace" className="min-h-0 flex-1">
               <Panel
                 id="one-mail-accounts"
-                defaultSize="18"
-                minSize="12"
+                defaultSize={260}
+                minSize={220}
+                maxSize={420}
+                groupResizeBehavior="preserve-pixel-size"
                 className="min-w-0 overflow-hidden"
               >
                 <AccountRail />
@@ -59,24 +56,28 @@ export default function OneMailPage() {
               <Separator className="bg-border w-px" />
               <Panel
                 id="one-mail-conversations"
-                defaultSize="30"
-                minSize="18"
+                defaultSize={304}
+                minSize={260}
+                maxSize={440}
+                groupResizeBehavior="preserve-pixel-size"
                 className="min-w-0 overflow-hidden"
               >
                 <ConversationList />
               </Panel>
               <Separator className="bg-border w-px" />
-              <Panel id="one-mail-thread" minSize="0" className="min-w-0 overflow-hidden">
+              <Panel id="one-mail-thread" minSize={0} className="min-w-0 overflow-hidden">
                 <ConversationPane />
               </Panel>
             </Group>
           </div>
 
-          <ComposerDialog />
-          <AccountDialog />
-          <RawMessageDialog />
-          <OutboxPanel />
+          <MailStatusBar />
         </div>
+
+        <ComposerDialog />
+        <AccountDialog />
+        <RawMessageDialog />
+        <OutboxPanel />
       </AppShell>
     </OneMailPageProvider>
   );

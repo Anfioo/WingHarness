@@ -180,6 +180,17 @@ the RPC listener after proxy setup and stops it on exit. The crate is adapted
 from [moin](https://github.com/exxvius/moin) (MIT); `moin-core/UPSTREAM.md`
 records what differs. See [../docs/features/MOIN.md](../docs/features/MOIN.md).
 
+`one-mail-core/` is a workspace member: the mail engine behind the `/one-mail`
+page — the SQLite store and migrations, provider presets and accounts,
+IMAP/SMTP transport, MIME parsing, sync orchestration, conversation
+aggregation, FTS5 search, compose and the outbox. `src/lib.rs` sets
+`one_mail_core::paths::CONFIG_DIR` to `<data dir>/one-mail`, manages an
+`OneMailState` (lazy pool plus the single sync lock) and shuts the pool down on
+exit. The crate is adapted from
+[OneMail](https://github.com/zhihui-hu/one-mail) (AGPL-3.0-only);
+`one-mail-core/UPSTREAM.md` records what differs. See
+[../docs/features/ONE_MAIL.md](../docs/features/ONE_MAIL.md).
+
 `commands/tray_apps.rs` reads Scoop's Start Menu shortcuts for the tray's
 second-level apps menu and keeps `<data dir>/tray.json`. See
 [../docs/features/TRAY_MENU.md](../docs/features/TRAY_MENU.md).
@@ -241,6 +252,7 @@ src-tauri/
 ├── space-preview-core/     # Workspace crate: preview I/O, encodings, presentations, icons, space agent
 ├── db-core/                # Workspace crate: the database engine (settings, pools, history, workspace, plans)
 ├── moin-core/              # Workspace crate: HTTP downloads, queue, categories, aria2 and extension RPC
+├── one-mail-core/          # Workspace crate: mail accounts, IMAP/SMTP, MIME, conversations, compose and outbox
 ├── icons/
 └── src/
     ├── main.rs             # Entry point
