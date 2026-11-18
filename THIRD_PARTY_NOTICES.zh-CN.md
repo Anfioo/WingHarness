@@ -94,6 +94,23 @@ Licensed under the MIT License.
 `extension/` 承载改编后的 MV3 源码。BitTorrent、媒体站点抓取、自更新、旧数据迁移和
 应用内 aria2c 安装没有移植。移植记录见 `src-tauri/moin-core/UPSTREAM.md`。
 
+### OneMail
+
+- 项目：[OneMail](https://github.com/zhihui-hu/one-mail)
+- 版本：0.1.0（提交 `181ccb6`）
+- 许可证：AGPL-3.0-only
+- 许可证文本：[LICENSE](./LICENSE)
+
+OneMail / Copyright (c) Huzhihui / 按 GNU Affero 通用公共许可证第 3 版（仅此版本，
+AGPL-3.0-only）授权。上游仓库没有 `LICENSE` 文件，许可证由其 README 声明。
+
+`src-tauri/one-mail-core` 与 `/one-mail` 页面改编自 OneMail：账号模型与服务商预设、
+IMAP 同步、MIME 解析、SMTP 发送、会话聚合、写信、发件箱以及净化后的阅读界面。该
+crate 已按本仓的存储、命令与 UI 层重写，没有逐字节相同的上游文件。OAuth、
+Gmail 与 Graph 同步器、AI 助手、备份／恢复、后台 supervisor 以及上游的窗口辅助
+代码未移植。WingHarness 整体为 AGPL-3.0-only；`src-tauri/one-mail-core/` 下的文件
+保留归属声明，修改内容记录在 `src-tauri/one-mail-core/UPSTREAM.md`。
+
 ### openidea
 
 - 项目：[openidea](https://github.com/l0ng-ai/openidea)
@@ -311,6 +328,8 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 
 | crate | 许可证 |
 |-------|--------|
+| `async-imap` | MIT OR Apache-2.0 |
+| `async-native-tls` | MIT OR Apache-2.0 |
 | `async-trait` | MIT OR Apache-2.0 |
 | `base64` | MIT OR Apache-2.0 |
 | `blake3` | CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception |
@@ -329,7 +348,9 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `hex` | MIT OR Apache-2.0 |
 | `indexmap` | Apache-2.0 OR MIT |
 | `keyring` | MIT OR Apache-2.0 |
+| `lettre` | MIT |
 | `log` | MIT OR Apache-2.0 |
+| `mailparse` | 0BSD |
 | `mime_guess` | MIT |
 | `notify-debouncer-mini` | MIT OR Apache-2.0 |
 | `once_cell` | MIT OR Apache-2.0 |
@@ -346,6 +367,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `serde_yaml_ng` | MIT |
 | `serde_yml` | MIT OR Apache-2.0 |
 | `sha2` | MIT OR Apache-2.0 |
+| `sqlx` | MIT OR Apache-2.0 |
 | `tauri` | Apache-2.0 OR MIT |
 | `tauri-plugin-dialog` | Apache-2.0 OR MIT |
 | `tauri-plugin-global-shortcut` | Apache-2.0 OR MIT |
@@ -357,6 +379,7 @@ base64、`SHA256:` 前缀）与连接超时。未复制其 Vue 前端；本应�
 | `tempfile` | MIT OR Apache-2.0 |
 | `thiserror` | MIT OR Apache-2.0 |
 | `tokio` | MIT |
+| `tokio-util` | MIT |
 | `toml` | MIT OR Apache-2.0 |
 | `toml_edit` | MIT OR Apache-2.0 |
 | `url` | MIT OR Apache-2.0 |

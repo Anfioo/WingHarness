@@ -22,7 +22,8 @@ CSS v4 + shadcn/ui.
   `preview-window` (the hidden standalone preview window), `ai-config`,
   `claude-chat`, the Claude history and workflow pages, `cc-switch`,
   `mcp-hub`, `clash`, `plugins`, `private-registry`, `moin` (HTTP/HTTPS
-  downloads, categories and settings at `/moin`), `scoop` (install, apps,
+  downloads, categories and settings at `/moin`), `one-mail` (IMAP/SMTP mail,
+  conversations, compose and outbox at `/one-mail`), `scoop` (install, apps,
   buckets and the tray menu settings at `/scoop`)
 - **Windows** (`windows/`): `about`, `settings`, `tray-menu`, `update`
 - **Chrome** (`components/`): `app-shell.tsx` (sidebar + header, shared by every
@@ -78,6 +79,7 @@ functions and types — it is the only thing components import:
 | `local-shell` | the terminal's pseudo-console, and its font list |
 | `moin` | 29 commands for HTTP downloads, queue actions, categories, settings, aria2 detection and extension RPC |
 | `notes` | the Markdown store |
+| `one-mail` | 32 commands for accounts and folders, conversation and message reading, sync, compose / outbox and settings |
 | `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
 | `space-preview` | the space preview engine's `sp_*` commands: file inspection and ranged reads, text write-back, preferences, the standalone window, system icons and the Windows space agent |
 | `projects` | the recent-project list, the active project, and remember / forget / set-active |
