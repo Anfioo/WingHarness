@@ -230,7 +230,9 @@ pub fn argus_set_efficiency(
     result
 }
 
-#[tauri::command]
+// The status probe may have to wait for the service pipe (a few seconds when
+// it is running but unresponsive), so it must not block the main thread.
+#[tauri::command(async)]
 pub fn argus_service_status() -> Result<ServiceStatus, ArgusError> {
     service::status()
 }
