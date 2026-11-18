@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tray-apps-list"
+description = "Enables the tray_apps_list command without any pre-configured scope."
+commands.allow = ["tray_apps_list"]
+
+[[permission]]
+identifier = "deny-tray-apps-list"
+description = "Denies the tray_apps_list command without any pre-configured scope."
+commands.deny = ["tray_apps_list"]

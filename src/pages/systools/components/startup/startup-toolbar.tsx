@@ -2,16 +2,21 @@ import { Loader2, RefreshCw, Search, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { STARTUP_SOURCE_FILTERS, type StartupSourceFilter } from "@/lib/systools/startup";
+import {
+  STARTUP_STATE_FILTERS,
+  type StartupStateCounts,
+  type StartupStateFilter,
+} from "@/lib/systools/startup";
 import { cn } from "@/lib/utils";
-import { startupFilterLabelKey } from "./startup-labels";
 
 type StartupToolbarProps = {
-  filter: StartupSourceFilter;
-  onFilterChange: (filter: StartupSourceFilter) => void;
-  counts: Record<StartupSourceFilter, number>;
+  filter: StartupStateFilter;
+  onFilterChange: (filter: StartupStateFilter) => void;
+  counts: StartupStateCounts;
   query: string;
   onQueryChange: (query: string) => void;
+  showSystemItems: boolean;
+  onShowSystemItemsChange: (show: boolean) => void;
   scanning: boolean;
   cancellingScan: boolean;
   hasCatalog: boolean;
@@ -21,13 +26,15 @@ type StartupToolbarProps = {
   onCancelScan: () => void;
 };
 
-/** Source facet counts, search, and the scan actions. */
+/** State tabs, search, the system-item switch and the scan actions. */
 export function StartupToolbar({
   filter,
   onFilterChange,
   counts,
   query,
   onQueryChange,
+  showSystemItems,
+  onShowSystemItemsChange,
   scanning,
   cancellingScan,
   hasCatalog,
@@ -51,10 +58,10 @@ export function StartupToolbar({
       </div>
 
       <nav
-        aria-label={t("systools.startup.title")}
+        aria-label={t("systools.startup.filterLabel")}
         className="bg-muted/70 flex flex-wrap items-center gap-0.5 rounded-lg p-0.5"
       >
-        {STARTUP_SOURCE_FILTERS.map((value) => {
+        {STARTUP_STATE_FILTERS.map((value) => {
           const active = value === filter;
           return (
             <button
@@ -69,12 +76,22 @@ export function StartupToolbar({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <span>{t(startupFilterLabelKey(value))}</span>
+              <span>{t(`systools.startup.filters.${value}`)}</span>
               <span className="text-muted-foreground tabular-nums">{counts[value]}</span>
             </button>
           );
         })}
       </nav>
+
+      <label className="text-muted-foreground flex shrink-0 items-center gap-1.5 text-xs">
+        <input
+          type="checkbox"
+          checked={showSystemItems}
+          onChange={(event) => onShowSystemItemsChange(event.target.checked)}
+          className="accent-primary size-3.5"
+        />
+        {t("systools.startup.showSystemItems")}
+      </label>
 
       <div className="ml-auto flex items-center gap-2">
         {scanning && (

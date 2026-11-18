@@ -2,7 +2,7 @@
 name = "server-core"
 version = "0.0.1"
 description = "SSH and SFTP engine for the server manager window."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

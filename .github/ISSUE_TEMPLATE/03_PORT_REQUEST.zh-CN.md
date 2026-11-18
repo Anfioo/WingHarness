@@ -21,8 +21,9 @@ assignees: ""
 
 ## 许可证检查
 
-WingHarness 使用 GPL-3.0-only。可以从 GPL-3.0、MIT、BSD、ISC、Apache-2.0、
-MPL-2.0 和 LGPL 项目移植代码；AGPL-3.0 和无许可证的项目不能使用。
+WingHarness 使用 AGPL-3.0-only。可以从 AGPL-3.0、GPL-3.0、MIT、BSD、ISC、
+Apache-2.0、MPL-2.0 和 LGPL 项目移植代码；无许可证的项目，以及被
+`docs/UPSTREAM_PROJECTS.zh-CN.md` 准入表拒绝的许可证，不能使用。
 
 - [ ] 上游许可证在允许列表内
 - [ ] 上游仓库中有许可证文件

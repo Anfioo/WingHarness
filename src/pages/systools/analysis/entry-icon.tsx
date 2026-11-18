@@ -1,115 +1,42 @@
-import {
-  Database,
-  File,
-  FileArchive,
-  FileAudio,
-  FileCode,
-  FileImage,
-  FileText,
-  FileVideo,
-  Folder,
-  type LucideIcon,
-} from "lucide-react";
-import { fileExtension, type DirectoryEntryInfo } from "@/lib/systools/storage";
+import { useEffect, useState } from "react";
+import { File, Folder } from "lucide-react";
+import { systemFileIcon } from "@/lib/space-preview/bridge";
+import type { DirectoryEntryInfo } from "@/lib/systools/storage";
 import { cn } from "@/lib/utils";
 
-const EXTENSION_ICONS: Readonly<Record<string, LucideIcon>> = {
-  jpg: FileImage,
-  jpeg: FileImage,
-  png: FileImage,
-  gif: FileImage,
-  webp: FileImage,
-  bmp: FileImage,
-  svg: FileImage,
-  ico: FileImage,
-  tif: FileImage,
-  tiff: FileImage,
-  heic: FileImage,
-  avif: FileImage,
-  psd: FileImage,
-  mp4: FileVideo,
-  mkv: FileVideo,
-  avi: FileVideo,
-  mov: FileVideo,
-  wmv: FileVideo,
-  webm: FileVideo,
-  flv: FileVideo,
-  m4v: FileVideo,
-  mpg: FileVideo,
-  mpeg: FileVideo,
-  mp3: FileAudio,
-  wav: FileAudio,
-  flac: FileAudio,
-  aac: FileAudio,
-  ogg: FileAudio,
-  m4a: FileAudio,
-  wma: FileAudio,
-  opus: FileAudio,
-  zip: FileArchive,
-  rar: FileArchive,
-  "7z": FileArchive,
-  tar: FileArchive,
-  gz: FileArchive,
-  tgz: FileArchive,
-  xz: FileArchive,
-  bz2: FileArchive,
-  iso: FileArchive,
-  cab: FileArchive,
-  txt: FileText,
-  md: FileText,
-  log: FileText,
-  pdf: FileText,
-  doc: FileText,
-  docx: FileText,
-  rtf: FileText,
-  epub: FileText,
-  ts: FileCode,
-  tsx: FileCode,
-  js: FileCode,
-  jsx: FileCode,
-  rs: FileCode,
-  py: FileCode,
-  java: FileCode,
-  kt: FileCode,
-  c: FileCode,
-  h: FileCode,
-  cpp: FileCode,
-  hpp: FileCode,
-  cs: FileCode,
-  go: FileCode,
-  rb: FileCode,
-  php: FileCode,
-  swift: FileCode,
-  lua: FileCode,
-  html: FileCode,
-  css: FileCode,
-  scss: FileCode,
-  less: FileCode,
-  sql: FileCode,
-  sh: FileCode,
-  ps1: FileCode,
-  bat: FileCode,
-  vue: FileCode,
-  svelte: FileCode,
-  json: FileCode,
-  xml: FileCode,
-  yaml: FileCode,
-  yml: FileCode,
-  db: Database,
-  sqlite: Database,
-  sqlite3: Database,
-  mdb: Database,
-  dat: Database,
-};
-
 type AnalysisEntryIconProps = {
-  entry: Pick<DirectoryEntryInfo, "name" | "isDirectory">;
+  entry: Pick<DirectoryEntryInfo, "name" | "path" | "isDirectory">;
   className?: string;
 };
 
-/** Small type icon mirroring the extension families used by the chart palette. */
+/** The shell's own icon for an entry, falling back to a generic glyph while it loads. */
 export function AnalysisEntryIcon({ entry, className }: AnalysisEntryIconProps) {
-  const Icon = entry.isDirectory ? Folder : (EXTENSION_ICONS[fileExtension(entry.name)] ?? File);
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setSrc(null);
+    void systemFileIcon(entry.name, entry.path, entry.isDirectory).then((url) => {
+      if (active) setSrc(url ?? null);
+    });
+    return () => {
+      active = false;
+    };
+  }, [entry.name, entry.path, entry.isDirectory]);
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        draggable={false}
+        aria-hidden="true"
+        className={cn("size-4 shrink-0 object-contain", className)}
+      />
+    );
+  }
+
+  const Icon = entry.isDirectory ? Folder : File;
   return (
     <Icon aria-hidden="true" className={cn("text-muted-foreground size-3.5 shrink-0", className)} />
   );

@@ -118,11 +118,12 @@ instead of description. The Claude pages' guide is therefore `CLAUDE_CODE.md`.
 
 ### Licensing and upstream code
 
-WingHarness is GPL-3.0-only. Any code carried over from another project must
+WingHarness is AGPL-3.0-only. Any code carried over from another project must
 pass the licence gate in [docs/UPSTREAM_PROJECTS.md](./docs/UPSTREAM_PROJECTS.md)
-before it is copied: GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL are
-allowed; AGPL-3.0 and unlicensed projects are not. A ported file keeps an
-attribution header, a whole subsystem gets an `UPSTREAM.md`, and the notices in
+before it is copied: AGPL-3.0, GPL-3.0, MIT, BSD, ISC, Apache-2.0, MPL and LGPL
+are allowed; unlicensed projects and EPL-2.0 without a secondary-licence grant
+are not. A ported file keeps an attribution header, a whole subsystem gets an
+`UPSTREAM.md`, and the notices in
 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) and the porting record are
 updated in the same change.
 
@@ -160,3 +161,4 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console
 - [TERMINAL.md](./docs/features/TERMINAL.md) — the pseudo-console page
 - [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) — the About window's third-party licence dialog
+- [TRAY_MENU.md](./docs/features/TRAY_MENU.md) — the tray popup, its apps' second-level menu and the Scoop tab that curates it

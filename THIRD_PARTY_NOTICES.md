@@ -2,10 +2,10 @@
 
 WingHarness — Copyright (C) 2026 Anfioo
 
-WingHarness is distributed under the GNU General Public License, version 3 only
-(GPL-3.0-only); see [LICENSE](./LICENSE). This file records the third-party work
-redistributed with it and the terms each part keeps. It does not alter the
-license of the project's own code.
+WingHarness is distributed under the GNU Affero General Public License, version
+3 only (AGPL-3.0-only); see [LICENSE](./LICENSE). This file records the
+third-party work redistributed with it and the terms each part keeps. It does
+not alter the license of the project's own code.
 
 The English text of this file is authoritative; a Chinese translation is in
 [THIRD_PARTY_NOTICES.zh-CN.md](./THIRD_PARTY_NOTICES.zh-CN.md). The inventory of
@@ -63,14 +63,15 @@ behaviour port of jetbrains-cc-gui; one generic helper (`cn.ts`) was copied.
 - Project: [MangoDisk](https://github.com/harry0703/MangoDisk)
 - Version: 1.2.2
 - License: GPL-3.0-only
-- License text: [LICENSE](./LICENSE)
+- License text: [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - Copyright: the MangoDisk contributors.
 
 The system tools module (`src-tauri/systools-core` and the systools pages) is
 derived from MangoDisk: disk analysis, duplicate files, large files, startup
 items, application uninstall / leftovers, and system settings. Ten files were
-byte-identical at import. Those portions are redistributed under GPL-3.0-only;
-the full license text is in [LICENSE](./LICENSE). The ported subsystem is
+byte-identical at import. Those portions remain under GPL-3.0-only, and the
+full GPL text is in [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt); the
+combined work is distributed under AGPL-3.0-only. The ported subsystem is
 Windows-only; macOS and Linux code paths were not carried over.
 
 ### McpHub
@@ -201,14 +202,15 @@ not carried over. See `src-tauri/space-preview-core/UPSTREAM.md` and
 
 - Project: [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
 - License: GPL-3.0-only
-- License text: [LICENSE](./LICENSE)
+- License text: [licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - Copyright: the TizuMark contributors.
 
 The Markdown editor module (`src-tauri/md-editor-core` and the md-editor pages)
 is a port of TizuMark. Its native PDF export (WebView2 `PrintToPdf`, built on
 `webview2-com` / `windows`), outline extraction and export approach are
-substantial ports and remain under GPL-3.0-only. The frontend is a rewrite for
-React 19 and CodeMirror 6 rather than a copy of TizuMark's implementation.
+substantial ports and remain under GPL-3.0-only, included in the combined
+AGPL-3.0-only work. The frontend is a rewrite for React 19 and CodeMirror 6
+rather than a copy of TizuMark's implementation.
 
 ### tweakcn
 
@@ -409,13 +411,13 @@ exceptions are:
 | `lightningcss`, `lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`, `vite` | Build-time only; not redistributed in the application. |
 | `buffers` | none stated | `exceljs` → `unzipper` → `binary` | **Not redistributed.** Vite resolves ExcelJS's `browser` entry (`dist/exceljs.min.js`), which uses JSZip and contains no `unzipper`, `binary` or `buffers` code. |
 
-MPL-2.0 is a file-level copyleft and is compatible with GPL-3.0-only; the
+MPL-2.0 is a file-level copyleft and is compatible with AGPL-3.0-only; the
 MPL-2.0 components above are build tooling and are not redistributed. The
 Apache-2.0 text is reproduced in
 [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt).
 
 The MIT, BSD, ISC, Apache-2.0, MPL-2.0 and LGPL components are compatible with
-GPL-3.0-only: the combined work is distributed under GPL-3.0-only, while each
+AGPL-3.0-only: the combined work is distributed under AGPL-3.0-only, while each
 library keeps its own terms. `7z-wasm` is covered separately by the notice in
 §3, which must accompany distribution.
 

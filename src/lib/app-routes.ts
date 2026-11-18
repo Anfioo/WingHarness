@@ -12,6 +12,7 @@ import {
   GitBranch,
   GitFork,
   History,
+  Mail,
   NotebookPen,
   Network,
   Download,
@@ -37,6 +38,7 @@ export type AppRouteGroup =
   | "frp"
   | "mdEditor"
   | "ports"
+  | "oneMail"
   | "moin"
   | "codeg";
 
@@ -72,6 +74,7 @@ export type AppRouteId =
   | "project"
   | "mdEditor"
   | "ports"
+  | "oneMail"
   | "moin"
   | "codeg"
   | "codegDev";
@@ -178,6 +181,18 @@ const routeTable: AppRoute[] = [
     items: ["监听端口", "固定端口", "结束进程"],
   },
   {
+    id: "oneMail",
+    group: "oneMail",
+    path: "/one-mail",
+    title: "邮件",
+    navLabel: "邮件",
+    description:
+      "按往来人聚合的邮箱：账号栏切换账号与文件夹，中间列出会话，右侧按话题展开收发记录。邮件只从服务器拉取到本机数据目录，正文进入视口后再取，HTML 正文净化后显示并默认阻断远程图片。",
+    icon: Mail,
+    scope: "侧栏页面 / 账号 + 会话 + 对话",
+    items: ["账号与文件夹同步", "按往来人聚合的会话", "Markdown 写信与发件箱", "FTS5 搜索与筛选"],
+  },
+  {
     id: "servers",
     group: "servers",
     path: "/servers",
@@ -230,10 +245,10 @@ const routeTable: AppRoute[] = [
     title: "Scoop",
     navLabel: "Scoop",
     description:
-      "安装并使用 Scoop：安装目录、SCOOP / SCOOP_GLOBAL 环境变量与下载代理都在这一页设置。安装完成后可以查看版本、已装软件与桶，按名称搜索并安装新软件；每次操作都会显示实际执行的命令、代理和终端输出。",
+      "安装并使用 Scoop：安装目录、SCOOP / SCOOP_GLOBAL 环境变量与下载代理都在这一页设置。安装完成后可以查看版本、已装软件与桶，按名称搜索并安装新软件，并在「托盘菜单」tab 里决定托盘二级菜单显示哪些 Scoop 应用、以什么顺序显示；每次操作都会显示实际执行的命令、代理和终端输出。",
     icon: Boxes,
     scope: "本机 / Windows 包管理",
-    items: ["一键安装", "目录与代理", "已装软件与桶", "搜索并安装"],
+    items: ["一键安装", "目录与代理", "已装软件与桶", "搜索并安装", "托盘菜单排序"],
   },
   {
     id: "clash",

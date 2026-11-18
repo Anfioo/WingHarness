@@ -9,7 +9,7 @@ English | [简体中文](./README.zh-CN.md)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-blue)](./LICENSE)
 
 A Tauri v2 desktop template: the shell and the native plumbing are already wired,
 so the first feature you write is a feature and not a window frame.
@@ -24,7 +24,7 @@ product:
 - **Frameless window with a custom title bar** — drag, minimize, maximize, close and a window context menu, on a transparent rounded window
 - **In-app router** — pathname-based, pages load lazily, and window routes bring their own frame. Navigating swaps the page and keeps the sidebar mounted instead of reloading the document
 - **Light / dark / system theme, plus font presets** — a preset brings its own fonts, downloaded on first use and cached locally
-- **System tray** — icon, themed right-click menu, and a popup window
+- **System tray** — icon, themed right-click menu with Clash and FRP flyouts plus a second-level menu that launches Scoop's apps, and a popup window
 - **Global shortcuts** — registered with the OS, changeable at runtime and kept across restarts
 - **Internationalization** — i18next with English and Chinese, one key set, no untranslated keys
 - **Local terminal** — a real pseudo-console (`portable-pty`) rendered in the webview
@@ -180,6 +180,7 @@ repository yet.
 | [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |
 | [TERMINAL.md](./docs/features/TERMINAL.md) | The pseudo-console page |
 | [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) | The About window's third-party licence dialog |
+| [TRAY_MENU.md](./docs/features/TRAY_MENU.md) | The tray popup, its apps' second-level menu, and the Scoop tab that curates it |
 
 ## Release & Auto-Update
 
@@ -202,7 +203,7 @@ route. CI supplies them as the `TAURI_SIGNING_*` repository secrets.
 
 ## License
 
-GNU General Public License, version 3 only (GPL-3.0-only). See
+GNU Affero General Public License, version 3 only (AGPL-3.0-only). See
 [LICENSE](./LICENSE).
 
 Copyright (C) 2026 Anfioo.

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import {
   ArrowLeft,
+  Boxes,
   Check,
   ChevronDown,
   ChevronRight,
@@ -37,10 +38,12 @@ import {
   frpConnectionsList,
   frpProfilesList,
   inspectFile,
+  openPath,
   openPreview,
   quitApp,
   setAgentEnabled,
   setTrayMenuExpanded,
+  trayAppsList,
   type AgentStatus,
   type ClashConnectionsView,
   type ClashCoreStatus,
@@ -50,6 +53,8 @@ import {
   type ClashProxyNode,
   type ClashRuntime,
   type ClashSysProxyStatus,
+  type TrayApp,
+  type TrayAppsView,
   type TrayMenuLayout,
 } from "@/commands";
 import { isActiveProcessState } from "@/components/frp/state-badge";
@@ -58,8 +63,10 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { groupsForMode, isSelectable, toneClass } from "@/pages/clash/nodes";
 import { formatBytes, niceCeiling, smoothRate } from "@/pages/clash/shared";
 import type { TrafficPoint } from "@/pages/clash/traffic-chart";
+import { SCOOP_TAB_EVENT } from "@/lib/scoop-tabs";
 import { cn } from "@/lib/utils";
 import { createWindow, showWindow } from "@/lib/window";
+import { AppsPanel } from "./apps-panel";
 import { FrpPanel } from "./frp-panel";
 
 /** How long the pointer must rest on the Clash row before the flyout opens. */
@@ -78,7 +85,7 @@ const TRAFFIC_SAMPLES = 60;
 type Side = TrayMenuLayout["side"];
 type Vertical = TrayMenuLayout["vertical"];
 /** Which row's flyout the popup is showing. */
-type Panel = "clash" | "frp";
+type Panel = "apps" | "clash" | "frp";
 
 /**
  * The tray's right-click menu, shown in its own frameless, transparent window.
@@ -145,6 +152,20 @@ export default function TrayMenuPage() {
         setProxies
       ),
     ]);
+  }, []);
+
+  // ── Apps ─────────────────────────────────────────────────────────────────
+
+  /** The apps behind the second-level menu; null until the first read lands. */
+  const [apps, setApps] = useState<TrayAppsView | null>(null);
+
+  const loadApps = useCallback(async () => {
+    try {
+      setApps(await trayAppsList());
+    } catch {
+      // The flyout says it has nothing to show; the opened event retries.
+      setApps(null);
+    }
   }, []);
 
   // ── FRP summary ──────────────────────────────────────────────────────────
@@ -277,6 +298,7 @@ export default function TrayMenuPage() {
   // open; Rust announces every open and this resets it before it is visible.
   useEffect(() => {
     void load();
+    void loadApps();
     void loadFrp();
     void loadAgent();
     const unlisten = listen("tray-menu:opened", () => {
@@ -288,13 +310,14 @@ export default function TrayMenuPage() {
       setBusy(null);
       setError(null);
       void load();
+      void loadApps();
       void loadFrp();
       void loadAgent();
     });
     return () => {
       void unlisten.then((off) => off());
     };
-  }, [cancelClose, cancelOpen, load, loadAgent, loadFrp]);
+  }, [cancelClose, cancelOpen, load, loadAgent, loadApps, loadFrp]);
 
   useEffect(() => {
     if (panel !== "clash") return;
@@ -307,7 +330,18 @@ export default function TrayMenuPage() {
     if (panel === "frp") void loadFrp();
   }, [loadFrp, panel]);
 
+  // The apps list is the one piece of the menu the settings page can change
+  // while the window is alive, so the flyout re-reads it whenever it opens.
+  useEffect(() => {
+    if (panel === "apps") void loadApps();
+  }, [loadApps, panel]);
+
   const running = Boolean(core?.running);
+  /** How many apps the second-level menu lists: the pinned and the rest, minus
+      the ones the user hid. */
+  const visibleAppCount = apps
+    ? apps.apps.filter((app) => !apps.hidden.includes(app.id)).length
+    : 0;
   /** The core is mid start/stop: the header reports that instead of a state. */
   const coreBusy = busy === "core";
   const statusText = coreBusy
@@ -506,6 +540,26 @@ export default function TrayMenuPage() {
       await openPreview([picked]);
     });
   }, [runAction, t]);
+
+  // Opening the shortcut is the whole launch: it already carries the target,
+  // its arguments and its working directory, so the app starts exactly as it
+  // would from the Start Menu.
+  const launchApp = (app: TrayApp) => {
+    run(() => openPath(app.path));
+  };
+
+  // The curation is the Scoop page's tray tab: this only has to bring the main
+  // window forward and tell it where to go. The window is hidden rather than
+  // destroyed when it closes, so its router is still there to hear this. The
+  // event covers the case where the URL is already `/scoop?tab=tray` — a
+  // navigation to the current URL is deliberately a no-op.
+  const editApps = () => {
+    void appWindow.hide().then(async () => {
+      await showWindow("main");
+      await emitTo("main", "app:navigate", "/scoop?tab=tray");
+      await emitTo("main", SCOOP_TAB_EVENT, "tray");
+    });
+  };
 
   /**
    * Hover and click behaviour shared by the rows that own a flyout. Moving
@@ -732,7 +786,24 @@ export default function TrayMenuPage() {
     <FrpPanel onMouseEnter={cancelClose} onMouseLeave={scheduleClose} onChanged={loadFrp} />
   );
 
-  const activePanel = panel === "clash" ? clashPanel : panel === "frp" ? frpPanel : null;
+  const appsPanel = (
+    <AppsPanel
+      view={apps}
+      onMouseEnter={cancelClose}
+      onMouseLeave={scheduleClose}
+      onLaunch={launchApp}
+      onEdit={editApps}
+    />
+  );
+
+  const activePanel =
+    panel === "clash"
+      ? clashPanel
+      : panel === "frp"
+        ? frpPanel
+        : panel === "apps"
+          ? appsPanel
+          : null;
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="tauri-ui-theme">
@@ -754,7 +825,7 @@ export default function TrayMenuPage() {
         >
           {panel !== null && side === "left" && activePanel}
 
-          <div className="bg-popover text-popover-foreground border-border flex h-[241px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
+          <div className="bg-popover text-popover-foreground border-border flex h-[273px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
             <MenuItem
               icon={SquareArrowOutUpRight}
               label={t("tray.show")}
@@ -782,6 +853,21 @@ export default function TrayMenuPage() {
             />
 
             <MenuItem icon={FolderOpen} label={t("tray.openFile")} onSelect={() => run(openFile)} />
+
+            <MenuItem
+              icon={Boxes}
+              label={t("tray.apps")}
+              meta={apps ? t("tray.appsCount", { count: visibleAppCount }) : undefined}
+              trailing={
+                <ChevronDown
+                  className={cn(
+                    "text-muted-foreground size-3.5 shrink-0 transition-transform",
+                    panel === "apps" && (side === "left" ? "rotate-90" : "-rotate-90")
+                  )}
+                />
+              }
+              {...flyoutRow("apps")}
+            />
 
             <MenuItem
               icon={Zap}

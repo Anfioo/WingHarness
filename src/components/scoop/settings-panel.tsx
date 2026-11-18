@@ -71,7 +71,7 @@ function ScoopCreditSection() {
           {version ? `v${version}` : "—"}
         </Badge>
         <Badge variant="outline" className="font-mono">
-          GPL-3.0-only
+          AGPL-3.0-only
         </Badge>
         <span className="text-muted-foreground text-xs">
           {t("scoop.settings.creditAuthor", { name: AUTHOR.name })}

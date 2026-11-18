@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-one-mail-folders-list"
+description = "Enables the one_mail_folders_list command without any pre-configured scope."
+commands.allow = ["one_mail_folders_list"]
+
+[[permission]]
+identifier = "deny-one-mail-folders-list"
+description = "Denies the one_mail_folders_list command without any pre-configured scope."
+commands.deny = ["one_mail_folders_list"]

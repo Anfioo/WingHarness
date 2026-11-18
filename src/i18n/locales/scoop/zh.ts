@@ -17,6 +17,7 @@ const scoop = {
     overview: "概览",
     search: "搜索安装",
     buckets: "桶",
+    tray: "托盘菜单",
     diagnostics: "诊断",
     settings: "设置",
   },

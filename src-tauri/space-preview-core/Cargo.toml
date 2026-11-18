@@ -2,7 +2,7 @@
 name = "space-preview-core"
 version = "0.0.1"
 description = "Space preview engine: file inspection, ranged reads, text write-back, presentations, icons and the Windows space agent."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

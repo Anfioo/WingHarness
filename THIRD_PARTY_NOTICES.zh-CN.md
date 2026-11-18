@@ -2,9 +2,9 @@
 
 WingHarness — 版权所有 (C) 2026 Anfioo
 
-WingHarness 以 GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）发布，见
-[LICENSE](./LICENSE)。本文件记录随程序一同分发的第三方作品，以及各部分各自保留的
-条款。它不改变本项目自身代码的许可证。
+WingHarness 以 GNU Affero 通用公共许可证第 3 版（仅此版本，AGPL-3.0-only）发布，
+见 [LICENSE](./LICENSE)。本文件记录随程序一同分发的第三方作品，以及各部分各自
+保留的条款。它不改变本项目自身代码的许可证。
 
 本文件是 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md) 的中文译本；两者如有
 出入，以英文版为准。
@@ -58,13 +58,14 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 - 项目：[MangoDisk](https://github.com/harry0703/MangoDisk)
 - 版本：1.2.2
 - 许可证：GPL-3.0-only
-- 许可证文本：[LICENSE](./LICENSE)
+- 许可证文本：[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - 版权：MangoDisk 贡献者。
 
 系统工具模块（`src-tauri/systools-core` 与 systools 页面）派生自 MangoDisk：
 磁盘分析、重复文件、大文件、启动项、应用卸载 / 残留清理与系统设置。导入时有
-10 个文件逐字节一致。这些部分以 GPL-3.0-only 分发；完整许可证文本见
-[LICENSE](./LICENSE)。移植的子系统仅支持 Windows；未携带 macOS 与 Linux 代码。
+10 个文件逐字节一致。这些部分仍适用 GPL-3.0-only，完整 GPL 文本见
+[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)；组合作品以 AGPL-3.0-only 分发。
+移植的子系统仅支持 Windows；未携带 macOS 与 Linux 代码。
 
 ### McpHub
 
@@ -179,13 +180,14 @@ Rust 侧（文件探测与分段读取、带编码的文本写回、HTML 资源�
 
 - 项目：[TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor)
 - 许可证：GPL-3.0-only
-- 许可证文本：[LICENSE](./LICENSE)
+- 许可证文本：[licenses/GPL-3.0.txt](./licenses/GPL-3.0.txt)
 - 版权：TizuMark 贡献者。
 
 Markdown 编辑器模块（`src-tauri/md-editor-core` 与 md-editor 页面）移植自
 TizuMark。其原生 PDF 导出（WebView2 `PrintToPdf`，基于 `webview2-com` /
-`windows`）、大纲提取与导出方案都是实质性移植，仍适用 GPL-3.0-only。前端是面向
-React 19 与 CodeMirror 6 的重写，不是 TizuMark 实现的复制。
+`windows`）、大纲提取与导出方案都是实质性移植，仍适用 GPL-3.0-only，并入本
+AGPL-3.0-only 组合作品。前端是面向 React 19 与 CodeMirror 6 的重写，不是 TizuMark
+实现的复制。
 
 ### tweakcn
 
@@ -381,12 +383,12 @@ Apache-2.0、BSD、ISC 或其兼容组合。例外如下：
 | `lightningcss`、`lightningcss-win32-x64-msvc` | MPL-2.0 | `@tailwindcss/vite`、`vite` | 仅构建期使用，不随应用分发。 |
 | `buffers` | 未声明 | `exceljs` → `unzipper` → `binary` | **不随产物分发。** Vite 解析的是 ExcelJS 的 `browser` 入口（`dist/exceljs.min.js`），该构建使用 JSZip，不含 `unzipper`、`binary` 或 `buffers` 代码。 |
 
-MPL-2.0 是文件级著佐权，与 GPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
+MPL-2.0 是文件级著佐权，与 AGPL-3.0-only 兼容；上述 MPL-2.0 组件是构建工具，不随
 产物分发。Apache-2.0 全文见
 [licenses/Apache-2.0.txt](./licenses/Apache-2.0.txt)。
 
-上面这些 MIT、BSD、ISC、Apache-2.0、MPL-2.0 与 LGPL 组件与 GPL-3.0-only 兼容：
-组合作品以 GPL-3.0-only 分发，各库保留自己的条款。`7z-wasm` 单独适用 §3 的声明，
+上面这些 MIT、BSD、ISC、Apache-2.0、MPL-2.0 与 LGPL 组件与 AGPL-3.0-only 兼容：
+组合作品以 AGPL-3.0-only 分发，各库保留自己的条款。`7z-wasm` 单独适用 §3 的声明，
 分发时必须一并附上。
 
 ---
