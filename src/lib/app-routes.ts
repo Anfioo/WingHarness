@@ -1,4 +1,5 @@
 import {
+  Activity,
   Blocks,
   Bot,
   Boxes,
@@ -38,6 +39,7 @@ export type AppRouteGroup =
   | "frp"
   | "mdEditor"
   | "ports"
+  | "taskManager"
   | "oneMail"
   | "moin"
   | "codeg";
@@ -74,6 +76,7 @@ export type AppRouteId =
   | "project"
   | "mdEditor"
   | "ports"
+  | "taskManager"
   | "oneMail"
   | "moin"
   | "codeg"
@@ -179,6 +182,17 @@ const routeTable: AppRoute[] = [
     icon: Plug,
     scope: "本机",
     items: ["监听端口", "固定端口", "结束进程"],
+  },
+  {
+    id: "taskManager",
+    group: "taskManager",
+    path: "/task-manager",
+    title: "任务管理器",
+    navLabel: "任务管理器",
+    description: "查看进程、CPU、内存、磁盘、网络与 GPU，结束进程或调整优先级。",
+    icon: Activity,
+    scope: "侧栏单页",
+    items: ["进程三视图", "进程详情与操作", "性能图表", "可选特权服务"],
   },
   {
     id: "oneMail",
