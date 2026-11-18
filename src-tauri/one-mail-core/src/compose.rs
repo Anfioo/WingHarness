@@ -29,8 +29,10 @@ use crate::state::{OneMailState, EVENT_MAILBOX_CHANGED};
 
 /// The one operation `send` needs from the transport. Production wires it to
 /// `smtp::send`; the tests wire it to a fake that never touches the network.
+// `Sync` is required, not incidental: the async command handlers hold a
+// `&dyn MailSender` across await points, and a `&T` is only `Send` when `T` is.
 #[async_trait::async_trait]
-trait MailSender {
+trait MailSender: Sync {
     async fn deliver(&self, account_id: i64, input: &SendInput) -> OneMailResult<SendResult>;
 }
 
