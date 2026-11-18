@@ -197,6 +197,14 @@ appear there. Every label the frontend can create — including the `database-*`
 data source windows and the `project-*` project windows — is listed in
 `capabilities/default.json`.
 
+`main` is declared `visible: false` on purpose: the window-state plugin cannot
+restore the saved size and position until the event loop starts, which is after
+the webview is built and the setup hook has run. A visible window would therefore
+sit on screen at its config size for that whole stretch and then jump to the
+restored geometry. `plugins/system_tray.rs` shows it in its `window_created`
+hook instead — that plugin is registered after `window-state`, so the window's
+first frame is already the restored one. Do not flip `visible` back to `true`.
+
 ## Key Dependencies
 
 | Crate | Purpose |

@@ -199,6 +199,22 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 return;
             }
 
+            // The main window is declared hidden (`tauri.conf.json`) and is
+            // shown only here, after the window-state plugin has restored the
+            // saved size, position and maximized state. That plugin is
+            // registered before this one, and plugins get `window_created` in
+            // registration order, so the window is shown already at its saved
+            // geometry. Declaring it visible would put the 800x600 default on
+            // screen while the webview initializes and the setup hook runs,
+            // and only then jump to the restored size — the small window that
+            // used to appear on a slow start.
+            //
+            // The window-state plugin shows the window itself when the saved
+            // state says it was visible. This show covers the other case: the
+            // user quit from the tray while the window was hidden, and the
+            // next launch still has to open it.
+            let _ = window.show();
+
             let window_clone = window.clone();
             window.on_window_event(move |event| {
                 if let tauri::WindowEvent::CloseRequested { api, .. } = event {
