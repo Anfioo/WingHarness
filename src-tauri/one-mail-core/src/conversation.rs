@@ -170,6 +170,11 @@ WHERE (?1 IS NULL OR agg.account_id = ?1)
                   WHERE a.message_id = c.message_id
                     AND (a.email LIKE ?2 ESCAPE '\' OR COALESCE(a.name, '') LIKE ?2 ESCAPE '\')
               )
+              OR EXISTS (
+                  SELECT 1 FROM message_bodies b
+                  WHERE b.message_id = c.message_id
+                    AND b.body_text LIKE ?2 ESCAPE '\'
+              )
           )
     ))
   AND (?3 = 0 OR agg.unread_count > 0)
@@ -673,7 +678,8 @@ mod tests {
     use super::*;
 
     use crate::message::test_support::{
-        insert_account, insert_address, insert_folder, insert_message, open_pool, MessageSeed,
+        insert_account, insert_address, insert_body, insert_folder, insert_message, open_pool,
+        MessageSeed,
     };
 
     async fn seed_two_accounts() -> (tempfile::TempDir, SqlitePool) {
@@ -1045,6 +1051,33 @@ mod tests {
         .unwrap();
         assert_eq!(by_account.total, 1);
         assert_eq!(by_account.items[0].conversation_key, "2:carol@example.test");
+    }
+
+    #[tokio::test]
+    async fn keyword_matches_a_body_that_has_been_loaded() {
+        let (_directory, pool) = seed_two_accounts().await;
+        insert_message(
+            &pool,
+            MessageSeed::new(1, 1, 1, 10)
+                .from(Some("Alice"), "alice@example.test")
+                .subject("Weekly update")
+                .received_at("2026-01-01T10:00:00Z"),
+        )
+        .await;
+        insert_body(&pool, 1, Some("The budget numbers are ready"), None).await;
+
+        let page = list(
+            &pool,
+            ConversationQuery {
+                keyword: Some("budget numbers".to_string()),
+                ..query(50, 0)
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(page.total, 1);
+        assert_eq!(page.items[0].conversation_key, "1:alice@example.test");
     }
 
     #[tokio::test]

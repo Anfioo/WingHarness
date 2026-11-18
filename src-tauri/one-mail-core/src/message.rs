@@ -151,12 +151,13 @@ async fn persist_body(
     } else {
         1_i64
     };
-    let search_text = parsed
+    // An HTML-only message still needs plain text: the settings can display the
+    // body as text, and the conversation search matches the stored text.
+    let body_text = parsed
         .body_text
-        .as_deref()
-        .map(str::to_string)
-        .or_else(|| parsed.body_html.as_deref().map(mime::html_to_text))
-        .unwrap_or_default();
+        .clone()
+        .or_else(|| parsed.body_html.as_deref().map(mime::html_to_text));
+    let search_text = body_text.clone().unwrap_or_default();
 
     let mut transaction = pool.begin().await.map_err(|error| {
         OneMailError::database(format!("Could not start saving the message body: {error}"))
@@ -171,7 +172,7 @@ async fn persist_body(
              loaded_at = excluded.loaded_at",
     )
     .bind(message_id)
-    .bind(parsed.body_text.clone())
+    .bind(body_text.clone())
     .bind(parsed.body_html.clone())
     .bind(&now)
     .execute(&mut *transaction)
@@ -294,7 +295,7 @@ async fn persist_body(
 
     Ok(MessageBody {
         message_id,
-        body_text: parsed.body_text,
+        body_text,
         body_html: parsed.body_html,
     })
 }
@@ -910,6 +911,25 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(hits, 1);
+    }
+
+    #[tokio::test]
+    async fn an_html_only_body_stores_the_derived_plain_text() {
+        let (_directory, pool) = seed().await;
+        let location = conversation::find_message(&pool, 1).await.unwrap().unwrap();
+        let mut message = parsed();
+        message.body_text = None;
+        message.body_html = Some("<p>Hello <b>there</b></p>".into());
+
+        let body = persist_body(&pool, &location, message).await.unwrap();
+
+        assert_eq!(body.body_text.as_deref(), Some("Hello there"));
+        let stored: Option<String> =
+            sqlx::query_scalar("SELECT body_text FROM message_bodies WHERE message_id = 1")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(stored.as_deref(), Some("Hello there"));
     }
 
     #[tokio::test]
