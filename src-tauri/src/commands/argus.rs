@@ -354,7 +354,6 @@ mod tests {
             ArgusErrorCode::InvalidInput => "invalid-input",
             ArgusErrorCode::AccessDenied => "access-denied",
             ArgusErrorCode::ServiceUnavailable => "service-unavailable",
-            ArgusErrorCode::NotImplemented => "not-implemented",
             ArgusErrorCode::Internal => "internal",
         };
         assert_eq!(code(ActionError::AccessDenied), "access-denied");

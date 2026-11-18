@@ -109,7 +109,6 @@ const ARGUS_ERROR_CODES = new Set<string>([
   "invalid-input",
   "access-denied",
   "service-unavailable",
-  "not-implemented",
   "internal",
 ]);
 

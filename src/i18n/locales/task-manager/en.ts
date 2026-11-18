@@ -75,7 +75,6 @@ const taskManager = {
     "invalid-input": "The request was invalid.",
     "access-denied": "Administrator rights or the privileged service are required.",
     "service-unavailable": "The privileged service is not installed or not running.",
-    "not-implemented": "This feature is not available yet.",
     internal: "Something went wrong while reading system data.",
   },
   empty: {

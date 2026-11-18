@@ -69,7 +69,6 @@ const taskManager = {
     "invalid-input": "请求参数无效。",
     "access-denied": "需要管理员权限或特权服务。",
     "service-unavailable": "特权服务未安装或未运行。",
-    "not-implemented": "该功能尚未提供。",
     internal: "读取系统数据时出错。",
   },
   empty: {

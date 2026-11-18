@@ -21,7 +21,6 @@ pub enum ArgusErrorCode {
     InvalidInput,
     AccessDenied,
     ServiceUnavailable,
-    NotImplemented,
     Internal,
 }
 
@@ -32,12 +31,6 @@ impl ArgusError {
             message: message.into(),
             detail: None,
         }
-    }
-
-    /// A command that exists on the command surface but has no implementation
-    /// yet. The parallel backend tracks replace these one by one.
-    pub fn not_implemented() -> Self {
-        Self::new(ArgusErrorCode::NotImplemented, "Not implemented yet.")
     }
 
     pub fn invalid_input(message: impl Into<String>) -> Self {

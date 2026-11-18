@@ -10,7 +10,6 @@ export type ArgusErrorCode =
   | "invalid-input"
   | "access-denied"
   | "service-unavailable"
-  | "not-implemented"
   | "internal";
 
 /** Shape of a rejected `argus_*` command. */
