@@ -155,7 +155,11 @@ export function OneMailSection() {
               onBlur={() => void onRefreshBlur()}
             />
 
-            <FieldRow label={t("oneMail.settings.bodyDisplay")} htmlFor="one-mail-settings-body">
+            <FieldRow
+              label={t("oneMail.settings.bodyDisplay")}
+              hint={t("oneMail.settings.bodyDisplayDescription")}
+              htmlFor="one-mail-settings-body"
+            >
               <Select
                 value={settings.bodyDisplayMode}
                 disabled={disabled}

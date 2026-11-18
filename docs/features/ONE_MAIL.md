@@ -2,10 +2,13 @@
 
 The **Mail** page (`/one-mail`) is WingHarness's local-first mail client. It
 appears in the sidebar under **其他** (Other) and is one workspace: the account
-rail on the left, the conversation list in the middle, and the open thread on
-the right. Compose, the account form, the raw-message view and the outbox open
-as overlays inside the page; no second window is created. Its settings live in
-the app's Settings window, under the **Mail** item.
+rail on the left (grouped by provider, with bundled provider marks), the person
+list in the middle, and the open thread on the right. The thread reads like a
+chat: avatars, left/right bubbles, per-message hover actions and a reply box at
+the foot. Compose, the account form, the raw-message view and the outbox open as
+overlays inside the page; no second window is created. A status bar at the foot
+shows the sync state and an in-session activity log. Its settings live in the
+app's Settings window, under the **Mail** item.
 
 The mail engine is a Rust workspace crate, `src-tauri/one-mail-core`. Protocols
 stay inside that crate; the page only talks to the 32 `one_mail_*` commands
@@ -20,13 +23,14 @@ wrapped by `src/commands/services/one-mail/`.
 
 | Area | Behaviour |
 |------|-----------|
-| Accounts | 19 built-in provider presets plus a custom IMAP preset; password / app password only; test the connection, discover folders, choose what to sync; INBOX is always synced. |
+| Accounts | 19 built-in provider presets plus a custom IMAP preset; password / app password only; bundled provider marks; grouped and collapsible in the rail; test the connection, discover folders, choose what to sync; INBOX is always synced. |
 | Sync | Runs when the page becomes visible and then once per configured interval, plus a manual **Sync now**; cancellable; only mail headers are pulled, bodies on demand. |
 | Conversations | Grouped by account and the non-self participants; received and sent mail share one conversation; topics are split by `References` / `In-Reply-To`, with a normalized-subject fallback. |
-| Reading | HTML is sanitized before rendering, remote images are blocked per message, quoted history and signatures fold, attachments are shown as metadata, and the raw message is one click away. |
-| Composing | New / reply / reply-all / forward, Markdown body with a live HTML + plain-text result, local attachments, drafts and an outbox with retry. |
+| Reading | Two body modes: **Plain text** converts the HTML part to text and folds the quote, or **Original layout** keeps the sender's tables, fonts and spacing with only unsafe or layout-breaking rules removed; remote images are blocked per message; attachments are shown as metadata; the raw message is one click away. |
+| Composing | New / reply / reply-all / forward; replies are typed in the thread's reply box, while new mail and forwards use the Markdown composer; Markdown generates an HTML and a plain-text part; local attachments, drafts and an outbox with retry. |
 | Search and filters | Unread, starred, today, yesterday and last-7-days filters, and a keyword filter over subject, participants and cached body text. |
-| Settings | Refresh interval, body display mode, remote-image policy, sync window and new-mail notifications. |
+| Activity log | The status bar records this session's sync steps, new mail and send results in a popover; nothing is written to a log file in this release. |
+| Settings | Refresh interval, body display mode (plain text / original layout), remote-image policy, sync window and new-mail notifications. |
 | Notifications | A desktop notification for new mail only while the page is visible and the setting is on. |
 
 ## Where the data lives
@@ -71,6 +75,12 @@ with `status = sync_error` and a redacted reason. `INBOX` is always synced and
 cannot be switched off; other folders sync only when ticked. Updating an
 account leaves the email address and provider read-only, and an empty password
 keeps the stored one.
+
+The rail groups accounts by provider, collapses each group, and shows a bundled
+provider mark (or the provider's initial) beside the account label. The hover
+refresh button syncs just that account; the right-click menu offers refresh,
+edit and delete. Deleting from there asks for confirmation and removes the
+account and its local mail.
 
 ## Sync
 
@@ -126,24 +136,28 @@ from a stable hash of the account's `colorKey` or the correspondent's address.
 
 ## Reading a message
 
-Opening a conversation fetches only summaries. Each message card requests its
+Opening a conversation fetches only summaries. Each message bubble requests its
 body when it scrolls into view (`one_mail_message_body_load`); the backend
 fetches the raw message with `BODY.PEEK[]`, parses it, caches the plain text and
 HTML, the attachment metadata, the participants and its FTS row in one
 transaction, and marks the message read locally. A failed load leaves a retry
 button, and the request is allowed to retry.
 
-- **HTML**: every body goes through DOMPurify with `script`, `style`, `link`,
-  `meta`, `base`, frames, plugins, forms, form controls, SVG, MathML, audio,
-  video and canvas forbidden. Inline styles keep only typographic properties.
-  Links are limited to `http:`, `https:` and `mailto:` and open in the system
-  browser; the webview never navigates.
-- **Remote images**: remote `http(s)` images are replaced with a dashed
-  placeholder and counted; **Load remote images** releases that one message.
-  The settings can change the default, and the per-message button never writes
-  back to settings. `cid:` images are not downloaded and are removed.
-- **Plain text**: quoted history and signatures fold behind one **Show quoted
-  text** toggle. The settings can render every message as text instead of HTML.
+The right-click menu on a message offers quote reply, forward, raw message and
+star. The hover actions under the bubble offer the same reading actions.
+
+- **Original layout**: `src/lib/one-mail/mail-html.ts` parses the body in an
+  inert document, removes scripts, frames, forms, plugins, SVG and MathML, drops
+  event handlers and unsafe links, and keeps the sender's inline styles except
+  for layout-breaking declarations (`position`, `float`, `transform`, negative
+  margins, collapsed line-height). Tables, fonts, colours, padding and borders
+  stay as the sender wrote them. Remote resources are parked under
+  `data-blocked-*` attributes; **Load remote images** restores them for that one
+  message. The settings can change the default, and the per-message button never
+  writes back to settings.
+- **Plain text**: the HTML part is converted to text with link targets kept,
+  whitespace compacted, and the quoted history folded behind one **Show quoted
+  text** toggle. The settings can render every message this way.
 - **Attachments**: name, MIME type and decoded size, from the metadata cache.
   Received attachments are not downloaded and cannot be saved in this version.
 - **Raw message**: the stored header block plus the cached body, in a dialog.
@@ -152,9 +166,16 @@ button, and the request is allowed to retry.
 
 ## Writing mail
 
-The composer is a Markdown editor (CodeMirror 6) with recipient fields for To,
-Cc and Bcc. Addresses are parsed when a field loses focus and rendered as
-chips; invalid addresses block sending.
+A reply is typed directly at the foot of the thread. The reply box targets the
+newest message (or the one whose **Reply** action was used), shows the quoted
+subject, and offers **Send options** for the sender account, recipients,
+reply-all and — for a new topic — the subject. The backend reply draft is
+created only when the message is actually sent, so browsing does not leave
+drafts behind.
+
+New mail, forwards and outbox edits use the full composer: a Markdown editor
+(CodeMirror 6) with recipient fields for To, Cc and Bcc. Addresses are parsed
+when a field loses focus and rendered as chips; invalid addresses block sending.
 
 - Sending runs `marked` over the Markdown and sends `multipart/alternative`
   with a styled HTML part and a plain-text part.
@@ -265,8 +286,9 @@ Events: `one-mail:sync-progress`, `one-mail:new-mail`,
 - **Local-only state.** Read / star flags, folder selection and message copies
   are local. Deleting, moving or marking read on the server is out of scope,
   which also means the server and this app can disagree until the next sync.
-- **Untrusted HTML.** Bodies are sanitized on every render, external resources
-  are opt-in per message, and links open outside the webview.
+- **Untrusted HTML.** Bodies are sanitized on every render by the preparer in
+  `src/lib/one-mail/mail-html.ts`, external resources are opt-in per message,
+  and links open outside the webview.
 - **No OAuth.** Only password / app-password authentication is implemented, so
   there are no refresh tokens to store or leak in this release.
 

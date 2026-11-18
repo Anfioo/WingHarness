@@ -120,12 +120,16 @@ file; its README states the licence.
 `src-tauri/one-mail-core` and the `/one-mail` page are adapted from OneMail:
 the account model and provider presets, IMAP synchronisation, MIME parsing,
 SMTP sending, conversation aggregation, the composer, the outbox and the
-sanitized reading view. The crate is reworked for this app's storage, command
-and UI layers; no upstream file is byte-identical. OAuth, the Gmail and Graph
-sync providers, the AI assistant, backup/restore, the background supervisor and
-the upstream window helpers were not carried over. WingHarness as a whole is
-AGPL-3.0-only; the files under `src-tauri/one-mail-core/` keep their attribution
-headers, and `src-tauri/one-mail-core/UPSTREAM.md` records the modifications.
+sanitized reading view, including the message-HTML preparer, the HTML-to-text
+conversion and the conversation layout. The crate is reworked for this app's
+storage, command and UI layers; no upstream file is byte-identical. OAuth, the
+Gmail and Graph sync providers, the AI assistant, backup/restore, the background
+supervisor and the upstream window helpers were not carried over. The provider
+marks under `src/assets/one-mail/provider-icons/` come from the same upstream
+set; the Simple Icons marks are CC0-1.0 and the Outlook and NetEase favicons are
+used only to identify those services. WingHarness as a whole is AGPL-3.0-only;
+the files under `src-tauri/one-mail-core/` keep their attribution headers, and
+`src-tauri/one-mail-core/UPSTREAM.md` records the modifications.
 
 ### openidea
 

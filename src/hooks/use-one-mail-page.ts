@@ -14,7 +14,6 @@ import {
   oneMailAccountsList,
   oneMailComposeForwardDraft,
   oneMailComposePickAttachments,
-  oneMailComposeReplyDraft,
   oneMailComposeRetry,
   oneMailComposeSaveDraft,
   oneMailComposeSend,
@@ -49,6 +48,7 @@ import {
   type SendInput,
   type SendResult,
   type SyncProgressPayload,
+  type SyncStage,
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { oneMailErrorKey } from "@/lib/one-mail/error-key";
@@ -69,6 +69,28 @@ export type OneMailFilters = {
   unreadOnly: boolean;
   starredOnly: boolean;
   range: "all" | "today" | "yesterday" | "last7days";
+};
+
+export type OneMailActivityTone = "info" | "success" | "warning" | "danger";
+
+/** One line in the page's activity log. `actionKey` is resolved at render time. */
+export type OneMailActivityEntry = {
+  key: string;
+  at: number;
+  tone: OneMailActivityTone;
+  account: string;
+  actionKey: string;
+  params?: Record<string, string | number>;
+};
+
+const ACTIVITY_LIMIT = 100;
+const SYNC_STAGE_ACTIVITY_KEY: Record<SyncStage, string> = {
+  connecting: "oneMail.activity.connecting",
+  folders: "oneMail.activity.folders",
+  headers: "oneMail.activity.headers",
+  saving: "oneMail.activity.saving",
+  done: "oneMail.activity.syncDone",
+  error: "oneMail.activity.syncError",
 };
 
 export type OneMailPageState = {
@@ -104,6 +126,9 @@ export type OneMailPageState = {
   syncStatus: OneMailSyncStatus | null;
   syncing: boolean;
   syncProgress: SyncProgressPayload | null;
+  activityLog: OneMailActivityEntry[];
+  clearActivityLog: () => void;
+  logActivity: (entry: Omit<OneMailActivityEntry, "key" | "at">) => void;
   syncNow: (accountId?: number) => Promise<void>;
   cancelSync: () => Promise<void>;
   composer: {
@@ -111,7 +136,6 @@ export type OneMailPageState = {
     draft: Draft | null;
     mode: ComposeKind;
     openNew: () => void;
-    openReply: (message: MessageSummary, all: boolean) => Promise<void>;
     openForward: (message: MessageSummary) => Promise<void>;
     openDraft: (item: OutboxItem) => Promise<void>;
     close: () => void;
@@ -221,6 +245,7 @@ export function useOneMailPage(): OneMailPageState {
   const [syncStatus, setSyncStatus] = useState<OneMailSyncStatus | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgressPayload | null>(null);
+  const [activityLog, setActivityLog] = useState<OneMailActivityEntry[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerDraft, setComposerDraft] = useState<Draft | null>(null);
   const [composerMode, setComposerMode] = useState<ComposeKind>("new");
@@ -239,6 +264,34 @@ export function useOneMailPage(): OneMailPageState {
   const requestedBodies = useRef<Set<number>>(new Set());
   const threadRequest = useRef<{ accountId: number; conversationKey: string } | null>(null);
   const threadRequestId = useRef(0);
+  const activitySequence = useRef(0);
+  const lastActivitySignature = useRef<{ signature: string; at: number } | null>(null);
+
+  const appendActivity = useCallback(
+    (entry: Omit<OneMailActivityEntry, "key" | "at">, signature?: string) => {
+      const now = Date.now();
+      // A sync emits progress per folder and per batch; identical consecutive
+      // lines within two seconds are the same event to a reader.
+      if (signature) {
+        const last = lastActivitySignature.current;
+        if (last && last.signature === signature && now - last.at < 2_000) return;
+        lastActivitySignature.current = { signature, at: now };
+      }
+      activitySequence.current += 1;
+      const next: OneMailActivityEntry = {
+        ...entry,
+        key: `activity-${activitySequence.current}`,
+        at: now,
+      };
+      setActivityLog((current) => [...current, next].slice(-ACTIVITY_LIMIT));
+    },
+    []
+  );
+
+  const clearActivityLog = useCallback(() => {
+    lastActivitySignature.current = null;
+    setActivityLog([]);
+  }, []);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -551,23 +604,6 @@ export function useOneMailPage(): OneMailPageState {
     setComposerOpen(true);
   }, []);
 
-  const openReplyComposer = useCallback(
-    async (message: MessageSummary, all: boolean) => {
-      try {
-        const draft = await oneMailComposeReplyDraft(
-          message.messageId,
-          all ? "reply_all" : "reply"
-        );
-        setComposerDraft(draft);
-        setComposerMode(draft.composeKind);
-        setComposerOpen(true);
-      } catch (failure) {
-        toast.error(describeError(failure));
-      }
-    },
-    [describeError]
-  );
-
   const openForwardComposer = useCallback(
     async (message: MessageSummary) => {
       try {
@@ -610,13 +646,30 @@ export function useOneMailPage(): OneMailPageState {
 
   const sendComposer = useCallback(
     async (input: SendInput) => {
-      const result = await oneMailComposeSend(input);
-      setComposerOpen(false);
-      setComposerDraft(null);
-      await Promise.all([reloadOutbox(), loadConversations(0)]);
-      return result;
+      const accountLabel =
+        accountsRef.current.find((account) => account.accountId === input.accountId)
+          ?.accountLabel ?? String(input.accountId);
+      try {
+        const result = await oneMailComposeSend(input);
+        appendActivity({
+          tone: "success",
+          account: accountLabel,
+          actionKey: "oneMail.activity.sent",
+        });
+        setComposerOpen(false);
+        setComposerDraft(null);
+        await Promise.all([reloadOutbox(), loadConversations(0)]);
+        return result;
+      } catch (failure) {
+        appendActivity({
+          tone: "danger",
+          account: accountLabel,
+          actionKey: "oneMail.activity.sendFailed",
+        });
+        throw failure;
+      }
     },
-    [reloadOutbox, loadConversations]
+    [appendActivity, reloadOutbox, loadConversations]
   );
 
   const pickComposerAttachments = useCallback(() => oneMailComposePickAttachments(), []);
@@ -756,6 +809,26 @@ export function useOneMailPage(): OneMailPageState {
     register(
       listen<SyncProgressPayload>(ONE_MAIL_SYNC_PROGRESS_EVENT, (event) => {
         setSyncProgress(event.payload);
+        const accountLabel =
+          accountsRef.current.find((account) => account.accountId === event.payload.accountId)
+            ?.accountLabel ?? String(event.payload.accountId);
+        const stage = event.payload.stage as SyncStage;
+        if (SYNC_STAGE_ACTIVITY_KEY[stage]) {
+          appendActivity(
+            {
+              tone: stage === "error" ? "danger" : stage === "done" ? "success" : "info",
+              account: accountLabel,
+              actionKey: SYNC_STAGE_ACTIVITY_KEY[stage],
+              params:
+                stage === "done"
+                  ? { count: event.payload.inserted }
+                  : {
+                      folder: event.payload.folderPath ? ` · ${event.payload.folderPath}` : "",
+                    },
+            },
+            `${event.payload.accountId}|${stage}|${event.payload.folderPath ?? ""}`
+          );
+        }
         if (event.payload.stage === "done" || event.payload.stage === "error") {
           setSyncing(false);
           void oneMailSyncStatus()
@@ -766,6 +839,12 @@ export function useOneMailPage(): OneMailPageState {
     );
     register(
       listen<NewMailPayload>(ONE_MAIL_NEW_MAIL_EVENT, (event) => {
+        appendActivity({
+          tone: "info",
+          account: event.payload.accountLabel,
+          actionKey: "oneMail.activity.newMail",
+          params: { count: event.payload.messages.length },
+        });
         void notifyNewMail(event.payload);
         void reloadAccounts();
         void loadConversations(0);
@@ -798,7 +877,14 @@ export function useOneMailPage(): OneMailPageState {
       disposed = true;
       for (const unlisten of unlisteners) unlisten();
     };
-  }, [notifyNewMail, reloadAccounts, reloadFolders, reloadOutbox, loadConversations]);
+  }, [
+    appendActivity,
+    notifyNewMail,
+    reloadAccounts,
+    reloadFolders,
+    reloadOutbox,
+    loadConversations,
+  ]);
 
   return {
     loading,
@@ -832,6 +918,9 @@ export function useOneMailPage(): OneMailPageState {
     syncStatus,
     syncing,
     syncProgress,
+    activityLog,
+    clearActivityLog,
+    logActivity: appendActivity,
     syncNow,
     cancelSync,
     composer: {
@@ -839,7 +928,6 @@ export function useOneMailPage(): OneMailPageState {
       draft: composerDraft,
       mode: composerMode,
       openNew: openNewComposer,
-      openReply: openReplyComposer,
       openForward: openForwardComposer,
       openDraft: openDraftComposer,
       close: closeComposer,

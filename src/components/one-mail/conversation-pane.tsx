@@ -2,23 +2,34 @@
 // (https://github.com/zhihui-hu/one-mail), AGPL-3.0-only.
 // See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record.
 
-import { useLayoutEffect, useMemo, useRef } from "react";
-import { Forward, Mail, RefreshCw, Reply, ReplyAll, ScrollText, X } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, Copy, MessageCircle, Users } from "lucide-react";
+import { toast } from "sonner";
 import type { MessageSummary } from "@/commands";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { cn } from "@/lib/utils";
 import { useOneMailPageContext } from "@/pages/one-mail/context";
-import { avatarTone } from "./conversation-row";
-import MessageCard, { initialsFor } from "./message-card";
+import MessageBubble from "./message-bubble";
+import ReplyComposer from "./reply-composer";
 
 /**
- * The reading lane: the participants and the message actions on top, then the
- * thread grouped by topic. Opening a conversation scrolls to its newest
- * message; the bodies themselves load card by card as they enter the viewport.
+ * The reading lane: participants and messages in one thread, laid out as a
+ * conversation rather than as a stack of forms.
+ *
+ * Each message is a bubble with its own hover actions; the reply box sits at
+ * the foot of the thread, and the participants dialog opens from the header.
+ * Switching a conversation scrolls to the newest message once, so a body that
+ * arrives later never pulls the reader away.
  */
 export default function ConversationPane() {
   const page = useOneMailPageContext();
@@ -29,7 +40,6 @@ export default function ConversationPane() {
     threadError,
     reloadThread,
     selectedConversationKey,
-    closeConversation,
     bodyState,
     loadBody,
     composer,
@@ -37,10 +47,17 @@ export default function ConversationPane() {
     toggleStar,
     settings,
     accounts,
+    setOutboxOpen,
+    reloadConversations,
+    reloadAccounts,
   } = page;
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationKey = thread?.conversationKey ?? null;
+  const [replyTarget, setReplyTarget] = useState<MessageSummary | null>(null);
+  const [focusToken, setFocusToken] = useState(0);
+  const [participantsOpen, setParticipantsOpen] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   // Scroll to the bottom when a conversation opens — and only then, so a body
   // arriving later does not yank the reader away from the message above.
@@ -48,214 +65,259 @@ export default function ConversationPane() {
     const element = scrollRef.current;
     if (!element) return;
     element.scrollTop = element.scrollHeight;
+    setReplyTarget(null);
   }, [conversationKey]);
 
   const messages = useMemo(() => thread?.groups.flatMap((group) => group.messages) ?? [], [thread]);
   const latest = useMemo(() => latestMessage(messages), [messages]);
 
-  const accountLabel = thread
-    ? (accounts.find((account) => account.accountId === thread.accountId)?.accountLabel ?? "")
-    : "";
-  const displayName = (thread?.participants ?? [])
-    .map((participant) => participant.name?.trim() || participant.email)
+  const account = thread
+    ? accounts.find((entry) => entry.accountId === thread.accountId)
+    : undefined;
+  const accountAddress = account?.email ?? "";
+  const participantEmails = (thread?.participants ?? [])
+    .map((participant) => participant.email)
     .join(", ");
+
+  const reply = (message: MessageSummary) => {
+    setReplyTarget(message);
+    setFocusToken((current) => current + 1);
+  };
+
+  const copyParticipants = () => {
+    if (!participantEmails) return;
+    void navigator.clipboard
+      .writeText(participantEmails)
+      .then(() => toast.success(t("oneMail.common.copied")))
+      .catch(() => toast.error(t("oneMail.common.copyFailed")));
+  };
 
   if (!selectedConversationKey) {
     return (
-      <section className="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center">
-        <Mail aria-hidden className="text-muted-foreground size-8" />
+      <section className="conversation-empty flex h-full min-h-0 flex-col items-center justify-center gap-4 p-6 text-center">
+        <MessageCircle aria-hidden className="text-muted-foreground size-16 stroke-1 opacity-25" />
         <p className="text-muted-foreground text-sm">{t("oneMail.thread.selectConversation")}</p>
+        <Button variant="outline" onClick={composer.openNew}>
+          {t("oneMail.list.newMessage")}
+        </Button>
       </section>
     );
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col">
-      <header className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2">
-        {thread ? (
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="flex items-center -space-x-2">
-              {thread.participants.slice(0, 3).map((participant) => (
-                <Avatar key={participant.email} className="ring-background size-7 ring-2">
-                  <AvatarFallback
-                    className={cn(
-                      "text-[10px] font-semibold",
-                      avatarTone(participant.email || "unknown")
-                    )}
-                  >
-                    {initialsFor(participant.name, participant.email)}
-                  </AvatarFallback>
-                </Avatar>
-              ))}
-              {thread.participants.length > 3 && (
-                <span className="bg-muted text-muted-foreground ring-background flex size-7 items-center justify-center rounded-full text-[10px] font-medium ring-2">
-                  +{thread.participants.length - 3}
-                </span>
-              )}
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{displayName}</p>
-              <div className="mt-0.5 flex items-center gap-1.5">
-                {accountLabel && (
-                  <Badge variant="secondary" className="h-[18px] rounded-full px-1.5 text-[10px]">
-                    {accountLabel}
-                  </Badge>
-                )}
-                <span aria-hidden className="text-muted-foreground text-[11px] tabular-nums">
-                  {messages.length}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Skeleton className="h-8 w-44" />
+    <section className="conversation-pane flex h-full min-h-0 flex-col">
+      <header className="border-border flex min-h-12 shrink-0 items-center gap-2 border-b px-4 py-2">
+        <button
+          type="button"
+          onClick={copyParticipants}
+          title={participantEmails}
+          className="focus-visible:ring-ring/50 min-w-0 flex-1 truncate rounded text-left text-sm leading-5 font-semibold focus-visible:ring-2 focus-visible:outline-none"
+        >
+          {thread ? participantEmails : t("oneMail.common.loading")}
+        </button>
+        {account && (
+          <Badge variant="secondary" className="h-5 shrink-0 rounded-full px-2 text-[10px]">
+            {account.accountLabel}
+          </Badge>
         )}
-
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!latest}
-            onClick={() => {
-              if (latest) void composer.openReply(latest, false);
-            }}
-          >
-            <Reply aria-hidden />
-            {t("oneMail.thread.reply")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!latest}
-            onClick={() => {
-              if (latest) void composer.openReply(latest, true);
-            }}
-          >
-            <ReplyAll aria-hidden />
-            {t("oneMail.thread.replyAll")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!latest}
-            onClick={() => {
-              if (latest) void composer.openForward(latest);
-            }}
-          >
-            <Forward aria-hidden />
-            {t("oneMail.thread.forward")}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={!latest}
-            onClick={() => {
-              if (latest) openRawMessage(latest.messageId);
-            }}
-          >
-            <ScrollText aria-hidden />
-            {t("oneMail.thread.raw")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("oneMail.common.close")}
-            onClick={closeConversation}
-          >
-            <X aria-hidden className="size-4" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0"
+          onClick={copyParticipants}
+          aria-label={t("oneMail.thread.copyAddresses")}
+          title={t("oneMail.thread.copyAddresses")}
+        >
+          <Copy className="size-4" aria-hidden />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0"
+          onClick={() => setParticipantsOpen(true)}
+          aria-label={t("oneMail.thread.participants")}
+          title={t("oneMail.thread.participants")}
+        >
+          <Users className="size-4" aria-hidden />
+        </Button>
       </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto px-3 py-3">
-        {threadError && (
-          <div
-            role="alert"
-            className="border-destructive/40 bg-destructive/5 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs"
-          >
-            <span>{threadError}</span>
-            <Button variant="outline" size="sm" onClick={reloadThread}>
-              <RefreshCw />
-              {t("oneMail.common.retry")}
-            </Button>
-          </div>
-        )}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            setShowScrollToBottom(
+              element.scrollHeight - element.scrollTop - element.clientHeight > 2
+            );
+          }}
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-gutter:stable]"
+        >
+          {threadError && (
+            <div
+              role="alert"
+              className="border-destructive/40 bg-destructive/5 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs"
+            >
+              <span>{threadError}</span>
+              <Button variant="outline" size="sm" onClick={reloadThread}>
+                {t("oneMail.common.retry")}
+              </Button>
+            </div>
+          )}
 
-        {thread?.truncated && (
-          <p className="text-muted-foreground mb-3 text-xs">{t("oneMail.thread.truncated")}</p>
-        )}
+          {thread?.truncated && (
+            <p className="text-muted-foreground mb-3 text-xs">{t("oneMail.thread.truncated")}</p>
+          )}
 
-        {threadLoading && !thread && (
-          <div role="status" aria-label={t("oneMail.common.loading")} className="space-y-3">
-            {[0, 1, 2].map((index) => (
-              <div key={index} className="border-border bg-card rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="size-8 shrink-0 rounded-full" />
-                  <div className="flex-1 space-y-1.5">
-                    <Skeleton className="h-3 w-32" />
-                    <Skeleton className="h-2.5 w-20" />
+          {threadLoading && !thread && (
+            <div
+              role="status"
+              aria-label={t("oneMail.thread.loadingBody")}
+              className="space-y-6 pt-5"
+            >
+              {[false, true, false].map((outgoing, index) => (
+                <div
+                  key={index}
+                  className={
+                    outgoing ? "flex flex-row-reverse items-start gap-3" : "flex items-start gap-3"
+                  }
+                >
+                  <Skeleton className="size-10 shrink-0 rounded-full" />
+                  <div className="w-3/5 space-y-2">
+                    <Skeleton className="h-3 w-28" />
+                    <Skeleton className="h-28 w-full rounded-lg" />
                   </div>
                 </div>
-                <div className="mt-3 space-y-2">
-                  <Skeleton className="h-3 w-11/12" />
-                  <Skeleton className="h-3 w-full" />
-                  <Skeleton className="h-3 w-4/5" />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {thread && messages.length === 0 && (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            {t("oneMail.common.empty")}
-          </p>
-        )}
-
-        {thread?.groups.map((group) => (
-          <section key={group.threadKey} className="mb-4 last:mb-0">
-            <div className="my-3 flex items-center gap-3">
-              <span aria-hidden className="bg-border h-px flex-1" />
-              <span className="text-muted-foreground max-w-[75%] truncate text-xs">
-                {group.subject ?? t("oneMail.thread.noSubject")}
-              </span>
-              <span aria-hidden className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
-                {group.messages.length}
-              </span>
-              <span aria-hidden className="bg-border h-px flex-1" />
-            </div>
-
-            <div className="space-y-3">
-              {[...group.messages].sort(byReceivedAtAsc).map((message) => (
-                <MessageCard
-                  key={message.messageId}
-                  message={message}
-                  accountLabel={accountLabel}
-                  body={bodyState[message.messageId]}
-                  onLoadBody={() => loadBody(message.messageId)}
-                  onReply={() => void composer.openReply(message, false)}
-                  onReplyAll={() => void composer.openReply(message, true)}
-                  onForward={() => void composer.openForward(message)}
-                  onRaw={() => openRawMessage(message.messageId)}
-                  onToggleStar={() => void toggleStar(message)}
-                  bodyDisplayMode={settings?.bodyDisplayMode ?? "text"}
-                  remoteImagesPolicy={settings?.remoteImagesPolicy ?? "block"}
-                />
               ))}
             </div>
-          </section>
-        ))}
+          )}
+
+          {thread && messages.length === 0 && (
+            <p className="text-muted-foreground py-6 text-center text-sm">
+              {t("oneMail.common.empty")}
+            </p>
+          )}
+
+          <TooltipProvider delayDuration={200}>
+            <div>
+              {thread?.groups.map((group) => (
+                <section key={group.threadKey}>
+                  <div className="text-muted-foreground my-4 flex items-center gap-3 text-xs">
+                    <span aria-hidden className="bg-border h-px flex-1" />
+                    <span className="max-w-[75%] text-center break-words">
+                      {group.subject ?? t("oneMail.thread.noSubject")}
+                    </span>
+                    <span aria-hidden className="bg-border h-px flex-1" />
+                  </div>
+                  {[...group.messages].sort(byReceivedAtAsc).map((message) => (
+                    <MessageBubble
+                      key={message.messageId}
+                      message={message}
+                      outgoing={
+                        Boolean(accountAddress) &&
+                        message.fromEmail?.toLowerCase() === accountAddress.toLowerCase()
+                      }
+                      accountAddress={accountAddress}
+                      body={bodyState[message.messageId]}
+                      bodyDisplayMode={settings?.bodyDisplayMode ?? "text"}
+                      remoteImagesPolicy={settings?.remoteImagesPolicy ?? "block"}
+                      onLoadBody={() => loadBody(message.messageId)}
+                      onReply={() => reply(message)}
+                      onForward={() => void composer.openForward(message)}
+                      onRaw={() => openRawMessage(message.messageId)}
+                      onToggleStar={() => void toggleStar(message)}
+                    />
+                  ))}
+                </section>
+              ))}
+            </div>
+          </TooltipProvider>
+        </div>
+
+        {showScrollToBottom && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="bg-background absolute right-6 bottom-4 z-10 rounded-full shadow-md"
+            aria-label={t("oneMail.thread.scrollToBottom")}
+            title={t("oneMail.thread.scrollToBottom")}
+            onClick={() => {
+              const element = scrollRef.current;
+              if (element) element.scrollTop = element.scrollHeight;
+              setShowScrollToBottom(false);
+            }}
+          >
+            <ChevronDown className="size-4" aria-hidden />
+          </Button>
+        )}
       </div>
+
+      {thread && (
+        <ReplyComposer
+          key={thread.conversationKey}
+          conversation={thread}
+          latestMessage={latest}
+          replyTarget={replyTarget}
+          onReplyTargetChange={setReplyTarget}
+          focusToken={focusToken}
+          accounts={accounts}
+          onSent={() => {
+            reloadThread();
+            reloadConversations();
+            void reloadAccounts();
+          }}
+          onOpenOutbox={() => setOutboxOpen(true)}
+        />
+      )}
+
+      <Dialog open={participantsOpen} onOpenChange={setParticipantsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("oneMail.thread.participants")}</DialogTitle>
+            <DialogDescription>{t("oneMail.thread.participantsHint")}</DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-80 space-y-1.5 overflow-y-auto">
+            {(thread?.participants ?? []).map((participant) => (
+              <li
+                key={participant.email}
+                className="bg-muted/40 flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5 text-sm"
+              >
+                <span className="min-w-0 truncate">
+                  {participant.name?.trim() || participant.email}
+                </span>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 shrink-0 rounded text-xs focus-visible:ring-2 focus-visible:outline-none"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(participant.email)
+                      .then(() => toast.success(t("oneMail.common.copied")))
+                      .catch(() => toast.error(t("oneMail.common.copyFailed")));
+                  }}
+                  title={t("oneMail.thread.copyAddress")}
+                >
+                  {participant.email}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <div className="flex justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={copyParticipants}>
+              <Copy className="size-4" aria-hidden />
+              {t("oneMail.thread.copyAddresses")}
+            </Button>
+            <Button size="sm" onClick={() => setParticipantsOpen(false)}>
+              {t("oneMail.common.close")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
 
-/** Newest message of the thread: the pane's reply / forward / raw target. */
+/** Newest message of the thread: the reply box's default target. */
 function latestMessage(messages: MessageSummary[]): MessageSummary | null {
   let latest: MessageSummary | null = null;
   for (const message of messages) {

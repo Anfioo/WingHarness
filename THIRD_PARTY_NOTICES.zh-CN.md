@@ -105,11 +105,14 @@ OneMail / Copyright (c) Huzhihui / 按 GNU Affero 通用公共许可证第 3 版
 AGPL-3.0-only）授权。上游仓库没有 `LICENSE` 文件，许可证由其 README 声明。
 
 `src-tauri/one-mail-core` 与 `/one-mail` 页面改编自 OneMail：账号模型与服务商预设、
-IMAP 同步、MIME 解析、SMTP 发送、会话聚合、写信、发件箱以及净化后的阅读界面。该
-crate 已按本仓的存储、命令与 UI 层重写，没有逐字节相同的上游文件。OAuth、
-Gmail 与 Graph 同步器、AI 助手、备份／恢复、后台 supervisor 以及上游的窗口辅助
-代码未移植。WingHarness 整体为 AGPL-3.0-only；`src-tauri/one-mail-core/` 下的文件
-保留归属声明，修改内容记录在 `src-tauri/one-mail-core/UPSTREAM.md`。
+IMAP 同步、MIME 解析、SMTP 发送、会话聚合、写信、发件箱以及净化后的阅读界面，
+包括邮件 HTML 预处理器、HTML 转纯文本与对话布局。该 crate 已按本仓的存储、命令与
+UI 层重写，没有逐字节相同的上游文件。OAuth、Gmail 与 Graph 同步器、AI 助手、
+备份／恢复、后台 supervisor 以及上游的窗口辅助代码未移植。
+`src/assets/one-mail/provider-icons/` 下的服务商图标来自同一上游集合；Simple Icons
+图标为 CC0-1.0，Outlook 与网易图标仅用于标识对应服务。WingHarness 整体为
+AGPL-3.0-only；`src-tauri/one-mail-core/` 下的文件保留归属声明，修改内容记录在
+`src-tauri/one-mail-core/UPSTREAM.md`。
 
 ### openidea
 

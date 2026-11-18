@@ -2,95 +2,35 @@
 // (https://github.com/zhihui-hu/one-mail), AGPL-3.0-only.
 // See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record.
 
-import { Paperclip, Star } from "lucide-react";
-import type { ConversationParticipant, ConversationSummary } from "@/commands";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Copy } from "lucide-react";
+import { toast } from "sonner";
+import type { ConversationSummary } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
+import ConversationAvatar from "./conversation-avatar";
 
-/**
- * The eight avatar tints, spelled out as whole Tailwind classes: the scanner
- * only sees classes that appear literally, so no `bg-${tone}` is possible.
- */
-const AVATAR_TONES = [
-  "bg-sky-500/15 text-sky-700 dark:text-sky-300",
-  "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  "bg-rose-500/15 text-rose-700 dark:text-rose-300",
-  "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300",
-  "bg-orange-500/15 text-orange-700 dark:text-orange-300",
-  "bg-teal-500/15 text-teal-700 dark:text-teal-300",
-];
-
-/**
- * A stable tint for any seed — an account colour key or a correspondent's
- * address. The same seed always lands on the same class, so a rail row and its
- * messages keep one colour without the backend having to freeze a palette.
- */
-export function avatarTone(seed: string): string {
-  let hash = 0;
-  for (let index = 0; index < seed.length; index += 1) {
-    hash = (hash * 31 + seed.charCodeAt(index)) % 100_000;
-  }
-  return AVATAR_TONES[hash % AVATAR_TONES.length];
-}
-
-/** One or two letters for the avatar: the name when there is one, else the address. */
-function initialsFor(name: string | null, email: string): string {
-  const source = (name ?? "").trim() || email.split("@")[0] || "?";
-  const parts = source.split(/[\s._-]+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-
-/**
- * The time column: the clock time for today, the month and day for this year,
- * and the full date before that — the same narrowing a mail client uses.
- */
-function formatConversationTime(iso: string | null, language: string): string {
+/** A short relative time such as "3 hours ago", without a date-fns dependency. */
+function formatRelativeTime(iso: string | null, language: string): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
 
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) {
-    return new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(date);
+  const seconds = Math.round((date.getTime() - Date.now()) / 1000);
+  const formatter = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+    ["year", 31_536_000],
+    ["month", 2_592_000],
+    ["week", 604_800],
+    ["day", 86_400],
+    ["hour", 3_600],
+    ["minute", 60],
+  ];
+  for (const [unit, size] of units) {
+    if (Math.abs(seconds) >= size) {
+      return formatter.format(Math.round(seconds / size), unit);
+    }
   }
-  if (date.getFullYear() === now.getFullYear()) {
-    return new Intl.DateTimeFormat(language, { month: "numeric", day: "numeric" }).format(date);
-  }
-  return new Intl.DateTimeFormat(language, {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).format(date);
-}
-
-/** The correspondent's avatar, with the participant count when there are several. */
-function ParticipantAvatar({ participants }: { participants: ConversationParticipant[] }) {
-  const first = participants[0];
-  const email = first?.email ?? "";
-  const many = participants.length > 1;
-
-  return (
-    <span className="relative flex size-9 shrink-0 items-center justify-center">
-      <Avatar aria-hidden className="size-9">
-        <AvatarFallback className={cn("text-[11px] font-semibold", avatarTone(email || "unknown"))}>
-          {initialsFor(first?.name ?? null, email)}
-        </AvatarFallback>
-      </Avatar>
-      {many && (
-        <span
-          aria-hidden
-          className="bg-muted text-muted-foreground ring-background absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full text-[9px] font-medium tabular-nums ring-2"
-        >
-          {participants.length}
-        </span>
-      )}
-    </span>
-  );
+  return formatter.format(seconds, "second");
 }
 
 export interface ConversationRowProps {
@@ -100,84 +40,89 @@ export interface ConversationRowProps {
 }
 
 /**
- * One conversation in the list: the correspondent, the subject, the snippet and
- * the trailing time / unread / star / attachment marks.
- *
- * The row is a real button, so Enter and Space open it without extra handlers,
- * and the whole 76px height is the hit area.
+ * One person in the list: the avatar with its unread badge, the name and time,
+ * and the last message's snippet. The row is a button, so the whole height is
+ * the hit area and Enter/Space work without extra handlers.
  */
 export function ConversationRow({ item, selected, onOpen }: ConversationRowProps) {
   const { t, language } = useAppTranslation();
-
   const unread = item.unreadCount > 0;
-  const time = formatConversationTime(item.lastMessage.receivedAt, language);
-  const subject = item.lastMessage.subject ?? t("oneMail.thread.noSubject");
+  const snippet =
+    item.lastMessage.snippet || item.lastMessage.subject || t("oneMail.thread.noSubject");
+  const time = formatRelativeTime(item.lastMessage.receivedAt, language);
+  const participantEmails = item.participants.map((participant) => participant.email).join(", ");
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(item)}
-      aria-current={selected ? "true" : undefined}
+    <div
       className={cn(
-        "focus-visible:ring-ring/50 flex h-full w-full items-center gap-3 px-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
-        selected ? "bg-accent" : "hover:bg-accent/50"
+        "conversation-row group relative flex h-full w-full items-center gap-2.5 px-3.5 py-2",
+        selected && "is-selected"
       )}
     >
-      <ParticipantAvatar participants={item.participants} />
+      <button
+        type="button"
+        className="focus-visible:ring-ring absolute inset-0 outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        aria-current={selected ? "true" : undefined}
+        aria-label={participantEmails}
+        onClick={() => onOpen(item)}
+      />
+      <span className="pointer-events-none relative shrink-0">
+        <ConversationAvatar
+          seed={item.participants[0]?.email || item.conversationKey}
+          members={item.participants.length > 1 ? item.participants : undefined}
+          compact
+        />
+        {unread && (
+          <span
+            className="conversation-unread absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] tabular-nums"
+            aria-label={t("oneMail.conversations.unreadCount", { count: item.unreadCount })}
+          >
+            {item.unreadCount > 99 ? "99+" : item.unreadCount}
+          </span>
+        )}
+      </span>
 
-      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex min-w-0 items-baseline gap-2">
+      <span className="pointer-events-none relative min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-2">
           <span
             className={cn(
-              "shrink-0 truncate text-sm",
-              unread ? "text-foreground font-semibold" : "text-foreground/90 font-medium"
+              "min-w-0 truncate text-sm",
+              unread ? "text-foreground font-semibold" : "font-medium"
             )}
+            title={item.displayName}
           >
             {item.displayName}
           </span>
-          {item.messageCount > 1 && (
-            <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">
-              {item.messageCount}
-            </span>
-          )}
-          <span
-            className={cn(
-              "min-w-0 flex-1 truncate text-xs",
-              unread ? "text-foreground/80" : "text-muted-foreground"
-            )}
+          <time
+            dateTime={item.lastMessage.receivedAt ?? undefined}
+            className="text-muted-foreground ml-auto shrink-0 text-[11px] whitespace-nowrap"
           >
-            {subject}
-          </span>
+            {time}
+          </time>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground focus-visible:ring-ring pointer-events-auto hidden size-5 shrink-0 items-center justify-center rounded group-focus-within:flex group-hover:flex focus-visible:ring-2 focus-visible:outline-none"
+            aria-label={t("oneMail.list.copyAddress")}
+            title={t("oneMail.list.copyAddress")}
+            onClick={(event) => {
+              event.stopPropagation();
+              void navigator.clipboard
+                .writeText(participantEmails)
+                .then(() => toast.success(t("oneMail.common.copied")))
+                .catch(() => toast.error(t("oneMail.common.copyFailed")));
+            }}
+          >
+            <Copy className="size-3" aria-hidden />
+          </button>
         </span>
-        <span className="text-muted-foreground truncate text-xs">{item.lastMessage.snippet}</span>
-      </span>
-
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        <span className="text-muted-foreground text-[11px] whitespace-nowrap tabular-nums">
-          {time}
-        </span>
-        <span className="flex items-center gap-1">
-          {item.hasAttachments && (
-            <>
-              <Paperclip aria-hidden className="text-muted-foreground size-3" />
-              <span className="sr-only">{t("oneMail.conversations.attachments")}</span>
-            </>
-          )}
-          {item.isStarred && (
-            <>
-              <Star aria-hidden className="size-3 fill-amber-400 text-amber-400" />
-              <span className="sr-only">{t("oneMail.conversations.starred")}</span>
-            </>
-          )}
-          {unread && (
-            <>
-              <span aria-hidden className="bg-primary size-1.5 rounded-full" />
-              <span className="sr-only">{t("oneMail.conversations.unread")}</span>
-            </>
-          )}
+        <span
+          className="text-muted-foreground mt-0.5 block truncate text-xs leading-4"
+          title={snippet}
+        >
+          {snippet}
         </span>
       </span>
-    </button>
+    </div>
   );
 }
 

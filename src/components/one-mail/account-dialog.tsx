@@ -27,6 +27,7 @@ import {
   type Security,
 } from "@/commands";
 import FolderSelector from "@/components/one-mail/folder-selector";
+import ProviderIcon from "@/components/one-mail/provider-icon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -513,19 +514,36 @@ export default function AccountDialog() {
                 onValueChange={applyProvider}
               >
                 <SelectTrigger id="one-mail-account-provider" className="w-full">
-                  <SelectValue placeholder={t("oneMail.common.loading")} />
+                  <SelectValue>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <ProviderIcon size="md" providerKey={form.providerKey} address={form.email} />
+                      <span className="truncate">
+                        {form.providerKey === CUSTOM_PROVIDER
+                          ? t("oneMail.accountForm.custom")
+                          : (preset?.displayName ?? form.providerKey)}
+                      </span>
+                    </span>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {presetOptions.map((option) => (
                     <SelectItem key={option.key} value={option.key}>
-                      {option.key === CUSTOM_PROVIDER
-                        ? t("oneMail.accountForm.custom")
-                        : option.displayName}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <ProviderIcon size="md" providerKey={option.key} address={form.email} />
+                        <span className="truncate">
+                          {option.key === CUSTOM_PROVIDER
+                            ? t("oneMail.accountForm.custom")
+                            : option.displayName}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                   {!presetOptions.some((option) => option.key === CUSTOM_PROVIDER) && (
                     <SelectItem value={CUSTOM_PROVIDER}>
-                      {t("oneMail.accountForm.custom")}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <ProviderIcon size="md" providerKey={CUSTOM_PROVIDER} />
+                        <span className="truncate">{t("oneMail.accountForm.custom")}</span>
+                      </span>
                     </SelectItem>
                   )}
                 </SelectContent>

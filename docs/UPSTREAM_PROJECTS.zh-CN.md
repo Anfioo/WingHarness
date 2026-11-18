@@ -66,7 +66,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [SpacePreview](https://github.com/likehao19/SpacePreview) | MIT | `space-preview-core`、`src/lib/space-preview`、`src/components/space-preview`、`preview-window` | 版本 0.10.22（`db531eb`）；引擎与查看器近乎逐字移植，宿主与独立窗口属重写；`space-preview-core/UPSTREAM.md` 与 `src/components/space-preview/UPSTREAM.md` |
 
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`、`moin` 页面、`extension/` | 0.4.0，提交 `79e7587`；按本仓架构改写；`moin-core/UPSTREAM.md` |
-| [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`、`one-mail` 页面 | 0.1.0，提交 `181ccb6`；按本仓的存储、命令与 UI 层重写，无相同文件；`one-mail-core/UPSTREAM.md` |
+| [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`、`one-mail` 页面 | 0.1.0，提交 `181ccb6`；引擎按本仓的存储与命令层重写，界面用本仓组件重建，邮件 HTML 预处理器与 HTML 转文本直接移植；`one-mail-core/UPSTREAM.md` |
 
 **这一组的说明**
 

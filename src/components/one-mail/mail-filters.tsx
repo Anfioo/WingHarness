@@ -3,8 +3,14 @@
 // See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record.
 
 import type { ReactNode } from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import type { OneMailFilters } from "@/hooks/use-one-mail-page";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -13,8 +19,8 @@ import { useOneMailPageContext } from "@/pages/one-mail/context";
 
 type Range = OneMailFilters["range"];
 
-/** The time chips; "all" is the first chip and is not a range of its own. */
-const RANGE_CHIPS: { value: Exclude<Range, "all">; labelKey: string }[] = [
+const RANGE_CHIPS: { value: Range; labelKey: string }[] = [
+  { value: "all", labelKey: "oneMail.filters.all" },
   { value: "today", labelKey: "oneMail.filters.today" },
   { value: "yesterday", labelKey: "oneMail.filters.yesterday" },
   { value: "last7days", labelKey: "oneMail.filters.last7Days" },
@@ -24,21 +30,23 @@ function Chip({
   active,
   onClick,
   children,
+  pressed,
 }: {
   active: boolean;
   onClick: () => void;
   children: ReactNode;
+  pressed?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-pressed={active}
+      aria-pressed={pressed ?? active}
       onClick={onClick}
       className={cn(
-        "focus-visible:ring-ring/50 h-6 rounded-full border px-2 text-[11px] font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        "focus-visible:ring-ring h-6 rounded-full border px-2.5 text-[11px] font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
         active
-          ? "border-primary/40 bg-primary/10 text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground"
+          ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90"
+          : "border-border/70 bg-background/50 text-muted-foreground hover:bg-muted hover:text-foreground"
       )}
     >
       {children}
@@ -47,25 +55,29 @@ function Chip({
 }
 
 /**
- * The list's search box and filter chips.
+ * The list header: search, the add menu and the filter chips.
  *
- * The search value is written straight into the page state — the hook debounces
- * the keyword itself — and the chips only rearrange the filters object. Every
- * change makes the hook refetch page zero, so there is no apply button.
+ * Search is typed into the page state, and the hook debounces the keyword
+ * itself; every chip change refetches page zero, so there is no apply button.
  */
 export default function MailFilters() {
   const page = useOneMailPageContext();
   const { t } = useAppTranslation();
 
   const { filters, setFilters, keyword, setKeyword } = page;
-  const allActive = !filters.unreadOnly && !filters.starredOnly && filters.range === "all";
 
-  const selectRange = (range: Range) =>
+  const setRange = (range: Range) => {
+    if (range === "all") {
+      setFilters({ unreadOnly: false, starredOnly: false, range: "all" });
+      return;
+    }
     setFilters({ ...filters, range: filters.range === range ? "all" : range });
+  };
+  const allActive = !filters.unreadOnly && !filters.starredOnly && filters.range === "all";
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <div className="group relative min-w-0 flex-1">
           <Search className="text-muted-foreground group-focus-within:text-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 transition-colors" />
           <Input
@@ -82,48 +94,53 @@ export default function MailFilters() {
             className="h-8 pl-8 text-xs"
           />
         </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="shrink-0"
-          onClick={page.reloadConversations}
-          disabled={page.conversationsLoading}
-        >
-          <RefreshCw className={page.conversationsLoading ? "animate-spin" : undefined} />
-          {t("oneMail.filters.refresh")}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label={t("oneMail.list.add")}
+              title={t("oneMail.list.add")}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            <DropdownMenuItem onSelect={page.accountDialog.openAdd}>
+              {t("oneMail.list.addProvider")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={page.composer.openNew}>
+              {t("oneMail.list.newMessage")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex flex-wrap items-center gap-1">
-        <Chip
-          active={allActive}
-          onClick={() => setFilters({ unreadOnly: false, starredOnly: false, range: "all" })}
-        >
-          {t("oneMail.filters.all")}
-        </Chip>
+        {RANGE_CHIPS.map((chip) => (
+          <Chip
+            key={chip.value}
+            active={chip.value === "all" ? allActive : filters.range === chip.value}
+            onClick={() => setRange(chip.value)}
+          >
+            {t(chip.labelKey)}
+          </Chip>
+        ))}
+        <span aria-hidden className="bg-border mx-0.5 h-3.5 w-px" />
         <Chip
           active={filters.unreadOnly}
+          pressed={filters.unreadOnly}
           onClick={() => setFilters({ ...filters, unreadOnly: !filters.unreadOnly })}
         >
           {t("oneMail.filters.unread")}
         </Chip>
         <Chip
           active={filters.starredOnly}
+          pressed={filters.starredOnly}
           onClick={() => setFilters({ ...filters, starredOnly: !filters.starredOnly })}
         >
           {t("oneMail.filters.starred")}
         </Chip>
-        <span aria-hidden className="bg-border mx-0.5 h-3.5 w-px" />
-        {RANGE_CHIPS.map((chip) => (
-          <Chip
-            key={chip.value}
-            active={filters.range === chip.value}
-            onClick={() => selectRange(chip.value)}
-          >
-            {t(chip.labelKey)}
-          </Chip>
-        ))}
       </div>
     </div>
   );

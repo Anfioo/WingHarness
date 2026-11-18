@@ -73,7 +73,7 @@ for the project name (2026-11-05).
 
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
 | [ScoopInstaller/Install](https://github.com/ScoopInstaller/Install) | Unlicense | `src-tauri/resources/scoop/install.ps1` | Bundled unchanged on 2026-11-13; SHA-256 `94f983b1…f2512`; `THIRD_PARTY_NOTICES.md` |
-| [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`, `one-mail` page | 0.1.0 at `181ccb6`; rewritten for this app's storage, command and UI layers, no identical files; `one-mail-core/UPSTREAM.md` |
+| [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`, `one-mail` page | 0.1.0 at `181ccb6`; engine rewritten for this app's storage and command layers, UI rebuilt on this app's components, and the mail-HTML preparer / HTML-to-text conversion ported directly; `one-mail-core/UPSTREAM.md` |
 
 **Notes on this group**
 

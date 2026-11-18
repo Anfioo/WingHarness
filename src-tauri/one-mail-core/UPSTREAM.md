@@ -98,3 +98,9 @@ to this document. The feature guide is
 | `src/message.rs` | Reworked from `src-tauri/src/commands/data/messages/mod.rs`; lazy `BODY.PEEK[]` fetch, one-transaction persistence and local read state. |
 | `src/compose.rs` | Reworked from `src-tauri/src/commands/data/compose.rs`; the outbox state machine, a testable `MailSender` seam, MIME guessing by extension and the send/retry split. |
 | `../src/pages/one-mail/**`, `../src/components/one-mail/**`, `../src/hooks/use-one-mail-*.ts`, `../src/lib/one-mail/**`, `../src/commands/services/one-mail/**` | Behaviour port of the upstream UI, rewritten for this app's router, hooks, i18n, component library and editor. No upstream file is byte-identical. |
+| `../src/lib/one-mail/mail-html.ts`, `mail-html-resources.ts` | Adapted from `src/components/mail/mail-html.ts` and `mail-html-resources.ts`: the same sanitizer and resource policy, with this app's comments and module paths. |
+| `../src/lib/one-mail/conversation-text.ts`, `mail-text.ts` | Adapted from `src/components/conversations/conversation-text.ts` and `src/shared/mail-text.ts`: HTML-to-text, link extraction and whitespace compaction. |
+| `../src/lib/one-mail/provider-metadata.ts` | Adapted from `src/shared/provider-metadata.ts`, extended with the provider label keys and the address-to-provider map used by the offline avatars. |
+| `../src/components/one-mail/conversation-avatar.tsx` | Adapted from `src/components/conversations/conversation-workspace/conversation-avatar.tsx`: bundled provider marks replace the upstream remote logo lookup, so avatars work offline. |
+| `../src/components/one-mail/one-mail.css` | Adapted from `src/components/conversations/conversation-workspace.css` and the `.mail-html` rules in `src/assets/main.css`; scoped to `[data-workspace='one-mail']`. |
+| `../src/assets/one-mail/provider-icons/` | Copied from the upstream `src/assets/provider-icons/` and Simple Icons 16 (CC0-1.0); see the README beside the files. |
