@@ -145,6 +145,8 @@ export interface AnalysisChartTile {
   bytes: number;
   fileCount: number;
   isDirectory: boolean;
+  /** Bytes of the enclosing folder; null above the scan root. */
+  parentBytes: number | null;
   /** One-based level relative to the displayed folder. */
   level: number;
   rect: Rect;
@@ -161,6 +163,8 @@ export interface TreemapLayoutOptions {
   height: number;
   /** Levels below the displayed folder; 1 renders direct children only. */
   depth: number;
+  /** Bytes of the displayed folder's parent; null at the scan root. */
+  parentBytes?: number | null;
 }
 
 /**
@@ -173,6 +177,7 @@ export function layoutTreemap({
   width,
   height,
   depth,
+  parentBytes = null,
 }: TreemapLayoutOptions): AnalysisChartTile[] {
   if (width <= 4 || height <= 4 || listing.bytes <= 0) return [];
 
@@ -185,6 +190,7 @@ export function layoutTreemap({
     totalBytes: number,
     totalEntryCount: number,
     parentPath: string,
+    parentTotalBytes: number | null,
     rect: Rect,
     level: number
   ) => {
@@ -265,6 +271,7 @@ export function layoutTreemap({
         bytes: item.bytes,
         fileCount: item.entryCount ?? 0,
         isDirectory: item.entry?.isDirectory ?? false,
+        parentBytes: parentTotalBytes,
         level,
         rect: tileRect,
         headerHeight,
@@ -286,6 +293,7 @@ export function layoutTreemap({
         childTotal,
         node.totalEntryCount ?? childEntries.length,
         node.path,
+        totalBytes,
         childRect,
         level + 1
       );
@@ -297,6 +305,7 @@ export function layoutTreemap({
     listing.bytes,
     listing.totalEntryCount,
     listing.path,
+    parentBytes,
     { x: 0, y: 0, width, height },
     1
   );

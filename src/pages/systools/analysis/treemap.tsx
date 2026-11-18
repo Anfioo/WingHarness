@@ -8,15 +8,17 @@ import {
   type DirectoryEntryInfo,
 } from "@/lib/systools/storage";
 import { formatBytes, formatShare } from "@/lib/systools/format";
-import { cn } from "@/lib/utils";
 import { FileEntryContextMenu } from "../components/file-entry-context-menu";
 import { layoutTreemap, type AnalysisChartTile } from "./layout";
+import { EntryHoverCard } from "./entry-hover-card";
 import { useElementSize } from "./use-element-size";
 
 type TreemapProps = {
   listing: AnalysisDirectoryListing;
   hierarchy: ReadonlyMap<string, AnalysisDirectoryNode>;
   depth: number;
+  /** Bytes of the displayed folder's parent; null at the scan root. */
+  parentBytes: number | null;
   selectedPath: string | null;
   disabled: boolean;
   onSelect: (entry: DirectoryEntryInfo) => void;
@@ -29,6 +31,8 @@ type TreemapProps = {
 
 type HoverState = {
   tile: AnalysisChartTile;
+  clientX: number;
+  clientY: number;
   x: number;
   y: number;
 };
@@ -49,6 +53,7 @@ export function Treemap({
   listing,
   hierarchy,
   depth,
+  parentBytes,
   selectedPath,
   disabled,
   onSelect,
@@ -72,17 +77,21 @@ export function Treemap({
         width: size.width,
         height: size.height,
         depth,
+        parentBytes,
       }),
-    [listing, hierarchy, size.width, size.height, depth]
+    [listing, hierarchy, size.width, size.height, depth, parentBytes]
   );
 
   const showTooltip = (tile: AnalysisChartTile, event: MouseEvent<SVGGElement>) => {
+    if (disabled) return;
     const bounds = ref.current?.getBoundingClientRect();
     if (!bounds) return;
     setHover({
       tile,
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
+      clientX: event.clientX,
+      clientY: event.clientY,
     });
   };
 
@@ -266,14 +275,22 @@ export function Treemap({
         ) : null}
 
         {hover ? (
-          <div
-            className="bg-popover text-popover-foreground pointer-events-none absolute z-10 w-max max-w-60 rounded-md border px-2.5 py-1.5 text-[11px] shadow-md"
-            style={{
-              left: Math.max(4, Math.min(hover.x + 12, size.width - 232)),
-              top: Math.max(4, Math.min(hover.y + 12, size.height - 104)),
-            }}
-          >
-            {hover.tile.remainder ? (
+          hover.tile.entry ? (
+            <EntryHoverCard
+              entry={hover.tile.entry}
+              folderBytes={listing.bytes}
+              parentBytes={hover.tile.parentBytes}
+              x={hover.clientX}
+              y={hover.clientY}
+            />
+          ) : (
+            <div
+              className="bg-popover text-popover-foreground pointer-events-none absolute z-10 w-max max-w-60 rounded-md border px-2.5 py-1.5 text-[11px] shadow-md"
+              style={{
+                left: Math.max(4, Math.min(hover.x + 12, size.width - 232)),
+                top: Math.max(4, Math.min(hover.y + 12, size.height - 104)),
+              }}
+            >
               <div className="space-y-0.5">
                 <p className="font-medium">{t("systools.analysis.other")}</p>
                 <p className="text-muted-foreground">
@@ -282,22 +299,8 @@ export function Treemap({
                   })}
                 </p>
               </div>
-            ) : (
-              <div className="space-y-0.5">
-                <p className="max-w-52 truncate font-medium">{hover.tile.name}</p>
-                <p className="text-muted-foreground break-all" title={hover.tile.path ?? undefined}>
-                  {hover.tile.path}
-                </p>
-                <p className={cn("tabular-nums")}>
-                  {formatBytes(hover.tile.bytes, language)}
-                  <span className="text-muted-foreground">
-                    {" · "}
-                    {formatShare(hover.tile.bytes, listing.bytes, language)}
-                  </span>
-                </p>
-              </div>
-            )}
-          </div>
+            </div>
+          )
         ) : null}
       </div>
     </FileEntryContextMenu>
