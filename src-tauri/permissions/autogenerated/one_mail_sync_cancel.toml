@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-one-mail-sync-cancel"
+description = "Enables the one_mail_sync_cancel command without any pre-configured scope."
+commands.allow = ["one_mail_sync_cancel"]
+
+[[permission]]
+identifier = "deny-one-mail-sync-cancel"
+description = "Denies the one_mail_sync_cancel command without any pre-configured scope."
+commands.deny = ["one_mail_sync_cancel"]

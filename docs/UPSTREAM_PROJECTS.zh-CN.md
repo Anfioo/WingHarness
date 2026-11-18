@@ -8,7 +8,7 @@ WingHarness 源自作者自己的私有工作流应用
 
 这份文件是这条链的唯一记录，有两个目的：
 
-1. **许可证卫生。** WingHarness 采用 GPL-3.0-only。只有与本项目兼容的许可证才
+1. **许可证卫生。** WingHarness 采用 AGPL-3.0-only。只有与本项目兼容的许可证才
    允许移植，并且声明必须随代码一起走。
 2. **移植记录。** 它说明哪些上游已经在这里，以及哪些绝对不能拿。
 
@@ -29,11 +29,11 @@ WingHarness 源自作者自己的私有工作流应用
 
 | 上游许可证 | 是否允许移植 | 原因 |
 |------------|--------------|------|
-| GPL-3.0-only / GPL-3.0-or-later | 允许 | 与本项目同一许可证。 |
-| MIT、BSD-2/3-Clause、ISC、MIT-0 | 允许 | 宽松许可，与 GPL-3.0 兼容。 |
-| Apache-2.0 | 允许 | 与 GPL-3.0 单向兼容。 |
-| MPL-2.0、LGPL-2.1/3.0 | 允许，作为库或文件级组件 | 弱著佐权，与 GPL-3.0 兼容。 |
-| AGPL-3.0 | **禁止** | 会要求整个项目改为 AGPL-3.0。 |
+| AGPL-3.0 | 允许 | 与本项目同一许可证。 |
+| GPL-3.0-only / GPL-3.0-or-later | 允许 | GPLv3 §13 允许与本 AGPLv3 项目组合；移植部分保留其 GPL 声明。 |
+| MIT、BSD-2/3-Clause、ISC、MIT-0 | 允许 | 宽松许可，与 AGPL-3.0 兼容。 |
+| Apache-2.0 | 允许 | 与 AGPL-3.0 单向兼容。 |
+| MPL-2.0、LGPL-2.1/3.0 | 允许，作为库或文件级组件 | 弱著佐权，与 AGPL-3.0 兼容。 |
 | 没有许可证文件 | **禁止** | 默认版权归作者所有（all rights reserved）。先取得作者许可。 |
 | “保留所有权利”、非商业或自定义条款 | **禁止** | 不兼容。 |
 
@@ -69,8 +69,9 @@ WingHarness 源自作者自己的私有工作流应用
 
 **这一组的说明**
 
-- **MangoDisk** 与 **TizuMark** 是 GPL-3.0-only。正因为承载了它们，WingHarness
-  才是 GPL-3.0-only 而不是 MIT。
+- **MangoDisk** 与 **TizuMark** 是 GPL-3.0-only，依 GPLv3 §13 并入本
+  AGPL-3.0-only 作品。这两部分保留其 GPL-3.0-only 声明，完整 GPL 文本见
+  `licenses/GPL-3.0.txt`。它们也是本项目保持著佐权、而非改为宽松许可的原因。
 - **cc-switch** 主要是集成而非复制：应用读取 `~/.cc-switch/cc-switch.db`。唯一逐
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、

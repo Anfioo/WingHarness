@@ -2,7 +2,7 @@
 name = "svn-core"
 version = "0.0.1"
 description = "SVN working-copy engine for the standalone SVN workspace window."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

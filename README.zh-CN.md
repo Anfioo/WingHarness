@@ -9,7 +9,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-24C8DB?logo=tauri)](https://tauri.app/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-GPLv3-blue)](./LICENSE)
+[![License](https://img.shields.io/badge/License-AGPLv3-blue)](./LICENSE)
 
 一个 Tauri v2 桌面应用模板：外壳与原生部分已经接好，写下的第一段代码就是功能，
 而不是窗口边框。
@@ -23,7 +23,7 @@
 - **无边框窗口 + 自绘标题栏** —— 拖拽、最小化、最大化、关闭，以及窗口右键菜单，落在透明圆角窗口上
 - **应用内路由** —— 基于路径名，页面按需懒加载；属于独立窗口的路由自带外壳。切换页面只替换内容，侧边栏不会重载整份文档
 - **浅色 / 深色 / 跟随系统主题，以及字体预设** —— 预设自带字体，首次使用时下载并缓存到本地
-- **系统托盘** —— 图标、随主题的右键菜单，以及一个弹出窗口
+- **系统托盘** —— 图标、随主题的右键菜单（带 Clash、FRP 两个二级面板，以及启动 Scoop 应用的二级菜单），以及一个弹出窗口
 - **全局快捷键** —— 注册到操作系统，可运行时修改，重启后保留
 - **国际化** —— i18next，中英两种语言共用一套键，没有漏译
 - **本地终端** —— 真正的伪终端（`portable-pty`），渲染在 webview 里
@@ -175,6 +175,7 @@ pnpm dlx shadcn@latest add button
 | [SYSTOOLS.zh-CN.md](./docs/features/SYSTOOLS.zh-CN.md) | Windows 系统维护控制台 |
 | [TERMINAL.zh-CN.md](./docs/features/TERMINAL.zh-CN.md) | 伪终端页面 |
 | [THIRD_PARTY_LICENSES.zh-CN.md](./docs/features/THIRD_PARTY_LICENSES.zh-CN.md) | 关于窗口中的第三方许可对话框 |
+| [TRAY_MENU.zh-CN.md](./docs/features/TRAY_MENU.zh-CN.md) | 托盘弹窗、它的应用二级菜单，以及挑选这些应用的 Scoop 页签 |
 
 ## 发布与自动更新
 
@@ -194,7 +195,7 @@ pnpm release:version
 
 ## 许可证
 
-GNU 通用公共许可证第 3 版（仅此版本，GPL-3.0-only）。见 [LICENSE](./LICENSE)。
+GNU Affero 通用公共许可证第 3 版（仅此版本，AGPL-3.0-only）。见 [LICENSE](./LICENSE)。
 
 版权所有 (C) 2026 Anfioo。
 

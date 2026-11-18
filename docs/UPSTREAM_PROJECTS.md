@@ -9,9 +9,9 @@ MaBangProjectsWorkflows → WingHarness.
 
 This file is the single record of that chain. It exists for two reasons:
 
-1. **Licence hygiene.** WingHarness is GPL-3.0-only. A port is only allowed from
-   a licence that is compatible with it, and the notice must travel with the
-   code.
+1. **Licence hygiene.** WingHarness is AGPL-3.0-only. A port is only allowed
+   from a licence that is compatible with it, and the notice must travel with
+   the code.
 2. **Porting record.** It says which upstreams are already here, and which ones
    must never be taken.
 
@@ -32,13 +32,13 @@ Only these licences may be ported into WingHarness:
 
 | Upstream licence | Port allowed? | Why |
 |------------------|---------------|-----|
-| GPL-3.0-only / GPL-3.0-or-later | Yes | Same licence as this project. |
-| MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with GPL-3.0. |
-| Apache-2.0 | Yes | One-way compatible with GPL-3.0. |
-| MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with GPL-3.0. |
+| AGPL-3.0 | Yes | Same licence as this project. |
+| GPL-3.0-only / GPL-3.0-or-later | Yes | GPLv3 §13 allows combining it with this AGPLv3 project; the ported portion keeps its GPL notice. |
+| MIT, BSD-2/3-Clause, ISC, MIT-0 | Yes | Permissive; compatible with AGPL-3.0. |
+| Apache-2.0 | Yes | One-way compatible with AGPL-3.0. |
+| MPL-2.0, LGPL-2.1/3.0 | Yes, as a library or file-level component | Weaker copyleft; compatible with AGPL-3.0. |
 | Unlicense / public domain | Yes | No conditions; a copy may carry no notice, but this project records it anyway. |
-| EPL-2.0 | **No** | Only compatible through EPL-2.0's Secondary License notice; without it in the source (elkjs and `@viz-js/viz` do not carry it) the code cannot be combined with GPL-3.0. |
-| AGPL-3.0 | **No** | Would require the whole project to become AGPL-3.0. |
+| EPL-2.0 | **No** | Only compatible through EPL-2.0's Secondary License notice; without it in the source (elkjs and `@viz-js/viz` do not carry it) the code cannot be combined with AGPL-3.0. |
 | No licence file | **No** | Default copyright: all rights reserved. Ask the author first. |
 | "All rights reserved", non-commercial, or custom terms | **No** | Incompatible. |
 
@@ -76,8 +76,10 @@ for the project name (2026-11-05).
 
 **Notes on this group**
 
-- **MangoDisk** and **TizuMark** are GPL-3.0-only. They are why WingHarness is
-  GPL-3.0-only rather than MIT.
+- **MangoDisk** and **TizuMark** are GPL-3.0-only and are included in this
+  AGPL-3.0-only work under GPLv3 §13. Their portions keep their GPL-3.0-only
+  notice; the full GPL text is in `licenses/GPL-3.0.txt`. They are why the
+  project stayed copyleft rather than moving to a permissive licence.
 - **cc-switch** is mostly integrated rather than copied: the app reads
   `~/.cc-switch/cc-switch.db`. The only byte-identical file is its `hermes.png`
   icon, so the notice still has to travel.

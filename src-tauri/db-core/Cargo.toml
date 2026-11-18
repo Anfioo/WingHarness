@@ -2,7 +2,7 @@
 name = "db-core"
 version = "0.0.1"
 description = "Database engine: data sources, connections, introspection, query execution and table editing."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 

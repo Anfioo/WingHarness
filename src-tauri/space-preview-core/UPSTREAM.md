@@ -8,7 +8,7 @@ standalone desktop previewer.
   checkout
 - License: MIT — see
   [licenses/SpacePreview-LICENSE.txt](../../licenses/SpacePreview-LICENSE.txt).
-  MIT is one-way compatible with this project's GPL-3.0-only.
+  MIT is one-way compatible with this project's AGPL-3.0-only.
 - Imported subtree: `src-tauri/src/` (the Rust side only)
 
 ## Status

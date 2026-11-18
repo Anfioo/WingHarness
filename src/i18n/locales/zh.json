@@ -17,7 +17,7 @@
     "viewRepo": "查看仓库",
     "thirdParty": "第三方许可",
     "licensesTitle": "第三方许可",
-    "licensesDescription": "WingHarness 以 GPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
+    "licensesDescription": "WingHarness 以 AGPL-3.0-only 分发。下列项目被移植进本项目，随附的每个库保留各自的许可证。",
     "licenseSources": "来源项目",
     "licenseNotices": "完整声明",
     "licenseMoin": "moin MIT 许可证",
@@ -51,6 +51,14 @@
     "previewOff": "空格预览已关闭",
     "openFile": "打开文件…",
     "quit": "退出",
+    "apps": "应用",
+    "appsCount_other": "{{count}} 个",
+    "appsPanel": {
+      "loading": "正在读取已装应用…",
+      "empty": "还没有可以启动的应用",
+      "emptyHint": "Scoop 会为带快捷方式的应用在开始菜单里建一个快捷方式，装好就会出现在这里。",
+      "edit": "编辑托盘菜单…"
+    },
     "clashPanel": {
       "core": "核心",
       "on": "已开启",
@@ -2315,6 +2323,37 @@
       "spawnFailed": "frpc 启动失败。",
       "notImplemented": "该功能尚未接入。",
       "internal": "FRP 引擎内部错误。"
+    }
+  },
+  "trayApps": {
+    "subtitle": "选择托盘二级菜单里出现哪些应用、它们的顺序，以及其中哪些排在前面。",
+    "dragHint": "拖动行可调整顺序；拖过分隔线就会置顶或取消置顶。",
+    "search": "搜索应用",
+    "reset": "恢复默认",
+    "refresh": "刷新",
+    "summary": "显示 {{showing}}/{{total}} · 置顶 {{pinned}} · 隐藏 {{hidden}}",
+    "folder": "快捷方式读自 {{folder}}",
+    "noFolder": "Scoop 还没有生成它的开始菜单文件夹，先去 Scoop 页装一个应用。",
+    "loadFailed": "读取应用失败：",
+    "saveFailed": "保存托盘设置失败。",
+    "launchFailed": "应用启动失败。",
+    "empty": {
+      "none": "没有找到应用快捷方式",
+      "search": "没有匹配「{{query}}」的应用。",
+      "hint": "这里只列出带开始菜单快捷方式的应用，它们在 {{folder}}。"
+    },
+    "action": {
+      "pin": "置顶",
+      "unpin": "取消置顶",
+      "hide": "从托盘中隐藏",
+      "show": "在托盘中显示",
+      "launch": "启动 {{name}}",
+      "drag": "拖动调整顺序",
+      "dragDisabled": "清空搜索后可拖动排序"
+    },
+    "preview": {
+      "title": "二级菜单",
+      "description": "托盘里「应用」那一行打开的就是它。"
     }
   }
 }

@@ -1,0 +1,33 @@
+[package]
+name = "one-mail-core"
+version = "0.0.1"
+description = "Local-first mail engine: accounts, IMAP/SMTP, conversations and compose."
+license = "AGPL-3.0-only"
+edition = "2021"
+publish = false
+
+[lib]
+name = "one_mail_core"
+crate-type = ["rlib"]
+
+[dependencies]
+tauri = { version = "2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "net", "io-util"] }
+tokio-util = "0.7"
+async-imap = { version = "0.11", default-features = false, features = ["runtime-tokio"] }
+async-native-tls = { version = "0.6", default-features = false, features = ["runtime-tokio"] }
+async-trait = "0.1"
+futures-util = "0.3"
+lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1", "tokio1-native-tls"] }
+mailparse = "0.16"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
+log = "0.4"
+tauri-plugin-dialog = "2"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }

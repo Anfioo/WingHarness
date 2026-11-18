@@ -93,6 +93,14 @@ pub fn run() {
                 // The ports page keeps `settings.json` under `<data dir>/ports`,
                 // so the whole feature moves with the data directory.
                 let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
+                // The mail engine keeps `onemail.db` (accounts, messages, FTS5,
+                // outbox) and `settings.json` under `<data dir>/one-mail`. The
+                // directory is sensitive: it holds mailbox passwords in clear
+                // text, so it is named here once and never written elsewhere.
+                let _ = one_mail_core::paths::CONFIG_DIR.set(config::dir().join("one-mail"));
+                app.manage(one_mail_core::state::OneMailState::new(
+                    app.handle().clone(),
+                ));
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
@@ -210,6 +218,14 @@ pub fn run() {
             // still open on the server: close both before the process goes.
             if let Some(db) = app.try_state::<commands::db::DbState>() {
                 tauri::async_runtime::block_on(db.shutdown());
+            }
+            // The mail engine holds a SQLite pool (and possibly a sync in
+            // flight): stop both so the WAL is checkpointed before exit.
+            if app
+                .try_state::<one_mail_core::state::OneMailState>()
+                .is_some()
+            {
+                one_mail_core::state::shutdown(app);
             }
             // codeg-server holds its port and keeps working — a database
             // client, a workspace scan — for as long as nothing kills it, and

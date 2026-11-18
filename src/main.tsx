@@ -2,8 +2,9 @@ import React, { lazy, Suspense, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import "./i18n";
+import { listen } from "@tauri-apps/api/event";
 import { AppShell } from "./components/app-shell";
-import { RouterProvider, useRouter } from "./lib/router";
+import { navigateApp, RouterProvider, useRouter } from "./lib/router";
 import { UpdaterProvider } from "./hooks/use-updater";
 import { PluginsProvider } from "@/hooks/use-plugins-store";
 import { CustomIconsProvider } from "@/hooks/use-custom-icons";
@@ -27,6 +28,7 @@ const pageMap = {
   "/systools-window": lazy(() => import("./pages/systools/window")),
   "/servers": lazy(() => import("./pages/servers/index")),
   "/ports": lazy(() => import("./pages/ports/index")),
+  "/one-mail": lazy(() => import("./pages/one-mail/index")),
   "/database": lazy(() => import("./pages/database/index")),
   "/database-window": lazy(() => import("./pages/database/window")),
   "/frp": lazy(() => import("./pages/frp/index")),
@@ -103,6 +105,17 @@ function RoutedApp() {
   const keepPages = config?.cachePages ?? false;
   const pageKey = `${pathname}${search}`;
   const [opened, setOpened] = useState<OpenPage[]>([]);
+
+  // Another window can send this one to a page — the tray popup's "Edit Tray
+  // Menu" row does — and the router is the only thing that can change the URL
+  // without reloading the document. Addressed to `main` from the sender, so the
+  // listener the other windows carry never fires.
+  useEffect(() => {
+    const unlisten = listen<string>("app:navigate", (event) => navigateApp(event.payload));
+    return () => {
+      void unlisten.then((off) => off());
+    };
+  }, []);
 
   // With caching on, a page stays mounted once visited, so coming back to it
   // finds the same state instead of a rebuilt one; turning the setting off

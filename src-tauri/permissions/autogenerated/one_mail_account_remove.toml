@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-one-mail-account-remove"
+description = "Enables the one_mail_account_remove command without any pre-configured scope."
+commands.allow = ["one_mail_account_remove"]
+
+[[permission]]
+identifier = "deny-one-mail-account-remove"
+description = "Denies the one_mail_account_remove command without any pre-configured scope."
+commands.deny = ["one_mail_account_remove"]

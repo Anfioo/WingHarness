@@ -2,7 +2,7 @@
 name = "file-preview-core"
 version = "0.0.2"
 description = "Reads files under the configured project root for the file preview page."
-license = "GPL-3.0-only"
+license = "AGPL-3.0-only"
 edition = "2021"
 publish = false
 
