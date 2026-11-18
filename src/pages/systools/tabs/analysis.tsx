@@ -29,22 +29,19 @@ import {
   isAnalysisCancellation,
   isPathInside,
   isProtectedEntry,
+  normalizePathKey,
   parentPath,
   pathName,
   pruneAnalysisResult,
   reconciledAnalysisResult,
   samePath,
   scanAnalysis,
-  sortAnalysisEntries,
-  summarizeAnalysisSelection,
   type AnalysisDeleteBatchResult,
   type AnalysisDirectoryNode,
   type AnalysisProgress,
   type AnalysisRemainderSelection,
   type AnalysisResult,
   type AnalysisScanMode,
-  type AnalysisSortDirection,
-  type AnalysisSortKey,
   type AnalysisViewId,
   type DirectoryEntryInfo,
 } from "@/lib/systools/storage";
@@ -53,7 +50,6 @@ import { BrowserToolbar } from "../analysis/browser-toolbar";
 import { CoverageStrip } from "../analysis/coverage-strip";
 import { PermanentDeleteDialog } from "../components/common/permanent-delete-dialog";
 import { DeleteResultDialog } from "../analysis/delete-result-dialog";
-import { DetailsTable } from "../analysis/details-table";
 import { ExportDialog, type AnalysisExportOptions } from "../analysis/export-dialog";
 import { FolderPane } from "../analysis/folder-pane";
 import { RemainderDialog } from "../analysis/remainder-dialog";
@@ -85,14 +81,10 @@ export function AnalysisTab() {
 
   const [drillPath, setDrillPath] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
-  const [sortKey, setSortKey] = useState<AnalysisSortKey>("bytes");
-  const [sortDirection, setSortDirection] = useState<AnalysisSortDirection>("desc");
 
   const [viewMode, setViewMode] = useState<AnalysisViewId>("treemap");
   const [treemapDepth, setTreemapDepth] = useState(ANALYSIS_DEFAULT_TREEMAP_DEPTH);
   const [sunburstDepth, setSunburstDepth] = useState(ANALYSIS_DEFAULT_SUNBURST_DEPTH);
-  const [detailsOpen, setDetailsOpen] = useState(true);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -124,7 +116,6 @@ export function AnalysisTab() {
         setPath(next.root);
         setDrillPath(next.root);
         setSelectedPath(null);
-        setSelectedPaths(new Set());
       } catch (error) {
         if (token !== scanTokenRef.current) return;
         if (isAnalysisCancellation(error)) {
@@ -211,19 +202,16 @@ export function AnalysisTab() {
     [result, listing?.path]
   );
 
-  const sortedEntries = useMemo(
-    () => (listing ? sortAnalysisEntries(listing.entries, sortKey, sortDirection) : []),
-    [listing, sortKey, sortDirection]
-  );
-
-  const allSelected =
-    sortedEntries.length > 0 && sortedEntries.every((entry) => selectedPaths.has(entry.path));
-  const partiallySelected =
-    !allSelected && sortedEntries.some((entry) => selectedPaths.has(entry.path));
-  const selection = useMemo(
-    () => summarizeAnalysisSelection(sortedEntries, selectedPaths),
-    [sortedEntries, selectedPaths]
-  );
+  // The tooltip's "share of parent folder" needs the parent's own size, which
+  // the bounded hierarchy carries for every projected directory.
+  const parentBytes = useMemo(() => {
+    if (!result || !listing) return null;
+    const parent = parentPath(listing.path);
+    if (!parent) return null;
+    const node = hierarchy.get(normalizePathKey(parent));
+    if (node) return node.bytes;
+    return samePath(parent, result.root) ? result.totalBytes : null;
+  }, [result, listing, hierarchy]);
 
   const canGoUp = Boolean(result && listing && !samePath(listing.path, result.root));
 
@@ -239,7 +227,6 @@ export function AnalysisTab() {
       if (target) {
         setDrillPath(target.path);
         setSelectedPath(target.path);
-        setSelectedPaths(new Set());
         return;
       }
       // Directories outside the bounded projection need a fresh scan.
@@ -272,7 +259,7 @@ export function AnalysisTab() {
   }, []);
 
   // -------------------------------------------------------------------------
-  // Reveal, selection, sorting
+  // Reveal
   // -------------------------------------------------------------------------
 
   const revealPath = useCallback(
@@ -302,36 +289,6 @@ export function AnalysisTab() {
     [revealPath]
   );
 
-  const toggleRow = useCallback((entryPath: string, selected: boolean) => {
-    setSelectedPaths((current) => {
-      const next = new Set(current);
-      if (selected) next.add(entryPath);
-      else next.delete(entryPath);
-      return next;
-    });
-  }, []);
-
-  const toggleAll = useCallback(
-    (selected: boolean) => {
-      setSelectedPaths(selected ? new Set(sortedEntries.map((entry) => entry.path)) : new Set());
-    },
-    [sortedEntries]
-  );
-
-  const clearSelection = useCallback(() => setSelectedPaths(new Set()), []);
-
-  const handleSort = useCallback(
-    (key: AnalysisSortKey) => {
-      if (key === sortKey) {
-        setSortDirection((current) => (current === "desc" ? "asc" : "desc"));
-      } else {
-        setSortKey(key);
-        setSortDirection(key === "name" ? "asc" : "desc");
-      }
-    },
-    [sortKey]
-  );
-
   // -------------------------------------------------------------------------
   // Delete
   // -------------------------------------------------------------------------
@@ -339,11 +296,6 @@ export function AnalysisTab() {
   const requestDelete = useCallback((entries: DirectoryEntryInfo[]) => {
     if (entries.length > 0) setDeleteTargets(entries);
   }, []);
-
-  const requestDeleteSelected = useCallback(() => {
-    const targets = sortedEntries.filter((entry) => selectedPaths.has(entry.path));
-    requestDelete(targets);
-  }, [sortedEntries, selectedPaths, requestDelete]);
 
   const confirmDelete = useCallback(async () => {
     if (!result || deleteTargets.length === 0) return;
@@ -360,7 +312,6 @@ export function AnalysisTab() {
       const batch = await deleteAnalysisEntries(authority.scanId, paths);
       setDeleteTargets([]);
       setDeleteResult(batch);
-      setSelectedPaths(new Set());
       setSelectedPath(null);
 
       const reconciled = reconciledAnalysisResult(result, batch.updatedResults);
@@ -591,18 +542,17 @@ export function AnalysisTab() {
           <BrowserToolbar
             breadcrumbs={breadcrumbs}
             canGoUp={canGoUp}
-            detailsOpen={detailsOpen}
             disabled={scanning || busy}
             onNavigate={navigateTo}
             onUp={goUp}
             onHome={goHome}
-            onToggleDetails={() => setDetailsOpen((current) => !current)}
           />
 
           <div className="flex min-h-0 flex-1">
             <div className="flex w-2/5 max-w-[46%] min-w-[190px] shrink-0 flex-col border-r">
               <FolderPane
                 listing={listing}
+                parentBytes={parentBytes}
                 selectedPath={selectedPath}
                 disabled={scanning || busy}
                 onActivate={activateEntry}
@@ -619,6 +569,7 @@ export function AnalysisTab() {
                 viewMode={viewMode}
                 treemapDepth={treemapDepth}
                 sunburstDepth={sunburstDepth}
+                parentBytes={parentBytes}
                 canGoUp={canGoUp}
                 selectedPath={selectedPath}
                 disabled={scanning || busy}
@@ -635,31 +586,6 @@ export function AnalysisTab() {
               />
             </div>
           </div>
-
-          {detailsOpen ? (
-            <div className="h-[38%] min-h-[118px] shrink-0 border-t">
-              <DetailsTable
-                listing={listing}
-                entries={sortedEntries}
-                sortKey={sortKey}
-                sortDirection={sortDirection}
-                selectedPaths={selectedPaths}
-                selection={selection}
-                allSelected={allSelected}
-                partiallySelected={partiallySelected}
-                disabled={scanning || busy}
-                onSort={handleSort}
-                onToggle={toggleRow}
-                onToggleAll={toggleAll}
-                onClearSelection={clearSelection}
-                onActivate={activateEntry}
-                onOpen={openEntry}
-                onReveal={revealEntry}
-                onDelete={(entry) => requestDelete([entry])}
-                onDeleteSelected={requestDeleteSelected}
-              />
-            </div>
-          ) : null}
         </>
       ) : null}
 

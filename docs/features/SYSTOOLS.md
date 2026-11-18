@@ -128,7 +128,10 @@ allocation. `Fast` mode reports **logical** size from metadata and is much
 cheaper. Read-only analysis deliberately does not skip protected system folders,
 so its totals are larger than the cleanup tabs' totals; the two are not
 comparable, which is why coverage is reported as explicit omission buckets
-(permission denied, read errors, excluded, link or mount, other).
+(permission denied, read errors, excluded, link or mount, other). The tab itself
+is two panes — the folder list on the left, the treemap or sunburst on the right.
+Entries use the shell's own icons, and hovering one reports its size, file count
+and its share of the current and parent folders.
 
 **Duplicates.** Enumerate → group by exact size → hash a 16 KiB sample from head,
 middle and tail (blake3) → full hash only where samples collided → group. Physical
@@ -152,6 +155,9 @@ folder, scheduled tasks, services, packaged startup tasks, and an advanced
 autoruns pass. Every item carries a capability — toggleable, elevation required,
 remove only, system managed, policy managed, or view only — and changes are queued
 in the UI, compiled into a plan, applied, then re-read to report a verified state.
+The list is one row per owning application, hides system-managed services until
+**Show system startup items** is ticked, and filters by enabled, disabled and
+leftovers.
 
 **Applications and leftovers.** The inventory merges registry, MSI, Appx, winget,
 Steam, Scoop and Chocolatey registrations. Uninstalling supports silent,
