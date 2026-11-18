@@ -1,21 +1,21 @@
 //! The task manager page's thin command surface.
 //!
 //! Every command is registered in four places: `invoke.rs`, `build.rs`,
-//! `capabilities/default.json` and the generated permission files. A0 exposes
-//! all thirteen names and returns `not-implemented` for the ones the parallel
-//! backend tracks have not ported yet; settings and service status already
-//! return usable defaults so the page can render.
+//! `capabilities/default.json` and the generated permission files. Commands
+//! only move small values around: sampling happens on its own thread, and
+//! process actions run locally first, with the service consulted only when the
+//! host's own rights fall short.
 
-use argus_core::actions::{Priority, TreeKillReport};
+use argus_core::actions::{self, ActionError, Priority, TreeKillReport};
 use argus_core::collector::Snapshot;
-use argus_core::details::ProcessDetails;
+use argus_core::details::{self, ProcessDetails};
 use argus_core::models::ArgusSettings;
-use argus_core::ArgusError;
+use argus_core::{ArgusError, ArgusErrorCode};
 use argus_service::ServiceStatus;
-use tauri::ipc::Channel;
 use tauri::State;
+use tauri::ipc::Channel;
 
-use crate::argus::{service, store, ArgusState};
+use crate::argus::{ArgusState, service, store};
 
 #[tauri::command]
 pub fn argus_snapshot_start(
@@ -23,75 +23,141 @@ pub fn argus_snapshot_start(
     channel: Channel<Snapshot>,
     interval_ms: u64,
 ) -> Result<(), ArgusError> {
-    state.sampler.start(channel, interval_ms)
+    let settings = ArgusSettings::with_interval_ms(interval_ms);
+    *state.settings() = settings.clone();
+
+    let mut sampler = state.sampler();
+    if sampler.is_none() {
+        *sampler = Some(crate::argus::sampler::Sampler::spawn());
+    }
+    if let Some(sampler) = sampler.as_ref() {
+        sampler.send(crate::argus::sampler::Control::Subscribe(
+            channel,
+            settings.interval_ms,
+        ));
+    }
+    Ok(())
 }
 
 #[tauri::command]
 pub fn argus_snapshot_stop(state: State<'_, ArgusState>) -> Result<(), ArgusError> {
-    state.sampler.stop();
+    state.stop_sampler();
     Ok(())
 }
 
 #[tauri::command]
-pub fn argus_set_interval(interval_ms: u64) -> Result<ArgusSettings, ArgusError> {
-    store::set(ArgusSettings::with_interval_ms(interval_ms))
+pub fn argus_set_interval(
+    state: State<'_, ArgusState>,
+    interval_ms: u64,
+) -> Result<ArgusSettings, ArgusError> {
+    let settings = store::set(ArgusSettings::with_interval_ms(interval_ms))?;
+    *state.settings() = settings.clone();
+    state.send(crate::argus::sampler::Control::SetInterval(
+        settings.interval_ms,
+    ));
+    Ok(settings)
 }
 
 #[tauri::command]
-pub fn argus_refresh() -> Result<(), ArgusError> {
+pub fn argus_refresh(state: State<'_, ArgusState>) -> Result<(), ArgusError> {
+    state.refresh();
     Ok(())
 }
 
 #[tauri::command]
-pub fn argus_settings_get() -> Result<ArgusSettings, ArgusError> {
-    store::get()
+pub fn argus_settings_get(state: State<'_, ArgusState>) -> Result<ArgusSettings, ArgusError> {
+    let settings = store::get()?;
+    *state.settings() = settings.clone();
+    Ok(settings)
 }
 
 #[tauri::command]
-pub fn argus_settings_set(settings: ArgusSettings) -> Result<ArgusSettings, ArgusError> {
-    store::set(settings)
+pub fn argus_settings_set(
+    state: State<'_, ArgusState>,
+    settings: ArgusSettings,
+) -> Result<ArgusSettings, ArgusError> {
+    let settings = store::set(settings)?;
+    *state.settings() = settings.clone();
+    state.send(crate::argus::sampler::Control::SetInterval(
+        settings.interval_ms,
+    ));
+    Ok(settings)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn argus_process_details(pid: u32) -> Result<ProcessDetails, ArgusError> {
-    let _ = pid;
-    Err(ArgusError::not_implemented())
+    if !details::exists(pid) {
+        return Err(ArgusError::new(
+            ArgusErrorCode::NotFound,
+            "The process has already exited.",
+        ));
+    }
+    // The page only knows the PID; resolve the image path here so the version
+    // resource can be read on demand.
+    let path = details::image_path_of(pid);
+    Ok(details::query(pid, path.as_deref()))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn argus_kill_process(
+    state: State<'_, ArgusState>,
     pid: u32,
     create_time: i64,
     force: bool,
 ) -> Result<(), ArgusError> {
-    let _ = (pid, create_time, force);
-    Err(ArgusError::not_implemented())
+    if pid == std::process::id() {
+        return Err(ArgusError::invalid_input(
+            "The task manager cannot end its own process.",
+        ));
+    }
+    let result = privileged(&state, || actions::terminate(pid, create_time, force));
+    state.refresh();
+    result
 }
 
-#[tauri::command]
-pub fn argus_kill_process_tree(pid: u32, create_time: i64) -> Result<TreeKillReport, ArgusError> {
-    let _ = (pid, create_time);
-    Err(ArgusError::not_implemented())
+#[tauri::command(async)]
+pub fn argus_kill_process_tree(
+    state: State<'_, ArgusState>,
+    pid: u32,
+    create_time: i64,
+) -> Result<TreeKillReport, ArgusError> {
+    if pid == std::process::id() {
+        return Err(ArgusError::invalid_input(
+            "The task manager cannot end its own process.",
+        ));
+    }
+    let result = actions::terminate_tree_with(pid, create_time, |pid, create_time| {
+        actions::terminate(pid, create_time, false)
+    })
+    .map_err(|error| privileged_failure(&state, error));
+    state.refresh();
+    result
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn argus_set_priority(
+    state: State<'_, ArgusState>,
     pid: u32,
     create_time: i64,
     priority: Priority,
 ) -> Result<Priority, ArgusError> {
-    let _ = (pid, create_time, priority);
-    Err(ArgusError::not_implemented())
+    let result = privileged(&state, || actions::set_priority(pid, create_time, priority));
+    state.refresh();
+    result
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn argus_set_efficiency(
+    state: State<'_, ArgusState>,
     pid: u32,
     create_time: i64,
     on: bool,
 ) -> Result<(), ArgusError> {
-    let _ = (pid, create_time, on);
-    Err(ArgusError::not_implemented())
+    let result = privileged(&state, || {
+        actions::set_efficiency_mode(pid, create_time, on)
+    });
+    state.refresh();
+    result
 }
 
 #[tauri::command]
@@ -99,7 +165,126 @@ pub fn argus_service_status() -> Result<ServiceStatus, ArgusError> {
     service::status()
 }
 
-#[tauri::command]
-pub fn argus_service_manage(action: String) -> Result<ServiceStatus, ArgusError> {
-    service::manage(&action)
+#[tauri::command(async)]
+pub fn argus_service_manage(
+    state: State<'_, ArgusState>,
+    action: String,
+) -> Result<ServiceStatus, ArgusError> {
+    let status = service::manage(&action)?;
+    state.refresh();
+    Ok(status)
+}
+
+/// Runs an action with the host's own rights. When those fall short, the
+/// privileged service is what makes the same action possible; its state decides
+/// whether that is an install hint or a protocol problem.
+fn privileged<T>(
+    state: &ArgusState,
+    local: impl FnOnce() -> Result<T, ActionError>,
+) -> Result<T, ArgusError> {
+    local().map_err(|error| privileged_failure(state, error))
+}
+
+fn privileged_failure(state: &ArgusState, error: ActionError) -> ArgusError {
+    if state.elevated || !matches!(error, ActionError::AccessDenied) {
+        return map_action_error(error);
+    }
+    match service::status() {
+        Ok(status) if status.incompatible => ArgusError::new(
+            ArgusErrorCode::ServiceUnavailable,
+            "The privileged service speaks an incompatible protocol; updating it is required.",
+        ),
+        Ok(status) if status.state == "running" => {
+            // The service is the only path left, but its operation router is
+            // not exposed to the host yet (see B3.md "待协调").
+            eprintln!("argus privileged action denied locally while the service is running");
+            ArgusError {
+                code: ArgusErrorCode::AccessDenied,
+                message:
+                    "Access denied. The privileged service is required to change this process."
+                        .into(),
+                detail: Some(
+                    "The privileged service is running; host routing is not wired yet.".into(),
+                ),
+            }
+        }
+        Ok(_) => ArgusError::new(
+            ArgusErrorCode::AccessDenied,
+            "Access denied. Install the privileged service to change protected processes.",
+        ),
+        Err(error) => error,
+    }
+}
+
+/// The page's stable error surface: the UI branches on `code`, and `message`
+/// is an English fallback for anything it does not know.
+fn map_action_error(error: ActionError) -> ArgusError {
+    match error {
+        ActionError::AccessDenied => ArgusError::new(
+            ArgusErrorCode::AccessDenied,
+            "Access denied. Administrator rights are required for this process.",
+        ),
+        ActionError::Critical => ArgusError::new(
+            ArgusErrorCode::AccessDenied,
+            "This is a critical process; terminating it would crash the system.",
+        ),
+        ActionError::Refused => ArgusError::new(
+            ArgusErrorCode::AccessDenied,
+            "The operation was refused for this process.",
+        ),
+        ActionError::ServiceOutdated => ArgusError::new(
+            ArgusErrorCode::AccessDenied,
+            "The privileged service is out of date; updating it is required.",
+        ),
+        ActionError::NotFound => ArgusError::new(
+            ArgusErrorCode::NotFound,
+            "The process has already exited or its PID was reused.",
+        ),
+        ActionError::Os(message) => ArgusError {
+            code: ArgusErrorCode::Internal,
+            message: "The process operation failed.".into(),
+            detail: Some(message),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn argus_errors_serialize_with_kebab_case_codes() {
+        let error = ArgusError::new(ArgusErrorCode::NotFound, "gone");
+        assert_eq!(
+            serde_json::to_value(&error).unwrap(),
+            serde_json::json!({ "code": "not-found", "message": "gone" })
+        );
+        let internal = map_action_error(ActionError::Os("boom".into()));
+        assert_eq!(
+            serde_json::to_value(&internal).unwrap(),
+            serde_json::json!({
+                "code": "internal",
+                "message": "The process operation failed.",
+                "detail": "boom",
+            })
+        );
+    }
+
+    #[test]
+    fn action_errors_map_to_the_documented_codes() {
+        let code = |error: ActionError| match map_action_error(error).code {
+            ArgusErrorCode::NotFound => "not-found",
+            ArgusErrorCode::InvalidInput => "invalid-input",
+            ArgusErrorCode::AccessDenied => "access-denied",
+            ArgusErrorCode::ServiceUnavailable => "service-unavailable",
+            ArgusErrorCode::NotImplemented => "not-implemented",
+            ArgusErrorCode::Internal => "internal",
+        };
+        assert_eq!(code(ActionError::AccessDenied), "access-denied");
+        assert_eq!(code(ActionError::Critical), "access-denied");
+        assert_eq!(code(ActionError::Refused), "access-denied");
+        assert_eq!(code(ActionError::ServiceOutdated), "access-denied");
+        assert_eq!(code(ActionError::NotFound), "not-found");
+        assert_eq!(code(ActionError::Os("x".into())), "internal");
+    }
 }
