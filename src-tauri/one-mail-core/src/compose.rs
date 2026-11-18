@@ -732,12 +732,41 @@ pub async fn pick_attachments(app: &AppHandle) -> OneMailResult<Vec<PickedAttach
         }
         picked.push(PickedAttachment {
             file_path: path.to_string_lossy().into_owned(),
+            mime_type: guess_mime_type(&filename).map(str::to_string),
             filename,
-            mime_type: None,
             size_bytes: i64::try_from(metadata.len()).unwrap_or(i64::MAX),
         });
     }
     Ok(picked)
+}
+
+/// A small extension table for the attachments the composer can add. It is not
+/// sniffing: the only consumer is the outgoing MIME part's `Content-Type`, and
+/// `smtp` already falls back to `application/octet-stream` for anything else.
+fn guess_mime_type(filename: &str) -> Option<&'static str> {
+    let extension = filename.rsplit_once('.')?.1.trim().to_ascii_lowercase();
+    let mime = match extension.as_str() {
+        "pdf" => "application/pdf",
+        "txt" | "log" | "md" => "text/plain",
+        "csv" => "text/csv",
+        "html" | "htm" => "text/html",
+        "json" => "application/json",
+        "xml" => "application/xml",
+        "zip" => "application/zip",
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        "doc" => "application/msword",
+        "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "xls" => "application/vnd.ms-excel",
+        "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "ppt" => "application/vnd.ms-powerpoint",
+        "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        _ => return None,
+    };
+    Some(mime)
 }
 
 // ---------------------------------------------------------------------------
@@ -1625,5 +1654,14 @@ mod tests {
     fn a_blank_body_has_no_quote_block() {
         assert_eq!(quote_body(""), "");
         assert_eq!(quote_body("a\nb"), "> a\n> b");
+    }
+
+    #[test]
+    fn attachment_types_come_from_the_extension() {
+        assert_eq!(guess_mime_type("invoice.PDF"), Some("application/pdf"));
+        assert_eq!(guess_mime_type("notes.md"), Some("text/plain"));
+        assert_eq!(guess_mime_type("photo.jpeg"), Some("image/jpeg"));
+        assert_eq!(guess_mime_type("archive.7z"), None);
+        assert_eq!(guess_mime_type("README"), None);
     }
 }

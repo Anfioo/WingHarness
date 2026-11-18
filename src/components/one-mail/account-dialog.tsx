@@ -62,10 +62,14 @@ import { useOneMailPageContext } from "@/pages/one-mail/context";
 
 const CUSTOM_PROVIDER = "custom";
 const EMAIL_PATTERN = /^[^\s@<>(),;]+@[^\s@<>(),;]+\.[^\s@<>(),;]+$/;
-const SECURITY_OPTIONS: { value: Security; label: string }[] = [
+/**
+ * The encryption choices. `SSL/TLS` and `STARTTLS` are protocol names and read
+ * the same in both languages; only the "none" option needs a translation.
+ */
+const SECURITY_OPTIONS: { value: Security; label?: string; labelKey?: string }[] = [
   { value: "ssl_tls", label: "SSL/TLS" },
   { value: "starttls", label: "STARTTLS" },
-  { value: "none", label: "None" },
+  { value: "none", labelKey: "oneMail.accountForm.securityNone" },
 ];
 
 const CONNECTION_FIELDS = new Set<keyof AccountForm>([
@@ -912,6 +916,7 @@ function SecuritySelect({
   disabled: boolean;
   onChange: (value: Security) => void;
 }) {
+  const { t } = useAppTranslation();
   return (
     <Select value={value} disabled={disabled} onValueChange={(next) => onChange(next as Security)}>
       <SelectTrigger id={id} className="w-full">
@@ -920,7 +925,7 @@ function SecuritySelect({
       <SelectContent>
         {SECURITY_OPTIONS.map((option) => (
           <SelectItem key={option.value} value={option.value}>
-            {option.label}
+            {option.labelKey ? t(option.labelKey) : option.label}
           </SelectItem>
         ))}
       </SelectContent>

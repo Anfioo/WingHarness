@@ -95,6 +95,8 @@ export type OneMailPageState = {
   thread: ConversationThread | null;
   threadLoading: boolean;
   threadError: string | null;
+  /** Re-read the open thread after a failed load; a no-op without a selection. */
+  reloadThread: () => void;
   bodyState: Record<number, MessageBodyLoad | "loading">;
   loadBody: (messageId: number) => void;
   markRead: (messageId: number, read: boolean) => Promise<void>;
@@ -235,6 +237,7 @@ export function useOneMailPage(): OneMailPageState {
   const pageActiveRef = useRef(pageActive);
   const conversationRequest = useRef(0);
   const requestedBodies = useRef<Set<number>>(new Set());
+  const threadRequest = useRef<{ accountId: number; conversationKey: string } | null>(null);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -344,6 +347,7 @@ export function useOneMailPage(): OneMailPageState {
     setThreadError(null);
     setBodyState({});
     requestedBodies.current.clear();
+    threadRequest.current = null;
   }, []);
 
   const setFiltersAndReload = useCallback((next: OneMailFilters) => {
@@ -352,6 +356,7 @@ export function useOneMailPage(): OneMailPageState {
 
   const loadThread = useCallback(
     async (accountId: number, conversationKey: string) => {
+      threadRequest.current = { accountId, conversationKey };
       setThreadLoading(true);
       setThreadError(null);
       setBodyState({});
@@ -366,6 +371,12 @@ export function useOneMailPage(): OneMailPageState {
     },
     [describeError]
   );
+
+  const reloadThread = useCallback(() => {
+    const request = threadRequest.current;
+    if (!request) return;
+    void loadThread(request.accountId, request.conversationKey);
+  }, [loadThread]);
 
   const openConversation = useCallback(
     (summary: ConversationSummary) => {
@@ -382,6 +393,7 @@ export function useOneMailPage(): OneMailPageState {
     setThreadLoading(false);
     setBodyState({});
     requestedBodies.current.clear();
+    threadRequest.current = null;
   }, []);
 
   const loadBody = useCallback(
@@ -411,8 +423,12 @@ export function useOneMailPage(): OneMailPageState {
               })),
             };
           });
+          // A failed load must be retryable: the card shows a retry button that
+          // calls this again.
+          if (result.error !== null) requestedBodies.current.delete(messageId);
         })
         .catch((failure: unknown) => {
+          requestedBodies.current.delete(messageId);
           setBodyState((current) => ({
             ...current,
             [messageId]: { body: null, error: describeError(failure) },
@@ -783,6 +799,7 @@ export function useOneMailPage(): OneMailPageState {
     thread,
     threadLoading,
     threadError,
+    reloadThread,
     bodyState,
     loadBody,
     markRead,

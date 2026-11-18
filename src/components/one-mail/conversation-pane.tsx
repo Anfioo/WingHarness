@@ -3,7 +3,7 @@
 // See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record.
 
 import { useLayoutEffect, useMemo, useRef } from "react";
-import { Forward, Mail, Reply, ReplyAll, ScrollText, X } from "lucide-react";
+import { Forward, Mail, RefreshCw, Reply, ReplyAll, ScrollText, X } from "lucide-react";
 import type { MessageSummary } from "@/commands";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ export default function ConversationPane() {
     thread,
     threadLoading,
     threadError,
+    reloadThread,
     selectedConversationKey,
     closeConversation,
     bodyState,
@@ -175,10 +176,18 @@ export default function ConversationPane() {
         {threadError && (
           <div
             role="alert"
-            className="border-destructive/40 bg-destructive/5 text-destructive mb-3 rounded-lg border px-3 py-2 text-xs"
+            className="border-destructive/40 bg-destructive/5 text-destructive mb-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs"
           >
-            {threadError}
+            <span>{threadError}</span>
+            <Button variant="outline" size="sm" onClick={reloadThread}>
+              <RefreshCw />
+              {t("oneMail.common.retry")}
+            </Button>
           </div>
+        )}
+
+        {thread?.truncated && (
+          <p className="text-muted-foreground mb-3 text-xs">{t("oneMail.thread.truncated")}</p>
         )}
 
         {threadLoading && !thread && (

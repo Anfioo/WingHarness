@@ -301,7 +301,8 @@ LIMIT ?3
         })
         .collect::<OneMailResult<Vec<_>>>()?;
 
-    if thread_rows.len() > MESSAGE_LIMIT {
+    let truncated = thread_rows.len() > MESSAGE_LIMIT;
+    if truncated {
         thread_rows.truncate(MESSAGE_LIMIT);
         log::warn!(
             "one_mail_conversation_truncated account={} conversation={} limit={MESSAGE_LIMIT}",
@@ -329,6 +330,7 @@ LIMIT ?3
         account_id: query.account_id,
         participants,
         groups,
+        truncated,
     })
 }
 

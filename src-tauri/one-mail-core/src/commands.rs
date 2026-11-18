@@ -259,7 +259,14 @@ pub async fn one_mail_compose_reply_draft(
             ))
         }
     };
-    compose::reply_draft(&pool, message_id, reply_all).await
+    let draft = compose::reply_draft(&pool, message_id, reply_all).await?;
+    state.emit(
+        EVENT_OUTBOX_CHANGED,
+        OutboxChangedPayload {
+            outbox_id: Some(draft.outbox_id),
+        },
+    );
+    Ok(draft)
 }
 
 #[tauri::command]
@@ -268,7 +275,14 @@ pub async fn one_mail_compose_forward_draft(
     message_id: i64,
 ) -> OneMailResult<Draft> {
     let pool = state.pool().await?;
-    compose::forward_draft(&pool, message_id).await
+    let draft = compose::forward_draft(&pool, message_id).await?;
+    state.emit(
+        EVENT_OUTBOX_CHANGED,
+        OutboxChangedPayload {
+            outbox_id: Some(draft.outbox_id),
+        },
+    );
+    Ok(draft)
 }
 
 #[tauri::command]
@@ -276,14 +290,25 @@ pub async fn one_mail_compose_send(
     state: State<'_, OneMailState>,
     input: SendInput,
 ) -> OneMailResult<SendResult> {
-    let result = compose::send(&state, input).await?;
-    state.emit(
-        EVENT_OUTBOX_CHANGED,
-        OutboxChangedPayload {
-            outbox_id: Some(result.outbox_id),
-        },
-    );
-    Ok(result)
+    let draft_id = input.outbox_id;
+    match compose::send(&state, input).await {
+        Ok(result) => {
+            state.emit(
+                EVENT_OUTBOX_CHANGED,
+                OutboxChangedPayload {
+                    outbox_id: Some(result.outbox_id),
+                },
+            );
+            Ok(result)
+        }
+        Err(error) => {
+            // A failed send still leaves a row behind, marked `failed`. The
+            // command layer emits here because `compose::send` returns early
+            // with the error and cannot announce the row it just changed.
+            state.emit(EVENT_OUTBOX_CHANGED, OutboxChangedPayload { outbox_id: draft_id });
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command]
@@ -291,14 +316,26 @@ pub async fn one_mail_compose_retry(
     state: State<'_, OneMailState>,
     outbox_id: i64,
 ) -> OneMailResult<SendResult> {
-    let result = compose::retry(&state, outbox_id).await?;
-    state.emit(
-        EVENT_OUTBOX_CHANGED,
-        OutboxChangedPayload {
-            outbox_id: Some(result.outbox_id),
-        },
-    );
-    Ok(result)
+    match compose::retry(&state, outbox_id).await {
+        Ok(result) => {
+            state.emit(
+                EVENT_OUTBOX_CHANGED,
+                OutboxChangedPayload {
+                    outbox_id: Some(result.outbox_id),
+                },
+            );
+            Ok(result)
+        }
+        Err(error) => {
+            state.emit(
+                EVENT_OUTBOX_CHANGED,
+                OutboxChangedPayload {
+                    outbox_id: Some(outbox_id),
+                },
+            );
+            Err(error)
+        }
+    }
 }
 
 #[tauri::command]

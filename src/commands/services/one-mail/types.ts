@@ -304,6 +304,8 @@ export interface ConversationThread {
   accountId: number;
   participants: ConversationParticipant[];
   groups: ThreadGroup[];
+  /** True when the thread holds more messages than the 500 the backend reads. */
+  truncated: boolean;
 }
 
 export interface SearchQuery {

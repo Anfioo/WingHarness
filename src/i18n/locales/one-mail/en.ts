@@ -58,6 +58,7 @@ const oneMail = {
     smtpSecurity: "SMTP security",
     authType: "Authentication",
     syncEnabled: "Sync this account",
+    securityNone: "None",
     folders: "Folders",
     selectFolders: "Choose the folders to sync",
     inboxLocked: "INBOX is always synced.",
@@ -115,6 +116,8 @@ const oneMail = {
     attachments: "Attachments",
     attachmentUnavailable: "Received attachments cannot be saved in this version.",
     selectConversation: "Select a conversation to read it.",
+    truncated: "This conversation has more messages than can be shown; the oldest are hidden.",
+    messageActions: "Message actions",
     noSubject: "(no subject)",
   },
   compose: {
@@ -131,6 +134,7 @@ const oneMail = {
     body: "Message",
     attachments: "Attachments",
     addAttachment: "Add attachment",
+    addOriginalAttachments: "Add the original attachments",
     removeAttachment: "Remove attachment",
     send: "Send",
     sending: "Sending…",
@@ -153,6 +157,7 @@ const oneMail = {
     retrying: "Retrying…",
     edit: "Continue editing",
     delete: "Delete",
+    deleteConfirm: "Delete this message from the outbox?",
     empty: "The outbox is empty.",
     onlyBcc:
       "This message was sent as Bcc only, so it appears here instead of in the conversation list.",

@@ -489,7 +489,7 @@ export default function ComposerDialog() {
                         variant="outline"
                         className="h-7 px-2"
                         disabled
-                        aria-label={t("oneMail.compose.forwardAttachmentUnavailable")}
+                        aria-label={t("oneMail.compose.addOriginalAttachments")}
                         title={t("oneMail.compose.forwardAttachmentUnavailable")}
                       >
                         <Paperclip />

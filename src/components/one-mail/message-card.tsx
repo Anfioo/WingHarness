@@ -229,7 +229,13 @@ export default function MessageCard({
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" size="icon-sm" aria-haspopup="menu">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-haspopup="menu"
+              aria-label={t("oneMail.thread.messageActions")}
+            >
               <MoreHorizontal aria-hidden className="size-4" />
             </Button>
           </DropdownMenuTrigger>

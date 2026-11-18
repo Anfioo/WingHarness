@@ -275,7 +275,7 @@ export default function OutboxPanel() {
             <AlertDialogDescription>
               {deleteTarget?.status === "draft"
                 ? t("oneMail.compose.discardConfirm")
-                : t("oneMail.outbox.delete")}
+                : t("oneMail.outbox.deleteConfirm")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
