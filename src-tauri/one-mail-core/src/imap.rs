@@ -603,7 +603,15 @@ async fn save_message(
             OneMailError::database(format!("Could not save a message summary: {error}"))
         })?;
         save_addresses(&mut transaction, message_id, headers).await?;
-        index_headers(&mut transaction, message_id, account_id, folder.folder_id, headers).await?;
+        index_headers(
+            &mut transaction,
+            message_id,
+            account_id,
+            folder.folder_id,
+            headers,
+            true,
+        )
+        .await?;
         message_id
     } else {
         let stored = sqlx::query_scalar::<_, i64>(
@@ -660,7 +668,15 @@ async fn save_message(
         .map_err(|error| {
             OneMailError::database(format!("Could not update a message summary: {error}"))
         })?;
-        index_headers(&mut transaction, message_id, account_id, folder.folder_id, headers).await?;
+        index_headers(
+            &mut transaction,
+            message_id,
+            account_id,
+            folder.folder_id,
+            headers,
+            false,
+        )
+        .await?;
         message_id
     };
 
@@ -707,13 +723,37 @@ async fn save_addresses(
 /// Keep the FTS row in step with the header fields. `body_load` replaces the row
 /// with the full subject, participants and body later; indexing the header here
 /// is what lets a search find a message that has never been opened.
+///
+/// A newly inserted message gets a fresh row. An update from a full scan only
+/// touches the header columns, because the row may already hold the body that
+/// `body_load` indexed and wiping it would make a read message unsearchable.
 async fn index_headers(
     transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     message_id: i64,
     account_id: i64,
     folder_id: i64,
     headers: &ParsedHeaders,
+    is_new: bool,
 ) -> OneMailResult<()> {
+    if !is_new {
+        let updated = sqlx::query(
+            "UPDATE message_search
+             SET subject = ?2, from_name = ?3, from_email = ?4
+             WHERE message_id = ?1",
+        )
+        .bind(message_id)
+        .bind(headers.subject.clone())
+        .bind(headers.from_name.clone())
+        .bind(headers.from_email.clone())
+        .execute(&mut **transaction)
+        .await
+        .map_err(|error| {
+            OneMailError::database(format!("Could not refresh a search row: {error}"))
+        })?;
+        if updated.rows_affected() > 0 {
+            return Ok(());
+        }
+    }
     sqlx::query("DELETE FROM message_search WHERE message_id = ?1")
         .bind(message_id)
         .execute(&mut **transaction)
@@ -1049,9 +1089,24 @@ mod tests {
         let message_id = save_message(&pool, 1, &folder, &summary, true)
             .await
             .expect("insert a summary");
+        // Pretend the body was loaded after the insert; a later full scan must
+        // refresh the header columns without wiping that indexed body.
+        sqlx::query("UPDATE message_search SET body_text = ?2 WHERE message_id = ?1")
+            .bind(message_id)
+            .bind("The numbers look fine")
+            .execute(&pool)
+            .await
+            .expect("index a body");
         save_message(&pool, 1, &folder, &summary, false)
             .await
             .expect("update the same summary");
+        let body_hits: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM message_search WHERE message_search MATCH 'numbers look fine'",
+        )
+        .fetch_one(&pool)
+        .await
+        .expect("search the indexed body");
+        assert_eq!(body_hits, 1, "an update must not drop an indexed body");
         save_folder_state(&pool, folder_id, 7, Some("100"))
             .await
             .expect("write the cursor");
