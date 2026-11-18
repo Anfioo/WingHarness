@@ -1,3 +1,4 @@
+mod argus;
 pub mod ccs;
 mod codeg;
 mod commands;
@@ -22,6 +23,11 @@ pub fn run() {
             // `config::dir()/.mcphub` on demand — no separate init.
             if let Ok(dir) = app.path().app_config_dir() {
                 config::init(dir);
+                // The task manager keeps `settings.json` under `<data dir>/argus`,
+                // so the whole feature moves with the data directory like the
+                // others. The state owns the sampler thread; exit stops it.
+                let _ = argus_core::paths::CONFIG_DIR.set(config::dir().join("argus"));
+                app.manage(argus::ArgusState::default());
                 // The download engine keeps `downloads.db`, `settings.json`,
                 // `categories.json` and the aria2 session files under
                 // `<data dir>/moin`, so the whole feature moves with the data
@@ -181,6 +187,9 @@ pub fn run() {
         // not stopped here it keeps running, and keeps the port it holds, long
         // after the window is gone.
         if let tauri::RunEvent::Exit = event {
+            // The sampler thread is owned by the task manager page; leaving it
+            // running would keep sampling after the window is gone.
+            argus::shutdown(app);
             if let Some(moin) = app.try_state::<moin_core::MoinState>() {
                 moin_core::shutdown(&moin);
             }

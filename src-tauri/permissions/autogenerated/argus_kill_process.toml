@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-kill-process"
+description = "Enables the argus_kill_process command without any pre-configured scope."
+commands.allow = ["argus_kill_process"]
+
+[[permission]]
+identifier = "deny-argus-kill-process"
+description = "Denies the argus_kill_process command without any pre-configured scope."
+commands.deny = ["argus_kill_process"]
