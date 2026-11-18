@@ -28,6 +28,7 @@ const pageMap = {
   "/systools-window": lazy(() => import("./pages/systools/window")),
   "/servers": lazy(() => import("./pages/servers/index")),
   "/ports": lazy(() => import("./pages/ports/index")),
+  "/task-manager": lazy(() => import("./pages/task-manager/index")),
   "/one-mail": lazy(() => import("./pages/one-mail/index")),
   "/database": lazy(() => import("./pages/database/index")),
   "/database-window": lazy(() => import("./pages/database/window")),

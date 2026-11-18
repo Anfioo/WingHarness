@@ -26,6 +26,8 @@ members = [
     "ports-core",
     "moin-core",
     "one-mail-core",
+    "argus-core",
+    "argus-service",
 ]
 resolver = "2"
 
@@ -97,6 +99,11 @@ moin-core = { path = "moin-core" }
 # aggregation and compose. The mail protocol crates stay inside it, so the root
 # crate never links a second protocol stack.
 one-mail-core = { path = "one-mail-core" }
+# The task manager's sampling and process-control engine (Windows only).
+argus-core = { path = "argus-core" }
+# The optional privileged service that enables system-process operations and
+# per-process network/disk metrics.
+argus-service = { path = "argus-service" }
 # `unstable` is what unlocks `Window::add_child` — the only way to embed a
 # webview inside an existing window, which is how the plugin page shows a
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks

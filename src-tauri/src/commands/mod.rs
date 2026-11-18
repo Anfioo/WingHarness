@@ -1,3 +1,4 @@
+pub mod argus;
 pub mod ccs;
 pub mod claude_chat;
 pub mod claude_fork;

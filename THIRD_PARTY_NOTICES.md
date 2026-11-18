@@ -17,6 +17,27 @@ including the ones whose code is **not** in this repository — is
 
 ## 1. Source projects
 
+### Argus
+
+- Project: [Argus](https://github.com/Ray-lea/Argus)
+- Version: 0.3.4
+- License: AGPL-3.0-or-later
+- License text: [LICENSE](./LICENSE) — the same AGPL-3.0 text this project uses
+
+Argus
+Copyright (c) Argus contributors
+Licensed under the GNU Affero General Public License v3.0.
+Portions of argus-core and argus-service are adapted from Argus.
+
+`src-tauri/argus-core` is the sampling and process-control engine behind the
+task manager page; `src-tauri/argus-service` is its optional privileged Windows
+service. The ported portions keep Argus's AGPL-3.0-or-later terms, and the
+combined work is distributed under AGPL-3.0-only. The PawnIO driver, sensor
+service, Task Manager replacement, admin helpers, handle queries and the
+history, rules, startup-item and connection modules were not carried over. See
+`src-tauri/argus-core/UPSTREAM.md` and `src-tauri/argus-service/UPSTREAM.md`
+for the porting records.
+
 ### angkorgit
 
 - Project: [angkorgit](https://github.com/cheat2001/angkorgit)

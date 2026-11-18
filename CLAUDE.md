@@ -16,6 +16,7 @@ example of each platform feature are done; what the app is *for* is yours to add
 | Frontend | `src/` | TypeScript/React | Routing, windows, i18n, editor, viewers | [src/CLAUDE.md](./src/CLAUDE.md) |
 | Backend | `src-tauri/` | Rust | Commands, config, tray, theme fonts | [src-tauri/CLAUDE.md](./src-tauri/CLAUDE.md) |
 | Download <!-- moin --> | `src-tauri/moin-core/`, `src/pages/moin/`, `extension/` | Rust/React/JavaScript | HTTP downloads, queue, categories, aria2 and browser capture | [MOIN.md](./docs/features/MOIN.md) |
+| Task manager <!-- argus --> | `src-tauri/argus-core/`, `src-tauri/argus-service/`, `src/pages/task-manager/` | Rust/React | Process sampling and actions, performance charts, optional privileged service | [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) |
 | Documentation | `docs/` | Markdown | Cross-cutting guides at the root; one guide per feature under `docs/features/` | — |
 
 Both module guides are loaded automatically when working inside those
@@ -159,6 +160,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [SERVERS.md](./docs/features/SERVERS.md) — the SSH / SFTP server manager
 - [SVN.md](./docs/features/SVN.md) — the Subversion workspace
 - [SYSTOOLS.md](./docs/features/SYSTOOLS.md) — the Windows maintenance console
+- [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) — processes in three views, the performance charts and the optional privileged service
 - [TERMINAL.md](./docs/features/TERMINAL.md) — the pseudo-console page
 - [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) — the About window's third-party licence dialog
 - [TRAY_MENU.md](./docs/features/TRAY_MENU.md) — the tray popup, its apps' second-level menu and the Scoop tab that curates it

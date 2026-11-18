@@ -29,6 +29,8 @@ import codegEn from "./locales/codeg/en";
 import codegZh from "./locales/codeg/zh";
 import oneMailEn from "./locales/one-mail/en";
 import oneMailZh from "./locales/one-mail/zh";
+import taskManagerEn from "./locales/task-manager/en";
+import taskManagerZh from "./locales/task-manager/zh";
 
 i18n
   .use(LanguageDetector)
@@ -51,6 +53,7 @@ i18n
           scoop: scoopEn,
           codeg: codegEn,
           oneMail: oneMailEn,
+          taskManager: taskManagerEn,
         },
       },
       zh: {
@@ -69,6 +72,7 @@ i18n
           scoop: scoopZh,
           codeg: codegZh,
           oneMail: oneMailZh,
+          taskManager: taskManagerZh,
         },
       },
     },
