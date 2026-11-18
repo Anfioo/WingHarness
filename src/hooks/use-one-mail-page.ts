@@ -238,6 +238,7 @@ export function useOneMailPage(): OneMailPageState {
   const conversationRequest = useRef(0);
   const requestedBodies = useRef<Set<number>>(new Set());
   const threadRequest = useRef<{ accountId: number; conversationKey: string } | null>(null);
+  const threadRequestId = useRef(0);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -341,6 +342,7 @@ export function useOneMailPage(): OneMailPageState {
   }, [loadConversations]);
 
   const selectAccount = useCallback((accountId: number | null) => {
+    threadRequestId.current += 1;
     setSelectedAccountId(accountId);
     setSelectedConversationKey(null);
     setThread(null);
@@ -356,17 +358,23 @@ export function useOneMailPage(): OneMailPageState {
 
   const loadThread = useCallback(
     async (accountId: number, conversationKey: string) => {
+      const request = ++threadRequestId.current;
       threadRequest.current = { accountId, conversationKey };
       setThreadLoading(true);
       setThreadError(null);
       setBodyState({});
       requestedBodies.current.clear();
       try {
-        setThread(await oneMailConversationMessages({ accountId, conversationKey }));
+        const next = await oneMailConversationMessages({ accountId, conversationKey });
+        // Switching conversations starts a new request; a late answer to the
+        // previous one must not reopen it.
+        if (request !== threadRequestId.current) return;
+        setThread(next);
       } catch (failure) {
+        if (request !== threadRequestId.current) return;
         setThreadError(describeError(failure));
       } finally {
-        setThreadLoading(false);
+        if (request === threadRequestId.current) setThreadLoading(false);
       }
     },
     [describeError]
@@ -387,6 +395,7 @@ export function useOneMailPage(): OneMailPageState {
   );
 
   const closeConversation = useCallback(() => {
+    threadRequestId.current += 1;
     setSelectedConversationKey(null);
     setThread(null);
     setThreadError(null);
