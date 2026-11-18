@@ -641,6 +641,8 @@ const COMMANDS: &[&str] = &[
     "term_resize",
     "term_write",
     "theme_fonts_css",
+    "tray_apps_list",
+    "tray_apps_save",
     "tray_menu_set_expanded",
     "tree_files",
     "unstage_all",
