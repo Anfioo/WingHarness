@@ -4,9 +4,20 @@
 //! The battery, thermal-zone, power and kernel-sensor sources are deliberately
 //! absent: the first scope carries only the metrics the performance tab shows.
 
+mod cpu;
+mod disk;
+mod gpu;
+mod memory;
+mod net;
+mod nvml;
+mod registry;
+mod vendor_gpu;
+
 use std::sync::Arc;
 
 use serde::Serialize;
+
+pub(crate) use gpu::pretty_engine;
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -45,13 +56,6 @@ pub struct CpuInfo {
     pub virtualization: bool,
     /// Dense logical-processor order, sorted by (group, processor).
     pub threads: Vec<CpuThread>,
-}
-
-#[derive(Debug, Clone, Copy, Default, Serialize)]
-pub struct CpuIdle {
-    pub c1: Option<f32>,
-    pub c2: Option<f32>,
-    pub c3: Option<f32>,
 }
 
 #[derive(Debug, Clone, Default, Serialize)]
@@ -196,24 +200,54 @@ pub struct Hardware {
     pub cpu_mhz: Option<u32>,
     /// Per logical processor, MHz; empty when Windows does not publish it.
     pub core_mhz: Vec<u32>,
-    /// Logical-thread idle-state residency reported by Windows, not hardware C6/C10.
-    pub cpu_idle: Vec<CpuIdle>,
     pub memory: Arc<MemoryInfo>,
     pub disks: Vec<DiskStats>,
     pub nics: Vec<NicStats>,
     pub gpus: Vec<GpuStats>,
 }
 
-/// Owns the per-device trackers. B1 replaces this stub with the ported sources.
-#[derive(Debug, Default)]
-pub struct HardwareTracker;
+/// Owns the per-device trackers; one sample per snapshot.
+pub(crate) struct HardwareTracker {
+    cpu: Arc<CpuInfo>,
+    memory: Arc<MemoryInfo>,
+    disks: disk::DiskTracker,
+    nics: net::NicTracker,
+    gpus: gpu::GpuTracker,
+}
 
 impl HardwareTracker {
+    pub(crate) fn gpu_node_engine(&self, luid: u64, node: u32) -> Option<usize> {
+        self.gpus.node_engine(luid, node)
+    }
+
     pub fn new() -> Self {
-        Self
+        let mut t = Self {
+            cpu: Arc::new(cpu::cpu_info()),
+            memory: Arc::new(memory::memory_info()),
+            disks: disk::DiskTracker::new(),
+            nics: net::NicTracker::new(),
+            gpus: gpu::GpuTracker::new(),
+        };
+        t.sample(); // establish baselines for rates
+        t
     }
 
     pub fn sample(&mut self) -> Hardware {
-        todo!("hardware sampling is implemented by B1")
+        use windows::Win32::System::Threading::{ALL_PROCESSOR_GROUPS, GetActiveProcessorCount};
+        if unsafe { GetActiveProcessorCount(ALL_PROCESSOR_GROUPS) } != self.cpu.logical {
+            self.cpu = Arc::new(cpu::cpu_info());
+        }
+        Hardware {
+            // Per-processor clocks used to come from the PDH sensor module,
+            // which is out of scope here; Windows publishes no equivalent
+            // through the identity records, so the fields stay empty.
+            cpu_mhz: None,
+            core_mhz: Vec::new(),
+            cpu: self.cpu.clone(),
+            memory: self.memory.clone(),
+            disks: self.disks.sample(),
+            nics: self.nics.sample(),
+            gpus: self.gpus.sample(),
+        }
     }
 }

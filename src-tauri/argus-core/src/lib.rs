@@ -10,16 +10,29 @@
 #![cfg(windows)]
 
 pub mod actions;
+pub mod app_windows;
 pub mod collector;
+mod cpu;
 pub mod details;
+pub mod diagnostics;
+pub mod disk_process;
 pub mod error;
+pub mod gpu_process;
 pub mod hardware;
+pub mod meta;
 pub mod models;
+pub mod net_process;
+mod nt;
 pub mod paths;
+mod pdh;
 pub mod privilege;
 pub mod process;
 pub mod store;
 pub mod system;
+mod util;
+mod webview;
+
+mod image_paths;
 
 pub use actions::{ActionError, Priority, TreeKillReport};
 pub use collector::{Collector, Snapshot};
