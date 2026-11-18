@@ -238,4 +238,25 @@ mod tests {
         );
         let _ = std::fs::remove_dir_all(&directory);
     }
+
+    #[test]
+    fn an_unknown_version_and_fields_are_ignored() {
+        let directory = temp_dir("future");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            settings_file(&directory),
+            br#"{ "version": 7, "intervalMs": 1500, "future": true }"#,
+        )
+        .unwrap();
+        assert_eq!(load_at(&directory).unwrap().interval_ms, 1500);
+        // The file is still readable after a save rewrites it as version 1.
+        assert_eq!(
+            save_at(&directory, load_at(&directory).unwrap())
+                .unwrap()
+                .interval_ms,
+            1500
+        );
+        assert_eq!(load_at(&directory).unwrap().interval_ms, 1500);
+        let _ = std::fs::remove_dir_all(&directory);
+    }
 }
