@@ -55,9 +55,55 @@ export interface CodegSettings {
   url: string;
 }
 
-/** Everything the Codeg page and its settings section draw. */
+/**
+ * Which binary and which export a start uses.
+ *
+ * `installed` is the archive the app downloaded and unpacked under the data
+ * directory — what a packaged app runs. `dev` is a developer's checkout, whose
+ * page and settings partition only exist in a development build.
+ */
+export type CodegMode = "dev" | "installed";
+
+/** The `codeg-server` archive the app installed for itself. */
+export interface CodegInstall {
+  /** The folder holding the executable, the export and the install record. */
+  dir: string;
+  /** The export inside that folder; what `CODEG_STATIC_DIR` points at. */
+  staticDir: string;
+  /** The executable inside that folder. */
+  serverPath: string;
+  /** Both halves are there: a binary without its export is not an install. */
+  installed: boolean;
+  /** The version the install record names, when there is a record. */
+  version: string | null;
+  tag: string | null;
+}
+
+/** What one published `server.json` says about the newest archive. */
+export interface CodegRelease {
+  /** Short label of the mirror that answered, e.g. `GitHub`. */
+  endpoint: string;
+  version: string;
+  tag: string;
+  /** The archive to download. */
+  url: string;
+  /** Lower-case hex SHA-256 of that archive, checked after download. */
+  sha256: string;
+  size: number;
+  /** The version already installed, when one is. */
+  installedVersion: string | null;
+  /** The manifest names a newer version than the installed one. */
+  updateAvailable: boolean;
+}
+
+/** Everything the Codeg pages and their settings partitions draw. */
 export interface CodegView {
+  /** The development paths as configured, with the data directory resolved. */
   settings: CodegSettings;
+  /** The archive the app installed for itself. */
+  install: CodegInstall;
+  /** The mode the running server serves; `null` when nothing has started. */
+  running: CodegMode | null;
   server: CodegServerStatus;
   /** The bearer token the page is injected with. */
   token: string;

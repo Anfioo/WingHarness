@@ -99,7 +99,11 @@ after normalising both separators:
   `clash.json`, `subscriptions.json`, `tests.json`, `sysproxy`, `prism/`,
   `profiles/`, `run/` for Clash, and `frp.json`, `profiles/`, `logs/` for FRP.
 
-Caps: 512 MiB for a read or downloaded archive, 256 entries, 1 GiB unpacked.
+Caps: 512 MiB for a read or downloaded archive, 20 000 entries, 1 GiB unpacked.
+The entry cap is a sanity bound rather than a policy: a runtime archive holds a
+handful of files, while the Codeg server archive the same extractor unpacks is a
+static export of about 1300, and the unpacked size is what actually limits a
+hostile archive.
 Writes go through a sibling `.tmp` file and a rename, so a failed install never
 leaves a half-written executable.
 

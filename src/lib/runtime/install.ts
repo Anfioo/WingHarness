@@ -1,10 +1,13 @@
-// Turning a runtime archive into files on disk.
+// Turning a published archive into files on disk.
 //
 // The split matters: downloading goes through the moin engine (it is the app's
 // HTTP client, and it already carries progress, retries and a resume plan),
 // unpacking is 7z-wasm in a worker, and Rust only writes the extracted entries.
 // The archive is a temporary artifact: it is deleted from the download list as
 // soon as its bytes are in memory.
+//
+// Nothing here is runtime-specific except what the caller does with the result,
+// so the Codeg installer downloads and unpacks through the same three steps.
 import {
   moinAddDownload,
   moinDeleteDownload,
@@ -55,10 +58,16 @@ type WorkerResponse = { ok: true; files: ExtractedFile[] } | { ok: false; error:
  * Downloads page with its progress and may notify on completion — but it is
  * removed again once its bytes are in memory, so installing a runtime does not
  * leave anything in the user's download history.
+ *
+ * `read` is how the finished file becomes bytes, and it is the caller's one
+ * chance to vet the transfer: a runtime archive is only size-capped
+ * (`runtimeReadArchive`), while the Codeg installer checks its SHA-256 against
+ * the release manifest with `codegInstallReadArchive`.
  */
 export async function downloadArchive(
   url: string,
-  onProgress?: (stats: DownloadStats) => void
+  onProgress?: (stats: DownloadStats) => void,
+  read: (path: string) => Promise<Uint8Array> = runtimeReadArchive
 ): Promise<ArchiveSource> {
   const task = await moinAddDownload({ url, category: null, filename: archiveName(url) });
   // "Add downloads paused" applies to every new task, including this one; an
@@ -67,7 +76,7 @@ export async function downloadArchive(
 
   try {
     const finished = await waitForDownload(task.id, onProgress);
-    const bytes = await runtimeReadArchive(finished.dest);
+    const bytes = await read(finished.dest);
     return { name: finished.filename, bytes };
   } finally {
     // The archive is an implementation detail, so the record and the file both

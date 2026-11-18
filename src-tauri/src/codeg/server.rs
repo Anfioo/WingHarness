@@ -21,6 +21,11 @@
 //!    client and a scan of the workspace, so the interval is not predictable.
 //! 4. [`stop`] and [`shutdown`] kill the tree by pid. `Child::kill` alone would
 //!    leave the process the server daemonises free to keep the port.
+//!
+//! Which binary and which export it runs is [`Mode`]: the archive the app
+//! installed for itself ([`crate::codeg::install`]), or a developer's checkout.
+//! One process serves one mode at a time, so a start in the other mode stops the
+//! running one first.
 
 use std::collections::VecDeque;
 use std::net::TcpListener;
@@ -33,6 +38,7 @@ use std::time::{Duration, Instant};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::codeg::install;
 use crate::config::{self, CodegConfig};
 use crate::proc::{self, NoWindow, Stream};
 
@@ -78,12 +84,73 @@ impl Default for Status {
     }
 }
 
+/// Where the server this app runs comes from.
+///
+/// The process handling is identical either way, so the mode only decides which
+/// executable and which export a start uses — and which page asked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Mode {
+    /// A checkout the developer builds; paths from `config.codeg`.
+    Dev,
+    /// The archive the app installed under the data directory.
+    Installed,
+}
+
+impl Mode {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw.trim() {
+            "dev" => Ok(Self::Dev),
+            "installed" => Ok(Self::Installed),
+            other => Err(format!("Unknown Codeg mode: {other}")),
+        }
+    }
+
+    /// The label the page and the status event carry back.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Dev => "dev",
+            Self::Installed => "installed",
+        }
+    }
+}
+
+/// The paths one mode runs from, after the mode has been applied.
+struct Layout {
+    server_path: String,
+    static_dir: String,
+    /// The directory to run the server in, when there is one.
+    repo_path: Option<PathBuf>,
+}
+
+/// Applies the mode to the configuration.
+fn layout(config: &CodegConfig, mode: Mode) -> Layout {
+    match mode {
+        Mode::Dev => Layout {
+            server_path: config.server_path.trim().to_string(),
+            static_dir: config.static_dir.trim().to_string(),
+            repo_path: Some(PathBuf::from(config.repo_path.trim())),
+        },
+        Mode::Installed => {
+            let paths = install::paths();
+            Layout {
+                server_path: paths.server_path.to_string_lossy().to_string(),
+                static_dir: paths.static_dir.to_string_lossy().to_string(),
+                repo_path: Some(paths.dir),
+            }
+        }
+    }
+}
+
 /// Everything the settings page and the Codeg page read in one call.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodegView {
-    /// The configured paths, with the data directory already resolved.
+    /// The development paths as configured, with the data directory resolved.
     pub settings: Settings,
+    /// The server archive the app installed for itself, if any.
+    pub install: install::InstallView,
+    /// The mode the running (or last started) server runs, if any.
+    pub running: Option<String>,
     pub server: Status,
     /// The access token this install uses; generated on first read, then fixed.
     pub token: String,
@@ -115,6 +182,8 @@ pub struct CodegState {
 #[derive(Default)]
 struct Inner {
     status: Status,
+    /// The mode the current run serves; `None` when nothing runs.
+    mode: Option<Mode>,
     /// Bumped when a run starts or ends, so a watcher belonging to an earlier
     /// run cannot write over the current one — a stop followed by a start would
     /// otherwise let the first child's exit mark the second one failed.
@@ -172,6 +241,8 @@ pub fn view(app: &AppHandle) -> CodegView {
 
     CodegView {
         settings: settings_of(&config),
+        install: install::view(),
+        running: inner.mode.map(Mode::label).map(str::to_string),
         server: inner.status.clone(),
         token,
         log: inner.log.iter().cloned().collect(),
@@ -190,36 +261,52 @@ pub fn token(app: &AppHandle) -> Result<String, String> {
     Ok(token)
 }
 
-/// Starts the server, and waits until it answers.
+/// Starts the server for `mode`, and waits until it answers.
 ///
 /// Returns the failure as an error *and* records it in the state, so whichever
 /// of the page and the settings window is open shows the same thing.
-pub async fn start(app: AppHandle) -> Result<Status, String> {
+pub async fn start(app: AppHandle, mode: Mode) -> Result<Status, String> {
     let config = config::load().codeg;
 
-    // One process at a time: a second start while one is still coming up
-    // answers with the state it found instead of racing a second child onto the
-    // same port.
+    // One process at a time, and one configuration with it: a server started for
+    // the other mode serves another export on the same port, so it is stopped
+    // before this mode's server takes the port. A start in the mode already
+    // running answers with the state it found instead of racing a second child.
+    let switching = {
+        let state = app.state::<CodegState>();
+        let inner = state.lock();
+        match inner.status {
+            Status::Starting | Status::Ready { .. } => {
+                if inner.mode == Some(mode) {
+                    return Ok(inner.status.clone());
+                }
+                true
+            }
+            _ => false,
+        }
+    };
+    if switching {
+        end(&app, "codeg-server stopped: the page now runs the other mode");
+    }
+
     let generation = {
         let state = app.state::<CodegState>();
         let mut inner = state.lock();
-        if matches!(inner.status, Status::Starting | Status::Ready { .. }) {
-            return Ok(inner.status.clone());
-        }
         inner.generation = inner.generation.wrapping_add(1);
         inner.pid = None;
+        inner.mode = Some(mode);
         inner.log.clear();
         inner.status = Status::Starting;
         inner.generation
     };
     announce(&app);
 
-    let prepared = match prepare(&config) {
+    let prepared = match prepare(&config, mode) {
         Ok(prepared) => prepared,
         Err(error) => return Err(fail(&app, generation, error)),
     };
 
-    let mut child = match spawn(&config, &prepared) {
+    let mut child = match spawn(&config, mode, &prepared) {
         Ok(child) => child,
         Err(error) => return Err(fail(&app, generation, error)),
     };
@@ -232,7 +319,11 @@ pub async fn start(app: AppHandle) -> Result<Status, String> {
         push_line(
             &mut inner,
             Stream::Stdout,
-            &format!("codeg-server started (pid {pid}) for {}", config.url()),
+            &format!(
+                "codeg-server started (pid {pid}, {} mode) for {}",
+                mode.label(),
+                config.url()
+            ),
         );
     }
 
@@ -286,11 +377,29 @@ pub fn shutdown(app: &AppHandle) {
         let mut inner = state.lock();
         inner.generation = inner.generation.wrapping_add(1);
         inner.status = Status::Stopped;
+        inner.mode = None;
         inner.pid.take()
     };
     if let Some(pid) = pid {
         proc::kill_tree_of(pid);
     }
+}
+
+/// Refuses while the server is running, naming what was being done.
+///
+/// Its executable and its export are both inside the folder an install replaces,
+/// and on Windows a running image cannot be replaced at all — so the caller is
+/// told to stop the server rather than left with a locked file halfway through an
+/// update.
+pub fn assert_stopped(app: &AppHandle, what: &str) -> Result<(), String> {
+    let state = app.state::<CodegState>();
+    let inner = state.lock();
+    if matches!(inner.status, Status::Starting | Status::Ready { .. }) {
+        return Err(format!(
+            "Stop the Codeg server before {what}: its executable sits in the folder being replaced."
+        ));
+    }
+    Ok(())
 }
 
 /// Sets Codeg's own language, which lives in its database rather than in the
@@ -340,23 +449,39 @@ struct Prepared {
 ///
 /// The messages name the fix, because each of these is a configuration mistake
 /// rather than a bug: an unbuilt binary, a missing export, or a port in use.
-fn prepare(config: &CodegConfig) -> Result<Prepared, String> {
-    let server = Path::new(config.server_path.trim());
+fn prepare(config: &CodegConfig, mode: Mode) -> Result<Prepared, String> {
+    let layout = layout(config, mode);
+
+    let server = Path::new(&layout.server_path);
     if !server.is_file() {
-        return Err(format!(
-            "codeg-server was not found at {}. Build it with `cargo build --no-default-features \
-             --features server-bin --bin codeg-server`, or correct the path under Settings → Codeg.",
-            server.display()
-        ));
+        return Err(match mode {
+            Mode::Dev => format!(
+                "codeg-server was not found at {}. Build it with `cargo build \
+                 --no-default-features --features server-bin --bin codeg-server`, or correct the \
+                 path under Settings → Codeg (dev).",
+                server.display()
+            ),
+            Mode::Installed => format!(
+                "codeg-server was not found at {}. Install it under Settings → Codeg.",
+                server.display()
+            ),
+        });
     }
 
-    let static_dir = Path::new(config.static_dir.trim());
+    let static_dir = Path::new(&layout.static_dir);
     if !static_dir.is_dir() {
-        return Err(format!(
-            "The Codeg static export was not found at {}. Run `pnpm build` in the Codeg \
-             checkout, or correct the path under Settings → Codeg.",
-            static_dir.display()
-        ));
+        return Err(match mode {
+            Mode::Dev => format!(
+                "The Codeg static export was not found at {}. Run `pnpm build` in the Codeg \
+                 checkout, or correct the path under Settings → Codeg (dev).",
+                static_dir.display()
+            ),
+            Mode::Installed => format!(
+                "The Codeg static export was not found at {}. Install Codeg again under \
+                 Settings → Codeg.",
+                static_dir.display()
+            ),
+        });
     }
 
     // Bound and released immediately: this is the cheapest way to tell whether
@@ -385,13 +510,13 @@ fn prepare(config: &CodegConfig) -> Result<Prepared, String> {
 }
 
 /// Spawns `codeg-server` with the environment Codeg reads.
-fn spawn(config: &CodegConfig, prepared: &Prepared) -> Result<Child, String> {
-    let mut command = Command::new(config.server_path.trim());
+fn spawn(config: &CodegConfig, mode: Mode, prepared: &Prepared) -> Result<Child, String> {
+    let layout = layout(config, mode);
+    let mut command = Command::new(&layout.server_path);
 
-    // Run inside the checkout when it is there: the server resolves a handful
-    // of paths relative to its working directory.
-    let repo = Path::new(config.repo_path.trim());
-    if repo.is_dir() {
+    // Run inside the install folder or the checkout when it is there: the server
+    // resolves a handful of paths relative to its working directory.
+    if let Some(repo) = layout.repo_path.filter(|repo| repo.is_dir()) {
         command.current_dir(repo);
     }
 
@@ -399,7 +524,7 @@ fn spawn(config: &CodegConfig, prepared: &Prepared) -> Result<Child, String> {
         .env("CODEG_HOST", "127.0.0.1")
         .env("CODEG_PORT", config.port.to_string())
         .env("CODEG_TOKEN", &prepared.token)
-        .env("CODEG_STATIC_DIR", config.static_dir.trim())
+        .env("CODEG_STATIC_DIR", &layout.static_dir)
         .env("CODEG_DATA_DIR", &prepared.data_dir)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -408,7 +533,7 @@ fn spawn(config: &CodegConfig, prepared: &Prepared) -> Result<Child, String> {
 
     command
         .spawn()
-        .map_err(|error| format!("Failed to start {}: {error}", config.server_path.trim()))
+        .map_err(|error| format!("Failed to start {}: {error}", layout.server_path))
 }
 
 /// Polls the one public endpoint until it answers, the process dies, or the
@@ -494,6 +619,7 @@ fn end(app: &AppHandle, note: &str) {
         let mut inner = state.lock();
         inner.generation = inner.generation.wrapping_add(1);
         inner.status = Status::Stopped;
+        inner.mode = None;
         if inner.pid.is_some() {
             push_line(&mut inner, Stream::Stdout, note);
         }

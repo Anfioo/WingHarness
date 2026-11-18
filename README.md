@@ -160,7 +160,7 @@ repository yet.
 | [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
 | [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |
-| [CODEG.md](./docs/features/CODEG.md) | Codeg embedded as a native child webview: one page, tabs over its own routes, server ownership, appearance and language sync |
+| [CODEG.md](./docs/features/CODEG.md) | Codeg embedded as a native child webview: one page, tabs over its own routes, server ownership, appearance and language sync, and the release archive the app installs |
 | [DATABASE.md](./docs/features/DATABASE.md) | Data sources, tabbed data-source windows with persisted query files and tabs, SQL console, execution plans, table data and object management |
 | [FILE_PREVIEW.md](./docs/features/FILE_PREVIEW.md) | The preview engine, the standalone Space window, text editing, supported formats, how to add one |
 | [FRP.md](./docs/features/FRP.md) | FRP console: generated `frpc` configs, child processes, logs |

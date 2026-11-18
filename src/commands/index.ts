@@ -139,6 +139,11 @@ export {
   codegBrowserSetBounds,
   codegBrowserSetVisible,
   codegBrowserUrl,
+  codegInstallClear,
+  codegInstallFinish,
+  codegInstallReadArchive,
+  codegInstallWriteFile,
+  codegReleaseCheck,
   codegRestart,
   codegSetLanguage,
   codegStart,
@@ -147,6 +152,9 @@ export {
 } from "./services/codeg";
 export type {
   CodegBounds,
+  CodegInstall,
+  CodegMode,
+  CodegRelease,
   CodegServerStatus,
   CodegSettings,
   CodegTheme,
