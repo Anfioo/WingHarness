@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { HelpTip } from "@/components/ui/help-tip";
+import { Hint } from "@/features/git/diff/diff-ui";
 import { cn } from "@/lib/utils";
 import { rebaseCommits, rebaseInteractive } from "@/commands";
 import type { CommitInfo, RebaseTodoAction, RebaseTodoEntry } from "@/lib/git-core/types";
@@ -246,11 +246,11 @@ export function InteractiveRebaseDialog() {
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <HelpTip title={t("gitRepo.sidebar.rebase.dragHint")}>
+                    <Hint label={t("gitRepo.sidebar.rebase.dragHint")}>
                       <span className="text-muted-foreground/70 shrink-0 cursor-grab">
                         <GripVertical className="size-3.5" />
                       </span>
-                    </HelpTip>
+                    </Hint>
                     <Badge className="shrink-0 font-mono">{row.commit.shortOid.slice(0, 7)}</Badge>
                     <span className="min-w-0 flex-1 truncate text-sm">{row.commit.summary}</span>
                     <span className="text-muted-foreground/70 shrink-0 text-xs">
