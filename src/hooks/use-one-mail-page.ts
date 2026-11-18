@@ -497,7 +497,9 @@ export function useOneMailPage(): OneMailPageState {
           accountId: accountId ?? selectedAccountId,
           mode,
         });
-        if (!report.ok && report.error) setError(report.error);
+        // The report carries the backend's English detail. The alert shows the
+        // localized summary; the technical text stays out of the visible copy.
+        if (!report.ok && report.error) setError(t("oneMail.accounts.syncError"));
         await Promise.all([
           reloadAccounts(),
           reloadFolders(),
@@ -520,6 +522,7 @@ export function useOneMailPage(): OneMailPageState {
       reloadOutbox,
       loadConversations,
       describeError,
+      t,
     ]
   );
 
@@ -682,16 +685,29 @@ export function useOneMailPage(): OneMailPageState {
     };
   }, [describeError, reloadAccounts, reloadOutbox]);
 
-  // While the page is on screen, sync on activation and then once per
+  // While the page is on screen, sync once on activation and then once per
   // configured interval. Hiding the page clears the timer but never cancels a
   // sync already running.
+  //
+  // `syncNow` changes identity whenever the filters, the keyword or the
+  // selection do, and syncing on every keystroke would be wrong. The refs keep
+  // the two effects below from depending on it.
+  const syncNowRef = useRef(syncNow);
+  useEffect(() => {
+    syncNowRef.current = syncNow;
+  }, [syncNow]);
+
+  useEffect(() => {
+    if (!pageActive || accounts.length === 0) return;
+    void syncNowRef.current();
+  }, [pageActive, accounts.length]);
+
   useEffect(() => {
     const minutes = settings?.refreshIntervalMinutes ?? 0;
     if (!pageActive || accounts.length === 0 || minutes <= 0) return;
-    void syncNow();
-    const timer = setInterval(() => void syncNow(), minutes * 60_000);
+    const timer = setInterval(() => void syncNowRef.current(), minutes * 60_000);
     return () => clearInterval(timer);
-  }, [pageActive, accounts.length, settings?.refreshIntervalMinutes, syncNow]);
+  }, [pageActive, accounts.length, settings?.refreshIntervalMinutes]);
 
   const notifyNewMail = useCallback(
     async (payload: NewMailPayload) => {
