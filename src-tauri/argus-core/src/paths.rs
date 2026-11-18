@@ -14,9 +14,9 @@ pub static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
 
 /// Resolve the data directory.
 pub fn dir() -> ArgusResult<&'static PathBuf> {
-    CONFIG_DIR.get().ok_or_else(|| {
-        ArgusError::internal("The task manager data directory is unavailable.")
-    })
+    CONFIG_DIR
+        .get()
+        .ok_or_else(|| ArgusError::internal("The task manager data directory is unavailable."))
 }
 
 /// The data directory itself, created on first use.

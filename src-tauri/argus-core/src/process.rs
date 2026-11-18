@@ -510,25 +510,6 @@ pub fn find_by(matches: impl Fn(&str) -> bool) -> Vec<Found> {
         .collect()
 }
 
-/// Minimal (pid, ppid, create time) listing, used to walk process trees.
-#[allow(dead_code)] // Called by the process actions (kill, tree kill).
-pub(crate) fn list_lineage() -> Vec<(u32, u32, i64)> {
-    let mut buf = AlignedBuf::with_capacity(512 * 1024);
-    if query_system_information(SPI_CLASS, &mut buf).is_err() {
-        return Vec::new();
-    }
-    ProcessIter::new(&buf)
-        .map(|e| {
-            (
-                e.info.unique_process_id.0 as usize as u32,
-                e.info.inherited_from_unique_process_id.0 as usize as u32,
-                ticks_to_unix_ms(e.info.create_time),
-            )
-        })
-        .filter(|(pid, ..)| *pid != 0)
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

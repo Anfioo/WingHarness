@@ -227,8 +227,11 @@ mod tests {
     fn out_of_range_value_is_clamped_when_read() {
         let directory = temp_dir("clamp");
         std::fs::create_dir_all(&directory).unwrap();
-        std::fs::write(settings_file(&directory), br#"{ "version": 1, "intervalMs": 99 }"#)
-            .unwrap();
+        std::fs::write(
+            settings_file(&directory),
+            br#"{ "version": 1, "intervalMs": 99 }"#,
+        )
+        .unwrap();
         assert_eq!(
             load_at(&directory).unwrap().interval_ms,
             crate::models::MIN_INTERVAL_MS

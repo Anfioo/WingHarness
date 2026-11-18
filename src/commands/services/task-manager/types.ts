@@ -190,8 +190,6 @@ export type CpuInfo = {
   threads: CpuThread[];
 };
 
-export type CpuIdle = { c1: number | null; c2: number | null; c3: number | null };
-
 export type MemoryInfo = {
   installed: number;
   /** MT/s */
@@ -289,7 +287,6 @@ export type Hardware = {
   cpuMhz: number | null;
   /** Per logical processor, MHz; empty when unknown. */
   coreMhz: number[];
-  cpuIdle: CpuIdle[];
   memory: MemoryInfo;
   disks: DiskStats[];
   nics: NicStats[];

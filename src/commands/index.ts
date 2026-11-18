@@ -1036,7 +1036,6 @@ export type {
   ArgusError,
   ArgusErrorCode,
   ArgusSettings,
-  CpuIdle,
   CpuInfo,
   CpuThread,
   DiskInfo,

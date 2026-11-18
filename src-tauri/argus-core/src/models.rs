@@ -47,7 +47,10 @@ mod tests {
 
     #[test]
     fn interval_is_clamped_to_the_supported_range() {
-        assert_eq!(ArgusSettings::with_interval_ms(0).interval_ms, MIN_INTERVAL_MS);
+        assert_eq!(
+            ArgusSettings::with_interval_ms(0).interval_ms,
+            MIN_INTERVAL_MS
+        );
         assert_eq!(
             ArgusSettings::with_interval_ms(60_000).interval_ms,
             MAX_INTERVAL_MS
