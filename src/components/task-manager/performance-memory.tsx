@@ -4,7 +4,7 @@
 // The memory detail view: the used curve, the disjoint composition of physical
 // memory, the paging pools and the installed modules' facts.
 
-import { formatBytes, formatPercent } from "@/components/task-manager/format";
+import { formatBytes, formatGigabytes } from "@/components/task-manager/format";
 import { MemoryComposition } from "@/components/task-manager/memory-composition";
 import {
   PerformanceDetailHeader,
@@ -26,20 +26,19 @@ export function PerformanceMemory({ snapshot, history, intervalMs }: Performance
   const { system, hardware } = snapshot;
   const memory = hardware.memory;
   const composition = memoryComposition(system);
-  const percent = system.memTotal > 0 ? (system.memUsed / system.memTotal) * 100 : Number.NaN;
   const installed = memory.installed || system.memTotal;
   const reserved = Math.max(0, memory.installed - system.memTotal);
   const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <PerformanceDetailHeader
         title={t("taskManager.performance.memory.title")}
-        model={`${formatBytes(installed, 0)}${memory.kind ? ` ${memory.kind}` : ""}`}
+        model={`${formatGigabytes(installed, 0)}${memory.kind ? ` ${memory.kind}` : ""}`}
       />
 
       <TraceChart
-        title={t("taskManager.performance.memory.title")}
+        title={t("taskManager.performance.memory.usage")}
         series={[
           {
             label: t("taskManager.performance.memory.used"),
@@ -50,6 +49,7 @@ export function PerformanceMemory({ snapshot, history, intervalMs }: Performance
         ]}
         max={system.memTotal > 0 ? system.memTotal : 1}
         unit="bytes"
+        formatValue={formatGigabytes}
         spanSeconds={spanSeconds}
         fill
         label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
@@ -61,21 +61,21 @@ export function PerformanceMemory({ snapshot, history, intervalMs }: Performance
         <PerformanceStats>
           <PerformanceStat
             label={t("taskManager.performance.memory.used")}
-            value={formatPercent(percent, 0)}
-            detail={`${formatBytes(system.memUsed)} / ${formatBytes(system.memTotal)}`}
+            value={formatGigabytes(composition.used)}
+            detail={`/ ${formatGigabytes(system.memTotal)}`}
           />
           <PerformanceStat
             label={t("taskManager.performance.memory.available")}
-            value={formatBytes(system.memAvailable)}
+            value={formatGigabytes(system.memAvailable)}
           />
           <PerformanceStat
             label={t("taskManager.performance.memory.commit")}
-            value={formatBytes(system.commitUsed)}
-            detail={`/ ${formatBytes(system.commitLimit)}`}
+            value={formatGigabytes(system.commitUsed)}
+            detail={`/ ${formatGigabytes(system.commitLimit)}`}
           />
           <PerformanceStat
             label={t("taskManager.performance.memory.cached")}
-            value={formatBytes(system.cached)}
+            value={formatGigabytes(system.cached)}
           />
           <PerformanceStat
             label={t("taskManager.performance.memory.pagedPool")}
@@ -88,7 +88,7 @@ export function PerformanceMemory({ snapshot, history, intervalMs }: Performance
         </PerformanceStats>
         <PerformanceSpecs>
           <PerformanceSpec label={t("taskManager.performance.memory.installed")}>
-            {formatBytes(installed, 0)}
+            {formatGigabytes(installed, 0)}
           </PerformanceSpec>
           <PerformanceSpec label={t("taskManager.performance.memory.speed")}>
             {memory.speed ? `${memory.speed} MT/s` : "—"}

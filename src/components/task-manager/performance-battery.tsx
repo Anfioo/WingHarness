@@ -5,7 +5,7 @@
 // identity. The device list chooses which battery this shows.
 
 import type { BatteryState } from "@/commands";
-import { formatDuration, formatPercent } from "@/components/task-manager/format";
+import { formatPercent, formatRemainingTime, formatWatts } from "@/components/task-manager/format";
 import {
   PerformanceDetailHeader,
   PerformanceEmpty,
@@ -18,7 +18,7 @@ import {
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { historyPeak, historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
+import { historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { roundCeiling } from "@/lib/task-manager/chart-scale";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
@@ -65,14 +65,21 @@ export function PerformanceBattery({
   );
   const rateWatts = battery.rate !== null ? Math.abs(battery.rate) / 1000 : null;
   const ratePeak = Math.max(
-    1000,
-    roundCeiling(Math.abs(historyPeak(history, `${prefix}.rate`) ?? 0) / 1000) * 1000
+    5000,
+    roundCeiling(
+      Math.max(
+        0,
+        ...historyValues(history, `${prefix}.rate`).map((value) =>
+          value === null ? 0 : Math.abs(value)
+        )
+      ) / 1000
+    ) * 1000
   );
   const chemistry = CHEMISTRY[battery.info.chemistry.toUpperCase()];
   const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <PerformanceDetailHeader
         title={
           snapshot.hardware.batteries.length > 1
@@ -97,7 +104,8 @@ export function PerformanceBattery({
         max={100}
         unit="percent"
         spanSeconds={spanSeconds}
-        height={170}
+        fill
+        fillMin={120}
         label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
       />
 
@@ -111,13 +119,15 @@ export function PerformanceBattery({
               points: historyValues(history, `${prefix}.rate`).map((value) =>
                 value === null ? null : Math.abs(value)
               ),
+              fill: true,
             },
           ]}
           max={ratePeak}
           unit="bytes"
           spanSeconds={spanSeconds}
-          height={140}
-          formatValue={(value) => `${(value / 1000).toFixed(1)} W`}
+          fill
+          fillMin={120}
+          formatValue={(value) => formatWatts(value / 1000)}
           label={flowLabel}
         />
       )}
@@ -133,7 +143,7 @@ export function PerformanceBattery({
             value={t(stateKey)}
           />
           {rateWatts !== null && (
-            <PerformanceStat label={flowLabel} value={`${rateWatts.toFixed(1)} W`} />
+            <PerformanceStat label={flowLabel} value={formatWatts(rateWatts)} />
           )}
           {battery.voltage !== null && (
             <PerformanceStat
@@ -144,7 +154,7 @@ export function PerformanceBattery({
           {battery.remaining !== null && (
             <PerformanceStat
               label={t("taskManager.performance.battery.remaining")}
-              value={formatDuration(battery.remaining * 1000)}
+              value={formatRemainingTime(battery.remaining)}
             />
           )}
           {health !== null && (

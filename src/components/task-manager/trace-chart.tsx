@@ -9,7 +9,7 @@
 // frame, as on the Argus charts: the series' name and top above, the window's
 // span and zero below, and the legend under that.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { chartFrameStyle } from "@/components/task-manager/chart-frame";
 import { formatBytes, formatPercent, formatRate } from "@/components/task-manager/format";
 import { CHART_COLORS, resolveChartColor } from "@/lib/task-manager/chart-colors";
@@ -44,6 +44,8 @@ type TraceChartProps = {
   height?: number;
   /** Grow into the height the detail view leaves, with a 240 px floor. */
   fill?: boolean;
+  /** The floor a filled chart shrinks to, px. */
+  fillMin?: number;
   /** Overrides the unit's formatter, e.g. `rateCeilingLabel`. */
   formatValue?: (value: number) => string;
   /** Accessible name, since the canvas carries no text of its own. */
@@ -89,7 +91,8 @@ function drawTrace(
   cssWidth: number,
   cssHeight: number,
   series: readonly TraceSeries[],
-  max: number
+  max: number,
+  hoverIndex: number
 ): void {
   const ratio = window.devicePixelRatio || 1;
   const width = Math.max(1, Math.floor(cssWidth));
@@ -163,6 +166,26 @@ function drawTrace(
       context.fill();
     }
   }
+
+  if (hoverIndex >= 0 && hoverIndex < count) {
+    const x = xAt(hoverIndex);
+    context.globalAlpha = 0.45;
+    context.strokeStyle = resolveChartColor(canvas, series[0]?.color ?? CHART_COLORS.grid);
+    context.lineWidth = 1;
+    context.beginPath();
+    context.moveTo(x, top);
+    context.lineTo(x, bottom);
+    context.stroke();
+    context.globalAlpha = 1;
+    for (const entry of series) {
+      const value = entry.points[hoverIndex];
+      if (value === null || value === undefined || !Number.isFinite(value)) continue;
+      context.fillStyle = resolveChartColor(canvas, entry.color);
+      context.beginPath();
+      context.arc(x, yAt(value), 3, 0, Math.PI * 2);
+      context.fill();
+    }
+  }
 }
 
 /** A rolling line chart with its frame, labels and legend. */
@@ -174,6 +197,7 @@ export function TraceChart({
   spanSeconds,
   height = 160,
   fill = false,
+  fillMin = 240,
   formatValue,
   label,
   className,
@@ -181,6 +205,7 @@ export function TraceChart({
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
+  const [hover, setHover] = useState<{ index: number; x: number } | null>(null);
 
   useEffect(() => {
     const frame = frameRef.current;
@@ -202,12 +227,27 @@ export function TraceChart({
   }, []);
 
   const format = formatValue ?? defaultFormatter(unit);
+  const count = series.reduce((longest, entry) => Math.max(longest, entry.points.length), 0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || size.width <= 0 || size.height <= 0) return;
-    drawTrace(canvas, size.width, size.height, series, max);
-  }, [size, series, max]);
+    drawTrace(canvas, size.width, size.height, series, max, hover?.index ?? -1);
+  }, [size, series, max, hover]);
+
+  const trackHover = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (count === 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const usable = rect.width - PAD * 2;
+    if (usable <= 0) return;
+    const ratio = (event.clientX - rect.left - PAD) / usable;
+    const index = Math.max(0, Math.min(count - 1, Math.round(ratio * (count - 1))));
+    setHover({ index, x: event.clientX - rect.left });
+  };
+
+  /** Seconds before the newest sample, for the hover readout. */
+  const ago = (index: number) =>
+    count <= 1 ? 0 : Math.round(((count - 1 - index) * spanSeconds) / (count - 1));
 
   const currentValue = (points: readonly (number | null)[]): string => {
     const index = lastValueIndex(points);
@@ -217,20 +257,54 @@ export function TraceChart({
   const swatch = series[0]?.color ?? CHART_COLORS.grid;
 
   return (
-    <figure className={cn("m-0 flex min-h-0 flex-col", fill && "flex-1", className)}>
+    <figure className={cn("m-0 flex flex-col", fill && "flex-1", className)}>
       <div className="text-muted-foreground flex items-baseline justify-between gap-3 text-[12px] tabular-nums">
         <span className="min-w-0 truncate">{title}</span>
         <span className="shrink-0">{format(Number.isFinite(max) && max > 0 ? max : 1)}</span>
       </div>
       <div
         ref={frameRef}
+        onPointerMove={trackHover}
+        onPointerLeave={() => setHover(null)}
         className={cn(
-          "relative mt-0.5 overflow-hidden rounded-[4px] border",
-          fill && "min-h-[240px] flex-1"
+          "relative mt-0.5 cursor-crosshair overflow-hidden rounded-[4px] border",
+          fill && "flex-1"
         )}
-        style={{ ...chartFrameStyle(swatch), height: fill ? undefined : height }}
+        style={{
+          ...chartFrameStyle(swatch),
+          height: fill ? undefined : height,
+          minHeight: fill ? fillMin : undefined,
+        }}
       >
         <canvas ref={canvasRef} role="img" aria-label={label} className="absolute inset-0" />
+        {hover !== null && count > 0 && (
+          <div
+            aria-hidden
+            className={cn(
+              "bg-popover/95 pointer-events-none absolute top-1 z-10 max-w-[75%] rounded-md border px-2 py-1 text-[11px] shadow-sm",
+              hover.x > size.width / 2 ? "right-1" : "left-1"
+            )}
+          >
+            <div className="text-muted-foreground tabular-nums">
+              {ago(hover.index) === 0 ? "0s" : `-${ago(hover.index)}s`}
+            </div>
+            {series.map((entry) => (
+              <div key={entry.label} className="flex items-center gap-1.5 whitespace-nowrap">
+                <span
+                  className="inline-block w-3 shrink-0 border-t-2"
+                  style={{
+                    borderColor: entry.color,
+                    borderTopStyle: entry.dashed ? "dashed" : "solid",
+                  }}
+                />
+                <span className="text-muted-foreground">{entry.label}</span>
+                <span className="text-foreground ml-auto pl-2 font-medium tabular-nums">
+                  {format(entry.points[hover.index] ?? Number.NaN)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       <div className="text-muted-foreground mt-1 grid grid-cols-3 text-[11px] tabular-nums">
         <span>{`-${spanSeconds}s`}</span>

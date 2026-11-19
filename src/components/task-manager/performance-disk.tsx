@@ -18,7 +18,7 @@ import {
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
+import { historyPeak, historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 import { rateCeiling } from "@/lib/task-manager/chart-scale";
 
@@ -36,11 +36,15 @@ export function PerformanceDisk({
   }
 
   const prefix = `disk.${disk.info.index}`;
-  const peak = Math.max(disk.read, disk.write, 1024);
+  const peak = Math.max(
+    1024 * 1024,
+    historyPeak(history, `${prefix}.read`) ?? 0,
+    historyPeak(history, `${prefix}.write`) ?? 0
+  );
   const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <PerformanceDetailHeader
         title={diskTitle(disk, t)}
         model={disk.info.model || diskKind(disk, t)}
@@ -59,7 +63,8 @@ export function PerformanceDisk({
         max={100}
         unit="percent"
         spanSeconds={spanSeconds}
-        height={170}
+        fill
+        fillMin={140}
         label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
       />
 
@@ -70,6 +75,7 @@ export function PerformanceDisk({
             label: t("taskManager.performance.disk.read"),
             color: CHART_COLORS.diskRead,
             points: historyValues(history, `${prefix}.read`),
+            fill: true,
           },
           {
             label: t("taskManager.performance.disk.write"),
@@ -81,7 +87,8 @@ export function PerformanceDisk({
         max={rateCeiling(peak)}
         unit="rate"
         spanSeconds={spanSeconds}
-        height={160}
+        fill
+        fillMin={140}
         label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
       />
 

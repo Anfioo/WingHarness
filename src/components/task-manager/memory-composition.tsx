@@ -2,7 +2,7 @@
 // See docs/UPSTREAM_PROJECTS.md for the porting record.
 
 // A stacked bar of the disjoint parts of physical memory, in shades of the
-// memory hue as on the Argus page.
+// memory hue as on the Argus page. The free part is the empty rest of the bar.
 
 import { formatBytes } from "@/components/task-manager/format";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -21,30 +21,34 @@ function memShade(percent: number): string {
 
 export function MemoryComposition({ composition }: { composition: MemoryComposition }) {
   const { t } = useAppTranslation();
+  const label = (segment: Segment) =>
+    `${t(`taskManager.performance.memory.segment.${segment.key}`)} ${formatBytes(segment.value)}`;
 
-  const segments: Segment[] = [{ key: "used", value: composition.used, color: memShade(55) }];
+  // Painted parts; the free part is what the bar leaves empty.
+  const parts: Segment[] = [{ key: "used", value: composition.used, color: memShade(55) }];
   if (composition.modified !== null) {
-    segments.push({ key: "modified", value: composition.modified, color: memShade(90) });
+    parts.push({ key: "modified", value: composition.modified, color: memShade(90) });
   }
   if (composition.standby !== null) {
-    segments.push({ key: "standby", value: composition.standby, color: memShade(20) });
+    parts.push({ key: "standby", value: composition.standby, color: memShade(20) });
   }
+  const legend: Segment[] = [...parts];
   if (composition.free !== null) {
-    segments.push({ key: "free", value: composition.free, color: "var(--border)" });
+    legend.push({ key: "free", value: composition.free, color: "var(--border)" });
   }
 
   return (
     <div className="flex flex-col gap-1.5">
       <div
         role="img"
-        aria-label={t("taskManager.performance.memory.composition")}
-        className="bg-muted flex h-7 w-full overflow-hidden rounded-[4px] border"
+        aria-label={`${t("taskManager.performance.memory.composition")}: ${legend.map(label).join(", ")}`}
+        className="flex h-7 w-full overflow-hidden rounded-[4px] border"
         style={{ borderColor: memShade(45) }}
       >
-        {segments.map((segment) => (
+        {parts.map((segment) => (
           <div
             key={segment.key}
-            title={`${t(`taskManager.performance.memory.segment.${segment.key}`)}: ${formatBytes(segment.value)}`}
+            title={label(segment)}
             style={{
               width: `${compositionPercent(segment.value, composition.total)}%`,
               backgroundColor: segment.color,
@@ -53,7 +57,7 @@ export function MemoryComposition({ composition }: { composition: MemoryComposit
         ))}
       </div>
       <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
-        {segments.map((segment) => (
+        {legend.map((segment) => (
           <span key={segment.key} className="flex items-center gap-1.5">
             <span
               aria-hidden

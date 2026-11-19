@@ -35,11 +35,11 @@ export function CoreGrid({
   if (indices.length === 0) return null;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-1.5">
+    <div className="flex flex-1 flex-col gap-1.5">
       <div
         role="group"
         aria-label={t("taskManager.performance.cpu.cores")}
-        className="grid min-h-0 flex-1 auto-rows-[minmax(96px,1fr)] grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1.5"
+        className="grid flex-1 auto-rows-[minmax(96px,1fr)] grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-1.5"
       >
         {indices.map((index) => {
           const thread = threads[index];

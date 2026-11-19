@@ -24,6 +24,43 @@ export function formatRate(bytesPerSecond: number, fractionDigits = 1): string {
   return `${formatBytes(bytesPerSecond, fractionDigits)}/s`;
 }
 
+/** The same rate in bits, e.g. `98.4 Mbps`; network rates are often quoted this way. */
+export function formatBitRate(bytesPerSecond: number): string {
+  if (!Number.isFinite(bytesPerSecond)) return "—";
+  const bits = bytesPerSecond * 8;
+  if (bits < 1) return "0 Kbps";
+  if (bits < 1e6) return `${(bits / 1e3).toFixed(bits < 1e4 ? 1 : 0)} Kbps`;
+  if (bits < 1e9) return `${(bits / 1e6).toFixed(bits < 1e7 ? 2 : 1)} Mbps`;
+  return `${(bits / 1e9).toFixed(2)} Gbps`;
+}
+
+/** A link speed in bits per second, e.g. `1 Gbps`. */
+export function formatLinkSpeed(bitsPerSecond: number): string {
+  if (!Number.isFinite(bitsPerSecond) || bitsPerSecond <= 0) return "—";
+  if (bitsPerSecond >= 1e9) return `${+(bitsPerSecond / 1e9).toFixed(1)} Gbps`;
+  return `${Math.round(bitsPerSecond / 1e6)} Mbps`;
+}
+
+/** Watts with sensible precision: 7.4, 78. */
+export function formatWatts(watts: number): string {
+  if (!Number.isFinite(watts)) return "—";
+  return `${watts < 10 ? watts.toFixed(1) : Math.round(watts)} W`;
+}
+
+/** A memory size in gigabytes, e.g. `31.9 GB`; the performance page's unit. */
+export function formatGigabytes(bytes: number, fractionDigits = 1): string {
+  if (!Number.isFinite(bytes)) return "—";
+  return `${(bytes / 1024 ** 3).toFixed(fractionDigits)} GB`;
+}
+
+/** A remaining time in seconds as hours and minutes, e.g. `1h 20m`, `45m`. */
+export function formatRemainingTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  const minutes = Math.round(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours}h ${String(minutes % 60).padStart(2, "0")}m` : `${minutes}m`;
+}
+
 /** A percentage, e.g. `42.0%`. */
 export function formatPercent(value: number, fractionDigits = 1): string {
   if (!Number.isFinite(value)) return "—";

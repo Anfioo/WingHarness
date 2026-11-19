@@ -5,7 +5,7 @@
 // with the hybrid-core P/E filter, the live figures and the processor facts.
 
 import { useState } from "react";
-import { formatBytes, formatDuration, formatPercent } from "@/components/task-manager/format";
+import { formatBytes, formatPercent } from "@/components/task-manager/format";
 import { CoreGrid } from "@/components/task-manager/core-grid";
 import {
   PerformanceDetailHeader,
@@ -24,6 +24,17 @@ import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
 type CpuMode = "overall" | "logical";
 type CoreFilter = "all" | "p" | "e";
+
+/** Uptime to the second: days, then hh:mm:ss, so the figure keeps its width. */
+function uptime(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const clock = `${pad(Math.floor((total % 86400) / 3600))}:${pad(
+    Math.floor((total % 3600) / 60)
+  )}:${pad(total % 60)}`;
+  const days = Math.floor(total / 86400);
+  return days > 0 ? `${days}d ${clock}` : clock;
+}
 
 export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceData) {
   const { t } = useAppTranslation();
@@ -53,8 +64,19 @@ export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceDat
 
   const spanSeconds = historySpanSeconds(intervalMs);
 
+  /** The mean clock of the P or E cores, or null when the CPU does not report one. */
+  const meanMhz = (efficient: boolean): number | null => {
+    const values = hardware.coreMhz.filter(
+      (mhz, index) => (cpu.threads[index]?.efficient ?? false) === efficient && mhz > 0
+    );
+    if (values.length === 0) return null;
+    return values.reduce((sum, mhz) => sum + mhz, 0) / values.length;
+  };
+  const pMhz = hybrid ? meanMhz(false) : null;
+  const eMhz = hybrid ? meanMhz(true) : null;
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <PerformanceDetailHeader title={t("taskManager.performance.cpu.title")} model={cpu.name} />
 
       <div className="-mt-1 flex flex-wrap items-center justify-end gap-2">
@@ -96,6 +118,7 @@ export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceDat
               label: t("taskManager.performance.cpu.kernel"),
               color: CHART_COLORS.cpu,
               points: historyValues(history, "cpuKernel"),
+              fill: true,
               dashed: true,
             },
           ]}
@@ -122,10 +145,20 @@ export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceDat
             label={t("taskManager.performance.cpu.utilization")}
             value={formatPercent(system.cpu, 0)}
           />
-          {hardware.cpuMhz !== null && hardware.cpuMhz > 0 && (
+          <PerformanceStat
+            label={t("taskManager.performance.cpu.speed")}
+            value={`${((hardware.cpuMhz ?? 0) / 1000).toFixed(2)} GHz`}
+          />
+          {pMhz !== null && (
             <PerformanceStat
-              label={t("taskManager.performance.cpu.speed")}
-              value={`${(hardware.cpuMhz / 1000).toFixed(2)} GHz`}
+              label={t("taskManager.performance.cpu.pCoreSpeed")}
+              value={`${(pMhz / 1000).toFixed(2)} GHz`}
+            />
+          )}
+          {eMhz !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.cpu.eCoreSpeed")}
+              value={`${(eMhz / 1000).toFixed(2)} GHz`}
             />
           )}
           <PerformanceStat
@@ -142,7 +175,7 @@ export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceDat
           />
           <PerformanceStat
             label={t("taskManager.performance.cpu.uptime")}
-            value={formatDuration(system.uptimeMs)}
+            value={uptime(system.uptimeMs)}
           />
         </PerformanceStats>
         <PerformanceSpecs>
@@ -165,16 +198,14 @@ export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceDat
                 : "taskManager.performance.cpu.notEnabled"
             )}
           </PerformanceSpec>
-          {(["l1", "l2", "l3"] as const).map((level) =>
-            cpu[level] > 0 ? (
-              <PerformanceSpec
-                key={level}
-                label={t("taskManager.performance.cpu.cache", { level: level.slice(1) })}
-              >
-                {formatBytes(cpu[level])}
-              </PerformanceSpec>
-            ) : null
-          )}
+          {(["l1", "l2", "l3"] as const).map((level) => (
+            <PerformanceSpec
+              key={level}
+              label={t("taskManager.performance.cpu.cache", { level: level.slice(1) })}
+            >
+              {cpu[level] > 0 ? formatBytes(cpu[level]) : "—"}
+            </PerformanceSpec>
+          ))}
         </PerformanceSpecs>
       </PerformanceSummary>
     </div>

@@ -163,8 +163,10 @@ disappears.
   time, capacity, bus and temperature.
 - **Network** — each adapter's received/sent rates, link speed, addresses and
   MAC.
-- **GPU** — utilization, per-engine traces, dedicated and shared memory,
-  clocks, temperature, fan and power.
+- **GPU** — an engine-utilization grid above dedicated and shared memory
+  charts, with smart display or a chosen engine count, a picker per chart, grid
+  / focus / list layouts and a draggable split between the two areas; clocks,
+  temperature, fan and power below.
 - **Battery** — charge level and flow, wear against design capacity, cycle
   count and the pack's identity. Machines without a battery simply do not get
   the entry.

@@ -5,7 +5,8 @@
 // speed, and its addresses. The device list chooses which adapter this shows.
 
 import { useState } from "react";
-import { formatRate } from "@/components/task-manager/format";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { formatBitRate, formatLinkSpeed, formatRate } from "@/components/task-manager/format";
 import {
   PerformanceDetailHeader,
   PerformanceEmpty,
@@ -42,11 +43,12 @@ function Addresses({ list }: { list: readonly string[] }) {
           type="button"
           aria-expanded={all}
           onClick={() => setAll(!all)}
-          className="text-muted-foreground hover:text-foreground text-[10px] underline-offset-2 hover:underline"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[10px] underline-offset-2 hover:underline"
         >
           {all
             ? t("taskManager.performance.network.showFewer")
             : t("taskManager.performance.network.showAll", { count: list.length })}
+          {all ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
         </button>
       )}
     </span>
@@ -75,7 +77,7 @@ export function PerformanceNetwork({
   const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-4">
       <PerformanceDetailHeader title={nic.info.name} model={nic.info.description || undefined} />
 
       <TraceChart
@@ -106,10 +108,12 @@ export function PerformanceNetwork({
           <PerformanceStat
             label={t("taskManager.performance.network.received")}
             value={formatRate(nic.rx)}
+            detail={formatBitRate(nic.rx)}
           />
           <PerformanceStat
             label={t("taskManager.performance.network.sent")}
             value={formatRate(nic.tx)}
+            detail={formatBitRate(nic.tx)}
           />
         </PerformanceStats>
         <PerformanceSpecs>
@@ -117,7 +121,9 @@ export function PerformanceNetwork({
             {t(`taskManager.performance.network.kind.${nic.info.kind}`)}
           </PerformanceSpec>
           <PerformanceSpec label={t("taskManager.performance.network.linkSpeed")}>
-            {nic.info.linkSpeed > 0 ? formatRate(nic.info.linkSpeed / 8, 0) : "—"}
+            {nic.info.linkSpeed > 0
+              ? `${formatLinkSpeed(nic.info.linkSpeed)} · ${formatRate(nic.info.linkSpeed / 8, 0)}`
+              : "—"}
           </PerformanceSpec>
           <PerformanceSpec label={t("taskManager.performance.network.ipv4")}>
             <Addresses list={nic.info.ipv4} />

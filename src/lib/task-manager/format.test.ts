@@ -3,10 +3,15 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  formatBitRate,
   formatBytes,
   formatDuration,
+  formatGigabytes,
+  formatLinkSpeed,
   formatPercent,
   formatRate,
+  formatRemainingTime,
+  formatWatts,
 } from "@/components/task-manager/format";
 
 describe("formatBytes", () => {
@@ -52,6 +57,65 @@ describe("formatPercent", () => {
 
   it("returns an em dash for a missing reading", () => {
     expect(formatPercent(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+describe("formatBitRate", () => {
+  it("converts bytes per second to bits", () => {
+    expect(formatBitRate(1000)).toBe("8.0 Kbps");
+    expect(formatBitRate(125_000)).toBe("1.00 Mbps");
+    expect(formatBitRate(125_000_000)).toBe("1.00 Gbps");
+  });
+
+  it("returns an em dash for a missing rate", () => {
+    expect(formatBitRate(Number.NaN)).toBe("—");
+  });
+});
+
+describe("formatLinkSpeed", () => {
+  it("shows bits per second in the largest whole unit", () => {
+    expect(formatLinkSpeed(100_000_000)).toBe("100 Mbps");
+    expect(formatLinkSpeed(1_000_000_000)).toBe("1 Gbps");
+  });
+
+  it("returns an em dash when the adapter reports no speed", () => {
+    expect(formatLinkSpeed(0)).toBe("—");
+  });
+});
+
+describe("formatWatts", () => {
+  it("keeps one decimal below ten watts and rounds above", () => {
+    expect(formatWatts(7.44)).toBe("7.4 W");
+    expect(formatWatts(78.4)).toBe("78 W");
+  });
+
+  it("returns an em dash for a missing reading", () => {
+    expect(formatWatts(Number.NaN)).toBe("—");
+  });
+});
+
+describe("formatGigabytes", () => {
+  it("shows binary gigabytes with the performance page's GB label", () => {
+    expect(formatGigabytes(1024 ** 3)).toBe("1.0 GB");
+    expect(formatGigabytes(1024 ** 3 * 31.94)).toBe("31.9 GB");
+    expect(formatGigabytes(1024 ** 3 * 32, 0)).toBe("32 GB");
+  });
+
+  it("returns an em dash for a missing size", () => {
+    expect(formatGigabytes(Number.NaN)).toBe("—");
+  });
+});
+
+describe("formatRemainingTime", () => {
+  it("shows hours and minutes, or whole minutes", () => {
+    expect(formatRemainingTime(45 * 60)).toBe("45m");
+    expect(formatRemainingTime(80 * 60)).toBe("1h 20m");
+    expect(formatRemainingTime(3600)).toBe("1h 00m");
+  });
+
+  it("returns an em dash for a missing or negative time", () => {
+    expect(formatRemainingTime(Number.NaN)).toBe("—");
+    expect(formatRemainingTime(-1)).toBe("—");
   });
 });
 

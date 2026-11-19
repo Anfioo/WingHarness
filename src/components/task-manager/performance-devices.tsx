@@ -9,7 +9,13 @@
 import { useMemo } from "react";
 import type { Snapshot } from "@/commands";
 import { ChartFrame } from "@/components/task-manager/chart-frame";
-import { formatBytes, formatPercent, formatRate } from "@/components/task-manager/format";
+import {
+  formatGigabytes,
+  formatPercent,
+  formatRate,
+  formatRemainingTime,
+  formatWatts,
+} from "@/components/task-manager/format";
 import { Sparkline, type SparkSeries } from "@/components/task-manager/sparkline";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { historyPeak, historyValues, type ChartHistory } from "@/lib/task-manager/chart-history";
@@ -87,7 +93,9 @@ export function buildPerformanceDevices(
       key: "memory",
       kind: "memory",
       title: t("taskManager.performance.memory.title"),
-      subtitle: `${formatPercent(memPercent, 0)} · ${formatBytes(system.memUsed)} / ${formatBytes(system.memTotal)}`,
+      subtitle: `${formatGigabytes(system.memUsed)} / ${formatGigabytes(
+        system.memTotal
+      )} (${formatPercent(memPercent, 0)})`,
       color: CHART_COLORS.memory,
       series: [{ key: "mem", color: CHART_COLORS.memory }],
       max: system.memTotal > 0 ? system.memTotal : 1,
@@ -101,7 +109,13 @@ export function buildPerformanceDevices(
       kind: "disk",
       index: disk.info.index,
       title: diskTitle(disk, t),
-      subtitle: `${diskKind(disk, t)} ${formatPercent(disk.active, 0)}`,
+      subtitle: [
+        diskKind(disk, t),
+        formatPercent(disk.active, 0),
+        disk.temperature !== null && `${Math.round(disk.temperature)} °C`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       color: CHART_COLORS.diskRead,
       series: [{ key: `${prefix}.active`, color: CHART_COLORS.diskRead }],
       max: 100,
@@ -125,7 +139,7 @@ export function buildPerformanceDevices(
         Math.max(
           historyPeak(history, `${prefix}.rx`) ?? 0,
           historyPeak(history, `${prefix}.tx`) ?? 0,
-          64 * 1024
+          16 * 1024
         )
       ),
     });
@@ -141,6 +155,7 @@ export function buildPerformanceDevices(
       subtitle: [
         formatPercent(gpu.util, 0),
         gpu.temperature !== null && `${Math.round(gpu.temperature)} °C`,
+        gpu.boardPower !== null && formatWatts(gpu.boardPower),
       ]
         .filter(Boolean)
         .join(" · "),
@@ -160,9 +175,13 @@ export function buildPerformanceDevices(
         hardware.batteries.length > 1
           ? t("taskManager.performance.battery.titleNumbered", { id: battery.info.id })
           : t("taskManager.performance.battery.title"),
-      subtitle: `${formatPercent(battery.percent, 0)} · ${t(
-        `taskManager.performance.battery.state.${battery.state}`
-      )}`,
+      subtitle: `${formatPercent(battery.percent, 0)} · ${
+        battery.state === "discharging" && battery.remaining !== null
+          ? t("taskManager.performance.battery.timeLeft", {
+              time: formatRemainingTime(battery.remaining),
+            })
+          : t(`taskManager.performance.battery.state.${battery.state}`)
+      }`,
       color: CHART_COLORS.battery,
       series: [{ key: `${prefix}.pct`, color: CHART_COLORS.battery }],
       max: 100,
