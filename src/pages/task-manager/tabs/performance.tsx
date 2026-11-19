@@ -23,6 +23,11 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useTaskManager } from "@/hooks/use-task-manager";
 import { createHistory, pushHistory } from "@/lib/task-manager/chart-history";
 import { SNAPSHOT_SERIES, snapshotMetrics } from "@/lib/task-manager/chart-metrics";
+import {
+  performanceDeviceKey,
+  subscribePerformanceTarget,
+  takePerformanceTarget,
+} from "@/lib/task-manager/performance-target";
 
 const LIST_SKELETONS = 6;
 
@@ -71,6 +76,16 @@ export function PerformanceTab() {
   const intervalMs = page.settings.intervalMs;
   const [history, setHistory] = useState(() => createHistory(SNAPSHOT_SERIES));
   const [selected, setSelected] = useState("cpu");
+
+  // A vitals card on the processes tab names the device to open. That tab
+  // switches here itself; this one is kept mounted, so the request usually
+  // arrives through the subscription, and the pending one covers a first mount.
+  useEffect(() => {
+    const apply = (target: string) => setSelected(performanceDeviceKey(target));
+    const pendingTarget = takePerformanceTarget();
+    if (pendingTarget) apply(pendingTarget);
+    return subscribePerformanceTarget(apply);
+  }, []);
 
   // One point per sample, so the curve is continuous whatever the interval.
   // The tab stays mounted while the processes tab is shown, so the window

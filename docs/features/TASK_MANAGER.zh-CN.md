@@ -16,13 +16,13 @@
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | `AppShell` 内的页面外壳 |
 | `src/pages/task-manager/task-manager-app.tsx` | 页头（标题、服务徽标、刷新、设置）、标签栏、三个标签面板 |
-| `src/pages/task-manager/tabs/processes.tsx` | 进程标签：工具条、表格、详情抽屉、确认对话框 |
+| `src/pages/task-manager/tabs/processes.tsx` | 进程标签：Vitals 带、工具条、表格、内联详情面板、确认对话框 |
 | `src/pages/task-manager/tabs/performance.tsx` | 性能标签：设备列表、按设备切换的详情、60 个样本的窗口 |
 | `src/pages/task-manager/tabs/services.tsx` | 服务标签：轮询生命周期、搜索 / 筛选 / 排序状态、工具条操作与提示 |
-| `src/components/task-manager/` | 表格、工具条、行、详情、右键菜单、服务表格与右键菜单、性能设备列表与各设备视图、服务面板与徽标、设置对话框、`format.ts` |
+| `src/components/task-manager/` | 表格、工具条、行、详情内容与操作、右侧详情面板、Vitals 带、硬件概览、分隔条、右键菜单、服务表格与右键菜单、性能设备列表与各设备视图、服务面板与徽标、设置对话框、`format.ts` |
 | `src/hooks/use-task-manager.ts` | 一份共享 store：通道、设置、服务状态与操作 |
 | `src/commands/services/task-manager/` | 十八条 `argus_*` 命令的类型化封装与 DTO |
-| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`service-rows`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
+| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`process-history`、`performance-target`、`service-rows`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
 | `src-tauri/src/commands/argus.rs` | 薄命令层 |
 | `src-tauri/src/argus/` | `sampler.rs`（采样线程）、`service.rs`（状态与安装）、`store.rs`（设置）、`mod.rs`（`ArgusState`） |
 
@@ -50,6 +50,20 @@
 
 ## 进程标签
 
+### Vitals 带
+
+工具条上方是一条 128 px 高的卡片带：CPU、内存、磁盘、网络四张，机器有 GPU 时再加最忙的那块 GPU。每张卡显示标题、右侧副读数、当下数值与单位，以及最近 60 个样本的迷你曲线：
+
+| 卡片 | 主数值 | 副读数 | 曲线 |
+| --- | --- | --- | --- |
+| CPU | 当前利用率 % | 当前频率 GHz | 整体 CPU 利用率 |
+| 内存 | 已用 GB / 已安装 GB | 使用率 % | 已用字节（上限为安装容量） |
+| 磁盘 | 所有磁盘读写合计速率 | 最忙磁盘的活动时间 % | 合计读写速率 |
+| 网络 | 所有适配器接收 + 发送合计速率 | `↓ 接收 · ↑ 发送` | 合计传输速率 |
+| GPU | 最忙 GPU 的利用率 % | 其温度 °C | 该 GPU 的利用率 |
+
+这条带子自己维护一份 60 样本窗口（`chart-history.ts`），每个快照推入一个点，与性能页一致，因此跨度同样是 60 × 采样间隔，暂停时随之冻结。每张卡都是按钮：`performance-target.ts` 把设备交给性能标签并切换过去。设备键为 `cpu`、`memory`、`disk:<index>`、`nic:<id>`、`gpu:<id>`；性能页把后三种写成点号形式（`disk.0`），由交接模块负责转换。磁盘卡打开最忙的磁盘，网络卡打开第一个适配器，GPU 卡打开最忙的 GPU——正是卡片上展示读数的设备。
+
 ### 三种视图
 
 | 视图 | 行 |
@@ -74,7 +88,11 @@
 
 ### 详情面板
 
-选中一行会打开详情抽屉，并按需调用 `argus_process_details`。快字段（路径、资源、线程、句柄）来自快照；慢字段（命令行、用户、完整性级别、架构、优先级、版本资源）来自该调用。无法打开的进程返回 `accessible: false`，抽屉说明原因而不是显示空白字段。抽屉已切换到另一个进程后才返回的响应会被丢弃。PID 与路径都可以从抽屉复制。
+选中一行后，表格右侧打开详情面板。表格与面板各自滚动（表格保留自身的横向滚动），页面整体不会横向溢出。面板默认宽 360 px，可拖动左边缘、用方向键或在双击后回到默认值，范围 280–520 px；宽度只是组件状态，不写入偏好，因此重新进入页面总是默认宽度。
+
+面板顶部是可执行文件图标、标签、名称、PID、公司与关闭按钮（清除选中）。其下是 CPU、内存、磁盘迷你图，服务测量网络时再加网络迷你图，机器有 GPU 时再加 GPU；它们画的是该进程实例自己的 60 样本窗口（`process-history.ts`，按 `pid:createTime` 建键，最多保留 500 个进程，且只保留最新快照中仍存在的进程）。再往下是原有分区——进程、资源、路径、命令行与版本——复制与结束操作固定在底部。快字段（路径、资源、线程、句柄）来自快照；慢字段（命令行、用户、完整性级别、架构、优先级、版本资源）来自 `argus_process_details`。面板已切换到另一个进程后才返回的响应会被丢弃；无法打开的进程返回 `accessible: false`，面板说明原因而不是显示空白字段。
+
+未选中任何进程时，面板列出本机的部件——处理器、内存、每块磁盘、适配器、GPU 与电池及其关键读数——配色与性能页一致，每行都可以打开性能标签的对应设备。进程退出后选中自动清除，面板也随之回到这份概览。
 
 ### 操作
 
@@ -230,7 +248,7 @@
 - **每进程网络需要服务。** 未安装时网络列整列隐藏，工具条提示会说明原因。
 - **服务控制需要权限。** 读取服务列表不需要任何权限，但启动、停止受保护服务或修改启动类型需要管理员权限或特权服务。账户读不到的配置会把启动类型显示为 `—`。
 - **GPU 与磁盘硬件可能缺失。** 没有受支持 GPU 或没有磁盘计数器的机器显示面板的空态，而不是错误。
-- **受保护进程。** 详情抽屉会说明读不到命令行、用户或版本，而不是显示空值。
+- **受保护进程。** 详情面板会说明读不到命令行、用户或版本，而不是显示空值。
 - **服务可能残留。** 升级或卸载应用不会改动已安装的服务。升级后用**更新服务**，或用**卸载**移除它。
 
 ## 故障排查

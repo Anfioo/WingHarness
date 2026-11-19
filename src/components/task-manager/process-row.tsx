@@ -35,8 +35,7 @@ export type ProcessRowViewProps = {
   selected: boolean;
   showNetwork: boolean;
   actions: ProcessActions;
-  /** `openDetail` is false for a right-click, which only marks the row. */
-  onSelect: (row: ProcessTableRow, openDetail: boolean) => void;
+  onSelect: (row: ProcessTableRow) => void;
   onToggle: (row: ProcessTableRow) => void;
 };
 
@@ -62,13 +61,13 @@ function ProcessRowViewComponent({
       onClick={(event) => {
         event.stopPropagation();
         if (group) onToggle(row);
-        else onSelect(row, true);
+        else onSelect(row);
       }}
       onKeyDown={(event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         if (group) onToggle(row);
-        else onSelect(row, true);
+        else onSelect(row);
       }}
       className={cn(
         "border-border/50 grid h-8 cursor-default items-center border-b text-xs transition-colors",
@@ -196,7 +195,7 @@ function ProcessRowViewComponent({
 
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild onContextMenu={() => onSelect(row, false)}>
+      <ContextMenuTrigger asChild onContextMenu={() => onSelect(row)}>
         {content}
       </ContextMenuTrigger>
       <ProcessContextMenuContent process={row.process} actions={actions} />

@@ -30,13 +30,13 @@ what came across and what did not.
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
 | `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, all three tab panels |
-| `src/pages/task-manager/tabs/processes.tsx` | Process tab: toolbar, table, detail sheet, confirmation dialogs |
+| `src/pages/task-manager/tabs/processes.tsx` | Process tab: the vitals band, toolbar, table, inline detail panel, confirmation dialogs |
 | `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-sample window |
 | `src/pages/task-manager/tabs/services.tsx` | Services tab: polling lifecycle, search / filter / sort state, toolbar actions, toasts |
-| `src/components/task-manager/` | Table, toolbar, row, detail, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
+| `src/components/task-manager/` | Table, toolbar, row, detail body and actions, right-hand detail panel, vitals band, hardware overview, splitter, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
 | `src/commands/services/task-manager/` | Typed wrappers over the eighteen `argus_*` commands and their DTOs |
-| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
+| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `process-history`, `performance-target`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
 | `src-tauri/src/commands/argus.rs` | The thin command surface |
 | `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status and install), `store.rs` (settings), `mod.rs` (`ArgusState`) |
 
@@ -76,6 +76,31 @@ page unmounts (last subscriber), or the app exits
   `argus_snapshot_start` detects the failed send and spawns a fresh thread.
 
 ## Processes tab
+
+### Vitals band
+
+Above the toolbar sits a 128 px band of four cards — CPU, memory, disk and
+network — and a fifth for the busiest GPU when the machine has one. Each card
+shows its title, a secondary reading, the current figure in the unit that suits
+it, and the last 60 samples as a sparkline:
+
+| Card | Main figure | Secondary | Chart |
+| --- | --- | --- | --- |
+| CPU | current utilization, % | current clock, GHz | total CPU utilization |
+| Memory | used GB of installed GB | utilization, % | used bytes against installed |
+| Disk | read + write rate of every disk | the busiest disk's active time, % | summed read + write rate |
+| Network | receive + send rate of every adapter | `↓ received · ↑ sent` | summed transfer rate |
+| GPU | the busiest GPU's utilization, % | its temperature, °C | that GPU's utilization |
+
+The band keeps its own 60-sample window (`chart-history.ts`), pushed once per
+snapshot like the performance tab's, so it spans 60 × the sampling interval and
+freezes while sampling is paused. A card is a button: `performance-target.ts`
+hands the device to the performance tab and the card switches to it. The keys
+are `cpu`, `memory`, `disk:<index>`, `nic:<id>` and `gpu:<id>`; the performance
+tab spells the last three with a dot (`disk.0`), and the hand-off maps between
+them. The disk card opens the busiest disk, the network card the first adapter
+and the GPU card the busiest GPU — the same devices whose figures the cards
+show.
 
 ### Views
 
@@ -119,13 +144,32 @@ its name instead of occupying a status column.
 
 ### Detail panel
 
-Selecting a row opens the detail sheet and calls `argus_process_details` lazily.
-The fast fields (path, resources, threads, handles) come from the snapshot; the
-slow ones (command line, user, integrity level, architecture, priority, version
-resource) come from that call. A process that cannot be opened comes back with
-`accessible: false` and the sheet shows why instead of empty fields. A response
-that arrives after the sheet moved to another process is discarded. PID and path
-can be copied from the sheet.
+Selecting a row opens the panel to the right of the table. The table and the
+panel scroll independently (the table keeps its own horizontal scroll) and the
+page itself never overflows sideways. The panel is 360 px wide by default and
+resizes between 280 and 520 px by dragging its left edge, with the arrow keys,
+or by double-clicking for the default; the width is component state, not a
+preference, so a fresh page starts at the default.
+
+The header carries the executable's icon, the label, name, PID and company, and
+a close button that clears the selection. Below it, CPU, memory, disk and —
+while the service measures it — network mini charts, plus GPU on a machine that
+has one, plot that process instance's own 60-sample window
+(`process-history.ts`, keyed by `pid:createTime`, capped at 500 processes and
+pruned to the processes in the newest snapshot). The ported sections follow —
+process, resources, path, command line and version — with the copy and end
+actions pinned at the bottom. The fast fields (path, resources, threads,
+handles) come from the snapshot; the slow ones (command line, user, integrity
+level, architecture, priority, version resource) come from
+`argus_process_details`. A response that arrives after the panel moved to
+another process is discarded, and a process that cannot be opened comes back
+with `accessible: false`; the panel shows why instead of empty fields.
+
+With nothing selected the panel shows this computer's parts — processor,
+memory, every disk, adapter, GPU and battery, with the reading that matters for
+each — in the performance page's colors, and each line opens that device on the
+performance tab. An ended process clears the selection, so the panel returns to
+that overview by itself.
 
 ### Actions
 
@@ -402,7 +446,7 @@ port.
   account cannot read shows its startup type as `—`.
 - **GPU and disk hardware can be absent.** Machines without a supported GPU or
   with no disk counters get the panel's empty state, not an error.
-- **Protected processes.** The detail sheet explains that it cannot read the
+- **Protected processes.** The detail panel explains that it cannot read the
   command line, user or version instead of showing empty values.
 - **A service left behind.** Upgrading or uninstalling the app does not touch an
   installed service. Use **Update service** after an upgrade; **Uninstall**
