@@ -84,7 +84,7 @@ functions and types — it is the only thing components import:
 | `one-mail` | 32 commands for accounts and folders, conversation and message reading, sync, compose / outbox and settings |
 | `project-fs` | the confined project file tree and its read/write/delete, rooted at the `root` the caller passes |
 | `space-preview` | the space preview engine's `sp_*` commands: file inspection and ranged reads, text write-back, preferences, the standalone window, system icons and the Windows space agent |
-| `task-manager` | the thirteen `argus_*` commands: the snapshot channel, process details and actions, settings and the optional privileged service |
+| `task-manager` | the fourteen `argus_*` commands: the snapshot channel, process details and actions, settings and the optional privileged service |
 | `projects` | the recent-project list, the active project, and remember / forget / set-active |
 | `theme` | the CSS for a theme preset's web fonts |
 | `tray` | quitting, expanding the tray popup for a flyout, updating the tray menu labels, and the apps behind the tray's second-level menu |

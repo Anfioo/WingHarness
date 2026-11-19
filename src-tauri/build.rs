@@ -41,6 +41,7 @@ const COMMANDS: &[&str] = &[
     "api_workspace_rename",
     "api_workspace_save",
     "api_workspaces_list",
+    "argus_icon",
     "argus_kill_process",
     "argus_kill_process_tree",
     "argus_process_details",

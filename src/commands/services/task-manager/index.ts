@@ -60,6 +60,15 @@ export function argusProcessDetails(pid: number): Promise<ProcessDetails> {
   return invokeCommand<{ pid: number }, ProcessDetails>("argus_process_details", { pid });
 }
 
+/**
+ * A resolved process icon as a PNG data URL, or `null` while its metadata is
+ * still being resolved. Cache the result by id; the id stays valid for the
+ * life of the page.
+ */
+export function argusIcon(id: number): Promise<string | null> {
+  return invokeCommand<{ id: number }, string | null>("argus_icon", { id });
+}
+
 export function argusKillProcess(pid: number, createTime: number, force: boolean): Promise<void> {
   return invokeCommand<{ pid: number; createTime: number; force: boolean }, void>(
     "argus_kill_process",

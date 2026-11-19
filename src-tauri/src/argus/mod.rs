@@ -8,14 +8,18 @@ pub mod sampler;
 pub mod service;
 pub mod store;
 
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use argus_core::ArgusSettings;
+use argus_core::meta::MetaStore;
 use tauri::Manager;
 
 pub struct ArgusState {
     /// The sampler thread, present only while the page is mounted.
     pub sampler: Mutex<Option<sampler::Sampler>>,
+    /// The icon cache shared with the sampler, kept for the page's lifetime so
+    /// icon ids stay valid across a sampler restart.
+    pub meta: Arc<MetaStore>,
     /// Last settings read or written, so a command does not touch the disk
     /// just to echo the current value back.
     pub settings: Mutex<ArgusSettings>,
@@ -34,6 +38,7 @@ impl Default for ArgusState {
         }
         Self {
             sampler: Mutex::new(None),
+            meta: MetaStore::new(),
             settings: Mutex::new(store::get().unwrap_or_default()),
             elevated,
         }

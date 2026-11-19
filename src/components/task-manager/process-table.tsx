@@ -16,7 +16,7 @@ import {
 } from "@/lib/task-manager/process-sections";
 import { cn } from "@/lib/utils";
 import type { ProcessActions } from "./process-context-menu";
-import { PROCESS_GRID_COLUMNS, ProcessRowView } from "./process-row";
+import { ProcessRowView, processGridColumns } from "./process-row";
 
 const ROW_HEIGHT = 32;
 
@@ -31,12 +31,26 @@ const COLUMNS: readonly Column[] = [
   { key: "pid", labelKey: "taskManager.process.column.pid", align: "right" },
   { key: "cpu", labelKey: "taskManager.process.column.cpu", align: "right" },
   { key: "mem", labelKey: "taskManager.process.column.mem", align: "right" },
-  { key: "disk", labelKey: "taskManager.process.column.disk", align: "right" },
-  { key: "net", labelKey: "taskManager.process.column.net", align: "right" },
+  { key: "diskRead", labelKey: "taskManager.process.column.diskRead", align: "right" },
+  { key: "diskWrite", labelKey: "taskManager.process.column.diskWrite", align: "right" },
+  { key: "io", labelKey: "taskManager.process.column.io", align: "right" },
   { key: "gpu", labelKey: "taskManager.process.column.gpu", align: "right" },
-  { key: null, labelKey: "taskManager.process.column.user", align: "left" },
-  { key: null, labelKey: "taskManager.process.column.status", align: "left" },
+  { key: "threads", labelKey: "taskManager.process.column.threads", align: "right" },
+  { key: "handles", labelKey: "taskManager.process.column.handles", align: "right" },
 ];
+
+/** Only measured with the privileged service; hidden rather than shown empty. */
+const NET_COLUMN: Column = {
+  key: "net",
+  labelKey: "taskManager.process.column.net",
+  align: "right",
+};
+
+function columnsFor(showNetwork: boolean): readonly Column[] {
+  if (!showNetwork) return COLUMNS;
+  const gpuIndex = COLUMNS.findIndex((column) => column.key === "gpu");
+  return [...COLUMNS.slice(0, gpuIndex + 1), NET_COLUMN, ...COLUMNS.slice(gpuIndex + 1)];
+}
 
 export type ProcessTableProps = {
   rows: ProcessTableRow[];
@@ -115,6 +129,7 @@ export function ProcessTable({
 }: ProcessTableProps) {
   const { t } = useAppTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const columns = columnsFor(showNetwork);
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
@@ -131,15 +146,15 @@ export function ProcessTable({
       className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border"
     >
       <div className="min-h-0 flex-1 overflow-x-auto">
-        <div className="flex h-full min-w-[900px] flex-col">
+        <div className="flex h-full min-w-[980px] flex-col">
           <div
             role="row"
             className={cn(
               "text-muted-foreground bg-muted/40 grid h-8 shrink-0 items-center border-b text-[11px] font-medium",
-              PROCESS_GRID_COLUMNS
+              processGridColumns(showNetwork)
             )}
           >
-            {COLUMNS.map((column) => (
+            {columns.map((column) => (
               <HeaderCell
                 key={column.labelKey}
                 column={column}

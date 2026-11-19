@@ -44,10 +44,11 @@ pub struct Collector {
 
 impl Collector {
     /// Creates a collector and takes a priming sample, so the first real
-    /// snapshot already has meaningful rates.
-    pub fn new() -> Self {
+    /// snapshot already has meaningful rates. The caller owns the metadata
+    /// store so finished icons stay addressable after the page unmounts.
+    pub fn new(meta: Arc<MetaStore>) -> Self {
         let system = SystemTracker::new();
-        let mut processes = ProcessTracker::new(MetaStore::new());
+        let mut processes = ProcessTracker::new(meta.clone());
         processes.sample(system.logical_cpus(), system.precise_idle_fraction());
         Self {
             system,
@@ -202,7 +203,7 @@ impl Collector {
 
 impl Default for Collector {
     fn default() -> Self {
-        Self::new()
+        Self::new(MetaStore::new())
     }
 }
 
@@ -239,7 +240,7 @@ mod tests {
     #[test]
     #[ignore = "samples live GPU counters for three seconds"]
     fn live_gpu_snapshot_keeps_process_and_device_engine_totals_consistent() {
-        let mut collector = Collector::new();
+        let mut collector = Collector::new(MetaStore::new());
         for _ in 0..3 {
             std::thread::sleep(std::time::Duration::from_secs(1));
             let snapshot = collector.sample();

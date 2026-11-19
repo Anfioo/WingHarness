@@ -85,6 +85,7 @@
     "allow-api-workspace-rename",
     "allow-api-workspace-save",
     "allow-api-workspaces-list",
+    "allow-argus-icon",
     "allow-argus-kill-process",
     "allow-argus-kill-process-tree",
     "allow-argus-process-details",

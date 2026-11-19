@@ -8,6 +8,7 @@
 
 use argus_core::actions::{self, ActionError, Priority, TreeKillReport};
 use argus_core::collector::Snapshot;
+use base64::Engine as _;
 use argus_core::details::{self, ProcessDetails};
 use argus_core::models::ArgusSettings;
 use argus_core::{ArgusError, ArgusErrorCode};
@@ -28,7 +29,7 @@ pub fn argus_snapshot_start(
 
     let mut sampler = state.sampler();
     if sampler.is_none() {
-        *sampler = Some(crate::argus::sampler::Sampler::spawn());
+        *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
     }
     let subscribe = |running: &crate::argus::sampler::Sampler| {
         running.send(crate::argus::sampler::Control::Subscribe(
@@ -40,12 +41,25 @@ pub fn argus_snapshot_start(
     // thread exited by itself; its handle is dead, so replace it instead of
     // leaving this page subscribed to nothing.
     if !sampler.as_ref().is_some_and(subscribe) {
-        *sampler = Some(crate::argus::sampler::Sampler::spawn());
+        *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
         if let Some(running) = sampler.as_ref() {
             subscribe(running);
         }
     }
     Ok(())
+}
+
+/// The process icon at `id` as a data URL, or `null` when it is not cached
+/// yet. Icons are resolved off the sampling thread, so a row may name an id
+/// before its PNG exists; the next snapshot resolves it.
+#[tauri::command(async)]
+pub fn argus_icon(state: State<'_, ArgusState>, id: u32) -> Option<String> {
+    state.meta.icon_png(id).map(|png| {
+        format!(
+            "data:image/png;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(&png)
+        )
+    })
 }
 
 #[tauri::command]

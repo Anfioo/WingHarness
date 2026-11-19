@@ -33,7 +33,7 @@ what came across and what did not.
 | `src/pages/task-manager/tabs/performance.tsx` | Performance tab: summary cards, five panels, the 60-second window |
 | `src/components/task-manager/` | Table, toolbar, row, detail, context menu, the five performance panels, summary, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
-| `src/commands/services/task-manager/` | Typed wrappers over the thirteen `argus_*` commands and their DTOs |
+| `src/commands/services/task-manager/` | Typed wrappers over the fourteen `argus_*` commands and their DTOs |
 | `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
 | `src-tauri/src/commands/argus.rs` | The thin command surface |
 | `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status and install), `store.rs` (settings), `mod.rs` (`ArgusState`) |
@@ -95,10 +95,11 @@ and trimmed; a blank query returns `null` from `createProcessMatcher`, so no
 filter runs. In the apps view a query expands matching groups and hides groups
 with no match. An empty result has its own state with a **clear search** action.
 
-Clicking a column header sorts by name, PID, CPU, memory, disk, network or GPU;
-the first click on a numeric column sorts descending (busiest first) and the
-default is CPU descending. Groups are sorted by their aggregate value; processes
-whose disk rate is still `null` sort after measured ones.
+Clicking a column header sorts by name, PID, CPU, memory, disk read, disk write,
+I/O, network, GPU, threads or handles; the first click on a numeric column sorts
+descending (busiest first) and the default is CPU descending. Groups are sorted
+by their aggregate value; processes whose disk rate is still `null` sort after
+measured ones.
 
 The table is virtualized with `@tanstack/react-virtual` at a fixed 32 px row;
 only rows near the viewport exist in the DOM, so a 300-process machine scrolls
@@ -106,10 +107,13 @@ without jumps. Column headers stay sticky.
 
 ### Columns
 
-Name (with the app icon and indentation), PID, CPU, memory, disk, network, GPU,
-user and status. Disk shows read + write with both rates in the tooltip; network
-shows `—` until the service measures it; user shows `—` because no producer is
-wired yet; status shows running or suspended.
+Name (with the executable's icon and indentation), PID, CPU, memory, disk read,
+disk write, I/O, GPU, network, threads and handles. The icons come from the
+sampler's per-executable cache, are fetched lazily and fall back to a generic
+app icon (or a kernel icon for a process without an image path). The network
+column exists only while the service measures it; without the service it is
+hidden and the toolbar explains why. A suspended process carries a tag beside
+its name instead of occupying a status column.
 
 ### Detail panel
 
@@ -212,6 +216,7 @@ control. It creates no window and starts no webview.
 | `argus_settings_get` | — | `ArgusSettings` |
 | `argus_settings_set` | `{ settings }` | The normalized settings that were written |
 | `argus_process_details` | `{ pid }` | `ProcessDetails` |
+| `argus_icon` | `{ id }` | A PNG data URL, or `null` while the icon is unresolved |
 | `argus_kill_process` | `{ pid, createTime, force }` | — |
 | `argus_kill_process_tree` | `{ pid, createTime }` | `TreeKillReport` |
 | `argus_set_priority` | `{ pid, createTime, priority }` | The priority the process ended up with |
@@ -277,13 +282,10 @@ port.
 - **CPU frequency is unavailable.** `cpuMhz` is `null` and `coreMhz` is empty
   because the only upstream source was a sensor module that was not ported. The
   speed row and the per-core frequency line are hidden.
-- **The user column is empty.** `ProcessRow` has no `user` field; reading the
-  token owner for every process on every tick was not worth the cost, so the
-  column shows `—` until a producer exists.
 - **Disk and network need warm-up.** Rates need two samples; the first ticks
   show `—`, and a process that just started has no disk or network row yet.
-- **Per-process network needs the service.** Without it the column shows `—`
-  and the page explains why in the toolbar hint.
+- **Per-process network needs the service.** Without it the network column is
+  hidden and the page explains why in the toolbar hint.
 - **GPU and disk hardware can be absent.** Machines without a supported GPU or
   with no disk counters get the panel's empty state, not an error.
 - **Protected processes.** The detail sheet explains that it cannot read the
@@ -299,7 +301,7 @@ port.
 | "not allowed by ACL" | The command is missing from `build.rs` or `capabilities/default.json` |
 | The table stays empty | `argus_snapshot_start` failed — read the English `message` in the dev console |
 | No frames after returning to the page | The previous sampler thread exited; the next start replaces it, so reload the page and report it if it repeats |
-| Network column shows `—` | The privileged service is not installed or not running |
+| The network column is missing | The privileged service is not installed or not running |
 | Ending a system process says access denied | Install the service; the message says so |
 | The service badge says incompatible | The installed service speaks another protocol; use **Update service** |
 | Settings reset to the defaults | `settings.json` could not be parsed; look for `settings.json.bak-*` in the data directory |

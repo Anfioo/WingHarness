@@ -44,6 +44,7 @@ import {
 } from "@/lib/task-manager/process-identity";
 import { cn } from "@/lib/utils";
 import type { ProcessActions } from "./process-context-menu";
+import { ProcessIcon } from "./process-icon";
 
 export type ProcessDetailProps = {
   process: ProcessRow | null;
@@ -182,13 +183,18 @@ export function ProcessDetail({
         className={cn("w-full gap-0", isMobile ? "max-h-[85vh]" : "sm:max-w-md")}
       >
         <SheetHeader>
-          <SheetTitle className="truncate">
-            {process ? processLabel(process) : t("taskManager.details.title")}
-          </SheetTitle>
-          <SheetDescription className="truncate">
-            {process ? `${process.name} · PID ${process.pid}` : "—"}
-            {process?.company ? ` · ${process.company}` : ""}
-          </SheetDescription>
+          <div className="flex items-center gap-3">
+            {process && <ProcessIcon process={process} size={32} />}
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="truncate">
+                {process ? processLabel(process) : t("taskManager.details.title")}
+              </SheetTitle>
+              <SheetDescription className="truncate">
+                {process ? `${process.name} · PID ${process.pid}` : "—"}
+                {process?.company ? ` · ${process.company}` : ""}
+              </SheetDescription>
+            </div>
+          </div>
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-4">

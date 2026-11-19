@@ -1016,6 +1016,7 @@ export type {
 } from "./services/ports/types";
 export {
   argusErrorKey,
+  argusIcon,
   argusKillProcess,
   argusKillProcessTree,
   argusProcessDetails,

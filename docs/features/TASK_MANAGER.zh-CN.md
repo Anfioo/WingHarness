@@ -20,7 +20,7 @@
 | `src/pages/task-manager/tabs/performance.tsx` | 性能标签：摘要卡、五个面板、60 秒窗口 |
 | `src/components/task-manager/` | 表格、工具条、行、详情、右键菜单、五个性能面板、摘要、服务面板与徽标、设置对话框、`format.ts` |
 | `src/hooks/use-task-manager.ts` | 一份共享 store：通道、设置、服务状态与操作 |
-| `src/commands/services/task-manager/` | 十三条 `argus_*` 命令的类型化封装与 DTO |
+| `src/commands/services/task-manager/` | 十四条 `argus_*` 命令的类型化封装与 DTO |
 | `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
 | `src-tauri/src/commands/argus.rs` | 薄命令层 |
 | `src-tauri/src/argus/` | `sampler.rs`（采样线程）、`service.rs`（状态与安装）、`store.rs`（设置）、`mod.rs`（`ArgusState`） |
@@ -63,13 +63,13 @@
 
 搜索匹配进程名、PID 与映像路径，忽略大小写并去掉首尾空白；空查询时 `createProcessMatcher` 返回 `null`，不执行筛选。应用视图中，查询会展开命中的分组并隐藏没有命中的分组。空结果有独立状态，并提供**清除搜索**操作。
 
-点击列头可按名称、PID、CPU、内存、磁盘、网络或 GPU 排序；数字列第一次点击为降序（最忙的在前），默认按 CPU 降序。分组按聚合值排序；磁盘速率仍为 `null` 的进程排在已测量进程之后。
+点击列头可按名称、PID、CPU、内存、磁盘读取、磁盘写入、I/O、网络、GPU、线程或句柄排序；数字列第一次点击为降序（最忙的在前），默认按 CPU 降序。分组按聚合值排序；磁盘速率仍为 `null` 的进程排在已测量进程之后。
 
 表格用 `@tanstack/react-virtual` 按固定 32 px 行高虚拟化，只有视口附近的行存在 DOM 中，因此本机有 300 个进程时滚动也不会跳。列头固定在顶部。
 
 ### 列
 
-名称（带应用图标与缩进）、PID、CPU、内存、磁盘、网络、GPU、用户与状态。磁盘列显示读写合计，tooltip 给出两者的速率；网络列在服务未测量时显示 `—`；用户列暂无生产者，显示 `—`；状态显示运行中或已挂起。
+名称（带可执行文件图标与缩进）、PID、CPU、内存、磁盘读取、磁盘写入、I/O、GPU、网络、线程与句柄。图标来自采样器的按可执行文件缓存，按需获取；没有图标时退回通用应用图标（无映像路径的进程退回内核图标）。网络列只在服务测量时出现，未安装服务时整列隐藏，工具条会说明原因。已挂起的进程在名称旁显示标签，不再占用状态列。
 
 ### 详情面板
 
@@ -135,6 +135,7 @@
 | `argus_settings_get` | — | `ArgusSettings` |
 | `argus_settings_set` | `{ settings }` | 实际写入的规范化设置 |
 | `argus_process_details` | `{ pid }` | `ProcessDetails` |
+| `argus_icon` | `{ id }` | PNG data URL；图标尚未解析时为 `null` |
 | `argus_kill_process` | `{ pid, createTime, force }` | — |
 | `argus_kill_process_tree` | `{ pid, createTime }` | `TreeKillReport` |
 | `argus_set_priority` | `{ pid, createTime, priority }` | 进程最终生效的优先级 |
@@ -182,9 +183,8 @@
 - **仅 Windows。** 两个 crate 都是 `cfg(windows)`，没有 macOS 或 Linux 路径。
 - **Windows 10 与 Windows 11。** 效率模式通过 EcoQoS 的 `SetProcessInformation` 设置，Windows 10 22H2 接受该调用；但 Windows 10 的任务管理器不显示它，因此无法按验收清单要求在那里确认效果，请在 Windows 11 上验证。
 - **拿不到 CPU 频率。** `cpuMhz` 恒为 `null`，`coreMhz` 为空，因为唯一来源是未移植的传感器模块。速度行与逐核频率行因此隐藏。
-- **用户列为空。** `ProcessRow` 没有 `user` 字段；为了每个进程每个周期都读一次令牌所有者并不划算，所以该列在有生产者之前显示 `—`。
 - **磁盘与网络需要预热。** 速率需要两次采样，最初的周期显示 `—`；刚启动的进程还没有磁盘或网络行。
-- **每进程网络需要服务。** 未安装时该列显示 `—`，工具条提示会说明原因。
+- **每进程网络需要服务。** 未安装时网络列整列隐藏，工具条提示会说明原因。
 - **GPU 与磁盘硬件可能缺失。** 没有受支持 GPU 或没有磁盘计数器的机器显示面板的空态，而不是错误。
 - **受保护进程。** 详情抽屉会说明读不到命令行、用户或版本，而不是显示空值。
 - **服务可能残留。** 升级或卸载应用不会改动已安装的服务。升级后用**更新服务**，或用**卸载**移除它。
@@ -196,7 +196,7 @@
 | 提示 "not allowed by ACL" | 命令没有登记在 `build.rs` 或 `capabilities/default.json` |
 | 表格一直是空的 | `argus_snapshot_start` 失败——在开发者控制台看英文 `message` |
 | 返回页面后收不到帧 | 上一个采样线程已退出；下一次启动会替换它，重载页面，若仍复现请上报 |
-| 网络列显示 `—` | 特权服务未安装或未运行 |
+| 网络列不出现 | 特权服务未安装或未运行 |
 | 结束系统进程提示权限不足 | 需要安装服务；提示里会写明 |
 | 服务徽标显示不兼容 | 已装服务是另一版协议；使用**更新服务** |
 | 设置恢复默认 | `settings.json` 无法解析；在数据目录找 `settings.json.bak-*` |

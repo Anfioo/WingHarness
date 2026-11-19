@@ -67,9 +67,10 @@ this app needs.
 - **Settings store.** `<data dir>/argus/settings.json` (`store.rs`) is
   first-party: atomic staged write, corrupt-file backup and interval clamping.
   Upstream kept its settings in the host crate.
-- **`Collector::new()` takes no arguments.** Upstream passed an
-  `Arc<MetaStore>`; here the collector owns one. `Collector` has no history or
-  rules parameters.
+- **`Collector::new(meta)` takes the shared `Arc<MetaStore>`.** Upstream did the
+  same; the host creates the store so `argus_icon` can serve the cached PNGs to
+  the page after the sampler has gone. `Collector` has no history or rules
+  parameters.
 - **No `list_lineage`.** The copy in `process.rs` was unused (the tree walk in
   `actions.rs` is the one callers use) and was deleted.
 - **`ProcessRow` deliberately has no `user` field.** Reading each process's

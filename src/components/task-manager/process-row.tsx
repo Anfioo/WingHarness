@@ -13,10 +13,18 @@ import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 import { ProcessContextMenuContent, type ProcessActions } from "./process-context-menu";
+import { ProcessIcon } from "./process-icon";
 
 /** Shared by the header and every row, so the columns stay aligned. */
 export const PROCESS_GRID_COLUMNS =
-  "grid-cols-[minmax(180px,1fr)_56px_64px_84px_108px_84px_56px_minmax(72px,112px)_80px]";
+  "grid-cols-[minmax(180px,1fr)_56px_64px_84px_84px_84px_84px_60px_64px_64px]";
+/** The same grid with the per-process network column; only shown with a service. */
+export const PROCESS_GRID_COLUMNS_WITH_NET =
+  "grid-cols-[minmax(180px,1fr)_56px_64px_84px_84px_84px_84px_60px_84px_64px_64px]";
+
+export function processGridColumns(showNetwork: boolean): string {
+  return showNetwork ? PROCESS_GRID_COLUMNS_WITH_NET : PROCESS_GRID_COLUMNS;
+}
 
 /** How far one tree level indents, and the depth where the indent stops. */
 const INDENT_PX = 14;
@@ -42,10 +50,6 @@ function ProcessRowViewComponent({
 }: ProcessRowViewProps) {
   const { t } = useAppTranslation();
   const group = row.kind === "group";
-  const diskTotal =
-    row.diskRead === null && row.diskWrite === null
-      ? null
-      : (row.diskRead ?? 0) + (row.diskWrite ?? 0);
   const detail = row.detail ?? (row.label !== row.process.name ? row.process.name : null);
 
   const content = (
@@ -68,7 +72,7 @@ function ProcessRowViewComponent({
       }}
       className={cn(
         "border-border/50 grid h-8 cursor-default items-center border-b text-xs transition-colors",
-        PROCESS_GRID_COLUMNS,
+        processGridColumns(showNetwork),
         selected ? "bg-accent text-accent-foreground" : "hover:bg-muted/50",
         row.suspended && "text-muted-foreground"
       )}
@@ -99,22 +103,28 @@ function ProcessRowViewComponent({
         ) : (
           <span className="w-5 shrink-0" aria-hidden />
         )}
-        {row.efficiency > 0 && (
-          <Leaf
-            aria-label={t("taskManager.process.efficiency")}
-            className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
-          />
-        )}
+        <ProcessIcon process={row.process} />
         <span
           className="min-w-0 truncate font-medium"
           title={`${row.label}\n${row.process.path ?? row.process.name}`}
         >
           {row.label}
         </span>
-        {detail && <span className="text-muted-foreground min-w-0 truncate">{detail}</span>}
         {group && (
-          <span className="bg-muted text-muted-foreground ml-auto shrink-0 rounded px-1.5 font-mono text-[10px] tabular-nums">
+          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 font-mono text-[10px] tabular-nums">
             {row.count}
+          </span>
+        )}
+        {detail && <span className="text-muted-foreground min-w-0 truncate">{detail}</span>}
+        {row.efficiency > 0 && (
+          <Leaf
+            aria-label={t("taskManager.process.efficiency")}
+            className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+          />
+        )}
+        {row.suspended && (
+          <span className="bg-muted text-muted-foreground shrink-0 rounded px-1 text-[10px]">
+            {t("taskManager.process.status.suspended")}
           </span>
         )}
       </div>
@@ -133,31 +143,26 @@ function ProcessRowViewComponent({
       </div>
       <div
         role="gridcell"
-        className="text-muted-foreground truncate px-2 text-right font-mono tabular-nums"
-        title={
-          diskTotal === null
-            ? t("taskManager.process.column.diskUnavailable")
-            : t("taskManager.process.diskRates", {
-                read: formatRate(row.diskRead ?? 0),
-                write: formatRate(row.diskWrite ?? 0),
-              })
-        }
+        className={cn(
+          "truncate px-2 text-right font-mono tabular-nums",
+          row.diskRead === null && "text-muted-foreground"
+        )}
+        title={row.diskRead === null ? t("taskManager.process.column.diskUnavailable") : undefined}
       >
-        {diskTotal === null ? "—" : formatRate(diskTotal)}
+        {row.diskRead === null ? "—" : formatRate(row.diskRead)}
       </div>
       <div
         role="gridcell"
-        className="text-muted-foreground truncate px-2 text-right font-mono tabular-nums"
-        title={
-          showNetwork
-            ? t("taskManager.process.netRates", {
-                sent: formatRate(row.netSent),
-                received: formatRate(row.netReceived),
-              })
-            : t("taskManager.process.column.netUnavailable")
-        }
+        className={cn(
+          "truncate px-2 text-right font-mono tabular-nums",
+          row.diskWrite === null && "text-muted-foreground"
+        )}
+        title={row.diskWrite === null ? t("taskManager.process.column.diskUnavailable") : undefined}
       >
-        {showNetwork ? formatRate(row.netSent + row.netReceived) : "—"}
+        {row.diskWrite === null ? "—" : formatRate(row.diskWrite)}
+      </div>
+      <div role="gridcell" className="px-2 text-right font-mono tabular-nums">
+        {formatRate(row.io)}
       </div>
       <div
         role="gridcell"
@@ -166,19 +171,23 @@ function ProcessRowViewComponent({
       >
         {formatPercent(row.gpu)}
       </div>
-      <div
-        role="gridcell"
-        className="text-muted-foreground truncate px-2"
-        title={row.user ?? undefined}
-      >
-        {row.user ?? "—"}
+      {showNetwork && (
+        <div
+          role="gridcell"
+          className="text-muted-foreground truncate px-2 text-right font-mono tabular-nums"
+          title={t("taskManager.process.netRates", {
+            sent: formatRate(row.netSent),
+            received: formatRate(row.netReceived),
+          })}
+        >
+          {formatRate(row.netSent + row.netReceived)}
+        </div>
+      )}
+      <div role="gridcell" className="text-muted-foreground px-2 text-right font-mono tabular-nums">
+        {row.threads.toLocaleString()}
       </div>
-      <div role="gridcell" className="truncate px-2">
-        {t(
-          row.suspended
-            ? "taskManager.process.status.suspended"
-            : "taskManager.process.status.running"
-        )}
+      <div role="gridcell" className="text-muted-foreground px-2 text-right font-mono tabular-nums">
+        {row.handles.toLocaleString()}
       </div>
     </div>
   );
@@ -216,15 +225,19 @@ function sameRow(previous: ProcessRowViewProps, next: ProcessRowViewProps): bool
     left.mem === right.mem &&
     left.diskRead === right.diskRead &&
     left.diskWrite === right.diskWrite &&
+    left.io === right.io &&
     left.netSent === right.netSent &&
     left.netReceived === right.netReceived &&
     left.gpu === right.gpu &&
     left.gpuEngine === right.gpuEngine &&
-    left.user === right.user &&
+    left.threads === right.threads &&
+    left.handles === right.handles &&
     left.suspended === right.suspended &&
     left.efficiency === right.efficiency &&
     left.process.pid === right.process.pid &&
     left.process.path === right.process.path &&
+    left.process.icon === right.process.icon &&
+    left.process.webView?.hostIcon === right.process.webView?.hostIcon &&
     left.process.efficiency === right.process.efficiency
   );
 }

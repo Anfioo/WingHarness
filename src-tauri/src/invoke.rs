@@ -119,6 +119,7 @@ macro_rules! all_commands {
             api_core::commands::api_read_text_file,
             api_core::commands::api_fetch_spec_url,
             api_core::commands::api_import_apply,
+            crate::commands::argus::argus_icon,
             crate::commands::argus::argus_kill_process,
             crate::commands::argus::argus_kill_process_tree,
             crate::commands::argus::argus_process_details,

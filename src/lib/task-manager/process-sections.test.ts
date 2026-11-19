@@ -114,12 +114,12 @@ describe("buildProcessRows - list view", () => {
     const missing = makeProcess(2, { diskRead: null, diskWrite: null, name: "b.exe" });
     const desc = buildProcessRows([missing, measured], {
       view: "list",
-      sort: { key: "disk", desc: true },
+      sort: { key: "diskRead", desc: true },
       query: "",
     });
     const asc = buildProcessRows([missing, measured], {
       view: "list",
-      sort: { key: "disk", desc: false },
+      sort: { key: "diskRead", desc: false },
       query: "",
     });
     expect(desc.map((row) => row.process.pid)).toEqual([1, 2]);
