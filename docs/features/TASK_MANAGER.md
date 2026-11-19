@@ -31,7 +31,7 @@ what came across and what did not.
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
 | `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, all three tab panels |
 | `src/pages/task-manager/tabs/processes.tsx` | Process tab: toolbar, table, detail sheet, confirmation dialogs |
-| `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-second window |
+| `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-sample window |
 | `src/pages/task-manager/tabs/services.tsx` | Services tab: polling lifecycle, search / filter / sort state, toolbar actions, toasts |
 | `src/components/task-manager/` | Table, toolbar, row, detail, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
@@ -148,7 +148,7 @@ that could not be ended are called out instead of being counted as successes.
 The tab is a device list beside one detail view, like Task Manager's own
 performance page. The list has an entry per CPU, memory package, physical disk,
 network adapter, GPU and battery; each shows its current reading and a
-sparkline over the same 60-second window. Selecting an entry switches the
+sparkline over the same sample window. Selecting an entry switches the
 detail view; the selection falls back to the first device when its own device
 disappears.
 
@@ -169,12 +169,19 @@ disappears.
   count and the pack's identity. Machines without a battery simply do not get
   the entry.
 
-The history is 60 one-second buckets (`chart-history.ts`). A snapshot that
-lands in an existing bucket overwrites it; a bucket that received no sample
-stays `null` and the line breaks instead of stretching. At intervals slower
-than one second the chart therefore shows gaps rather than a ramp. Pausing
-freezes the window: no new buckets are pushed, so the right edge stops moving.
-When the page is left the tab unmounts and the history is dropped.
+The history is 60 samples (`chart-history.ts`), one point per snapshot. Each
+frame appends one point and drops the oldest, so consecutive readings always
+join and the curve never breaks between samples; only a reading that is
+unavailable (rates on the first frames) becomes `null`. The window therefore
+spans 60 × the sampling interval — 60 s at 1 s, 300 s at 5 s — and the chart's
+axis labels follow it. Pausing freezes the window: no new points are pushed, so
+the right edge stops moving. When the page is left the tab unmounts and the
+history is dropped.
+
+Each resource has its own hue (`--perf-cpu`, `--perf-mem`, `--perf-io`,
+`--perf-net`, `--perf-gpu`, `--perf-bat`), with a lighter set for the dark
+theme. A hybrid CPU draws performance cores and efficiency cores in two
+different colors.
 
 Battery telemetry comes from the battery class driver's IOCTLs (the source
 behind `powercfg /batteryreport`), not WMI, and standard users may open the
@@ -412,7 +419,7 @@ port.
 | Changing a service's startup type says access denied | Startup-type changes always need administrator rights or the service |
 | The service badge says incompatible | The installed service speaks another protocol; use **Update service** |
 | Settings reset to the defaults | `settings.json` could not be parsed; look for `settings.json.bak-*` in the data directory |
-| Charts show gaps | The sampling interval is longer than one second, so not every bucket has a sample |
+| Charts show gaps | A reading was unavailable for that frame (rates need two samples); the line breaks only there |
 | Efficiency mode has no visible effect | Check it in Windows 11's Task Manager; Windows 10 does not show the badge |
 
 ## Licence

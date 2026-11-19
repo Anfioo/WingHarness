@@ -12,11 +12,13 @@ import {
   PerformanceSpec,
   PerformanceSpecs,
   PerformanceStat,
+  PerformanceStats,
+  PerformanceSummary,
   type PerformanceData,
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { historyPeak, historyValues } from "@/lib/task-manager/chart-history";
+import { historyPeak, historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { roundCeiling } from "@/lib/task-manager/chart-scale";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
@@ -37,7 +39,12 @@ function wattHours(mwh: number | null): string {
   return mwh ? `${(mwh / 1000).toFixed(1)} Wh` : "—";
 }
 
-export function PerformanceBattery({ snapshot, history, id }: PerformanceData & { id: string }) {
+export function PerformanceBattery({
+  snapshot,
+  history,
+  intervalMs,
+  id,
+}: PerformanceData & { id: string }) {
   const { t } = useAppTranslation();
   const battery = snapshot.hardware.batteries.find((entry) => entry.info.id === id);
 
@@ -62,9 +69,10 @@ export function PerformanceBattery({ snapshot, history, id }: PerformanceData & 
     roundCeiling(Math.abs(historyPeak(history, `${prefix}.rate`) ?? 0) / 1000) * 1000
   );
   const chemistry = CHEMISTRY[battery.info.chemistry.toUpperCase()];
+  const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PerformanceDetailHeader
         title={
           snapshot.hardware.batteries.length > 1
@@ -77,6 +85,7 @@ export function PerformanceBattery({ snapshot, history, id }: PerformanceData & 
       />
 
       <TraceChart
+        title={t("taskManager.performance.battery.level")}
         series={[
           {
             label: t("taskManager.performance.battery.level"),
@@ -87,12 +96,14 @@ export function PerformanceBattery({ snapshot, history, id }: PerformanceData & 
         ]}
         max={100}
         unit="percent"
-        height={150}
-        label={t("taskManager.performance.battery.level")}
+        spanSeconds={spanSeconds}
+        height={170}
+        label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
       />
 
       {battery.rate !== null && (
         <TraceChart
+          title={flowLabel}
           series={[
             {
               label: flowLabel,
@@ -104,83 +115,88 @@ export function PerformanceBattery({ snapshot, history, id }: PerformanceData & 
           ]}
           max={ratePeak}
           unit="bytes"
-          height={130}
+          spanSeconds={spanSeconds}
+          height={140}
           formatValue={(value) => `${(value / 1000).toFixed(1)} W`}
           label={flowLabel}
         />
       )}
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        <PerformanceStat
-          label={t("taskManager.performance.battery.level")}
-          value={formatPercent(battery.percent, 0)}
-        />
-        <PerformanceStat label={t("taskManager.performance.battery.status")} value={t(stateKey)} />
-        {rateWatts !== null && (
-          <PerformanceStat label={flowLabel} value={`${rateWatts.toFixed(1)} W`} />
-        )}
-        {battery.voltage !== null && (
+      <PerformanceSummary>
+        <PerformanceStats>
           <PerformanceStat
-            label={t("taskManager.performance.battery.voltage")}
-            value={`${(battery.voltage / 1000).toFixed(2)} V`}
+            label={t("taskManager.performance.battery.level")}
+            value={formatPercent(battery.percent, 0)}
           />
-        )}
-        {battery.remaining !== null && (
           <PerformanceStat
-            label={t("taskManager.performance.battery.remaining")}
-            value={formatDuration(battery.remaining * 1000)}
+            label={t("taskManager.performance.battery.status")}
+            value={t(stateKey)}
           />
-        )}
-        {health !== null && (
-          <PerformanceStat
-            label={t("taskManager.performance.battery.health")}
-            value={formatPercent(health, 0)}
-          />
-        )}
-        {battery.info.cycleCount !== null && (
-          <PerformanceStat
-            label={t("taskManager.performance.battery.cycles")}
-            value={battery.info.cycleCount.toLocaleString()}
-          />
-        )}
-        {battery.temperature !== null && (
-          <PerformanceStat
-            label={t("taskManager.performance.battery.temperature")}
-            value={`${Math.round(battery.temperature)} °C`}
-          />
-        )}
-      </div>
-
-      <PerformanceSpecs>
-        <PerformanceSpec label={t("taskManager.performance.battery.capacity")}>
-          {wattHours(battery.capacity)}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.fullCapacity")}>
-          {wattHours(battery.info.fullCapacity)}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.designCapacity")}>
-          {wattHours(battery.info.designedCapacity)}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.chemistry")}>
-          {chemistry
-            ? t(`taskManager.performance.battery.chemistries.${chemistry}`)
-            : battery.info.chemistry || "—"}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.manufacturer")}>
-          {battery.info.manufacturer || "—"}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.model")}>
-          {battery.info.name || "—"}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.battery.serial")}>
-          {battery.info.serial || "—"}
-        </PerformanceSpec>
-        {battery.info.manufactured && (
-          <PerformanceSpec label={t("taskManager.performance.battery.manufactured")}>
-            {battery.info.manufactured}
+          {rateWatts !== null && (
+            <PerformanceStat label={flowLabel} value={`${rateWatts.toFixed(1)} W`} />
+          )}
+          {battery.voltage !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.battery.voltage")}
+              value={`${(battery.voltage / 1000).toFixed(2)} V`}
+            />
+          )}
+          {battery.remaining !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.battery.remaining")}
+              value={formatDuration(battery.remaining * 1000)}
+            />
+          )}
+          {health !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.battery.health")}
+              value={formatPercent(health, 0)}
+            />
+          )}
+          {battery.info.cycleCount !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.battery.cycles")}
+              value={battery.info.cycleCount.toLocaleString()}
+            />
+          )}
+          {battery.temperature !== null && (
+            <PerformanceStat
+              label={t("taskManager.performance.battery.temperature")}
+              value={`${Math.round(battery.temperature)} °C`}
+            />
+          )}
+        </PerformanceStats>
+        <PerformanceSpecs>
+          <PerformanceSpec label={t("taskManager.performance.battery.capacity")}>
+            {wattHours(battery.capacity)}
           </PerformanceSpec>
-        )}
-      </PerformanceSpecs>
+          <PerformanceSpec label={t("taskManager.performance.battery.fullCapacity")}>
+            {wattHours(battery.info.fullCapacity)}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.battery.designCapacity")}>
+            {wattHours(battery.info.designedCapacity)}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.battery.chemistry")}>
+            {chemistry
+              ? t(`taskManager.performance.battery.chemistries.${chemistry}`)
+              : battery.info.chemistry || "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.battery.manufacturer")}>
+            {battery.info.manufacturer || "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.battery.model")}>
+            {battery.info.name || "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.battery.serial")}>
+            {battery.info.serial || "—"}
+          </PerformanceSpec>
+          {battery.info.manufactured && (
+            <PerformanceSpec label={t("taskManager.performance.battery.manufactured")}>
+              {battery.info.manufactured}
+            </PerformanceSpec>
+          )}
+        </PerformanceSpecs>
+      </PerformanceSummary>
 
       {health !== null && health < 80 && (
         <p className="text-muted-foreground text-xs">

@@ -170,7 +170,7 @@ const taskManager = {
   },
   performance: {
     devices: { label: "Devices" },
-    chart: { label: "Last 60 seconds" },
+    chart: { label: "Last {{seconds}} seconds" },
     cpu: {
       title: "CPU",
       utilization: "Utilization",

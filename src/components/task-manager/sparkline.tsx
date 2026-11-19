@@ -46,7 +46,7 @@ export function Sparkline({
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
       aria-hidden="true"
-      className={cn("pointer-events-none h-7 w-full overflow-visible", className)}
+      className={cn("pointer-events-none block h-full w-full", className)}
     >
       {series.map((entry, seriesIndex) => (
         <g key={seriesIndex}>

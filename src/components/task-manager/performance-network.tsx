@@ -12,11 +12,13 @@ import {
   PerformanceSpec,
   PerformanceSpecs,
   PerformanceStat,
+  PerformanceStats,
+  PerformanceSummary,
   type PerformanceData,
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { historyPeak, historyValues } from "@/lib/task-manager/chart-history";
+import { historyPeak, historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { rateCeiling } from "@/lib/task-manager/chart-scale";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
@@ -51,7 +53,12 @@ function Addresses({ list }: { list: readonly string[] }) {
   );
 }
 
-export function PerformanceNetwork({ snapshot, history, id }: PerformanceData & { id: string }) {
+export function PerformanceNetwork({
+  snapshot,
+  history,
+  intervalMs,
+  id,
+}: PerformanceData & { id: string }) {
   const { t } = useAppTranslation();
   const nic = snapshot.hardware.nics.find((entry) => entry.info.id === id);
 
@@ -65,12 +72,14 @@ export function PerformanceNetwork({ snapshot, history, id }: PerformanceData & 
     historyPeak(history, `${prefix}.tx`) ?? 0,
     64 * 1024
   );
+  const spanSeconds = historySpanSeconds(intervalMs);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <PerformanceDetailHeader title={nic.info.name} model={nic.info.description || undefined} />
 
       <TraceChart
+        title={t("taskManager.performance.network.throughput")}
         series={[
           {
             label: t("taskManager.performance.network.received"),
@@ -87,38 +96,40 @@ export function PerformanceNetwork({ snapshot, history, id }: PerformanceData & 
         ]}
         max={rateCeiling(peak)}
         unit="rate"
-        height={180}
-        label={t("taskManager.performance.network.throughput")}
+        spanSeconds={spanSeconds}
+        fill
+        label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
       />
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        <PerformanceStat
-          label={t("taskManager.performance.network.received")}
-          value={formatRate(nic.rx)}
-        />
-        <PerformanceStat
-          label={t("taskManager.performance.network.sent")}
-          value={formatRate(nic.tx)}
-        />
-      </div>
-
-      <PerformanceSpecs>
-        <PerformanceSpec label={t("taskManager.performance.network.connectionType")}>
-          {t(`taskManager.performance.network.kind.${nic.info.kind}`)}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.network.linkSpeed")}>
-          {nic.info.linkSpeed > 0 ? formatRate(nic.info.linkSpeed / 8, 0) : "—"}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.network.ipv4")}>
-          <Addresses list={nic.info.ipv4} />
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.network.ipv6")}>
-          <Addresses list={nic.info.ipv6} />
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.network.mac")}>
-          {nic.info.mac ?? "—"}
-        </PerformanceSpec>
-      </PerformanceSpecs>
+      <PerformanceSummary>
+        <PerformanceStats>
+          <PerformanceStat
+            label={t("taskManager.performance.network.received")}
+            value={formatRate(nic.rx)}
+          />
+          <PerformanceStat
+            label={t("taskManager.performance.network.sent")}
+            value={formatRate(nic.tx)}
+          />
+        </PerformanceStats>
+        <PerformanceSpecs>
+          <PerformanceSpec label={t("taskManager.performance.network.connectionType")}>
+            {t(`taskManager.performance.network.kind.${nic.info.kind}`)}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.linkSpeed")}>
+            {nic.info.linkSpeed > 0 ? formatRate(nic.info.linkSpeed / 8, 0) : "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.ipv4")}>
+            <Addresses list={nic.info.ipv4} />
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.ipv6")}>
+            <Addresses list={nic.info.ipv6} />
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.mac")}>
+            {nic.info.mac ?? "—"}
+          </PerformanceSpec>
+        </PerformanceSpecs>
+      </PerformanceSummary>
     </div>
   );
 }

@@ -8,6 +8,7 @@
 
 import { useMemo } from "react";
 import type { Snapshot } from "@/commands";
+import { ChartFrame } from "@/components/task-manager/chart-frame";
 import { formatBytes, formatPercent, formatRate } from "@/components/task-manager/format";
 import { Sparkline, type SparkSeries } from "@/components/task-manager/sparkline";
 import { useAppTranslation } from "@/hooks/use-app-translation";
@@ -75,7 +76,9 @@ export function buildPerformanceDevices(
       key: "cpu",
       kind: "cpu",
       title: "CPU",
-      subtitle: formatPercent(system.cpu, 0),
+      subtitle: `${formatPercent(system.cpu, 0)}${
+        hardware.cpuMhz ? `  ${(hardware.cpuMhz / 1000).toFixed(2)} GHz` : ""
+      }`,
       color: CHART_COLORS.cpu,
       series: [{ key: "cpu", color: CHART_COLORS.cpu }],
       max: 100,
@@ -198,7 +201,10 @@ export function PerformanceDeviceList({
   );
 
   return (
-    <nav aria-label={t("taskManager.performance.devices.label")} className="flex flex-col gap-1">
+    <nav
+      aria-label={t("taskManager.performance.devices.label")}
+      className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto"
+    >
       {resolved.map(({ device, series }) => (
         <button
           key={device.key}
@@ -206,21 +212,33 @@ export function PerformanceDeviceList({
           aria-current={selected === device.key ? "true" : undefined}
           onClick={() => onSelect(device.key)}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg border px-2 py-1.5 text-left transition-colors",
+            "relative grid w-full grid-cols-[minmax(0,1fr)_76px] items-center gap-2.5 rounded-md border py-2 pr-2 pl-3 text-left transition-colors",
             selected === device.key
-              ? "border-primary/40 bg-accent text-accent-foreground"
+              ? "border-border bg-accent text-accent-foreground"
               : "hover:bg-muted/60 border-transparent"
           )}
         >
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-xs font-medium" title={device.title}>
+          {selected === device.key && (
+            <span
+              aria-hidden
+              className="bg-primary absolute top-1/2 left-0 h-[18px] w-[3px] -translate-y-1/2 rounded-sm"
+            />
+          )}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate text-[13px] font-semibold" title={device.title}>
               {device.title}
             </span>
-            <span className="text-muted-foreground truncate text-[10px]">{device.subtitle}</span>
+            <span className="text-muted-foreground truncate text-[12px] tabular-nums">
+              {device.subtitle}
+            </span>
           </span>
-          <span className="w-14 shrink-0" style={{ color: device.color }}>
+          <ChartFrame
+            grid={false}
+            color={device.color}
+            className="h-10 w-[76px] shrink-0 overflow-hidden rounded-[3px]"
+          >
             <Sparkline series={series} max={device.max} />
-          </span>
+          </ChartFrame>
         </button>
       ))}
     </nav>

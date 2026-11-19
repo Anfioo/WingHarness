@@ -159,7 +159,7 @@ const taskManager = {
   },
   performance: {
     devices: { label: "设备" },
-    chart: { label: "最近 60 秒" },
+    chart: { label: "最近 {{seconds}} 秒" },
     cpu: {
       title: "CPU",
       utilization: "利用率",

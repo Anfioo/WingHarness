@@ -12,18 +12,20 @@ import {
   PerformanceSpec,
   PerformanceSpecs,
   PerformanceStat,
+  PerformanceStats,
+  PerformanceSummary,
   SegmentedControl,
   type PerformanceData,
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { historyValues } from "@/lib/task-manager/chart-history";
+import { historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
 type CpuMode = "overall" | "logical";
 type CoreFilter = "all" | "p" | "e";
 
-export function PerformanceCpu({ snapshot, history }: PerformanceData) {
+export function PerformanceCpu({ snapshot, history, intervalMs }: PerformanceData) {
   const { t } = useAppTranslation();
   const { system, hardware } = snapshot;
   const cpu = hardware.cpu;
@@ -49,9 +51,13 @@ export function PerformanceCpu({ snapshot, history }: PerformanceData) {
         })
       : String(cpu.cores);
 
+  const spanSeconds = historySpanSeconds(intervalMs);
+
   return (
-    <div className="flex flex-col gap-4">
-      <PerformanceDetailHeader title={t("taskManager.performance.cpu.title")} model={cpu.name}>
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <PerformanceDetailHeader title={t("taskManager.performance.cpu.title")} model={cpu.name} />
+
+      <div className="-mt-1 flex flex-wrap items-center justify-end gap-2">
         {hybrid && mode === "logical" && (
           <SegmentedControl<CoreFilter>
             label={t("taskManager.performance.cpu.coreType")}
@@ -73,10 +79,12 @@ export function PerformanceCpu({ snapshot, history }: PerformanceData) {
           ]}
           onChange={setMode}
         />
-      </PerformanceDetailHeader>
+      </div>
 
       {mode === "overall" ? (
         <TraceChart
+          className="-mb-1"
+          title={t("taskManager.performance.cpu.utilization")}
           series={[
             {
               label: t("taskManager.performance.cpu.total"),
@@ -93,8 +101,9 @@ export function PerformanceCpu({ snapshot, history }: PerformanceData) {
           ]}
           max={100}
           unit="percent"
-          height={180}
-          label={t("taskManager.performance.chart.label")}
+          spanSeconds={spanSeconds}
+          fill
+          label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
         />
       ) : (
         <CoreGrid
@@ -107,66 +116,67 @@ export function PerformanceCpu({ snapshot, history }: PerformanceData) {
         />
       )}
 
-      <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-        <PerformanceStat
-          label={t("taskManager.performance.cpu.utilization")}
-          value={formatPercent(system.cpu, 0)}
-        />
-        {hardware.cpuMhz !== null && hardware.cpuMhz > 0 && (
+      <PerformanceSummary>
+        <PerformanceStats>
           <PerformanceStat
-            label={t("taskManager.performance.cpu.speed")}
-            value={`${(hardware.cpuMhz / 1000).toFixed(2)} GHz`}
+            label={t("taskManager.performance.cpu.utilization")}
+            value={formatPercent(system.cpu, 0)}
           />
-        )}
-        <PerformanceStat
-          label={t("taskManager.performance.cpu.processes")}
-          value={system.processCount.toLocaleString()}
-        />
-        <PerformanceStat
-          label={t("taskManager.performance.cpu.threads")}
-          value={system.threadCount.toLocaleString()}
-        />
-        <PerformanceStat
-          label={t("taskManager.performance.cpu.handles")}
-          value={system.handleCount.toLocaleString()}
-        />
-        <PerformanceStat
-          label={t("taskManager.performance.cpu.uptime")}
-          value={formatDuration(system.uptimeMs)}
-        />
-      </div>
-
-      <PerformanceSpecs>
-        <PerformanceSpec label={t("taskManager.performance.cpu.baseSpeed")}>
-          {cpu.baseMhz > 0 ? `${(cpu.baseMhz / 1000).toFixed(2)} GHz` : "—"}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.cpu.sockets")}>
-          {cpu.sockets}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.cpu.coreCount")}>
-          {coresText}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.cpu.logicalProcessors")}>
-          {cpu.logical}
-        </PerformanceSpec>
-        <PerformanceSpec label={t("taskManager.performance.cpu.virtualization")}>
-          {t(
-            cpu.virtualization
-              ? "taskManager.performance.cpu.enabled"
-              : "taskManager.performance.cpu.notEnabled"
+          {hardware.cpuMhz !== null && hardware.cpuMhz > 0 && (
+            <PerformanceStat
+              label={t("taskManager.performance.cpu.speed")}
+              value={`${(hardware.cpuMhz / 1000).toFixed(2)} GHz`}
+            />
           )}
-        </PerformanceSpec>
-        {(["l1", "l2", "l3"] as const).map((level) =>
-          cpu[level] > 0 ? (
-            <PerformanceSpec
-              key={level}
-              label={t("taskManager.performance.cpu.cache", { level: level.slice(1) })}
-            >
-              {formatBytes(cpu[level])}
-            </PerformanceSpec>
-          ) : null
-        )}
-      </PerformanceSpecs>
+          <PerformanceStat
+            label={t("taskManager.performance.cpu.processes")}
+            value={system.processCount.toLocaleString()}
+          />
+          <PerformanceStat
+            label={t("taskManager.performance.cpu.threads")}
+            value={system.threadCount.toLocaleString()}
+          />
+          <PerformanceStat
+            label={t("taskManager.performance.cpu.handles")}
+            value={system.handleCount.toLocaleString()}
+          />
+          <PerformanceStat
+            label={t("taskManager.performance.cpu.uptime")}
+            value={formatDuration(system.uptimeMs)}
+          />
+        </PerformanceStats>
+        <PerformanceSpecs>
+          <PerformanceSpec label={t("taskManager.performance.cpu.baseSpeed")}>
+            {cpu.baseMhz > 0 ? `${(cpu.baseMhz / 1000).toFixed(2)} GHz` : "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.cpu.sockets")}>
+            {cpu.sockets}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.cpu.coreCount")}>
+            {coresText}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.cpu.logicalProcessors")}>
+            {cpu.logical}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.cpu.virtualization")}>
+            {t(
+              cpu.virtualization
+                ? "taskManager.performance.cpu.enabled"
+                : "taskManager.performance.cpu.notEnabled"
+            )}
+          </PerformanceSpec>
+          {(["l1", "l2", "l3"] as const).map((level) =>
+            cpu[level] > 0 ? (
+              <PerformanceSpec
+                key={level}
+                label={t("taskManager.performance.cpu.cache", { level: level.slice(1) })}
+              >
+                {formatBytes(cpu[level])}
+              </PerformanceSpec>
+            ) : null
+          )}
+        </PerformanceSpecs>
+      </PerformanceSummary>
     </div>
   );
 }
