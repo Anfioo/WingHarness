@@ -50,13 +50,19 @@ export function pushHistory(
   const step = history.end === 0 ? HISTORY_SECONDS : Math.round((bucket - history.end) / BUCKET_MS);
   const series: Record<string, (number | null)[]> = {};
 
-  for (const [key, previous] of Object.entries(history.series)) {
+  // Keys may appear as devices do (a docked disk, a battery): the union keeps
+  // the old series and starts a new one empty.
+  const keys = new Set([...Object.keys(history.series), ...Object.keys(values)]);
+  for (const key of keys) {
+    const previous = history.series[key];
     const next = new Array<number | null>(HISTORY_SECONDS).fill(null);
-    if (step === 0) {
-      next.splice(0, HISTORY_SECONDS, ...previous);
-    } else if (step < HISTORY_SECONDS) {
-      for (let index = 0; index < HISTORY_SECONDS - step; index += 1) {
-        next[index] = previous[index + step] ?? null;
+    if (previous) {
+      if (step === 0) {
+        next.splice(0, HISTORY_SECONDS, ...previous);
+      } else if (step < HISTORY_SECONDS) {
+        for (let index = 0; index < HISTORY_SECONDS - step; index += 1) {
+          next[index] = previous[index + step] ?? null;
+        }
       }
     }
     next[HISTORY_SECONDS - 1] = sampleValue(values[key]);

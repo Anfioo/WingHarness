@@ -13,6 +13,7 @@ export const CHART_COLORS = {
   netReceived: "hsl(var(--success))",
   netSent: "hsl(var(--info))",
   gpu: "hsl(var(--graph-3))",
+  battery: "hsl(var(--graph-2))",
   grid: "var(--border)",
   axis: "var(--muted-foreground)",
   /** The unallocated part of a composition bar. */

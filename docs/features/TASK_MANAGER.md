@@ -2,7 +2,7 @@
 
 The **任务管理器** (Task Manager) page shows what this machine is doing: the
 process table with three views, a detail panel and process actions, and a
-performance tab with CPU, memory, disk, network and GPU curves. An optional
+performance tab with CPU, memory, disk, network, GPU and battery detail views. An optional
 Windows service adds actions on protected system processes and per-process
 network and disk traffic; without it the page still monitors everything that
 needs only the account's own rights.
@@ -30,8 +30,8 @@ what came across and what did not.
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
 | `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, both tab panels |
 | `src/pages/task-manager/tabs/processes.tsx` | Process tab: toolbar, table, detail sheet, confirmation dialogs |
-| `src/pages/task-manager/tabs/performance.tsx` | Performance tab: summary cards, five panels, the 60-second window |
-| `src/components/task-manager/` | Table, toolbar, row, detail, context menu, the five performance panels, summary, service panel and badge, settings dialog, `format.ts` |
+| `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-second window |
+| `src/components/task-manager/` | Table, toolbar, row, detail, context menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
 | `src/commands/services/task-manager/` | Typed wrappers over the fourteen `argus_*` commands and their DTOs |
 | `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
@@ -143,16 +143,29 @@ that could not be ended are called out instead of being counted as successes.
 
 ## Performance tab
 
-Five summary cards (CPU, memory, disk, network, GPU) show the current reading
-and the 60-second peak with a share bar. Below them, five canvas panels draw:
+The tab is a device list beside one detail view, like Task Manager's own
+performance page. The list has an entry per CPU, memory package, physical disk,
+network adapter, GPU and battery; each shows its current reading and a
+sparkline over the same 60-second window. Selecting an entry switches the
+detail view; the selection falls back to the first device when its own device
+disappears.
 
-- **CPU** — total utilization, per-logical-processor utilization, and the CPU
-  identity.
-- **Memory** — used and committed totals plus the composition (in use,
-  modified, standby, free).
-- **Disk** — per-volume activity, read and write rates.
-- **Network** — received and sent rates per adapter.
-- **GPU** — utilization, dedicated and shared memory, and the busiest engines.
+- **CPU** — total utilization with kernel time, or the logical-processor grid
+  (one traced card per thread). A hybrid CPU can show all cores or only its P
+  or E cores, and the mode toggle switches between the overall and per-core
+  views. The facts below cover base speed, sockets, cores, cache and
+  virtualization.
+- **Memory** — used, available, committed, cached, the paged pools and the
+  composition bar; the installed modules' speed, slots, form factor and type.
+- **Disk** — each physical disk's busy time and read/write rates, response
+  time, capacity, bus and temperature.
+- **Network** — each adapter's received/sent rates, link speed, addresses and
+  MAC.
+- **GPU** — utilization, per-engine traces, dedicated and shared memory,
+  clocks, temperature, fan and power.
+- **Battery** — charge level and flow, wear against design capacity, cycle
+  count and the pack's identity. Machines without a battery simply do not get
+  the entry.
 
 The history is 60 one-second buckets (`chart-history.ts`). A snapshot that
 lands in an existing bucket overwrites it; a bucket that received no sample
@@ -160,6 +173,10 @@ stays `null` and the line breaks instead of stretching. At intervals slower
 than one second the chart therefore shows gaps rather than a ramp. Pausing
 freezes the window: no new buckets are pushed, so the right edge stops moving.
 When the page is left the tab unmounts and the history is dropped.
+
+Battery telemetry comes from the battery class driver's IOCTLs (the source
+behind `powercfg /batteryreport`), not WMI, and standard users may open the
+devices read-only.
 
 ## The privileged service
 

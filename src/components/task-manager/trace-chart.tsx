@@ -23,6 +23,8 @@ export type TraceSeries = {
   points: readonly (number | null)[];
   /** Fill the area under the line; meant for a single-series chart. */
   fill?: boolean;
+  /** Draw the line dashed, e.g. a secondary reading such as kernel time. */
+  dashed?: boolean;
 };
 
 /** What the vertical axis measures; decides the tick labels. */
@@ -159,6 +161,7 @@ function drawTrace(
         context.lineWidth = 1.5;
         context.lineJoin = "round";
         context.lineCap = "round";
+        context.setLineDash(entry.dashed ? [4, 3] : []);
         context.beginPath();
         for (let index = run.start; index <= run.end; index += 1) {
           const x = xAt(index);
@@ -167,6 +170,7 @@ function drawTrace(
           else context.lineTo(x, y);
         }
         context.stroke();
+        context.setLineDash([]);
       }
 
       const newest = lastValueIndex(points);

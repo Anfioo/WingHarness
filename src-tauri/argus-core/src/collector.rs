@@ -231,6 +231,7 @@ mod tests {
         assert!(json["system"].get("memoryLists").is_some());
         assert!(json["hardware"].get("cpuMhz").is_some());
         assert!(json["hardware"].get("coreMhz").is_some());
+        assert!(json["hardware"].get("batteries").is_some());
         // Dropped device sources must not reappear in the wire shape.
         assert!(json["hardware"].get("battery").is_none());
         assert!(json["hardware"].get("thermal").is_none());

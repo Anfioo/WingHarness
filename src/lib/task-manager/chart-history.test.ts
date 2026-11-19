@@ -74,6 +74,20 @@ describe("chart history", () => {
     expect(history.series.mem?.at(-1)).toBe(100);
   });
 
+  it("starts a series for a device that appears later", () => {
+    let history = pushHistory(createHistory(KEYS), 10_000, { cpu: 10, mem: 100 });
+    history = pushHistory(history, 11_000, {
+      cpu: 20,
+      mem: 200,
+      "disk.0.active": 42,
+    });
+    const disk = history.series["disk.0.active"] ?? [];
+    expect(disk.at(-1)).toBe(42);
+    expect(disk.slice(0, -1).every((value) => value === null)).toBe(true);
+    // The series that existed before keep their buckets untouched.
+    expect(history.series.cpu?.at(-1)).toBe(20);
+  });
+
   it("reports the peak and the newest reading, ignoring empty buckets", () => {
     let history = pushHistory(createHistory(KEYS), 10_000, { cpu: 10 });
     history = pushHistory(history, 12_000, { cpu: 55 });

@@ -32,7 +32,7 @@ attribution header. Files written for this project are marked as such below.
 | `src/nt.rs`, `src/util.rs`, `src/pdh.rs` | the same files |
 | `src/gpu_process.rs`, `src/net_process.rs`, `src/disk_process.rs` | the same files |
 | `src/diagnostics.rs` | `diagnostics.rs`, with the i18n layer removed |
-| `src/hardware/*` | `hardware/*`, minus `battery`, `sensors` and `kernel_sensors` |
+| `src/hardware/*` | `hardware/*`, minus `sensors` and `kernel_sensors` (battery is included) |
 | `src/lib.rs` | `lib.rs` |
 | `src/error.rs`, `src/models.rs`, `src/paths.rs`, `src/store.rs` | No direct counterpart; written for this app |
 
@@ -54,11 +54,12 @@ this app needs.
   `services.rs`, `startup*`, `connections.rs`, `filelock.rs` and `handles.rs`
   were not ported, and the NT structures only they used were removed from
   `nt.rs`.
-- **No sensors.** `hardware/{battery,sensors,kernel_sensors}.rs` were dropped,
-  and with them `Hardware.cpuIdle` / `CpuIdle`. `Hardware.cpuMhz` stays `None`
-  and `coreMhz` stays empty because their only producer was `sensors.rs`; the
-  page renders both as unavailable. A real frequency source would need a new
-  PDH collector.
+- **No sensors.** `hardware/{sensors,kernel_sensors}.rs` were dropped, and with
+  them `Hardware.cpuIdle` / `CpuIdle`. `Hardware.cpuMhz` stays `None` and
+  `coreMhz` stays empty because their only producer was `sensors.rs`; the page
+  renders both as unavailable. A real frequency source would need a new PDH
+  collector. `hardware/battery.rs` stays: the performance page's device list
+  shows one entry per battery.
 - **No i18n.** `i18n.rs` and the `tr!` macro are gone. Rust returns English
   strings only; the frontend translates by error code.
 - **Typed errors.** `error.rs` (`ArgusError` / `ArgusErrorCode`, serialized as

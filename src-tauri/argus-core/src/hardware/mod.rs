@@ -2,11 +2,12 @@
 // See UPSTREAM.md for the porting record.
 
 //! Device-level telemetry for the performance view: CPU identity, clocks,
-//! memory modules, physical disks, network adapters and GPUs.
+//! memory modules, physical disks, network adapters, GPUs and batteries.
 //!
-//! The battery, thermal-zone, power and kernel-sensor sources are deliberately
-//! absent: the first scope carries only the metrics the performance tab shows.
+//! The thermal-zone, power and kernel-sensor sources are deliberately absent:
+//! the performance tab does not show them.
 
+mod battery;
 mod cpu;
 mod disk;
 mod gpu;
@@ -20,6 +21,7 @@ use std::sync::Arc;
 
 use serde::Serialize;
 
+pub use battery::{BatteryInfo, BatteryStats};
 pub(crate) use gpu::pretty_engine;
 
 #[derive(Debug, Clone, Copy, Default, Serialize)]
@@ -207,6 +209,7 @@ pub struct Hardware {
     pub disks: Vec<DiskStats>,
     pub nics: Vec<NicStats>,
     pub gpus: Vec<GpuStats>,
+    pub batteries: Vec<BatteryStats>,
 }
 
 /// Owns the per-device trackers; one sample per snapshot.
@@ -216,6 +219,7 @@ pub(crate) struct HardwareTracker {
     disks: disk::DiskTracker,
     nics: net::NicTracker,
     gpus: gpu::GpuTracker,
+    batteries: battery::BatteryTracker,
 }
 
 impl HardwareTracker {
@@ -230,6 +234,7 @@ impl HardwareTracker {
             disks: disk::DiskTracker::new(),
             nics: net::NicTracker::new(),
             gpus: gpu::GpuTracker::new(),
+            batteries: battery::BatteryTracker::new(),
         };
         t.sample(); // establish baselines for rates
         t
@@ -251,6 +256,7 @@ impl HardwareTracker {
             disks: self.disks.sample(),
             nics: self.nics.sample(),
             gpus: self.gpus.sample(),
+            batteries: self.batteries.sample(),
         }
     }
 }
