@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use argus_core::ArgusSettings;
 use argus_core::meta::MetaStore;
+use argus_core::services::ServiceCatalog;
 use tauri::Manager;
 
 pub struct ArgusState {
@@ -20,6 +21,8 @@ pub struct ArgusState {
     /// The icon cache shared with the sampler, kept for the page's lifetime so
     /// icon ids stay valid across a sampler restart.
     pub meta: Arc<MetaStore>,
+    /// The service catalogue and its 60-second configuration cache.
+    pub services: ServiceCatalog,
     /// Last settings read or written, so a command does not touch the disk
     /// just to echo the current value back.
     pub settings: Mutex<ArgusSettings>,
@@ -39,6 +42,7 @@ impl Default for ArgusState {
         Self {
             sampler: Mutex::new(None),
             meta: MetaStore::new(),
+            services: ServiceCatalog::default(),
             settings: Mutex::new(store::get().unwrap_or_default()),
             elevated,
         }

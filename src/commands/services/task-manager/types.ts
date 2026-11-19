@@ -346,3 +346,36 @@ export type ServiceStatus = {
   error: string | null;
   incompatible: boolean;
 };
+
+export type ServiceState =
+  | "stopped"
+  | "startPending"
+  | "stopPending"
+  | "running"
+  | "continuePending"
+  | "pausePending"
+  | "paused";
+
+export type ServiceStartType = "boot" | "system" | "auto" | "autoDelayed" | "manual" | "disabled";
+
+export type ServiceAction = "start" | "stop" | "restart";
+
+/** One row of the services tab, mirrored from `argus-core/src/services.rs`. */
+export type ServiceInfo = {
+  /** Key name, e.g. `Dnscache`. */
+  name: string;
+  displayName: string;
+  description: string | null;
+  state: ServiceState;
+  /** Null when the configuration could not be read. */
+  startType: ServiceStartType | null;
+  /** Hosting process; 0 when not running. */
+  pid: number;
+  /** Command line of the service binary. */
+  path: string | null;
+  account: string | null;
+  /** The service accepts stop requests. */
+  canStop: boolean;
+  /** Shares its process with other services (svchost). */
+  shared: boolean;
+};

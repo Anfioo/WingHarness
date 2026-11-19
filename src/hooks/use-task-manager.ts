@@ -21,7 +21,7 @@ import {
   type TreeKillReport,
 } from "@/commands";
 
-export type TaskManagerTab = "processes" | "performance";
+export type TaskManagerTab = "processes" | "performance" | "services";
 
 export type TaskManagerState = {
   snapshot: Snapshot | null;
@@ -79,7 +79,7 @@ function toArgusError(value: unknown): ArgusError {
 /**
  * One page, one subscription.
  *
- * The page shell and both tabs call `useTaskManager()`, so the state cannot
+ * The page shell and every tab call `useTaskManager()`, so the state cannot
  * live in a single component: the sampler accepts one channel per page and
  * `argus_snapshot_stop` tears the thread down. The store below keeps the one
  * channel alive while at least one caller is mounted, and every caller renders

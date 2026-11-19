@@ -10,13 +10,14 @@ import { useTaskManager, type TaskManagerTab } from "@/hooks/use-task-manager";
 import { cn } from "@/lib/utils";
 import { PerformanceTab } from "./tabs/performance";
 import { ProcessesTab } from "./tabs/processes";
+import { ServicesTab } from "./tabs/services";
 
-const TABS: TaskManagerTab[] = ["processes", "performance"];
+const TABS: TaskManagerTab[] = ["processes", "performance", "services"];
 
 /**
  * The shared task manager surface: the header with the service badge and the
- * settings entry, the two tabs and their panels. Both panels stay mounted so a
- * tab switch keeps its state.
+ * settings entry, the three tabs and their panels. Every panel stays mounted
+ * so a tab switch keeps its state.
  */
 export function TaskManagerApp() {
   const { t } = useAppTranslation();
@@ -80,6 +81,9 @@ export function TaskManagerApp() {
         </div>
         <div hidden={page.activeTab !== "performance"} className="h-full">
           <PerformanceTab />
+        </div>
+        <div hidden={page.activeTab !== "services"} className="h-full">
+          <ServicesTab active={page.activeTab === "services"} />
         </div>
       </div>
 

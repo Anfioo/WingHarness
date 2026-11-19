@@ -1,11 +1,12 @@
 # Task Manager
 
 The **任务管理器** (Task Manager) page shows what this machine is doing: the
-process table with three views, a detail panel and process actions, and a
-performance tab with CPU, memory, disk, network, GPU and battery detail views. An optional
-Windows service adds actions on protected system processes and per-process
-network and disk traffic; without it the page still monitors everything that
-needs only the account's own rights.
+process table with three views, a detail panel and process actions, a
+performance tab with CPU, memory, disk, network, GPU and battery detail views,
+and a services tab for the Windows Service Control Manager. An optional
+Windows service adds actions on protected system processes, service control and
+per-process network and disk traffic; without it the page still monitors
+everything that needs only the account's own rights.
 
 It sits in the sidebar under **其他** (Other) and is a single page — it opens no
 window of its own. Sampling runs only while the page is mounted.
@@ -23,18 +24,19 @@ what came across and what did not.
 
 | Route | Renders |
 | --- | --- |
-| `/task-manager` | The page: header, service summary, tab strip, the process and performance tabs, the settings dialog |
+| `/task-manager` | The page: header, service summary, tab strip, the process, performance and services tabs, the settings dialog |
 
 | Path | Responsibility |
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
-| `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, both tab panels |
+| `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, all three tab panels |
 | `src/pages/task-manager/tabs/processes.tsx` | Process tab: toolbar, table, detail sheet, confirmation dialogs |
 | `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-second window |
-| `src/components/task-manager/` | Table, toolbar, row, detail, context menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
+| `src/pages/task-manager/tabs/services.tsx` | Services tab: polling lifecycle, search / filter / sort state, toolbar actions, toasts |
+| `src/components/task-manager/` | Table, toolbar, row, detail, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
-| `src/commands/services/task-manager/` | Typed wrappers over the fourteen `argus_*` commands and their DTOs |
-| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
+| `src/commands/services/task-manager/` | Typed wrappers over the eighteen `argus_*` commands and their DTOs |
+| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
 | `src-tauri/src/commands/argus.rs` | The thin command surface |
 | `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status and install), `store.rs` (settings), `mod.rs` (`ArgusState`) |
 
@@ -57,7 +59,7 @@ page unmounts (last subscriber), or the app exits
   → thread stops, ETW session released
 ```
 
-- **One subscription per page.** The page shell and both tabs call
+- **One subscription per page.** The page shell and every tab call
   `useTaskManager()`, but a module-level store owns the single
   `Channel<Snapshot>`: the first caller starts sampling and the last one to
   unmount stops it. Pausing only drops incoming frames; the backend keeps
@@ -178,28 +180,106 @@ Battery telemetry comes from the battery class driver's IOCTLs (the source
 behind `powercfg /batteryreport`), not WMI, and standard users may open the
 devices read-only.
 
-## The privileged service
+## Services tab
+
+The tab lists every Win32 service from the Service Control Manager: display
+name, key name, hosting PID, state, startup type and description. It is a plain
+table — a few hundred rows at most, so it is not virtualized — with a sticky
+header and the same 32 px row height as the process table.
+
+### Data and polling
+
+- **One SCM pass per list read.** `argus_services_list` calls
+  `EnumServicesStatusExW` once for every service's state and PID. The static
+  configuration (display name, startup type, binary path, account, description)
+  costs three RPCs per service, so `ServiceCatalog` caches it for 60 seconds;
+  `invalidate` drops one entry after a control action or a start-type change.
+- **Display names are read in the caller's language.** The description comes
+  from the service configuration and is overridden by the registry's MUI string
+  when one exists, so a localized Windows shows the localized text.
+- **Polling is tab- and visibility-scoped.** The tab fetches immediately when
+  it becomes the selected tab and then every 3 seconds, but only while the tab
+  is selected *and* `document.visibilityState` is `visible`. Switching to
+  Processes or Performance, hiding the page or unmounting the tab clears the
+  timer; becoming visible again fetches at once. The fetched list lives in the
+  tab's own component state — it is not part of `Snapshot` or the shared
+  `useTaskManager` store.
+- **Standard users can read the list.** `EnumServicesStatusExW` needs no
+  elevation. A configuration query that the account cannot perform leaves
+  `startType` `null`, which the table renders as `—`.
+
+### Search, filter and sort
+
+Search matches the display name, key name, description or an exact PID.
+The state filter is **All / Running / Stopped**: running and stopped are exact
+matches, so every pending state appears only under All. Clicking a column header
+sorts by service, service name, PID, status, startup type or description; the
+default is display name ascending, and clicking the active header reverses it.
+Startup types sort in Windows' own order (boot, system, automatic, automatic
+delayed, manual, disabled) with an unknown type last. Sorting is stable: equal
+values keep the order they arrived in. `src/lib/task-manager/service-rows.ts`
+holds all of this as pure functions and is covered by vitest.
+
+The empty states are distinct: while the first read is in flight the tab shows
+a skeleton, a failed read shows the translated error with a retry button, and a
+list with no match for the current query or filter offers **Clear filters**.
+
+### Actions
+
+| Action | Behaviour |
+| --- | --- |
+| **Start / Stop / Restart** | Toolbar buttons act on the selected row; the context menu acts on the right-clicked one |
+| **Startup type** | Context submenu: Automatic, Automatic (delayed start), Manual, Disabled; the current one is checked |
+| **Copy service name** | Copies the key name |
+| **Open file location** | Splits the executable out of the service command line and reveals it with `systools_reveal_in_file_manager` |
+| **Open Services** | Launches `mmc.exe services.msc` as a separate process |
+
+- **Disabled rules.** A service in a pending state (or with an action already
+  in flight) cannot be acted on. Start is disabled while it runs; stop and
+  restart are disabled when the service does not accept stop requests
+  (`canStop`), which includes drivers and services without a stop control.
+- **Every action ends in a toast**, translated from the error's `code` through
+  `argusErrorKey`, and refreshes the list afterwards.
+- **Permission routing.** The host tries the SCM with its own rights first.
+  Only on `access-denied`, and only when the host is not elevated, is the same
+  operation handed to the privileged service; its answer is authoritative and
+  is never retried locally. Stopping a protected service and changing any
+  startup type generally need administrator rights or the service. A service
+  installed under an older protocol is reported as outdated, so the page asks
+  for an update instead of showing a misleading access-denied error.
+- **Not implemented on purpose.** Argus's per-row pin / note marks, its
+  "go to process" jump and double-clicking a row to open the process tab are
+  not part of this port; the row has no action that would need them.
+
+
 
 The service is optional. It is a LocalSystem Windows service named
 `WingHarnessPrivileged` (`WingHarnessPrivilegedDev` in a development build),
 listening on `\\.\pipe\WingHarness.Privileged.v1`
 (`.Dev.v1` for development). The host and the service speak a versioned JSON
 protocol whose operation set is fixed by an enum: `Ping`, `NetworkSnapshot`,
-`DiskSnapshot`, `Terminate`, `Priority` and `Efficiency`. Unknown operations or
-fields are rejected, and a `Terminate` must carry a positive PID and creation
-time — the System process, Idle and the service itself are never valid targets.
+`DiskSnapshot`, `Terminate`, `Priority`, `Efficiency`, `ControlService` and
+`ServiceStartType`. Unknown operations or fields are rejected, a `Terminate`
+must carry a positive PID and creation time, and a service operation must name
+a non-empty service of at most 256 bytes — the System process, Idle and the
+service itself are never valid targets. The operation set is protocol version
+3; a Ping is always sent in the version-1 envelope so an older service can
+report its version, and a version-2 service is reported as outdated rather
+than as denying the new operations.
 
 What the service provides:
 
 - Process termination, priority changes and efficiency mode for processes the
   current account cannot open.
+- Service control (start, stop, restart) and startup-type changes for services
+  the account cannot change.
 - Per-process network traffic from an ETW session.
 - Per-process disk counters (read/write bytes per second).
 
 What it deliberately does **not** provide: a kernel driver (PawnIO), sensors or
 fan control, a Task Manager replacement, privilege-elevation helpers for other
-programs, handle or file-lock queries, connection management, or service
-control. It creates no window and starts no webview.
+programs, handle or file-lock queries, or connection management. It creates no
+window and starts no webview.
 
 ### Install, update and uninstall
 
@@ -240,6 +320,10 @@ control. It creates no window and starts no webview.
 | `argus_set_efficiency` | `{ pid, createTime, on }` | — |
 | `argus_service_status` | — | `ServiceStatus` |
 | `argus_service_manage` | `{ action }` (`install` / `uninstall` / `update`) | `ServiceStatus` |
+| `argus_services_list` | — | `ServiceInfo[]` |
+| `argus_service_control` | `{ name, action }` (`start` / `stop` / `restart`) | — |
+| `argus_service_start_type` | `{ name, startType }` (`auto` / `autoDelayed` / `manual` / `disabled`) | — |
+| `argus_services_console` | — | — |
 
 A command is only callable once it is named in all four lists: `all_commands!`
 in `src/invoke.rs`, `COMMANDS` in `build.rs`, `capabilities/default.json`, and
@@ -252,7 +336,7 @@ translates by `code` through `argusErrorKey`:
 
 | Code | Meaning |
 | --- | --- |
-| `not-found` | The process has already exited, or its PID was reused |
+| `not-found` | The process has already exited, or its PID was reused, or the service no longer exists |
 | `invalid-input` | The interval is out of range, the service action is unknown, or the target is this app |
 | `access-denied` | Administrator rights or the privileged service are required |
 | `service-unavailable` | The service is not installed or not running, or speaks another protocol |
@@ -303,6 +387,10 @@ port.
   show `—`, and a process that just started has no disk or network row yet.
 - **Per-process network needs the service.** Without it the network column is
   hidden and the page explains why in the toolbar hint.
+- **Service control needs rights.** Reading the service list needs none, but
+  starting, stopping or changing the startup type of a protected service needs
+  administrator rights or the privileged service. A service configuration the
+  account cannot read shows its startup type as `—`.
 - **GPU and disk hardware can be absent.** Machines without a supported GPU or
   with no disk counters get the panel's empty state, not an error.
 - **Protected processes.** The detail sheet explains that it cannot read the
@@ -320,6 +408,8 @@ port.
 | No frames after returning to the page | The previous sampler thread exited; the next start replaces it, so reload the page and report it if it repeats |
 | The network column is missing | The privileged service is not installed or not running |
 | Ending a system process says access denied | Install the service; the message says so |
+| Starting or stopping a protected service says access denied | Install the service, or run the app as administrator; the page explains this under the list |
+| Changing a service's startup type says access denied | Startup-type changes always need administrator rights or the service |
 | The service badge says incompatible | The installed service speaks another protocol; use **Update service** |
 | Settings reset to the defaults | `settings.json` could not be parsed; look for `settings.json.bak-*` in the data directory |
 | Charts show gaps | The sampling interval is longer than one second, so not every bucket has a sample |

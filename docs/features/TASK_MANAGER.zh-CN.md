@@ -1,6 +1,6 @@
 # 任务管理器
 
-**任务管理器**页面展示本机正在发生什么：三视图进程表、详情面板与进程操作，以及带 CPU、内存、磁盘、网络、GPU 与电池详情的性能标签。可选安装一个 Windows 服务，用来操作系统受保护的进程，并采集每进程的网络与磁盘流量；不安装时，页面照样监控所有只需要当前账户权限的数据。
+**任务管理器**页面展示本机正在发生什么：三视图进程表、详情面板与进程操作，带 CPU、内存、磁盘、网络、GPU 与电池详情的性能标签，以及面向 Windows 服务控制管理器的服务标签。可选安装一个 Windows 服务，用来操作系统受保护的进程、控制服务，并采集每进程的网络与磁盘流量；不安装时，页面照样监控所有只需要当前账户权限的数据。
 
 它位于侧栏的**其他**分组，只有一个页面，不单独开窗口。只有页面挂载期间才采样。
 
@@ -10,18 +10,19 @@
 
 | 路由 | 渲染内容 |
 | --- | --- |
-| `/task-manager` | 页面：页头、服务摘要、标签栏、进程与性能两个标签、设置对话框 |
+| `/task-manager` | 页面：页头、服务摘要、标签栏、进程 / 性能 / 服务三个标签、设置对话框 |
 
 | 路径 | 职责 |
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | `AppShell` 内的页面外壳 |
-| `src/pages/task-manager/task-manager-app.tsx` | 页头（标题、服务徽标、刷新、设置）、标签栏、两个标签面板 |
+| `src/pages/task-manager/task-manager-app.tsx` | 页头（标题、服务徽标、刷新、设置）、标签栏、三个标签面板 |
 | `src/pages/task-manager/tabs/processes.tsx` | 进程标签：工具条、表格、详情抽屉、确认对话框 |
 | `src/pages/task-manager/tabs/performance.tsx` | 性能标签：设备列表、按设备切换的详情、60 秒窗口 |
-| `src/components/task-manager/` | 表格、工具条、行、详情、右键菜单、性能设备列表与各设备视图、服务面板与徽标、设置对话框、`format.ts` |
+| `src/pages/task-manager/tabs/services.tsx` | 服务标签：轮询生命周期、搜索 / 筛选 / 排序状态、工具条操作与提示 |
+| `src/components/task-manager/` | 表格、工具条、行、详情、右键菜单、服务表格与右键菜单、性能设备列表与各设备视图、服务面板与徽标、设置对话框、`format.ts` |
 | `src/hooks/use-task-manager.ts` | 一份共享 store：通道、设置、服务状态与操作 |
-| `src/commands/services/task-manager/` | 十四条 `argus_*` 命令的类型化封装与 DTO |
-| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
+| `src/commands/services/task-manager/` | 十八条 `argus_*` 命令的类型化封装与 DTO |
+| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`service-rows`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
 | `src-tauri/src/commands/argus.rs` | 薄命令层 |
 | `src-tauri/src/argus/` | `sampler.rs`（采样线程）、`service.rs`（状态与安装）、`store.rs`（设置）、`mod.rs`（`ArgusState`） |
 
@@ -41,7 +42,7 @@
   → 线程停止，释放 ETW 会话
 ```
 
-- **每页一个订阅。** 页面壳与两个标签都会调用 `useTaskManager()`，但唯一的 `Channel<Snapshot>` 属于模块级 store：第一个调用者启动采样，最后一个卸载者停止它。暂停只丢弃收到的帧，后端继续采样，因此恢复时立刻有数据。
+- **每页一个订阅。** 页面壳与三个标签都会调用 `useTaskManager()`，但唯一的 `Channel<Snapshot>` 属于模块级 store：第一个调用者启动采样，最后一个卸载者停止它。暂停只丢弃收到的帧，后端继续采样，因此恢复时立刻有数据。
 - **不新增全局事件。** 帧只经 Tauri Channel 送给本页，不广播到其他窗口。
 - **每次重新建基线。** 每次启动都会新建 collector，所以最初一两个周期没有 CPU 与速率数字（没有上一帧可差分）。离开页面时性能历史随组件卸载一并清空。
 - **间隔**为 250–5000 毫秒，默认 1000 毫秒。读取与写入都会夹取，在设置对话框修改后立即重启计时。
@@ -101,17 +102,50 @@
 
 电池数据来自电池类驱动的 IOCTL（`powercfg /batteryreport` 背后的数据源），不经过 WMI；标准用户即可只读打开这些设备。
 
+## 服务标签
+
+标签列出服务控制管理器里的全部 Win32 服务：显示名、服务名、宿主 PID、状态、启动类型与描述。它是普通表格——最多几百行，因此不做虚拟滚动——表头粘性，行高与进程表一致的 32 px。
+
+### 数据与轮询
+
+- **每次读取只遍历一次 SCM。** `argus_services_list` 用一次 `EnumServicesStatusExW` 取回所有服务的状态与 PID。静态配置（显示名、启动类型、二进制路径、账户、描述）每个服务要三次 RPC，因此 `ServiceCatalog` 缓存 60 秒；控制操作或修改启动类型后，`invalidate` 只丢弃对应条目。
+- **显示名按调用者语言读取。** 描述先取服务配置，存在注册表 MUI 字符串时再覆盖，所以本地化的 Windows 显示本地化文本。
+- **轮询只看标签与可见性。** 标签被选中时立即拉一次，随后每 3 秒一次，但仅限标签处于选中**且** `document.visibilityState` 为 `visible` 时。切到进程 / 性能、隐藏页面或卸载标签都会清掉计时器；重新可见时立即拉取。列表只存在标签自己的组件状态里，不进入 `Snapshot` 或共享的 `useTaskManager` store。
+- **普通用户也能读列表。** `EnumServicesStatusExW` 不需要提权；账户读不到的配置项会让 `startType` 为 `null`，表格显示为 `—`。
+
+### 搜索、筛选与排序
+
+搜索匹配显示名、服务名、描述或精确 PID。状态筛选为**全部 / 运行中 / 已停止**：运行中与已停止都是精确匹配，因此各种 pending 状态只会出现在「全部」下。点击列头按服务、服务名、PID、状态、启动类型或描述排序；默认按显示名升序，再点当前列切换升降。启动类型按 Windows 自身的顺序排序（引导、系统、自动、自动延迟、手动、禁用），未知值排最后。排序是稳定的：相同值保持到达时的顺序。这些逻辑集中在 `src/lib/task-manager/service-rows.ts`，由 vitest 覆盖。
+
+空态彼此区分：首次读取时显示骨架；读取失败时显示翻译后的错误与重试按钮；有列表但当前搜索或筛选无结果时提供**清除筛选**。
+
+### 操作
+
+| 操作 | 行为 |
+| --- | --- |
+| **启动 / 停止 / 重启** | 工具条按钮作用于选中行；右键菜单作用于被右击的行 |
+| **启动类型** | 右键子菜单：自动、自动（延迟启动）、手动、禁用；当前项显示选中 |
+| **复制服务名** | 复制键名 |
+| **打开文件所在位置** | 从服务命令行中解析出可执行文件，用 `systools_reveal_in_file_manager` 定位 |
+| **打开服务控制台** | 以独立进程启动 `mmc.exe services.msc` |
+
+- **禁用规则。** pending 状态（或已有操作在执行）的服务不能操作。运行中禁用启动；服务不接受停止请求（`canStop`）时禁用停止与重启，驱动和不带停止控制的服务都属于这种情况。
+- **每个操作都以提示结束**，错误按 `code` 经 `argusErrorKey` 翻译，结束后刷新列表。
+- **权限路由。** 宿主先用自己的权限调用 SCM；只有 `access-denied` 且宿主未提权时，才把同一操作交给特权服务，服务回复为权威结果，宿主不会在本地重试。停止受保护服务与修改任何启动类型通常都需要管理员权限或特权服务。若已装服务协议较旧，会报告为需要更新，而不是给出误导性的权限不足。
+- **有意不做的项。** Argus 的行标记（置顶 / 笔记）、「转到进程」跳转，以及双击行跳到进程标签，都不在本期移植范围内；行上不保留任何需要它们的操作。
+
 ## 特权服务
 
-服务是可选组件。它是名为 `WingHarnessPrivileged` 的 LocalSystem Windows 服务（开发版为 `WingHarnessPrivilegedDev`），监听 `\\.\pipe\WingHarness.Privileged.v1`（开发版 `.Dev.v1`）。宿主与服务使用带版本号的 JSON 协议，操作集由枚举固定：`Ping`、`NetworkSnapshot`、`DiskSnapshot`、`Terminate`、`Priority` 与 `Efficiency`。未知操作或字段一律拒绝，`Terminate` 必须带正 PID 与创建时间——System 进程、Idle 与服务自身永远不是合法目标。
+服务是可选组件。它是名为 `WingHarnessPrivileged` 的 LocalSystem Windows 服务（开发版为 `WingHarnessPrivilegedDev`），监听 `\\.\pipe\WingHarness.Privileged.v1`（开发版 `.Dev.v1`）。宿主与服务使用带版本号的 JSON 协议，操作集由枚举固定：`Ping`、`NetworkSnapshot`、`DiskSnapshot`、`Terminate`、`Priority`、`Efficiency`、`ControlService` 与 `ServiceStartType`。未知操作或字段一律拒绝，`Terminate` 必须带正 PID 与创建时间，服务操作必须给出非空且不超过 256 字节的服务名——System 进程、Idle 与服务自身永远不是合法目标。操作集为协议版本 3；Ping 始终以版本 1 的信封发送，让旧服务能报告自己的版本，版本 2 的服务会被识别为过期，而不是把新操作误报为拒绝。
 
 服务提供：
 
 - 对当前账户打不开的进程执行结束、调整优先级与效率模式。
+- 对当前账户改不动的服务执行启动、停止、重启与启动类型修改。
 - 来自 ETW 会话的每进程网络流量。
 - 每进程磁盘计数器（每秒读写字节数）。
 
-它刻意**不**提供：内核驱动（PawnIO）、传感器与风扇控制、任务管理器替换、给其他程序提权的助手、句柄或文件占用查询、连接管理、服务控制。它不建窗口，也不启动 webview。
+它刻意**不**提供：内核驱动（PawnIO）、传感器与风扇控制、任务管理器替换、给其他程序提权的助手、句柄或文件占用查询、连接管理。它不建窗口，也不启动 webview。
 
 ### 安装、更新与卸载
 
@@ -145,6 +179,10 @@
 | `argus_set_efficiency` | `{ pid, createTime, on }` | — |
 | `argus_service_status` | — | `ServiceStatus` |
 | `argus_service_manage` | `{ action }`（`install` / `uninstall` / `update`） | `ServiceStatus` |
+| `argus_services_list` | — | `ServiceInfo[]` |
+| `argus_service_control` | `{ name, action }`（`start` / `stop` / `restart`） | — |
+| `argus_service_start_type` | `{ name, startType }`（`auto` / `autoDelayed` / `manual` / `disabled`） | — |
+| `argus_services_console` | — | — |
 
 命令必须在四处名单中登记后才可调用：`src/invoke.rs` 的 `all_commands!`、`build.rs` 的 `COMMANDS`、`capabilities/default.json` 与 `permissions/autogenerated/*.toml`。
 
@@ -152,7 +190,7 @@
 
 | 错误码 | 含义 |
 | --- | --- |
-| `not-found` | 进程已退出，或 PID 已被复用 |
+| `not-found` | 进程已退出、PID 已被复用，或服务已不存在 |
 | `invalid-input` | 间隔越界、服务动作未知，或目标就是本应用 |
 | `access-denied` | 需要管理员权限或特权服务 |
 | `service-unavailable` | 服务未安装、未运行，或协议版本不兼容 |
@@ -188,6 +226,7 @@
 - **拿不到 CPU 频率。** `cpuMhz` 恒为 `null`，`coreMhz` 为空，因为唯一来源是未移植的传感器模块。速度行与逐核频率行因此隐藏。
 - **磁盘与网络需要预热。** 速率需要两次采样，最初的周期显示 `—`；刚启动的进程还没有磁盘或网络行。
 - **每进程网络需要服务。** 未安装时网络列整列隐藏，工具条提示会说明原因。
+- **服务控制需要权限。** 读取服务列表不需要任何权限，但启动、停止受保护服务或修改启动类型需要管理员权限或特权服务。账户读不到的配置会把启动类型显示为 `—`。
 - **GPU 与磁盘硬件可能缺失。** 没有受支持 GPU 或没有磁盘计数器的机器显示面板的空态，而不是错误。
 - **受保护进程。** 详情抽屉会说明读不到命令行、用户或版本，而不是显示空值。
 - **服务可能残留。** 升级或卸载应用不会改动已安装的服务。升级后用**更新服务**，或用**卸载**移除它。
@@ -201,6 +240,8 @@
 | 返回页面后收不到帧 | 上一个采样线程已退出；下一次启动会替换它，重载页面，若仍复现请上报 |
 | 网络列不出现 | 特权服务未安装或未运行 |
 | 结束系统进程提示权限不足 | 需要安装服务；提示里会写明 |
+| 启停受保护服务提示权限不足 | 安装特权服务，或以管理员身份运行应用；列表下方有说明 |
+| 修改启动类型提示权限不足 | 修改启动类型始终需要管理员权限或特权服务 |
 | 服务徽标显示不兼容 | 已装服务是另一版协议；使用**更新服务** |
 | 设置恢复默认 | `settings.json` 无法解析；在数据目录找 `settings.json.bak-*` |
 | 图表有空档 | 采样间隔大于 1 秒，并非每个桶都有样本 |

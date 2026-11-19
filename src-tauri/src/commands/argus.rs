@@ -11,6 +11,7 @@ use argus_core::collector::Snapshot;
 use base64::Engine as _;
 use argus_core::details::{self, ProcessDetails};
 use argus_core::models::ArgusSettings;
+use argus_core::services::{ServiceAction, ServiceInfo, StartType};
 use argus_core::{ArgusError, ArgusErrorCode};
 use argus_service::{Operation, Reply, Routed, ServiceStatus};
 use tauri::State;
@@ -259,6 +260,80 @@ pub fn argus_service_manage(
     let status = service::manage(&action)?;
     state.refresh();
     Ok(status)
+}
+
+/// Every service the SCM knows about, with its cached configuration.
+#[tauri::command(async)]
+pub fn argus_services_list(state: State<'_, ArgusState>) -> Result<Vec<ServiceInfo>, ArgusError> {
+    state.services.list().map_err(map_action_error)
+}
+
+/// Starts, stops or restarts one service, locally first and through the
+/// privileged service when the account's own rights are not enough.
+#[tauri::command(async)]
+pub fn argus_service_control(
+    state: State<'_, ArgusState>,
+    name: String,
+    action: ServiceAction,
+) -> Result<(), ArgusError> {
+    let result = route_operation(
+        &state,
+        || state.services.control(&name, action),
+        Operation::ControlService {
+            name: name.clone(),
+            action,
+        },
+        |reply| match reply {
+            Reply::Done => Ok(()),
+            Reply::Error(error) => Err(map_action_error(error)),
+            other => Err(unexpected_reply(other)),
+        },
+    );
+    // A control action can change the service's PID, and the cached
+    // configuration may be stale after a restart.
+    if result.is_ok() {
+        state.services.invalidate(&name);
+    }
+    state.refresh();
+    result
+}
+
+/// Changes a service's start type; changing one needs `SERVICE_CHANGE_CONFIG`,
+/// which the privileged service holds.
+#[tauri::command(async)]
+pub fn argus_service_start_type(
+    state: State<'_, ArgusState>,
+    name: String,
+    start_type: StartType,
+) -> Result<(), ArgusError> {
+    let result = route_operation(
+        &state,
+        || state.services.set_start_type(&name, start_type),
+        Operation::ServiceStartType {
+            name: name.clone(),
+            start_type,
+        },
+        |reply| match reply {
+            Reply::Done => Ok(()),
+            Reply::Error(error) => Err(map_action_error(error)),
+            other => Err(unexpected_reply(other)),
+        },
+    );
+    if result.is_ok() {
+        state.services.invalidate(&name);
+    }
+    result
+}
+
+/// Opens the Windows Services console. It is a separate process, so the page
+/// does not wait for it.
+#[tauri::command]
+pub fn argus_services_console() -> Result<(), ArgusError> {
+    std::process::Command::new("mmc.exe")
+        .arg("services.msc")
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| ArgusError::internal(format!("Could not open Services: {error}")))
 }
 
 /// Runs an operation with the host's own rights first. When the host is denied

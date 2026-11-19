@@ -5,6 +5,7 @@ const taskManager = {
   tabs: {
     processes: "Processes",
     performance: "Performance",
+    services: "Services",
   },
   actions: {
     refresh: "Refresh",
@@ -99,6 +100,72 @@ const taskManager = {
       description:
         "Install the optional service to act on system processes and see per-process network traffic.",
       open: "Open service panel",
+    },
+  },
+  services: {
+    title: "Services",
+    filter: { all: "All", running: "Running", stopped: "Stopped" },
+    search: {
+      placeholder: "Search by name, description or PID",
+      aria: "Search services",
+      clear: "Clear search",
+    },
+    column: {
+      display: "Service",
+      name: "Service name",
+      pid: "PID",
+      status: "Status",
+      startType: "Startup type",
+      description: "Description",
+    },
+    state: {
+      stopped: "Stopped",
+      startPending: "Starting",
+      stopPending: "Stopping",
+      running: "Running",
+      continuePending: "Resuming",
+      pausePending: "Pausing",
+      paused: "Paused",
+    },
+    startType: {
+      boot: "Boot",
+      system: "System",
+      auto: "Automatic",
+      autoDelayed: "Automatic (delayed start)",
+      manual: "Manual",
+      disabled: "Disabled",
+    },
+    actions: {
+      start: "Start",
+      stop: "Stop",
+      restart: "Restart",
+      openConsole: "Open Services",
+      refresh: "Refresh",
+    },
+    menu: {
+      startType: "Startup type",
+      copyName: "Copy service name",
+      openLocation: "Open file location",
+    },
+    toast: {
+      started: 'Started "{{name}}".',
+      stopped: 'Stopped "{{name}}".',
+      restarted: 'Restarted "{{name}}".',
+      startFailed: 'Could not start "{{name}}".',
+      stopFailed: 'Could not stop "{{name}}".',
+      restartFailed: 'Could not restart "{{name}}".',
+      startTypeChanged: 'Changed the startup type of "{{name}}" to {{type}}.',
+      startTypeFailed: 'Could not change the startup type of "{{name}}".',
+      nameCopied: "Service name copied",
+    },
+    summary: "{{running}} of {{total}} running",
+    manageHint:
+      "Starting, stopping or changing the startup type of some services needs the privileged service or administrator rights.",
+    empty: {
+      loading: "Reading services…",
+      error: "Could not read the service list.",
+      noMatch: "No services match the current filters.",
+      clear: "Clear filters",
     },
   },
   performance: {
