@@ -15,6 +15,9 @@ import type {
   ArgusSettings,
   Priority,
   ProcessDetails,
+  ServiceAction,
+  ServiceInfo,
+  ServiceStartType,
   ServiceStatus,
   Snapshot,
   TreeKillReport,
@@ -58,6 +61,15 @@ export function argusSettingsSet(settings: ArgusSettings): Promise<ArgusSettings
 
 export function argusProcessDetails(pid: number): Promise<ProcessDetails> {
   return invokeCommand<{ pid: number }, ProcessDetails>("argus_process_details", { pid });
+}
+
+/**
+ * A resolved process icon as a PNG data URL, or `null` while its metadata is
+ * still being resolved. Cache the result by id; the id stays valid for the
+ * life of the page.
+ */
+export function argusIcon(id: number): Promise<string | null> {
+  return invokeCommand<{ id: number }, string | null>("argus_icon", { id });
 }
 
 export function argusKillProcess(pid: number, createTime: number, force: boolean): Promise<void> {
@@ -104,6 +116,31 @@ export function argusServiceManage(
   return invokeCommand<{ action: string }, ServiceStatus>("argus_service_manage", { action });
 }
 
+/** Every service the SCM reports, with its cached configuration. */
+export function argusServicesList(): Promise<ServiceInfo[]> {
+  return invokeCommand<Record<string, never>, ServiceInfo[]>("argus_services_list", {});
+}
+
+/** Start, stop or restart one service. Resolves once the SCM accepted it. */
+export function argusServiceControl(name: string, action: ServiceAction): Promise<void> {
+  return invokeCommand<{ name: string; action: ServiceAction }, void>("argus_service_control", {
+    name,
+    action,
+  });
+}
+
+export function argusServiceStartType(name: string, startType: ServiceStartType): Promise<void> {
+  return invokeCommand<{ name: string; startType: ServiceStartType }, void>(
+    "argus_service_start_type",
+    { name, startType }
+  );
+}
+
+/** Open the Windows Services console in a separate process. */
+export function argusServicesConsole(): Promise<void> {
+  return invokeCommand<Record<string, never>, void>("argus_services_console", {});
+}
+
 const ARGUS_ERROR_CODES = new Set<string>([
   "not-found",
   "invalid-input",
@@ -130,6 +167,10 @@ export type {
   ArgusSettings,
   Priority,
   ProcessDetails,
+  ServiceAction,
+  ServiceInfo,
+  ServiceStartType,
+  ServiceState,
   ServiceStatus,
   Snapshot,
   TreeKillReport,

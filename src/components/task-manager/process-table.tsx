@@ -16,9 +16,11 @@ import {
 } from "@/lib/task-manager/process-sections";
 import { cn } from "@/lib/utils";
 import type { ProcessActions } from "./process-context-menu";
-import { PROCESS_GRID_COLUMNS, ProcessRowView } from "./process-row";
+import { ProcessRowView, processGridColumns } from "./process-row";
 
 const ROW_HEIGHT = 32;
+/** The sticky header sits above the rows inside the same scroller. */
+const HEADER_HEIGHT = 32;
 
 type Column = {
   key: ProcessSortKey | null;
@@ -31,12 +33,26 @@ const COLUMNS: readonly Column[] = [
   { key: "pid", labelKey: "taskManager.process.column.pid", align: "right" },
   { key: "cpu", labelKey: "taskManager.process.column.cpu", align: "right" },
   { key: "mem", labelKey: "taskManager.process.column.mem", align: "right" },
-  { key: "disk", labelKey: "taskManager.process.column.disk", align: "right" },
-  { key: "net", labelKey: "taskManager.process.column.net", align: "right" },
+  { key: "diskRead", labelKey: "taskManager.process.column.diskRead", align: "right" },
+  { key: "diskWrite", labelKey: "taskManager.process.column.diskWrite", align: "right" },
+  { key: "io", labelKey: "taskManager.process.column.io", align: "right" },
   { key: "gpu", labelKey: "taskManager.process.column.gpu", align: "right" },
-  { key: null, labelKey: "taskManager.process.column.user", align: "left" },
-  { key: null, labelKey: "taskManager.process.column.status", align: "left" },
+  { key: "threads", labelKey: "taskManager.process.column.threads", align: "right" },
+  { key: "handles", labelKey: "taskManager.process.column.handles", align: "right" },
 ];
+
+/** Only measured with the privileged service; hidden rather than shown empty. */
+const NET_COLUMN: Column = {
+  key: "net",
+  labelKey: "taskManager.process.column.net",
+  align: "right",
+};
+
+function columnsFor(showNetwork: boolean): readonly Column[] {
+  if (!showNetwork) return COLUMNS;
+  const gpuIndex = COLUMNS.findIndex((column) => column.key === "gpu");
+  return [...COLUMNS.slice(0, gpuIndex + 1), NET_COLUMN, ...COLUMNS.slice(gpuIndex + 1)];
+}
 
 export type ProcessTableProps = {
   rows: ProcessTableRow[];
@@ -45,7 +61,7 @@ export type ProcessTableProps = {
   sort: ProcessSort;
   actions: ProcessActions;
   onSortChange: (sort: ProcessSort) => void;
-  onSelect: (row: ProcessTableRow, openDetail: boolean) => void;
+  onSelect: (row: ProcessTableRow) => void;
   onToggle: (row: ProcessTableRow) => void;
 };
 
@@ -115,12 +131,15 @@ export function ProcessTable({
 }: ProcessTableProps) {
   const { t } = useAppTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const columns = columnsFor(showNetwork);
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     getItemKey: (index) => rows[index]?.key ?? index,
     overscan: 12,
+    // The header is part of the scrolled content; the window starts below it.
+    scrollMargin: HEADER_HEIGHT,
   });
 
   return (
@@ -130,16 +149,19 @@ export function ProcessTable({
       aria-label={t("taskManager.process.tableLabel")}
       className="border-border bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border"
     >
-      <div className="min-h-0 flex-1 overflow-x-auto">
-        <div className="flex h-full min-w-[900px] flex-col">
+      {/* One scroller for both axes: the sticky header keeps the columns
+          aligned with the rows, and the vertical scrollbar stays at the
+          viewport edge even while the table is wider than the pane. */}
+      <div ref={scrollRef} role="rowgroup" className="min-h-0 flex-1 overflow-auto">
+        <div className="min-w-[980px]">
           <div
             role="row"
             className={cn(
-              "text-muted-foreground bg-muted/40 grid h-8 shrink-0 items-center border-b text-[11px] font-medium",
-              PROCESS_GRID_COLUMNS
+              "text-muted-foreground bg-muted sticky top-0 z-10 grid h-8 items-center border-b text-[11px] font-medium",
+              processGridColumns(showNetwork)
             )}
           >
-            {COLUMNS.map((column) => (
+            {columns.map((column) => (
               <HeaderCell
                 key={column.labelKey}
                 column={column}
@@ -149,34 +171,32 @@ export function ProcessTable({
             ))}
           </div>
 
-          <div ref={scrollRef} role="rowgroup" className="min-h-0 flex-1 overflow-y-auto">
-            <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
-              {virtualizer.getVirtualItems().map((item) => {
-                const row = rows[item.index];
-                if (!row) return null;
-                return (
-                  <div
-                    key={item.key}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      transform: `translateY(${item.start}px)`,
-                    }}
-                  >
-                    <ProcessRowView
-                      row={row}
-                      selected={row.kind === "process" && row.key === selectedKey}
-                      showNetwork={showNetwork}
-                      actions={actions}
-                      onSelect={onSelect}
-                      onToggle={onToggle}
-                    />
-                  </div>
-                );
-              })}
-            </div>
+          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+            {virtualizer.getVirtualItems().map((item) => {
+              const row = rows[item.index];
+              if (!row) return null;
+              return (
+                <div
+                  key={item.key}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${item.start - HEADER_HEIGHT}px)`,
+                  }}
+                >
+                  <ProcessRowView
+                    row={row}
+                    selected={row.kind === "process" && row.key === selectedKey}
+                    showNetwork={showNetwork}
+                    actions={actions}
+                    onSelect={onSelect}
+                    onToggle={onToggle}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

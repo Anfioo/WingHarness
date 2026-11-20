@@ -83,9 +83,9 @@ WingHarness 源自作者自己的私有工作流应用
   预览的两半各有一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
   指向本项目的 `LICENSE`。
 - **Argus** 是 AGPL-3.0-or-later，与本项目同属一个许可证家族，因此移植的两个
-  crate 保留 AGPL 声明并指向本项目的 `LICENSE`。只搬了核心监控链路：历史、规则、
-  服务目录、启动项、连接、文件占用、句柄、PawnIO 驱动、传感器服务与任务管理器替换
-  均未移植。
+  crate 保留 AGPL 声明并指向本项目的 `LICENSE`。搬了核心监控链路与服务目录（后者
+  用于任务管理器的服务标签和特权服务的服务控制操作）：历史、规则、启动项、连接、
+  文件占用、句柄、PawnIO 驱动、传感器服务与任务管理器替换均未移植。
 - **OneMail** 是 AGPL-3.0-only，与本项目相同。只搬了邮件引擎、预处理器与 HTML 转
   文本；OAuth、Gmail/Graph 同步、AI、备份与后台 supervisor 均未移植。
 

@@ -275,11 +275,47 @@ export type GpuStats = {
   memoryClockMhz: number | null;
 };
 
+export type BatteryInfo = {
+  id: string;
+  name: string;
+  manufacturer: string;
+  serial: string;
+  /** Four-letter code, e.g. `LION`, `LiP`. */
+  chemistry: string;
+  /** mWh; null when the battery reports relative units only. */
+  designedCapacity: number | null;
+  fullCapacity: number | null;
+  cycleCount: number | null;
+  /** `YYYY-MM-DD`. */
+  manufactured: string | null;
+};
+
+export type BatteryState = "charging" | "discharging" | "full" | "idle";
+
+export type BatteryStats = {
+  info: BatteryInfo;
+  /** 0–100. */
+  percent: number;
+  /** mWh remaining. */
+  capacity: number | null;
+  /** mW into the battery; negative while discharging. */
+  rate: number | null;
+  /** mV. */
+  voltage: number | null;
+  state: BatteryState;
+  pluggedIn: boolean;
+  critical: boolean;
+  /** Seconds until empty, while discharging. */
+  remaining: number | null;
+  /** °C. */
+  temperature: number | null;
+};
+
 /**
  * Device-level telemetry for the performance tab.
  *
- * The battery, thermal, power and kernel-sensor sources are deliberately
- * absent here as well as in the Rust struct.
+ * The thermal, power and kernel-sensor sources are deliberately absent here
+ * as well as in the Rust struct.
  */
 export type Hardware = {
   cpu: CpuInfo;
@@ -290,6 +326,7 @@ export type Hardware = {
   disks: DiskStats[];
   nics: NicStats[];
   gpus: GpuStats[];
+  batteries: BatteryStats[];
 };
 
 export type Snapshot = {
@@ -308,4 +345,37 @@ export type ServiceStatus = {
   version: string | null;
   error: string | null;
   incompatible: boolean;
+};
+
+export type ServiceState =
+  | "stopped"
+  | "startPending"
+  | "stopPending"
+  | "running"
+  | "continuePending"
+  | "pausePending"
+  | "paused";
+
+export type ServiceStartType = "boot" | "system" | "auto" | "autoDelayed" | "manual" | "disabled";
+
+export type ServiceAction = "start" | "stop" | "restart";
+
+/** One row of the services tab, mirrored from `argus-core/src/services.rs`. */
+export type ServiceInfo = {
+  /** Key name, e.g. `Dnscache`. */
+  name: string;
+  displayName: string;
+  description: string | null;
+  state: ServiceState;
+  /** Null when the configuration could not be read. */
+  startType: ServiceStartType | null;
+  /** Hosting process; 0 when not running. */
+  pid: number;
+  /** Command line of the service binary. */
+  path: string | null;
+  account: string | null;
+  /** The service accepts stop requests. */
+  canStop: boolean;
+  /** Shares its process with other services (svchost). */
+  shared: boolean;
 };

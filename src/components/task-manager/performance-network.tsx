@@ -1,98 +1,141 @@
 // Ported from Argus (https://github.com/Ray-lea/Argus), AGPL-3.0-or-later.
 // See docs/UPSTREAM_PROJECTS.md for the porting record.
 
-// Network throughput: the summed received and sent curves, then one row per
-// adapter. An adapter may report no traffic at all; the row still shows it so
-// an idle link is distinguishable from a missing one.
+// One network adapter: received and sent throughput, the connection's kind and
+// speed, and its addresses. The device list chooses which adapter this shows.
 
-import { formatRate } from "@/components/task-manager/format";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { formatBitRate, formatLinkSpeed, formatRate } from "@/components/task-manager/format";
 import {
+  PerformanceDetailHeader,
   PerformanceEmpty,
-  PerformancePanel,
+  PerformanceSpec,
+  PerformanceSpecs,
   PerformanceStat,
+  PerformanceStats,
+  PerformanceSummary,
   type PerformanceData,
 } from "@/components/task-manager/performance-panel";
 import { TraceChart } from "@/components/task-manager/trace-chart";
 import { useAppTranslation } from "@/hooks/use-app-translation";
-import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
-import { historyPeak, historyValues } from "@/lib/task-manager/chart-history";
+import { historyPeak, historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { rateCeiling } from "@/lib/task-manager/chart-scale";
+import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
 
-export function PerformanceNetwork({ snapshot, history }: PerformanceData) {
+const ADDRESSES_SHOWN = 3;
+
+function Addresses({ list }: { list: readonly string[] }) {
   const { t } = useAppTranslation();
-  const nics = snapshot.hardware.nics;
-  const totalReceived = nics.reduce((sum, nic) => sum + nic.rx, 0);
-  const totalSent = nics.reduce((sum, nic) => sum + nic.tx, 0);
-  const peak = Math.max(
-    historyPeak(history, "netRx") ?? 0,
-    historyPeak(history, "netTx") ?? 0,
-    1024
-  );
+  const [all, setAll] = useState(false);
+  const shown = all ? list : list.slice(0, ADDRESSES_SHOWN);
+  if (list.length === 0) return <span>—</span>;
 
   return (
-    <PerformancePanel id="performance-network" title={t("taskManager.performance.network.title")}>
-      <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <PerformanceStat
-          label={t("taskManager.performance.network.received")}
-          value={formatRate(totalReceived)}
-        />
-        <PerformanceStat
-          label={t("taskManager.performance.network.sent")}
-          value={formatRate(totalSent)}
-        />
-      </div>
-
-      {nics.length === 0 ? (
-        <PerformanceEmpty>{t("taskManager.performance.network.empty")}</PerformanceEmpty>
-      ) : (
-        <>
-          <TraceChart
-            series={[
-              {
-                label: t("taskManager.performance.network.received"),
-                color: CHART_COLORS.netReceived,
-                points: historyValues(history, "netRx"),
-              },
-              {
-                label: t("taskManager.performance.network.sent"),
-                color: CHART_COLORS.netSent,
-                points: historyValues(history, "netTx"),
-              },
-            ]}
-            max={rateCeiling(peak)}
-            unit="rate"
-            height={120}
-            label={t("taskManager.performance.chart.label")}
-          />
-
-          <ul className="flex flex-col gap-2">
-            {nics.map((nic) => (
-              <li
-                key={nic.info.id}
-                className="border-border/60 flex flex-wrap items-center justify-between gap-2 border-t pt-2 first:border-t-0 first:pt-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-medium">
-                    {nic.info.description || nic.info.name}
-                  </p>
-                  <p className="text-muted-foreground truncate text-[10px]">
-                    {nic.info.name}
-                    {nic.info.ipv4.length > 0 ? ` · ${nic.info.ipv4.join(" ")}` : ""}
-                  </p>
-                </div>
-                <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] tabular-nums">
-                  <span>
-                    {t("taskManager.performance.network.received")} {formatRate(nic.rx)}
-                  </span>
-                  <span>
-                    {t("taskManager.performance.network.sent")} {formatRate(nic.tx)}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </>
+    <span className="flex flex-col items-end gap-0.5">
+      {shown.map((address) => (
+        <span key={address} className="font-mono select-text">
+          {address}
+        </span>
+      ))}
+      {list.length > ADDRESSES_SHOWN && (
+        <button
+          type="button"
+          aria-expanded={all}
+          onClick={() => setAll(!all)}
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[10px] underline-offset-2 hover:underline"
+        >
+          {all
+            ? t("taskManager.performance.network.showFewer")
+            : t("taskManager.performance.network.showAll", { count: list.length })}
+          {all ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+        </button>
       )}
-    </PerformancePanel>
+    </span>
+  );
+}
+
+export function PerformanceNetwork({
+  snapshot,
+  history,
+  intervalMs,
+  id,
+}: PerformanceData & { id: string }) {
+  const { t } = useAppTranslation();
+  const nic = snapshot.hardware.nics.find((entry) => entry.info.id === id);
+
+  if (!nic) {
+    return <PerformanceEmpty>{t("taskManager.performance.network.disconnected")}</PerformanceEmpty>;
+  }
+
+  const prefix = `nic.${nic.info.id}`;
+  const peak = Math.max(
+    historyPeak(history, `${prefix}.rx`) ?? 0,
+    historyPeak(history, `${prefix}.tx`) ?? 0,
+    64 * 1024
+  );
+  const spanSeconds = historySpanSeconds(intervalMs);
+
+  return (
+    <div className="flex min-h-full flex-col gap-4">
+      <PerformanceDetailHeader title={nic.info.name} model={nic.info.description || undefined} />
+
+      <TraceChart
+        title={t("taskManager.performance.network.throughput")}
+        series={[
+          {
+            label: t("taskManager.performance.network.received"),
+            color: CHART_COLORS.netReceived,
+            points: historyValues(history, `${prefix}.rx`),
+            fill: true,
+          },
+          {
+            label: t("taskManager.performance.network.sent"),
+            color: CHART_COLORS.netSent,
+            points: historyValues(history, `${prefix}.tx`),
+            dashed: true,
+          },
+        ]}
+        max={rateCeiling(peak)}
+        unit="rate"
+        spanSeconds={spanSeconds}
+        fill
+        label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
+      />
+
+      <PerformanceSummary>
+        <PerformanceStats>
+          <PerformanceStat
+            label={t("taskManager.performance.network.received")}
+            value={formatRate(nic.rx)}
+            detail={formatBitRate(nic.rx)}
+          />
+          <PerformanceStat
+            label={t("taskManager.performance.network.sent")}
+            value={formatRate(nic.tx)}
+            detail={formatBitRate(nic.tx)}
+          />
+        </PerformanceStats>
+        <PerformanceSpecs>
+          <PerformanceSpec label={t("taskManager.performance.network.connectionType")}>
+            {t(`taskManager.performance.network.kind.${nic.info.kind}`)}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.linkSpeed")}>
+            {nic.info.linkSpeed > 0
+              ? `${formatLinkSpeed(nic.info.linkSpeed)} · ${formatRate(nic.info.linkSpeed / 8, 0)}`
+              : "—"}
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.ipv4")}>
+            <Addresses list={nic.info.ipv4} />
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.ipv6")}>
+            <Addresses list={nic.info.ipv6} />
+          </PerformanceSpec>
+          <PerformanceSpec label={t("taskManager.performance.network.mac")}>
+            {nic.info.mac ?? "—"}
+          </PerformanceSpec>
+        </PerformanceSpecs>
+      </PerformanceSummary>
+    </div>
   );
 }

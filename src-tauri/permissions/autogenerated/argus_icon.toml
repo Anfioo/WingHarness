@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-icon"
+description = "Enables the argus_icon command without any pre-configured scope."
+commands.allow = ["argus_icon"]
+
+[[permission]]
+identifier = "deny-argus-icon"
+description = "Denies the argus_icon command without any pre-configured scope."
+commands.deny = ["argus_icon"]

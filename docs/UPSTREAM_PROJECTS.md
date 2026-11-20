@@ -94,9 +94,11 @@ for the project name (2026-11-05).
   GPL upstreams point at the project's own `LICENSE`.
 - **Argus** is AGPL-3.0-or-later, the same licence family as this project, so
   the ported crates keep the AGPL notice and point at the project's own
-  `LICENSE`. Only the core monitoring path came across: history, rules,
-  services, startup items, connections, file locks, handles, the PawnIO driver,
-  the sensor service and the Task Manager replacement were not ported.
+  `LICENSE`. The monitoring path and the service catalogue came across — the
+  latter behind the task manager's services tab and the privileged service's
+  service-control operations; history, rules, startup items, connections, file
+  locks, handles, the PawnIO driver, the sensor service and the Task Manager
+  replacement were not ported.
 - **OneMail** is AGPL-3.0-only, like this project. Only the mail engine, the
   preparer and the HTML-to-text conversion were carried over; OAuth,
   Gmail/Graph sync, AI, backup and the background supervisor were not ported.

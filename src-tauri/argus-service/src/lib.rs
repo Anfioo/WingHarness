@@ -5,8 +5,9 @@
 //!
 //! The service runs as LocalSystem, serves a named pipe to the account that
 //! installed it, and exposes a fixed operation set: process termination,
-//! priority and efficiency mode, per-process network counters and per-process
-//! disk counters. It creates no window and starts no webview.
+//! priority and efficiency mode, service control and start type, per-process
+//! network counters and per-process disk counters. It creates no window and
+//! starts no webview.
 
 mod background;
 mod diagnostics;
@@ -55,8 +56,10 @@ const REFRESH_ARG: &str = "--wingharness-service-refresh";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The operation-set version. It starts above 1 on purpose: a Ping is always
 /// sent in the version-one envelope so the host can discover an older service,
-/// so 1 cannot also identify this operation set.
-const PROTOCOL: u32 = 2;
+/// so 1 cannot also identify this operation set. Version 3 added service
+/// control and start-type changes; a version-2 service is reported as outdated
+/// instead of denying the new operations.
+const PROTOCOL: u32 = 3;
 
 /// Handles service and helper modes before the host starts Tauri, its single
 /// instance guard or its sampler. None means a normal launch.

@@ -4,6 +4,7 @@
 //! Versioned operation whitelist and the argument checks around it.
 
 use argus_core::actions::{self, ActionError, Priority};
+use argus_core::services::{ServiceAction, ServiceCatalog, StartType};
 use serde::{Deserialize, Serialize};
 
 pub const MAX_FRAME: usize = 16 * 1024;
@@ -12,6 +13,7 @@ pub const MAX_REPLY: usize = 1024 * 1024;
 pub(crate) struct Context {
     network: crate::network::NetworkMonitor,
     disk: crate::disk::DiskMonitor,
+    services: ServiceCatalog,
 }
 
 impl Context {
@@ -19,6 +21,7 @@ impl Context {
         Self {
             network: crate::network::NetworkMonitor::spawn(),
             disk: crate::disk::DiskMonitor::new(),
+            services: ServiceCatalog::default(),
         }
     }
 
@@ -27,6 +30,7 @@ impl Context {
         Self {
             network: crate::network::NetworkMonitor::disabled(),
             disk: crate::disk::DiskMonitor::disabled(),
+            services: ServiceCatalog::default(),
         }
     }
 }
@@ -53,6 +57,17 @@ pub enum Operation {
         pid: u32,
         create_time: i64,
         on: bool,
+    },
+    ControlService {
+        name: String,
+        action: ServiceAction,
+    },
+    // The enum's `rename_all` renames variants only, so camelCase fields need
+    // the rule at variant level.
+    #[serde(rename_all = "camelCase")]
+    ServiceStartType {
+        name: String,
+        start_type: StartType,
     },
 }
 
@@ -101,6 +116,11 @@ impl Operation {
                 }
             }
             Self::Ping | Self::NetworkSnapshot | Self::DiskSnapshot {} => {}
+            Self::ControlService { name, .. } | Self::ServiceStartType { name, .. } => {
+                if name.trim().is_empty() || name.len() > 256 {
+                    return Err(ActionError::Refused);
+                }
+            }
         }
         Ok(())
     }
@@ -148,6 +168,10 @@ pub fn execute(operation: Operation, context: &Context, client_pid: u32) -> Repl
             create_time,
             on,
         } => actions::set_efficiency_mode(pid, create_time, on),
+        Operation::ControlService { name, action } => context.services.control(&name, action),
+        Operation::ServiceStartType { name, start_type } => {
+            context.services.set_start_type(&name, start_type)
+        }
     };
     result.map_or_else(Reply::Error, |_| Reply::Done)
 }
@@ -246,6 +270,65 @@ mod tests {
             }
             .validate()
             .is_err()
+        );
+    }
+
+    #[test]
+    fn service_operations_are_fixed_and_validated() {
+        let operation: Operation = serde_json::from_str(
+            r#"{"op":"controlService","name":"Spooler","action":"restart"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            operation,
+            Operation::ControlService { action: ServiceAction::Restart, .. }
+        ));
+        let operation: Operation = serde_json::from_str(
+            r#"{"op":"serviceStartType","name":"Spooler","startType":"autoDelayed"}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            operation,
+            Operation::ServiceStartType {
+                start_type: StartType::AutoDelayed,
+                ..
+            }
+        ));
+
+        // Unknown actions, snake_case fields and extra fields are rejected.
+        for bad in [
+            r#"{"op":"controlService","name":"x","action":"pause"}"#,
+            r#"{"op":"serviceStartType","name":"x","start_type":"auto"}"#,
+            r#"{"op":"controlService","name":"x","action":"start","pid":1}"#,
+            r#"{"op":"serviceStartType","name":"x","startType":"boot"}"#,
+        ] {
+            assert!(serde_json::from_str::<Operation>(bad).is_err(), "{bad}");
+        }
+
+        // An empty or overlong name never reaches the SCM.
+        for operation in [
+            Operation::ControlService {
+                name: String::new(),
+                action: ServiceAction::Start,
+            },
+            Operation::ControlService {
+                name: "   ".into(),
+                action: ServiceAction::Stop,
+            },
+            Operation::ServiceStartType {
+                name: "x".repeat(257),
+                start_type: StartType::Manual,
+            },
+        ] {
+            assert!(operation.validate().is_err());
+        }
+        assert!(
+            Operation::ControlService {
+                name: "Spooler".into(),
+                action: ServiceAction::Start,
+            }
+            .validate()
+            .is_ok()
         );
     }
 
