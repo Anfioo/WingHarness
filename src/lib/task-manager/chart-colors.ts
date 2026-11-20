@@ -2,17 +2,20 @@
 // See docs/UPSTREAM_PROJECTS.md for the porting record.
 
 // Chart colors, expressed as CSS values so the same token paints the legend
-// swatch in the DOM and the line on the canvas. The graph palette is stored as
-// bare HSL triplets, hence the `hsl(...)` wrapper.
+// swatch in the DOM and the line on the canvas. The performance page has its
+// own palette (`--perf-*`): one hue per resource, distinct in both themes.
 
 export const CHART_COLORS = {
-  cpu: "var(--primary)",
-  memory: "hsl(var(--info))",
-  diskRead: "hsl(var(--graph-0))",
-  diskWrite: "hsl(var(--graph-3))",
-  netReceived: "hsl(var(--success))",
-  netSent: "hsl(var(--info))",
-  gpu: "hsl(var(--graph-3))",
+  cpu: "var(--perf-cpu)",
+  /** Efficiency cores: a second hue beside the performance cores'. */
+  cpuE: "var(--perf-cpu-e)",
+  memory: "var(--perf-mem)",
+  diskRead: "var(--perf-io)",
+  diskWrite: "var(--perf-io)",
+  netReceived: "var(--perf-net)",
+  netSent: "var(--perf-net)",
+  gpu: "var(--perf-gpu)",
+  battery: "var(--perf-bat)",
   grid: "var(--border)",
   axis: "var(--muted-foreground)",
   /** The unallocated part of a composition bar. */

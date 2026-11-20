@@ -211,6 +211,14 @@
   --graph-7: 292 84% 61%;
   --graph-8: 217 91% 60%;
   --graph-9: 24 94% 50%;
+  /* Performance charts: one hue per resource, light theme (Argus palette). */
+  --perf-cpu: #0a8bbd;
+  --perf-cpu-e: #3a6fd6;
+  --perf-mem: #6a52ec;
+  --perf-io: #c27a00;
+  --perf-net: #1f9d55;
+  --perf-gpu: #d6336c;
+  --perf-bat: #6b8e00;
   --syntax-keyword: 292 70% 42%;
   --syntax-string: 95 60% 30%;
   --syntax-number: 30 90% 38%;
@@ -259,6 +267,14 @@
   --graph-tail-mid: 0.07;
   --graph-tail-end: 0.03;
   --graph-tail-edge: 0.32;
+  /* Performance charts: the light hues lifted for a dark surface. */
+  --perf-cpu: #46cff4;
+  --perf-cpu-e: #8eb2ff;
+  --perf-mem: #9b8cff;
+  --perf-io: #f4b446;
+  --perf-net: #4fd18b;
+  --perf-gpu: #ff7aa8;
+  --perf-bat: #b6dc4b;
   --syntax-keyword: 292 60% 68%;
   --syntax-string: 95 40% 62%;
   --syntax-number: 30 90% 65%;

@@ -6,9 +6,11 @@
 //! the service clients, and never touches `ArgusState` or performs a service
 //! round trip while a lock is held.
 
+use std::sync::Arc;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
+use argus_core::meta::MetaStore;
 use argus_core::{Collector, Snapshot};
 use argus_service::{DiskClient, NetworkClient};
 use tauri::ipc::Channel;
@@ -40,12 +42,13 @@ pub struct Sampler {
 
 impl Sampler {
     /// Starts the sampling thread. The collector is built there, so its setup
-    /// overlaps the page's startup instead of delaying the command.
-    pub fn spawn() -> Self {
+    /// overlaps the page's startup instead of delaying the command. `meta` is
+    /// shared with the host, which serves the cached icons to the page.
+    pub fn spawn(meta: Arc<MetaStore>) -> Self {
         let (tx, rx) = mpsc::channel::<Control>();
         std::thread::Builder::new()
             .name("wingharness-argus-sampler".into())
-            .spawn(move || run(rx))
+            .spawn(move || run(rx, meta))
             .expect("spawn the task manager sampler thread");
         Self { tx }
     }
@@ -57,8 +60,8 @@ impl Sampler {
     }
 }
 
-fn run(rx: Receiver<Control>) {
-    let mut collector = Collector::new();
+fn run(rx: Receiver<Control>, meta: Arc<MetaStore>) {
+    let mut collector = Collector::new(meta);
     // Needs administrator rights; without them the network columns stay empty.
     collector.enable_process_network(NETWORK_SESSION);
     let mut network = NetworkClient::spawn();

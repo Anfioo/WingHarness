@@ -12,10 +12,10 @@ Adapted from [Argus](https://github.com/Ray-lea/Argus).
 
 ## Status
 
-Ported, then trimmed. Sampling, process actions, details and hardware telemetry
-are carried over with local edits; the history store, rules, service catalogue,
-startup items, connections, file-lock and handle queries, theme and every
-sensor module were not ported. Every ported source file keeps a short
+Ported, then trimmed. Sampling, process actions, details, hardware telemetry and
+the service catalogue are carried over with local edits; the history store,
+rules, startup items, connections, file-lock and handle queries, theme and
+every sensor module were not ported. Every ported source file keeps a short
 attribution header. Files written for this project are marked as such below.
 
 ## What came from where
@@ -31,14 +31,15 @@ attribution header. Files written for this project are marked as such below.
 | `src/image_paths.rs` | `paths.rs`, renamed to leave `paths.rs` for the data directory |
 | `src/nt.rs`, `src/util.rs`, `src/pdh.rs` | the same files |
 | `src/gpu_process.rs`, `src/net_process.rs`, `src/disk_process.rs` | the same files |
+| `src/services.rs` | `services.rs` (the `tr!` stop-timeout message replaced by English) |
 | `src/diagnostics.rs` | `diagnostics.rs`, with the i18n layer removed |
-| `src/hardware/*` | `hardware/*`, minus `battery`, `sensors` and `kernel_sensors` |
+| `src/hardware/*` | `hardware/*`, minus `sensors` and `kernel_sensors` (battery is included) |
 | `src/lib.rs` | `lib.rs` |
 | `src/error.rs`, `src/models.rs`, `src/paths.rs`, `src/store.rs` | No direct counterpart; written for this app |
 
 The host glue is not in this crate: `src-tauri/src/commands/argus.rs` and
 `src-tauri/src/argus/` are a rewrite of upstream's
-`src-tauri/src/{sampler,commands,settings}.rs` for the thirteen-command surface
+`src-tauri/src/{sampler,commands,settings}.rs` for the eighteen-command surface
 this app needs.
 
 ## Divergences at import
@@ -50,15 +51,19 @@ this app needs.
   window in React state instead; nothing is written to disk.
 - **No rules.** `rules.rs` and the automation hooks in the collector are gone;
   only manual priority and efficiency changes remain.
-- **No service catalogue, startup items, connections, file locks or handles.**
-  `services.rs`, `startup*`, `connections.rs`, `filelock.rs` and `handles.rs`
-  were not ported, and the NT structures only they used were removed from
-  `nt.rs`.
-- **No sensors.** `hardware/{battery,sensors,kernel_sensors}.rs` were dropped,
-  and with them `Hardware.cpuIdle` / `CpuIdle`. `Hardware.cpuMhz` stays `None`
-  and `coreMhz` stays empty because their only producer was `sensors.rs`; the
-  page renders both as unavailable. A real frequency source would need a new
-  PDH collector.
+- **Service catalogue ported; startup, connections, file locks and handles are
+  not.** `services.rs` is carried over as-is apart from the English stop
+  timeout: one `EnumServicesStatusExW` pass for state and PID, a 60-second
+  cache for the three per-service configuration reads, and the SCM and
+  registry/MUI lookups behind the services tab. `startup*`, `connections.rs`,
+  `filelock.rs` and `handles.rs` were not ported, and the NT structures only
+  they used were removed from `nt.rs`.
+- **No sensors.** `hardware/{sensors,kernel_sensors}.rs` were dropped, and with
+  them `Hardware.cpuIdle` / `CpuIdle`. `Hardware.cpuMhz` stays `None` and
+  `coreMhz` stays empty because their only producer was `sensors.rs`; the page
+  renders both as unavailable. A real frequency source would need a new PDH
+  collector. `hardware/battery.rs` stays: the performance page's device list
+  shows one entry per battery.
 - **No i18n.** `i18n.rs` and the `tr!` macro are gone. Rust returns English
   strings only; the frontend translates by error code.
 - **Typed errors.** `error.rs` (`ArgusError` / `ArgusErrorCode`, serialized as
@@ -67,9 +72,10 @@ this app needs.
 - **Settings store.** `<data dir>/argus/settings.json` (`store.rs`) is
   first-party: atomic staged write, corrupt-file backup and interval clamping.
   Upstream kept its settings in the host crate.
-- **`Collector::new()` takes no arguments.** Upstream passed an
-  `Arc<MetaStore>`; here the collector owns one. `Collector` has no history or
-  rules parameters.
+- **`Collector::new(meta)` takes the shared `Arc<MetaStore>`.** Upstream did the
+  same; the host creates the store so `argus_icon` can serve the cached PNGs to
+  the page after the sampler has gone. `Collector` has no history or rules
+  parameters.
 - **No `list_lineage`.** The copy in `process.rs` was unused (the tree walk in
   `actions.rs` is the one callers use) and was deleted.
 - **`ProcessRow` deliberately has no `user` field.** Reading each process's

@@ -34,6 +34,11 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useTaskManager } from "@/hooks/use-task-manager";
 import { procKey, processLabel } from "@/lib/task-manager/process-identity";
 import {
+  pushProcessHistory,
+  processSamples,
+  type ProcessHistory,
+} from "@/lib/task-manager/process-history";
+import {
   buildProcessRows,
   countDescendants,
   DEFAULT_PROCESS_SORT,
@@ -41,9 +46,11 @@ import {
   type ProcessTableRow,
   type ProcessView,
 } from "@/lib/task-manager/process-sections";
-import { ProcessDetail } from "@/components/task-manager/process-detail";
+import { ProcessDetailPanel } from "@/components/task-manager/process-detail-panel";
 import { ProcessTable } from "@/components/task-manager/process-table";
 import { ProcessToolbar } from "@/components/task-manager/process-toolbar";
+import { ProcessVitals } from "@/components/task-manager/process-vitals";
+import { clampDetailWidth, DETAIL_WIDTH_DEFAULT } from "@/components/task-manager/process-splitter";
 import type { ProcessActions } from "@/components/task-manager/process-context-menu";
 
 type PendingAction =
@@ -113,7 +120,8 @@ export function ProcessesTab() {
   const [expandedGroups, setExpandedGroups] = useState<ReadonlySet<string>>(() => new Set());
   const [collapsedNodes, setCollapsedNodes] = useState<ReadonlySet<string>>(() => new Set());
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailWidth, setDetailWidth] = useState(DETAIL_WIDTH_DEFAULT);
+  const [processHistory, setProcessHistory] = useState<ProcessHistory>(() => new Map());
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [selfNames, setSelfNames] = useState<ReadonlySet<string>>(
     () => new Set(["wingharness", "wingharness.exe"])
@@ -162,12 +170,18 @@ export function ProcessesTab() {
     [processes, selectedKey]
   );
 
-  // A snapshot no longer contains the selected process: it exited.
+  // One point per frame for every running process; the panel charts the
+  // selected one. A paused store stops delivering frames, so the window
+  // freezes with the table.
   useEffect(() => {
-    if (selectedKey !== null && selectedProcess === null) {
-      setSelectedKey(null);
-      setDetailOpen(false);
-    }
+    if (!snapshot) return;
+    setProcessHistory((current) => pushProcessHistory(current, snapshot.processes));
+  }, [snapshot]);
+
+  // A snapshot no longer contains the selected process: it exited, and the
+  // panel falls back to the hardware overview.
+  useEffect(() => {
+    if (selectedKey !== null && selectedProcess === null) setSelectedKey(null);
   }, [selectedKey, selectedProcess]);
 
   const runAction = useCallback(
@@ -285,10 +299,9 @@ export function ProcessesTab() {
     else setCollapsedNodes((current) => toggleInSet(current, row.key));
   }, []);
 
-  const selectRow = useCallback((row: ProcessTableRow, openDetail: boolean) => {
+  const selectRow = useCallback((row: ProcessTableRow) => {
     if (row.kind !== "process") return;
     setSelectedKey(row.key);
-    if (openDetail) setDetailOpen(true);
   }, []);
 
   const confirmPending = () => {
@@ -319,6 +332,8 @@ export function ProcessesTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
+      <ProcessVitals />
+
       <ProcessToolbar
         query={query}
         onQueryChange={setQuery}
@@ -333,59 +348,62 @@ export function ProcessesTab() {
         serviceReady={serviceReady}
       />
 
-      {!snapshot && page.loading ? (
-        <ProcessSkeleton />
-      ) : !snapshot && page.error ? (
-        <ProcessEmpty
-          icon={<AlertCircle className="size-6" />}
-          title={t("taskManager.process.error.title")}
-          body={t(argusErrorKey(page.error.code))}
-          action={
-            <Button variant="outline" size="sm" onClick={() => void refresh()}>
-              {t("taskManager.actions.refresh")}
-            </Button>
-          }
-        />
-      ) : snapshot && processes.length === 0 ? (
-        <ProcessEmpty
-          icon={<AlertCircle className="size-6" />}
-          title={t("taskManager.process.empty.title")}
-          body={t("taskManager.empty.processes")}
-        />
-      ) : rows.length === 0 ? (
-        <ProcessEmpty
-          icon={<AlertCircle className="size-6" />}
-          title={t("taskManager.process.noMatch.title")}
-          body={t("taskManager.process.noMatch.body", { query: deferredQuery.trim() })}
-          action={
-            <Button variant="outline" size="sm" onClick={() => setQuery("")}>
-              {t("taskManager.process.search.clear")}
-            </Button>
-          }
-        />
-      ) : (
-        <ProcessTable
-          rows={rows}
-          selectedKey={selectedKey}
-          showNetwork={snapshot?.processNetwork ?? false}
-          sort={sort}
-          actions={actions}
-          onSortChange={setSort}
-          onSelect={selectRow}
-          onToggle={toggleRow}
-        />
-      )}
+      <div className="flex min-h-0 flex-1 gap-2">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {!snapshot && page.loading ? (
+            <ProcessSkeleton />
+          ) : !snapshot && page.error ? (
+            <ProcessEmpty
+              icon={<AlertCircle className="size-6" />}
+              title={t("taskManager.process.error.title")}
+              body={t(argusErrorKey(page.error.code))}
+              action={
+                <Button variant="outline" size="sm" onClick={() => void refresh()}>
+                  {t("taskManager.actions.refresh")}
+                </Button>
+              }
+            />
+          ) : snapshot && processes.length === 0 ? (
+            <ProcessEmpty
+              icon={<AlertCircle className="size-6" />}
+              title={t("taskManager.process.empty.title")}
+              body={t("taskManager.empty.processes")}
+            />
+          ) : rows.length === 0 ? (
+            <ProcessEmpty
+              icon={<AlertCircle className="size-6" />}
+              title={t("taskManager.process.noMatch.title")}
+              body={t("taskManager.process.noMatch.body", { query: deferredQuery.trim() })}
+              action={
+                <Button variant="outline" size="sm" onClick={() => setQuery("")}>
+                  {t("taskManager.process.search.clear")}
+                </Button>
+              }
+            />
+          ) : (
+            <ProcessTable
+              rows={rows}
+              selectedKey={selectedKey}
+              showNetwork={snapshot?.processNetwork ?? false}
+              sort={sort}
+              actions={actions}
+              onSortChange={setSort}
+              onSelect={selectRow}
+              onToggle={toggleRow}
+            />
+          )}
+        </div>
 
-      <ProcessDetail
-        process={selectedProcess}
-        open={detailOpen}
-        processNetwork={snapshot?.processNetwork ?? false}
-        actions={actions}
-        onOpenChange={(open) => {
-          setDetailOpen(open);
-          if (!open) setSelectedKey(null);
-        }}
-      />
+        <ProcessDetailPanel
+          process={selectedProcess}
+          processNetwork={snapshot?.processNetwork ?? false}
+          actions={actions}
+          samples={selectedKey ? processSamples(processHistory, selectedKey) : []}
+          width={detailWidth}
+          onWidthChange={(width) => setDetailWidth(clampDetailWidth(width))}
+          onClose={() => setSelectedKey(null)}
+        />
+      </div>
 
       <AlertDialog
         open={pending !== null}

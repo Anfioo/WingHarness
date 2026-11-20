@@ -174,7 +174,7 @@ pnpm dlx shadcn@latest add button
 | [SERVERS.zh-CN.md](./docs/features/SERVERS.zh-CN.md) | SSH / SFTP 服务器管理 |
 | [SVN.zh-CN.md](./docs/features/SVN.zh-CN.md) | 原生 Subversion 工作副本 |
 | [SYSTOOLS.zh-CN.md](./docs/features/SYSTOOLS.zh-CN.md) | Windows 系统维护控制台 |
-| [TASK_MANAGER.zh-CN.md](./docs/features/TASK_MANAGER.zh-CN.md) | 进程三视图、性能图表与可选特权服务 |
+| [TASK_MANAGER.zh-CN.md](./docs/features/TASK_MANAGER.zh-CN.md) | 进程三视图、性能图表、服务管理与可选特权服务 |
 | [TERMINAL.zh-CN.md](./docs/features/TERMINAL.zh-CN.md) | 伪终端页面 |
 | [THIRD_PARTY_LICENSES.zh-CN.md](./docs/features/THIRD_PARTY_LICENSES.zh-CN.md) | 关于窗口中的第三方许可对话框 |
 | [TRAY_MENU.zh-CN.md](./docs/features/TRAY_MENU.zh-CN.md) | 托盘弹窗、它的应用二级菜单，以及挑选这些应用的 Scoop 页签 |

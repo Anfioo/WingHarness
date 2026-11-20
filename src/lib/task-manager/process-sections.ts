@@ -11,7 +11,18 @@ import { createProcessMatcher } from "./process-search";
 
 export type ProcessView = "apps" | "tree" | "list";
 
-export type ProcessSortKey = "name" | "pid" | "cpu" | "mem" | "disk" | "net" | "gpu";
+export type ProcessSortKey =
+  | "name"
+  | "pid"
+  | "cpu"
+  | "mem"
+  | "diskRead"
+  | "diskWrite"
+  | "io"
+  | "gpu"
+  | "net"
+  | "threads"
+  | "handles";
 
 export type ProcessSort = { key: ProcessSortKey; desc: boolean };
 
@@ -24,9 +35,13 @@ export const SORT_DESC_FIRST: Record<ProcessSortKey, boolean> = {
   pid: false,
   cpu: true,
   mem: true,
-  disk: true,
-  net: true,
+  diskRead: true,
+  diskWrite: true,
+  io: true,
   gpu: true,
+  net: true,
+  threads: true,
+  handles: true,
 };
 
 /**
@@ -38,9 +53,13 @@ export const MAX_TREE_DEPTH = 32;
 export const SORT_KEYS: readonly ProcessSortKey[] = [
   "cpu",
   "mem",
-  "disk",
+  "diskRead",
+  "diskWrite",
+  "io",
   "net",
   "gpu",
+  "threads",
+  "handles",
   "pid",
   "name",
 ];
@@ -63,15 +82,18 @@ export type ProcessTableRow = {
   mem: number;
   diskRead: number | null;
   diskWrite: number | null;
+  /** All I/O, not only disk: read plus write plus other, bytes per second. */
+  io: number;
   netSent: number;
   netReceived: number;
   gpu: number;
   gpuEngine: string | null;
+  threads: number;
+  handles: number;
   suspended: boolean;
   /** Processes in efficiency mode: 0 or 1 for a process, any number for a group. */
   efficiency: number;
   sessionId: number;
-  user: string | null;
 };
 
 export type ProcessBuildOptions = {
@@ -90,21 +112,20 @@ type Metrics = Pick<
   | "mem"
   | "diskRead"
   | "diskWrite"
+  | "io"
   | "netSent"
   | "netReceived"
   | "gpu"
   | "gpuEngine"
+  | "threads"
+  | "handles"
   | "suspended"
   | "efficiency"
 >;
 
-/**
- * The `user` column is not part of the frozen ProcessRow yet. Read it when a
- * producer adds it and fall back to "unknown" until then.
- */
-function readUser(process: ProcessRow): string | null {
-  const user = (process as ProcessRow & { user?: unknown }).user;
-  return typeof user === "string" && user.length > 0 ? user : null;
+/** All I/O the process performed, not only disk traffic (bytes per second). */
+function ioTotal(process: ProcessRow): number {
+  return process.ioRead + process.ioWrite + process.ioOther;
 }
 
 function readGpuEngines(process: ProcessRow): GpuEngineUsage[] {
@@ -167,13 +188,19 @@ function sumDisk(
 function aggregateMembers(members: readonly ProcessRow[]): Metrics {
   let cpu = 0;
   let mem = 0;
+  let io = 0;
   let netSent = 0;
   let netReceived = 0;
+  let threads = 0;
+  let handles = 0;
   for (const process of members) {
     cpu += process.cpu;
     mem += process.privateWs;
+    io += ioTotal(process);
     netSent += process.netSent;
     netReceived += process.netReceived;
+    threads += process.threads;
+    handles += process.handles;
   }
   const gpu = aggregateGpu(members);
   return {
@@ -181,10 +208,13 @@ function aggregateMembers(members: readonly ProcessRow[]): Metrics {
     mem,
     diskRead: sumDisk(members, (process) => process.diskRead),
     diskWrite: sumDisk(members, (process) => process.diskWrite),
+    io,
     netSent,
     netReceived,
     gpu: gpu.gpu,
     gpuEngine: gpu.gpuEngine,
+    threads,
+    handles,
     suspended: members.every((process) => process.suspended),
     efficiency: members.filter((process) => process.efficiency).length,
   };
@@ -210,14 +240,16 @@ function toProcessRow(
     mem: process.privateWs,
     diskRead: process.diskRead,
     diskWrite: process.diskWrite,
+    io: ioTotal(process),
     netSent: process.netSent,
     netReceived: process.netReceived,
     gpu: process.gpu,
     gpuEngine: process.gpuEngine,
+    threads: process.threads,
+    handles: process.handles,
     suspended: process.suspended,
     efficiency: process.efficiency ? 1 : 0,
     sessionId: process.sessionId,
-    user: readUser(process),
   };
 }
 
@@ -230,11 +262,6 @@ const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "bas
 
 function byLabel(left: ProcessTableRow, right: ProcessTableRow): number {
   return collator.compare(left.label, right.label) || left.process.pid - right.process.pid;
-}
-
-function diskTotal(row: ProcessTableRow): number | null {
-  if (row.diskRead === null && row.diskWrite === null) return null;
-  return (row.diskRead ?? 0) + (row.diskWrite ?? 0);
 }
 
 /**
@@ -255,10 +282,16 @@ function metric(row: ProcessTableRow, key: ProcessSortKey): number {
       return Math.round(row.cpu * 10);
     case "mem":
       return Math.round(row.mem / 104_858);
+    case "io":
+      return Math.round(row.io / 1024);
     case "net":
       return Math.round((row.netSent + row.netReceived) / 1024);
     case "gpu":
       return Math.round(row.gpu * 10);
+    case "threads":
+      return row.threads;
+    case "handles":
+      return row.handles;
     default:
       return 0;
   }
@@ -275,8 +308,9 @@ export function compareProcessRows(
       return direction * byLabel(left, right);
     case "pid":
       return direction * (left.process.pid - right.process.pid || byLabel(left, right));
-    case "disk": {
-      const compared = compareDisk(diskTotal(left), diskTotal(right), sort.desc);
+    case "diskRead":
+    case "diskWrite": {
+      const compared = compareDisk(left[sort.key], right[sort.key], sort.desc);
       return compared !== 0 ? compared : byLabel(left, right);
     }
     default:
@@ -482,7 +516,6 @@ function buildApplicationRows(
       expanded: expanded.has(key) || shown.length < members.length,
       ...metrics,
       sessionId: representative.sessionId,
-      user: readUser(representative),
     };
     entries.push({ row, members: shown });
   }
