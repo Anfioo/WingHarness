@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codegraph__*"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codegraph.cmd prompt-hook"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "agentmemory@agentmemory": true,
+    "feature-dev@claude-plugins-official": true
+  }
+}
