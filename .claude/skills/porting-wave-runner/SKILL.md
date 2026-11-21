@@ -259,6 +259,6 @@ git log --oneline <startSha>..HEAD
 ## 参考
 
 - [coordinator-fallback.md](coordinator-fallback.md) —— `prompts.md` 缺少协调者段落时的兜底模板
-- 上层编排：`porting-super-runner` —— 把 W0→A1 的多波串成一条委派链，一次跑完
+- 上层编排：`porting-super-runner` —— 主窗口按 W0→A1 顺序逐波下发，一次跑完
 - 前置技能：`porting-plan-waves` —— 生成 `plan.1.md`、`inbox/<lane>.md` 与 `inbox/prompts.md`
 - Codeg 工具：`mcp__codeg-mcp__delegate_to_agent`、`mcp__codeg-mcp__get_delegation_status`、`mcp__codeg-mcp__cancel_delegation`
