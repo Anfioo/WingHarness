@@ -21,7 +21,13 @@ import {
   type TreeKillReport,
 } from "@/commands";
 
-export type TaskManagerTab = "processes" | "performance" | "services";
+export type TaskManagerTab =
+  | "processes"
+  | "performance"
+  | "services"
+  | "startup"
+  | "connections"
+  | "history";
 
 export type TaskManagerState = {
   snapshot: Snapshot | null;
@@ -33,6 +39,10 @@ export type TaskManagerState = {
   service: ServiceStatus | null;
   activeTab: TaskManagerTab;
   setActiveTab: (tab: TaskManagerTab) => void;
+  /** A PID another tab asked the process table to select. */
+  revealPid: number | null;
+  revealProcess: (pid: number) => void;
+  clearReveal: () => void;
   setInterval: (ms: number) => Promise<void>;
   refresh: () => Promise<void>;
   reloadService: () => Promise<void>;
@@ -54,9 +64,14 @@ type TaskManagerView = {
   settings: ArgusSettings;
   service: ServiceStatus | null;
   activeTab: TaskManagerTab;
+  revealPid: number | null;
 };
 
-const DEFAULT_SETTINGS: ArgusSettings = { intervalMs: 1000 };
+const DEFAULT_SETTINGS: ArgusSettings = {
+  intervalMs: 1000,
+  backgroundMonitoring: false,
+  backgroundIntervalMs: 5000,
+};
 
 const INITIAL_VIEW: TaskManagerView = {
   snapshot: null,
@@ -66,6 +81,7 @@ const INITIAL_VIEW: TaskManagerView = {
   settings: DEFAULT_SETTINGS,
   service: null,
   activeTab: "processes",
+  revealPid: null,
 };
 
 function toArgusError(value: unknown): ArgusError {
@@ -113,6 +129,15 @@ class TaskManagerStore {
 
   setActiveTab = (activeTab: TaskManagerTab): void => {
     this.update({ activeTab });
+  };
+
+  /** Switches to the process tab and asks it to select `pid` on the next frame. */
+  revealProcess = (pid: number): void => {
+    this.update({ activeTab: "processes", revealPid: pid });
+  };
+
+  clearReveal = (): void => {
+    if (this.view.revealPid !== null) this.update({ revealPid: null });
   };
 
   setInterval = async (ms: number): Promise<void> => {
@@ -245,6 +270,8 @@ const store = new TaskManagerStore();
 const actions = {
   setPaused: (paused: boolean) => store.setPaused(paused),
   setActiveTab: (tab: TaskManagerTab) => store.setActiveTab(tab),
+  revealProcess: (pid: number) => store.revealProcess(pid),
+  clearReveal: () => store.clearReveal(),
   setInterval: (ms: number) => store.setInterval(ms),
   refresh: () => store.refresh(),
   reloadService: () => store.reloadService(),

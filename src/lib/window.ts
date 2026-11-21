@@ -1,6 +1,7 @@
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
-import { emit, once } from "@tauri-apps/api/event";
+import { emit, emitTo, once } from "@tauri-apps/api/event";
+import { SETTINGS_SECTION_EVENT } from "@/lib/task-manager/settings-event";
 
 const createWindowLoading: Record<string, boolean> = {};
 const destroyTimers: Record<string, number> = {};
@@ -159,6 +160,34 @@ export async function destroyWindow(label: string, delay = 0) {
     }, delay) as unknown as number;
     console.log(`Window will be destroyed in ${delay}ms:`, label);
   }
+}
+
+/**
+ * Opens the settings window on `section`. A new window reads the section from
+ * its URL; an existing one is focused and told to switch.
+ */
+export async function openSettingsSection(section: string): Promise<void> {
+  const label = "settings";
+  const existing = await WebviewWindow.getByLabel(label);
+  if (existing) {
+    await showWindow(label);
+    await emitTo(label, SETTINGS_SECTION_EVENT, { section });
+    return;
+  }
+  await createWindow(label, {
+    url: `/settings?section=${encodeURIComponent(section)}`,
+    width: 720,
+    height: 600,
+    minWidth: 560,
+    minHeight: 480,
+    resizable: true,
+    maximizable: true,
+    minimizable: false,
+    decorations: false,
+    transparent: true,
+    shadow: false,
+    parent: "main",
+  });
 }
 
 export async function createWindow(
