@@ -4,6 +4,7 @@
 //! Versioned operation whitelist and the argument checks around it.
 
 use argus_core::actions::{self, ActionError, Priority};
+use argus_core::connections;
 use argus_core::services::{ServiceAction, ServiceCatalog, StartType};
 use serde::{Deserialize, Serialize};
 
@@ -69,6 +70,14 @@ pub enum Operation {
         name: String,
         start_type: StartType,
     },
+    /// Resets an established IPv4 TCP connection. Added in protocol version 4.
+    #[serde(rename_all = "camelCase")]
+    CloseConnection {
+        local_address: String,
+        local_port: u16,
+        remote_address: String,
+        remote_port: u16,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -116,6 +125,22 @@ impl Operation {
                 }
             }
             Self::Ping | Self::NetworkSnapshot | Self::DiskSnapshot {} => {}
+            Self::CloseConnection {
+                local_address,
+                local_port,
+                remote_address,
+                remote_port,
+            } => {
+                if local_address.parse::<std::net::Ipv4Addr>().is_err()
+                    || remote_address.parse::<std::net::Ipv4Addr>().is_err()
+                    || *local_port == 0
+                    || *remote_port == 0
+                    || local_address.trim().is_empty()
+                    || remote_address.trim().is_empty()
+                {
+                    return Err(ActionError::Refused);
+                }
+            }
             Self::ControlService { name, .. } | Self::ServiceStartType { name, .. } => {
                 if name.trim().is_empty() || name.len() > 256 {
                     return Err(ActionError::Refused);
@@ -172,6 +197,12 @@ pub fn execute(operation: Operation, context: &Context, client_pid: u32) -> Repl
         Operation::ServiceStartType { name, start_type } => {
             context.services.set_start_type(&name, start_type)
         }
+        Operation::CloseConnection {
+            local_address,
+            local_port,
+            remote_address,
+            remote_port,
+        } => connections::close_tcp(&local_address, local_port, &remote_address, remote_port),
     };
     result.map_or_else(Reply::Error, |_| Reply::Done)
 }
@@ -234,54 +265,48 @@ mod tests {
 
     #[test]
     fn rejects_unchecked_processes() {
-        assert!(
-            Operation::Terminate {
-                pid: 100,
-                create_time: 0,
-                force: false,
-            }
-            .validate()
-            .is_err()
-        );
-        assert!(
-            Operation::Terminate {
-                pid: 4,
-                create_time: 1,
-                force: false,
-            }
-            .validate()
-            .is_err()
-        );
-        assert!(
-            Operation::Terminate {
-                pid: 0,
-                create_time: 1,
-                force: false,
-            }
-            .validate()
-            .is_err()
-        );
+        assert!(Operation::Terminate {
+            pid: 100,
+            create_time: 0,
+            force: false,
+        }
+        .validate()
+        .is_err());
+        assert!(Operation::Terminate {
+            pid: 4,
+            create_time: 1,
+            force: false,
+        }
+        .validate()
+        .is_err());
+        assert!(Operation::Terminate {
+            pid: 0,
+            create_time: 1,
+            force: false,
+        }
+        .validate()
+        .is_err());
         // The broker itself is never a target.
-        assert!(
-            Operation::Efficiency {
-                pid: std::process::id(),
-                create_time: 1,
-                on: true,
-            }
-            .validate()
-            .is_err()
-        );
+        assert!(Operation::Efficiency {
+            pid: std::process::id(),
+            create_time: 1,
+            on: true,
+        }
+        .validate()
+        .is_err());
     }
 
     #[test]
     fn service_operations_are_fixed_and_validated() {
-        let operation: Operation = serde_json::from_str(
-            r#"{"op":"controlService","name":"Spooler","action":"restart"}"#,
-        )
-        .unwrap();
+        let operation: Operation =
+            serde_json::from_str(r#"{"op":"controlService","name":"Spooler","action":"restart"}"#)
+                .unwrap();
         assert!(matches!(
             operation,
-            Operation::ControlService { action: ServiceAction::Restart, .. }
+            Operation::ControlService {
+                action: ServiceAction::Restart,
+                ..
+            }
         ));
         let operation: Operation = serde_json::from_str(
             r#"{"op":"serviceStartType","name":"Spooler","startType":"autoDelayed"}"#,
@@ -322,32 +347,66 @@ mod tests {
         ] {
             assert!(operation.validate().is_err());
         }
-        assert!(
-            Operation::ControlService {
-                name: "Spooler".into(),
-                action: ServiceAction::Start,
+        assert!(Operation::CloseConnection {
+            local_address: "127.0.0.1".into(),
+            local_port: 0,
+            remote_address: "127.0.0.1".into(),
+            remote_port: 443,
+        }
+        .validate()
+        .is_err());
+        assert!(Operation::CloseConnection {
+            local_address: "::1".into(),
+            local_port: 1,
+            remote_address: "127.0.0.1".into(),
+            remote_port: 443,
+        }
+        .validate()
+        .is_err());
+        assert!(Operation::CloseConnection {
+            local_address: "127.0.0.1".into(),
+            local_port: 1,
+            remote_address: "127.0.0.1".into(),
+            remote_port: 443,
+        }
+        .validate()
+        .is_ok());
+    }
+
+    #[test]
+    fn the_protocol_version_covers_connection_close() {
+        assert_eq!(crate::PROTOCOL, 4);
+        let operation: Operation = serde_json::from_str(
+            r#"{"op":"closeConnection","localAddress":"127.0.0.1","localPort":5000,"remoteAddress":"1.2.3.4","remotePort":443}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            operation,
+            Operation::CloseConnection {
+                local_port: 5000,
+                remote_port: 443,
+                ..
             }
-            .validate()
-            .is_ok()
-        );
+        ));
+        // Snake-case field names are not the wire format.
+        assert!(serde_json::from_str::<Operation>(
+            r#"{"op":"closeConnection","local_address":"127.0.0.1","local_port":5000,"remote_address":"1.2.3.4","remote_port":443}"#
+        )
+        .is_err());
     }
 
     #[test]
     fn rejects_unknown_operations_and_fields() {
         assert!(serde_json::from_str::<Operation>(r#"{"op":"reboot"}"#).is_err());
         assert!(serde_json::from_str::<Operation>(r#"{"op":"restoreTaskManager"}"#).is_err());
-        assert!(
-            serde_json::from_str::<Operation>(
-                r#"{"op":"terminate","pid":5,"create_time":1,"reason":"x"}"#
-            )
-            .is_err()
-        );
-        assert!(
-            serde_json::from_str::<Request>(
-                r#"{"protocol":1,"operation":{"op":"execute","command":"cmd"}}"#
-            )
-            .is_err()
-        );
+        assert!(serde_json::from_str::<Operation>(
+            r#"{"op":"terminate","pid":5,"create_time":1,"reason":"x"}"#
+        )
+        .is_err());
+        assert!(serde_json::from_str::<Request>(
+            r#"{"protocol":1,"operation":{"op":"execute","command":"cmd"}}"#
+        )
+        .is_err());
         // A missing force is a non-forced termination, never a bypass.
         assert!(matches!(
             serde_json::from_str::<Operation>(r#"{"op":"terminate","pid":5,"create_time":1}"#)
@@ -355,11 +414,9 @@ mod tests {
             Operation::Terminate { force: false, .. }
         ));
         // Version mismatches deserialize; the pipe rejects them before running.
-        assert!(
-            serde_json::from_str::<Request>(
-                r#"{"protocol":99,"operation":{"op":"networkSnapshot"}}"#
-            )
-            .is_ok()
-        );
+        assert!(serde_json::from_str::<Request>(
+            r#"{"protocol":99,"operation":{"op":"networkSnapshot"}}"#
+        )
+        .is_ok());
     }
 }

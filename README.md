@@ -179,7 +179,7 @@ repository yet.
 | [SERVERS.md](./docs/features/SERVERS.md) | SSH / SFTP server manager |
 | [SVN.md](./docs/features/SVN.md) | Native Subversion workspace |
 | [SYSTOOLS.md](./docs/features/SYSTOOLS.md) | Windows maintenance console |
-| [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) | Processes in three views, performance charts, service control, and the optional privileged service |
+| [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) | Processes, performance charts, startup items, connections, recorded history, service control, and the optional privileged service |
 | [TERMINAL.md](./docs/features/TERMINAL.md) | The pseudo-console page |
 | [THIRD_PARTY_LICENSES.md](./docs/features/THIRD_PARTY_LICENSES.md) | The About window's third-party licence dialog |
 | [TRAY_MENU.md](./docs/features/TRAY_MENU.md) | The tray popup, its apps' second-level menu, and the Scoop tab that curates it |

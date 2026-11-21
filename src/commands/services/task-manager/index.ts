@@ -13,6 +13,10 @@ import type {
   ArgusError,
   ArgusErrorCode,
   ArgusSettings,
+  Connection,
+  HistoryMoment,
+  HistoryPoint,
+  HistoryUsage,
   Priority,
   ProcessDetails,
   ServiceAction,
@@ -20,6 +24,7 @@ import type {
   ServiceStartType,
   ServiceStatus,
   Snapshot,
+  StartupItem,
   TreeKillReport,
 } from "./types";
 
@@ -56,6 +61,73 @@ export function argusSettingsGet(): Promise<ArgusSettings> {
 export function argusSettingsSet(settings: ArgusSettings): Promise<ArgusSettings> {
   return invokeCommand<{ settings: ArgusSettings }, ArgusSettings>("argus_settings_set", {
     settings,
+  });
+}
+
+export function argusStartupList(): Promise<StartupItem[]> {
+  return invokeCommand<Record<string, never>, StartupItem[]>("argus_startup_list", {});
+}
+
+export function argusStartupSetEnabled(id: string, enabled: boolean): Promise<void> {
+  return invokeCommand<{ id: string; enabled: boolean }, void>("argus_startup_set_enabled", {
+    id,
+    enabled,
+  });
+}
+
+export function argusConnectionsList(): Promise<Connection[]> {
+  return invokeCommand<Record<string, never>, Connection[]>("argus_connections_list", {});
+}
+
+/** Resets an established IPv4 TCP connection. */
+export function argusConnectionsClose(
+  localAddress: string,
+  localPort: number,
+  remoteAddress: string,
+  remotePort: number
+): Promise<void> {
+  return invokeCommand<
+    {
+      localAddress: string;
+      localPort: number;
+      remoteAddress: string;
+      remotePort: number;
+    },
+    void
+  >("argus_connections_close", { localAddress, localPort, remoteAddress, remotePort });
+}
+
+export function argusHistoryRange(): Promise<[number, number] | null> {
+  return invokeCommand<Record<string, never>, [number, number] | null>("argus_history_range", {});
+}
+
+export function argusHistorySeries(
+  from: number,
+  to: number,
+  buckets: number
+): Promise<HistoryPoint[]> {
+  return invokeCommand<{ from: number; to: number; buckets: number }, HistoryPoint[]>(
+    "argus_history_series",
+    { from, to, buckets }
+  );
+}
+
+export function argusHistoryMoment(ts: number): Promise<HistoryMoment | null> {
+  return invokeCommand<{ ts: number }, HistoryMoment | null>("argus_history_moment", { ts });
+}
+
+export function argusHistoryUsage(): Promise<HistoryUsage> {
+  return invokeCommand<Record<string, never>, HistoryUsage>("argus_history_usage", {});
+}
+
+export function argusHistoryClear(): Promise<void> {
+  return invokeCommand<Record<string, never>, void>("argus_history_clear", {});
+}
+
+/** Toggles background monitoring; returns the normalized settings. */
+export function argusSetBackgroundMonitoring(enabled: boolean): Promise<ArgusSettings> {
+  return invokeCommand<{ enabled: boolean }, ArgusSettings>("argus_set_background_monitoring", {
+    enabled,
   });
 }
 
@@ -165,6 +237,11 @@ export type {
   ArgusError,
   ArgusErrorCode,
   ArgusSettings,
+  Connection,
+  HistoryMoment,
+  HistoryPoint,
+  HistoryProcess,
+  HistoryUsage,
   Priority,
   ProcessDetails,
   ServiceAction,
@@ -173,5 +250,8 @@ export type {
   ServiceState,
   ServiceStatus,
   Snapshot,
+  StartupItem,
+  StartupItemLocation,
+  TcpState,
   TreeKillReport,
 } from "./types";

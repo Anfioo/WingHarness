@@ -88,6 +88,10 @@
       "noTunnels": "No tunnels in this profile",
       "back": "Back",
       "loading": "Loading…"
+    },
+    "taskManager": {
+      "background": "Background monitoring",
+      "toggleFailed": "Could not change background monitoring."
     }
   },
   "updater": {

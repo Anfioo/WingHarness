@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils.ts";
 import { TitleBar } from "@/components/title-bar.tsx";
 import { WindowFrame } from "@/components/window-frame.tsx";
@@ -18,7 +19,9 @@ import { RuntimeSection } from "./runtime-section.tsx";
 import { DownloadSection } from "./download-section.tsx";
 import { CodegSection } from "./codeg-section.tsx";
 import { OneMailSection } from "./one-mail-section.tsx";
+import { TaskManagerSection } from "./task-manager-section.tsx";
 import {
+  Activity,
   Palette,
   Keyboard,
   SquareTerminal,
@@ -39,6 +42,10 @@ import {
 import { CcSwitchLogo } from "@/components/icons/cc-switch-logo";
 import { useAppTranslation } from "@/hooks/use-app-translation.ts";
 import { DEV_BUILD } from "@/lib/dev-flag";
+import {
+  SETTINGS_SECTION_EVENT,
+  type SettingsSectionPayload,
+} from "@/lib/task-manager/settings-event";
 
 type SettingSection =
   | "appearance"
@@ -56,12 +63,61 @@ type SettingSection =
   | "runtime"
   | "download"
   | "oneMail"
+  | "taskManager"
   | "codeg"
   | "codegDev";
 
+const SECTION_IDS: readonly SettingSection[] = [
+  "appearance",
+  "shortcut",
+  "terminal",
+  "plugins",
+  "proxy",
+  "data",
+  "filePreview",
+  "editor",
+  "mdEditor",
+  "aiConfig",
+  "ccs",
+  "ports",
+  "runtime",
+  "download",
+  "oneMail",
+  "taskManager",
+  "codeg",
+  "codegDev",
+];
+
+function isSettingSection(value: string | null): value is SettingSection {
+  return value !== null && (SECTION_IDS as readonly string[]).includes(value);
+}
+
+/** The section named by `?section=`, so a deep link lands on the right pane. */
+function initialSection(): SettingSection {
+  const section = new URLSearchParams(window.location.search).get("section");
+  return isSettingSection(section) ? section : "appearance";
+}
+
 export default function SettingsPage() {
-  const [activeSection, setActiveSection] = useState<SettingSection>("appearance");
+  const [activeSection, setActiveSection] = useState<SettingSection>(initialSection);
   const { t } = useAppTranslation();
+
+  // An already-open settings window is told to switch via this event rather
+  // than reloading with a new URL.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen<SettingsSectionPayload>(SETTINGS_SECTION_EVENT, (event) => {
+      if (isSettingSection(event.payload.section)) setActiveSection(event.payload.section);
+    }).then((stop) => {
+      if (disposed) stop();
+      else unlisten = stop;
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, []);
 
   const menuItems = [
     {
@@ -133,6 +189,11 @@ export default function SettingsPage() {
       id: "ports" as SettingSection,
       label: t("ports.title"),
       icon: Plug,
+    },
+    {
+      id: "taskManager" as SettingSection,
+      label: t("taskManager.settings.menuLabel"),
+      icon: Activity,
     },
     {
       id: "runtime" as SettingSection,
@@ -214,6 +275,8 @@ export default function SettingsPage() {
           {activeSection === "aiConfig" && <AiConfigSection />}
 
           {activeSection === "ports" && <PortsSection />}
+
+          {activeSection === "taskManager" && <TaskManagerSection />}
 
           {activeSection === "runtime" && <RuntimeSection />}
 

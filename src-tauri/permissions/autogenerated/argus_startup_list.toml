@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-startup-list"
+description = "Enables the argus_startup_list command without any pre-configured scope."
+commands.allow = ["argus_startup_list"]
+
+[[permission]]
+identifier = "deny-argus-startup-list"
+description = "Denies the argus_startup_list command without any pre-configured scope."
+commands.deny = ["argus_startup_list"]

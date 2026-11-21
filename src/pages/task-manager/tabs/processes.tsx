@@ -184,6 +184,22 @@ export function ProcessesTab() {
     if (selectedKey !== null && selectedProcess === null) setSelectedKey(null);
   }, [selectedKey, selectedProcess]);
 
+  // Another tab (connections, history) asked for a PID. Wait for the first
+  // frame, then select the newest instance of that PID. A PID that is gone
+  // only clears the request, never the current selection.
+  const { revealPid, clearReveal } = page;
+  useEffect(() => {
+    if (revealPid === null || processes.length === 0) return;
+    const matches = processes.filter((process) => process.pid === revealPid);
+    if (matches.length > 0) {
+      const newest = matches.reduce((best, candidate) =>
+        candidate.createTime > best.createTime ? candidate : best
+      );
+      setSelectedKey(procKey(newest));
+    }
+    clearReveal();
+  }, [revealPid, processes, clearReveal]);
+
   const runAction = useCallback(
     async (action: () => Promise<void>, success: string) => {
       await action();
