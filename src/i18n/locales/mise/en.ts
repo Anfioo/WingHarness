@@ -332,6 +332,10 @@ const mise = {
       opened: "Open project window",
       scanRoot: "Custom scan root",
       global: "Global",
+      project: "Project config",
+      projectFile: "Project version file",
+      inherited: "Inherited from global",
+      resolved: "Resolved by mise",
     },
     scanRoot: {
       title: "Scan roots",

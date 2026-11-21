@@ -326,6 +326,10 @@ const mise = {
       opened: "已打开的项目窗口",
       scanRoot: "自定义扫描根",
       global: "全局",
+      project: "项目配置",
+      projectFile: "项目版本文件",
+      inherited: "继承全局",
+      resolved: "由 mise 解析",
     },
     scanRoot: {
       title: "扫描根",
