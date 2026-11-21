@@ -541,7 +541,9 @@ fn write_config_file(path: &Path, content: &str) -> MiseResult<MiseConfigSaveRes
 
 /// `[name]` through the line before the next table header, trailing whitespace
 /// removed. Lines and their indentation are kept as written.
-fn extract_section(content: &str, name: &str) -> Option<String> {
+///
+/// The project scan reuses this parser, so both helpers stay crate-visible.
+pub(crate) fn extract_section(content: &str, name: &str) -> Option<String> {
     if content.trim().is_empty() {
         return None;
     }
@@ -558,7 +560,8 @@ fn extract_section(content: &str, name: &str) -> Option<String> {
     }
 }
 
-fn parse_assignments(section: &str) -> BTreeMap<String, String> {
+/// The `key = value` pairs of an extracted section, sorted by key.
+pub(crate) fn parse_assignments(section: &str) -> BTreeMap<String, String> {
     let mut assignments = BTreeMap::new();
 
     for line in section.split('\n') {
