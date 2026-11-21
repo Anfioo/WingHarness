@@ -32,11 +32,12 @@ Portions of argus-core and argus-service are adapted from Argus.
 `src-tauri/argus-core` is the sampling and process-control engine behind the
 task manager page; `src-tauri/argus-service` is its optional privileged Windows
 service. The ported portions keep Argus's AGPL-3.0-or-later terms, and the
-combined work is distributed under AGPL-3.0-only. The PawnIO driver, sensor
-service, Task Manager replacement, admin helpers, handle queries and the
-history, rules, startup-item and connection modules were not carried over. See
-`src-tauri/argus-core/UPSTREAM.md` and `src-tauri/argus-service/UPSTREAM.md`
-for the porting records.
+combined work is distributed under AGPL-3.0-only. The startup, connections and
+history modules are adapted from Argus, as are the service catalogue and the
+connection-reset operation. The PawnIO driver, sensor service, Task Manager
+replacement, admin helpers, handle queries, file locks and the rules module
+were not carried over. See `src-tauri/argus-core/UPSTREAM.md` and
+`src-tauri/argus-service/UPSTREAM.md` for the porting records.
 
 ### angkorgit
 

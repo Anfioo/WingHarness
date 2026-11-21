@@ -1,15 +1,24 @@
 # Task Manager
 
-The **任务管理器** (Task Manager) page shows what this machine is doing: the
-process table with three views, a detail panel and process actions, a
-performance tab with CPU, memory, disk, network, GPU and battery detail views,
-and a services tab for the Windows Service Control Manager. An optional
-Windows service adds actions on protected system processes, service control and
-per-process network and disk traffic; without it the page still monitors
-everything that needs only the account's own rights.
+The **任务管理器** (Task Manager) page shows what this machine is doing: six tabs
+over one shared snapshot — the process table with three views, a detail panel and
+process actions; a performance tab with CPU, memory, disk, network, GPU and
+battery detail views; the Windows Service Control Manager; the programs that
+start at logon; every TCP and UDP endpoint; and the recorded history of the
+system charts. An optional Windows service adds actions on protected system
+processes, service control, connection reset and per-process network and disk
+traffic; without it the page still monitors everything that needs only the
+account's own rights.
 
 It sits in the sidebar under **其他** (Other) and is a single page — it opens no
-window of its own. Sampling runs only while the page is mounted.
+window of its own. Its settings live in the global Settings window, and its
+background-monitoring switch also has a row in the tray popup. Sampling runs
+while the page is mounted; background monitoring keeps it running after the page
+closes and records history to disk.
+
+Two other pages overlap this one on purpose: `systools` has its own startup
+manager, and `ports` has its own listener table. This page does not replace
+either; see [SYSTOOLS.md](./SYSTOOLS.md) and [PORTS.md](./PORTS.md).
 
 The engines are [`src-tauri/argus-core`](../../src-tauri/argus-core) (crate
 `argus-core`, library `argus_core`) and
@@ -22,28 +31,35 @@ what came across and what did not.
 
 ## Routes and files
 
-| Route | Renders |
+| Route / window | Renders |
 | --- | --- |
-| `/task-manager` | The page: service summary, the tab strip with the service badge and page actions, the process, performance and services tabs, the settings dialog |
+| `/task-manager` | The page: the tab strip with the service badge, refresh and settings actions, and the process, performance, services, startup, connections and history tabs |
+| Settings window, `taskManager` section | Sampling interval, background monitoring, history usage and clearing, service install/update/uninstall |
 
 | Path | Responsibility |
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
-| `src/pages/task-manager/task-manager-app.tsx` | Tab strip (with the service badge, refresh and settings), all three tab panels |
+| `src/pages/task-manager/task-manager-app.tsx` | Tab strip (with the service badge, refresh and settings), all six tab panels |
 | `src/pages/task-manager/tabs/processes.tsx` | Process tab: the vitals band, toolbar, table, inline detail panel, confirmation dialogs |
 | `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-sample window |
 | `src/pages/task-manager/tabs/services.tsx` | Services tab: polling lifecycle, search / filter / sort state, toolbar actions, toasts |
-| `src/components/task-manager/` | Table, toolbar, row, detail body and actions, right-hand detail panel, vitals band, hardware overview, splitter, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
+| `src/pages/task-manager/tabs/startup.tsx` | Startup tab: 10 s polling, search, sort, enable/disable |
+| `src/pages/task-manager/tabs/connections.tsx` | Connections tab: 2 s polling while active and visible, filters, search, context actions |
+| `src/pages/task-manager/tabs/history.tsx` | History tab: range switch, chart cursor, the busy-process table of the selected moment |
+| `src/components/task-manager/` | Table, toolbar, row, detail body and actions, right-hand detail panel, vitals band, hardware overview, splitter, context menu, service table and menu, the performance device list and per-device views, service badge, startup and connection tables/toolbars/menus, the history chart and process table, the settings partition's controls, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
-| `src/commands/services/task-manager/` | Typed wrappers over the eighteen `argus_*` commands and their DTOs |
-| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `process-history`, `performance-target`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors`, `engine-grid` |
+| `src/hooks/use-task-manager-{startup,connections,history,settings}.ts` | Per-tab polling and state; `settings` belongs to the Settings window |
+| `src/commands/services/task-manager/` | Typed wrappers over the twenty-eight `argus_*` commands and their DTOs |
+| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `process-history`, `performance-target`, `service-rows`, `startup-rows`, `connection-rows`, `history-range`, `history-format`, `history-metrics`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors`, `engine-grid`, `settings-event` |
+| `src/windows/settings/task-manager-section.tsx` | The task manager partition of the Settings window |
+| `src/windows/tray-menu/task-manager-row.tsx` | The tray popup's background-monitoring row |
 | `src-tauri/src/commands/argus.rs` | The thin command surface |
-| `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status and install), `store.rs` (settings), `mod.rs` (`ArgusState`) |
+| `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status, install and connection routing), `store.rs` (settings), `mod.rs` (`ArgusState`) |
 
-There is no `standalonePaths` entry and no window record: everything is one
-route in the main window. The sidebar group `taskManager` is deliberately
-absent from `GROUP_ORDER` in `src/lib/sidebar-config.ts`, so the entry falls
-into **其他**.
+There is no `standalonePaths` entry and no window record for the page itself:
+everything is one route in the main window. The sidebar group `taskManager` is
+deliberately absent from `GROUP_ORDER` in `src/lib/sidebar-config.ts`, so the
+entry falls into **其他**.
 
 ## Sampling lifecycle
 
@@ -54,23 +70,35 @@ page mounts
   → argus_snapshot_start { channel, intervalMs }
       → sampler thread: Collector + ETW session + service clients
       → one frame per tick over ipc::Channel<Snapshot>
-page unmounts (last subscriber), or the app exits
+      → when background monitoring is on, the same frame feeds the history recorder
+page unmounts (last subscriber)
   → argus_snapshot_stop
-  → thread stops, ETW session released
+      background off → thread stops, ETW session released
+      background on  → only the page's subscription is dropped; the thread keeps
+                       sampling at the background interval and recording history
+app exits → the thread stops
 ```
 
 - **One subscription per page.** The page shell and every tab call
   `useTaskManager()`, but a module-level store owns the single
   `Channel<Snapshot>`: the first caller starts sampling and the last one to
-  unmount stops it. Pausing only drops incoming frames; the backend keeps
-  sampling, so resuming is immediate.
-- **No global event.** Frames travel over a Tauri channel to this page only, so
-  nothing is broadcast to other windows.
+  unmount stops it — unless background monitoring is on, in which case
+  `argus_snapshot_stop` only unsubscribes. Pausing only drops incoming frames;
+  the backend keeps sampling, so resuming is immediate.
+- **Background monitoring** is one switch (`backgroundMonitoring`) for both
+  sampling and history; it is off by default. Its interval is 1–60 s, default
+  5 s, and is clamped on read and write. Turning it on starts a thread even with
+  no page open; turning it off stops the thread when no page is subscribed.
+  Every change is persisted and broadcast as `argus-settings-changed`.
+- **No global event for frames.** Frames travel over a Tauri channel to this
+  page only. The only global event is `argus-settings-changed`, which carries
+  the settings document to the page, the Settings window and the tray row.
 - **Fresh baseline.** Each start builds a new collector, so the first one or two
   ticks have no CPU or rate figures (there is no previous sample to diff
-  against). Leaving the page clears the performance history by unmounting it.
+  against). Leaving the page clears the performance tab's 60-sample window by
+  unmounting it; recorded history is not affected.
 - **Interval** is 250–5000 ms, default 1000 ms. It is clamped on read and on
-  write, and changing it in the settings dialog restarts the tick immediately.
+  write, and changing it in the Settings window restarts the tick immediately.
 - **A dead thread is replaced.** If a page vanished without stopping (a window
   reload, say), the handle left in `ArgusState` can no longer deliver; the next
   `argus_snapshot_start` detects the failed send and spawns a fresh thread.
@@ -304,21 +332,150 @@ list with no match for the current query or filter offers **Clear filters**.
   "go to process" jump and double-clicking a row to open the process tab are
   not part of this port; the row has no action that would need them.
 
+## Startup tab
 
+The tab lists every program that starts at logon, from five registry/folder
+sources plus packaged app tasks:
+
+| Source | Location id | Scope |
+| --- | --- | --- |
+| `HKCU\…\CurrentVersion\Run` | `hkcuRun` | current user |
+| `HKLM\…\CurrentVersion\Run` | `hklmRun` | all users |
+| `HKLM\Software\WOW6432Node\…\Run` | `hklmRun32` | all users (32-bit view) |
+| Startup folder under `%APPDATA%` | `userFolder` | current user |
+| Startup folder under `%ProgramData%` | `commonFolder` | all users |
+| AppModel startup tasks | `package` | current user |
+
+Each row shows the name (program metadata or the shortcut name), publisher,
+status switch, location and command; a missing executable is marked beside the
+name. Search matches the name, entry, publisher, command and description; the
+columns sort by name, publisher, status, location or command. The list polls
+every 10 seconds, and only while the tab is active and the document is visible.
+
+- **Identity.** `id` is `<location>|<entry>`, and it is what
+  `argus_startup_set_enabled` receives. A malformed id, or one naming no known
+  location, is refused before anything touches the registry.
+- **Enable/disable** writes the 12-byte `StartupApproved` value instead of
+  editing the entry: an even first byte enables, an odd first byte with a
+  timestamp disables, which is how Windows' own Task Manager does it. The switch
+  updates optimistically and is rolled back with a toast when the write fails.
+- **Rights.** Current-user entries change immediately. All-users entries need
+  administrator rights; the failure comes back as `access-denied` and is shown
+  as a toast. Packaged tasks that are policy-managed or unavailable carry
+  `blocked` and their switch is disabled.
+- **Packaged tasks** are read from the app manifest; one task that cannot be
+  read is skipped and logged without hiding the rest of the list.
+- **Coexistence.** The `systools` page has its own startup manager with a
+  different model (scan, plan, apply). Both read the same Windows state; this
+  tab is the Task Manager-style per-entry switch, and neither replaces the
+  other.
+
+## Connections tab
+
+The tab lists every TCP and UDP endpoint with the process that owns it, read
+from `GetExtendedTcpTable` / `GetExtendedUdpTable` for IPv4 and IPv6. Rows show
+the process, protocol, local endpoint, remote endpoint, TCP state and PID;
+IPv6 endpoints are bracketed. The list polls every 2 seconds, and only while
+the tab is active and the document is visible; switching back refreshes at once.
+
+- **Filters** — All / Listening / Established / UDP. They match exactly:
+  pending TCP states appear only under All.
+- **Search** — a digits-only query matches the local port, the remote port or
+  the PID exactly; anything else matches a substring of the local and remote
+  addresses, the process name or its description.
+- **Sorting** — click a header to sort by process, protocol, local endpoint,
+  remote endpoint, state or PID; the default is local port ascending.
+- **Go to process** hands the PID to the process tab through the shared
+  `revealPid`; the process row is selected there. Ending a process asks first
+  and reports a process that has already exited instead of failing silently.
+- **Close connection** is enabled only for an established IPv4 TCP row and only
+  when the privileged service is running and authorized. The host calls
+  `SetTcpEntry` locally first; on `access-denied` and when it is not elevated it
+  routes the same request to the service, whose answer is authoritative and is
+  never retried locally. UDP, IPv6 and non-established rows expose no reset.
+- **Copy** copies the local or remote endpoint.
+- **Coexistence.** The `ports` page owns TCP listeners, pinning and ending the
+  process behind a port. This tab is the Task Manager-style full endpoint list;
+  both pages read live state and stay independent.
+
+## History tab
+
+When background monitoring is on, the sampler writes one frame every 5 seconds
+to `<data dir>/argus/history/<YYYY-MM-DD>.hist` (the source's `ARGH` version 2
+format), keeps 7 days, prunes expired files at startup and truncates a torn tail
+record when it opens a file. History is written only while the sampler runs, so
+the default configuration (background off) produces no files.
+
+- **Ranges** — 1 hour, 6 hours, 24 hours, 7 days. Each asks the backend for at
+  most a few hundred buckets; the backend averages frames into them, caps the
+  request at 4096 buckets and leaves empty buckets out.
+- **Gaps** — the charts break the line where the recorder was not running. A
+  pair of points is joined when their spacing fits the surrounding cadence, up
+  to 65 seconds (the slowest background interval plus lateness); a longer stop
+  leaves a visible gap.
+- **Cursor** — hovering reads the nearest moment; clicking or the arrow keys pin
+  it, Shift moves further, Page Up/Down jumps, Home/End go to the edges and
+  Escape returns to the newest point. The readout follows the pinned moment
+  unless the pointer is reading another.
+- **Processes** — the table below the charts shows the busiest processes in the
+  selected frame. Right-click or activate a row to go to the process tab when
+  the process is still running; an exited process is reported with a toast.
+- **Empty states** distinguish "recording is off" (with a link to the Settings
+  partition), "no history recorded yet" and "the query failed" (with retry).
+- **Clearing** happens in the Settings partition. It closes the recorder's file
+  first, deletes only `.hist` day files and leaves the history tab empty.
+
+## Settings partition
+
+The task manager's settings moved out of the page into the global Settings
+window, section `taskManager`. The page's gear button and the service badge both
+call `openSettingsSection("taskManager")`; if the Settings window is already
+open it receives the `settings-section` event and focuses that section instead
+of opening a second window. There is no in-page settings dialog or service
+panel any more.
+
+The partition holds:
+
+| Control | Behaviour |
+| --- | --- |
+| Sampling interval | 250 / 500 / 1000 / 2000 / 5000 ms; saves immediately |
+| Background monitoring | One switch for sampling and history; 5 / 10 / 15 / 30 s presets (or the saved value) |
+| History storage | Current size and oldest record, retry, and clear with confirmation |
+| Privileged service | Status, recheck, install, update and uninstall |
+
+- Every setting saves at once; a failed save toasts and leaves the previous
+  value in place. The backend clamps both intervals and broadcasts
+  `argus-settings-changed`, so the page, the tray row and this window agree
+  without polling.
+- Starting or reading the partition never starts the page's sampling thread.
+- Only install, update and uninstall ask for UAC. Cancelling the prompt changes
+  nothing.
+
+## Tray row
+
+The tray popup (`tray-menu`) has one row after FRP and the divider before Quit:
+**background monitoring**. It shows the current value and toggles it through
+`argus_set_background_monitoring`; a failed toggle reverts the switch and
+toasts. The popup is sized from constants, so adding the row changed
+`MENU_ITEM_COUNT` and the height to 9 rows / 305 px — see
+[TRAY_MENU.md](./TRAY_MENU.md).
+
+## Privileged service
 
 The service is optional. It is a LocalSystem Windows service named
 `WingHarnessPrivileged` (`WingHarnessPrivilegedDev` in a development build),
 listening on `\\.\pipe\WingHarness.Privileged.v1`
 (`.Dev.v1` for development). The host and the service speak a versioned JSON
 protocol whose operation set is fixed by an enum: `Ping`, `NetworkSnapshot`,
-`DiskSnapshot`, `Terminate`, `Priority`, `Efficiency`, `ControlService` and
-`ServiceStartType`. Unknown operations or fields are rejected, a `Terminate`
-must carry a positive PID and creation time, and a service operation must name
-a non-empty service of at most 256 bytes — the System process, Idle and the
-service itself are never valid targets. The operation set is protocol version
-3; a Ping is always sent in the version-1 envelope so an older service can
-report its version, and a version-2 service is reported as outdated rather
-than as denying the new operations.
+`DiskSnapshot`, `Terminate`, `Priority`, `Efficiency`, `ControlService`,
+`ServiceStartType` and `CloseConnection`. Unknown operations or fields are
+rejected, a `Terminate` must carry a positive PID and creation time, a service
+operation must name a non-empty service of at most 256 bytes, and a
+`CloseConnection` must carry two non-zero ports and two IPv4 addresses — the
+System process, Idle and the service itself are never valid targets. The
+operation set is protocol version 4; a Ping is always sent in the version-1
+envelope so an older service can report its version, and a version-3 (or older)
+service is reported as outdated rather than as denying the new operations.
 
 What the service provides:
 
@@ -328,11 +485,14 @@ What the service provides:
   the account cannot change.
 - Per-process network traffic from an ETW session.
 - Per-process disk counters (read/write bytes per second).
+- Resetting an established IPv4 TCP connection on behalf of an unelevated
+  caller. Connection enumeration itself stays local; the service only performs
+  the reset when the local `SetTcpEntry` is denied.
 
 What it deliberately does **not** provide: a kernel driver (PawnIO), sensors or
 fan control, a Task Manager replacement, privilege-elevation helpers for other
-programs, handle or file-lock queries, or connection management. It creates no
-window and starts no webview.
+programs, handle or file-lock queries, or UDP/IPv6 connection resets. It creates
+no window and starts no webview.
 
 ### Install, update and uninstall
 
@@ -342,8 +502,9 @@ window and starts no webview.
 | **Update** | The same UAC path replaces the binary and restarts the service; offered after an app upgrade when the installed service speaks another protocol |
 | **Uninstall** | One UAC prompt, then the service is stopped, deleted, and its binary, `owner.sid` and lock file are removed; the directory is removed only if it is empty |
 
-- Cancelling the UAC prompt changes nothing; the page re-reads the status and
-  shows a neutral notice instead of an error.
+- Cancelling the UAC prompt changes nothing. The action's failure is toasted
+  from its error code; a cancellation currently arrives as `access-denied` and
+  is not distinguished from a real denial.
 - The service starts with Windows and stays resident, including after the app
   is closed. Uninstalling the app does not remove it — uninstall it from this
   page.
@@ -377,6 +538,16 @@ window and starts no webview.
 | `argus_service_control` | `{ name, action }` (`start` / `stop` / `restart`) | — |
 | `argus_service_start_type` | `{ name, startType }` (`auto` / `autoDelayed` / `manual` / `disabled`) | — |
 | `argus_services_console` | — | — |
+| `argus_startup_list` | — | `StartupItem[]` |
+| `argus_startup_set_enabled` | `{ id, enabled }` | — |
+| `argus_connections_list` | — | `Connection[]` |
+| `argus_connections_close` | `{ localAddress, localPort, remoteAddress, remotePort }` | — |
+| `argus_history_range` | — | `[first, last]` Unix ms, or `null` |
+| `argus_history_series` | `{ from, to, buckets }` | `HistoryPoint[]` |
+| `argus_history_moment` | `{ ts }` | `HistoryMoment \| null` |
+| `argus_history_usage` | — | `HistoryUsage` |
+| `argus_history_clear` | — | — |
+| `argus_set_background_monitoring` | `{ enabled }` | `ArgusSettings` |
 
 A command is only callable once it is named in all four lists: `all_commands!`
 in `src/invoke.rs`, `COMMANDS` in `build.rs`, `capabilities/default.json`, and
@@ -389,27 +560,33 @@ translates by `code` through `argusErrorKey`:
 
 | Code | Meaning |
 | --- | --- |
-| `not-found` | The process has already exited, or its PID was reused, or the service no longer exists |
-| `invalid-input` | The interval is out of range, the service action is unknown, or the target is this app |
-| `access-denied` | Administrator rights or the privileged service are required |
+| `not-found` | The process has already exited, or its PID was reused, the service no longer exists, a startup entry has vanished, or the history moment has no frame |
+| `invalid-input` | The interval is out of range, a startup id is malformed, a connection reset target is not IPv4 or has a zero port, a history range is invalid, the service action is unknown, or the target is this app |
+| `access-denied` | Administrator rights or the privileged service are required (including a machine-level startup entry and a connection reset) |
 | `service-unavailable` | The service is not installed or not running, or speaks another protocol |
-| `internal` | Another Windows error; `detail` carries it |
+| `internal` | Another Windows error, a registry/file/COM failure or an aggregation failure; `detail` carries it |
 
 ## Data layout
 
 ```
 <data dir>/argus/
-└── settings.json
+├── settings.json
+└── history/
+    └── <YYYY-MM-DD>.hist
 ```
 
 ```json
 {
-  "version": 1,
-  "intervalMs": 1000
+  "version": 2,
+  "intervalMs": 1000,
+  "backgroundMonitoring": false,
+  "backgroundIntervalMs": 5000
 }
 ```
 
-`version` is written for future migrations and ignored on read. The directory is
+`version` is written for future migrations and ignored on read. A version-1 file
+simply lacks the background fields, which take their defaults and are written
+back as version 2 on the next save. The directory is
 `argus_core::paths::CONFIG_DIR`, set once in `src-tauri/src/lib.rs` to
 `config::dir().join("argus")`.
 
@@ -419,11 +596,16 @@ translates by `code` through `argusErrorKey`:
 - **Unparseable file** — renamed to `settings.json.bak-<unix seconds>` and
   replaced by the defaults in memory, so a hand-edited file never wedges the
   page.
-- **Validation** — `intervalMs` is clamped to 250–5000 on read and on write;
-  unknown fields and a future `version` are ignored.
+- **Validation** — `intervalMs` is clamped to 250–5000 and
+  `backgroundIntervalMs` to 1000–60000 on read and on write; unknown fields and
+  a future `version` are ignored.
+- **History** is the one persisted-data exception on this page: day files live
+  under the same data directory (never `localStorage`), one frame every 5
+  seconds, seven days kept. They are written only while background monitoring
+  is on and are cleared only through `argus_history_clear`, which closes the
+  recorder's file before deleting.
 
-Nothing else is persisted: there is no history store and no rules store in this
-port.
+No rules or automation store is part of this port.
 
 ## Limits and platform notes
 
@@ -451,6 +633,18 @@ port.
 - **A service left behind.** Upgrading or uninstalling the app does not touch an
   installed service. Use **Update service** after an upgrade; **Uninstall**
   removes it.
+- **Background monitoring is off by default.** A fresh profile samples only
+  while the page is open and writes no history. Turn it on from the Settings
+  window or the tray row.
+- **History is short by design.** One frame per 5 seconds, seven days kept, so a
+  week of history stays a few megabytes. The sampler also has to be running:
+  gaps appear whenever background monitoring was off.
+- **Connection reset is narrow.** Only established IPv4 TCP connections can be
+  reset, and only locally or through the privileged service. UDP and IPv6
+  connections can be inspected but not reset.
+- **Startup entries follow Windows rules.** All-users entries need
+  administrator rights, policy-managed packaged tasks cannot be changed, and an
+  entry whose executable is gone is marked but still listed.
 
 ## Troubleshooting
 
@@ -465,7 +659,11 @@ port.
 | Changing a service's startup type says access denied | Startup-type changes always need administrator rights or the service |
 | The service badge says incompatible | The installed service speaks another protocol; use **Update service** |
 | Settings reset to the defaults | `settings.json` could not be parsed; look for `settings.json.bak-*` in the data directory |
-| Charts show gaps | A reading was unavailable for that frame (rates need two samples); the line breaks only there |
+| Charts show gaps | A reading was unavailable for that frame (rates need two samples), or the recorder was not running; the line breaks only there |
+| History stays empty | Background monitoring is off (the tab says so and links to the Settings partition), or no frame has been recorded yet |
+| **Close connection** is disabled | The row is not an established IPv4 TCP connection, or the privileged service is not running and authorized |
+| A startup switch says access denied | The entry belongs to all users; it needs administrator rights |
+| The tray row and the Settings window disagree | The settings event did not arrive; both listen to `argus-settings-changed`, so reload the window and report it |
 | Efficiency mode has no visible effect | Check it in Windows 11's Task Manager; Windows 10 does not show the badge |
 
 ## Licence

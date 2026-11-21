@@ -55,7 +55,7 @@ for the project name (2026-11-05).
 
 | Upstream | Licence | Module | Evidence |
 |----------|---------|--------|----------|
-| [Argus](https://github.com/Ray-lea/Argus) | AGPL-3.0-or-later | `src-tauri/argus-core`, `src-tauri/argus-service`, `task-manager` page and `src-tauri/src/argus` | 0.3.4 at `709b26d3` (2026-10-26); the engines are ported and trimmed, the UI is a React rewrite; `argus-core/UPSTREAM.md` and `argus-service/UPSTREAM.md` |
+| [Argus](https://github.com/Ray-lea/Argus) | AGPL-3.0-or-later | `src-tauri/argus-core`, `src-tauri/argus-service`, `task-manager` page and `src-tauri/src/argus` | 0.3.4 at `709b26d3` (2026-10-26); the engines are ported and trimmed, including startup items, connections and history, and the UI is a React rewrite; `argus-core/UPSTREAM.md` and `argus-service/UPSTREAM.md` |
 | [tweakcn](https://github.com/jnsahaj/tweakcn) | Apache-2.0 | `src/lib/theme/presets.json` | Generated data snapshot; `licenses/tweakcn-LICENSE.txt` |
 | [MangoDisk](https://github.com/harry0703/MangoDisk) | GPL-3.0-only | `systools-core`, `systools` page | 10 byte-identical files at import; `systools-core/UPSTREAM.md` |
 | [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor) | GPL-3.0-only | `md-editor-core`, `md-editor` page | Rewritten, no identical files; `md-editor-core/UPSTREAM.md` |
@@ -94,9 +94,10 @@ for the project name (2026-11-05).
   GPL upstreams point at the project's own `LICENSE`.
 - **Argus** is AGPL-3.0-or-later, the same licence family as this project, so
   the ported crates keep the AGPL notice and point at the project's own
-  `LICENSE`. The monitoring path and the service catalogue came across — the
-  latter behind the task manager's services tab and the privileged service's
-  service-control operations; history, rules, startup items, connections, file
+  `LICENSE`. The monitoring path, the service catalogue, startup items,
+  connections and the history store came across — they back the task manager's
+  services, startup, connections and history tabs, and the privileged service's
+  service-control and connection-reset operations. The rules module, file
   locks, handles, the PawnIO driver, the sensor service and the Task Manager
   replacement were not ported.
 - **OneMail** is AGPL-3.0-only, like this project. Only the mail engine, the
@@ -148,6 +149,6 @@ Use this for every feature carried over.
 | 2026-11-10 | SpacePreview recorded as **Ported**: its Rust side became `space-preview-core` and its engines/viewers became `src/lib/space-preview` and `src/components/space-preview`, behind the upgraded File Preview page, the standalone preview window and the editors' preview tabs. The CAD/3D/RAW/design-thumbnail and Graphviz (EPL-2.0) branches were not carried over. |
 | 2026-11-10 | Licence audit follow-up: mermaid pulled `elkjs` (EPL-2.0) into the bundle; `vite.config.ts` now aliases it to `src/lib/elk-stub.ts` so the code is not redistributed. `buffers` (no licence) was confirmed not to reach the Excel viewer bundle because Vite resolves ExcelJS's browser build. |
 | 2026-11-11 | moin 0.4.0 (`79e7587`, MIT) ported as `src-tauri/moin-core`, the download page and `extension/`; `moin-core/UPSTREAM.md` and `licenses/moin-LICENSE.txt` added, notices updated. The general daemon was replaced by embedded commands/events; the extension RPC and aria2 backend were retained. |
-| 2026-11-18 | Argus 0.3.4 (`709b26d3`, AGPL-3.0-or-later) ported as `src-tauri/argus-core` and `src-tauri/argus-service`, behind the task manager page at `/task-manager`. The port was done after the project switched to AGPL-3.0-only, so the ported code keeps its AGPL notice and the combined work is AGPL-3.0-only; the repository's GPL-3.0-only upstreams (MangoDisk, TizuMark) keep their own notice and are combined under GPLv3 §13 as before. The PawnIO driver, sensors, Task Manager replacement, admin helpers, handle queries and the history, rules, startup and connection modules were not carried over. `argus-core/UPSTREAM.md`, `argus-service/UPSTREAM.md` and the guide pair `docs/features/TASK_MANAGER.md` / `.zh-CN.md` added. |
+| 2026-11-18 | Argus 0.3.4 (`709b26d3`, AGPL-3.0-or-later) ported as `src-tauri/argus-core` and `src-tauri/argus-service`, behind the task manager page at `/task-manager`. The port was done after the project switched to AGPL-3.0-only, so the ported code keeps its AGPL notice and the combined work is AGPL-3.0-only; the repository's GPL-3.0-only upstreams (MangoDisk, TizuMark) keep their own notice and are combined under GPLv3 §13 as before. The PawnIO driver, sensors, Task Manager replacement, admin helpers, handle queries and the rules and file-lock modules were not carried over; the startup, connections and history modules were later ported for the page's new tabs. `argus-core/UPSTREAM.md`, `argus-service/UPSTREAM.md` and the guide pair `docs/features/TASK_MANAGER.md` / `.zh-CN.md` added. |
 | 2026-11-18 | OneMail 0.1.0 (`181ccb6`, AGPL-3.0-only) ported as `src-tauri/one-mail-core` and the `/one-mail` page; `one-mail-core/UPSTREAM.md` and the guide pair `docs/features/ONE_MAIL.md` / `.zh-CN.md` added. OAuth, Gmail/Graph sync, AI, backup and the background supervisor were not carried over. |
 
