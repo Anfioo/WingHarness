@@ -374,6 +374,28 @@ mod tests {
     }
 
     #[test]
+    fn the_protocol_version_covers_connection_close() {
+        assert_eq!(crate::PROTOCOL, 4);
+        let operation: Operation = serde_json::from_str(
+            r#"{"op":"closeConnection","localAddress":"127.0.0.1","localPort":5000,"remoteAddress":"1.2.3.4","remotePort":443}"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            operation,
+            Operation::CloseConnection {
+                local_port: 5000,
+                remote_port: 443,
+                ..
+            }
+        ));
+        // Snake-case field names are not the wire format.
+        assert!(serde_json::from_str::<Operation>(
+            r#"{"op":"closeConnection","local_address":"127.0.0.1","local_port":5000,"remote_address":"1.2.3.4","remote_port":443}"#
+        )
+        .is_err());
+    }
+
+    #[test]
     fn rejects_unknown_operations_and_fields() {
         assert!(serde_json::from_str::<Operation>(r#"{"op":"reboot"}"#).is_err());
         assert!(serde_json::from_str::<Operation>(r#"{"op":"restoreTaskManager"}"#).is_err());

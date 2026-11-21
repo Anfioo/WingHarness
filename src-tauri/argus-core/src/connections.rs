@@ -53,6 +53,11 @@ fn rows<T>(buf: &AlignedBuf) -> &[T] {
     unsafe { std::slice::from_raw_parts(buf.as_ptr().add(offset) as *const T, count.min(max)) }
 }
 
+/// The `MIB_*6ROW` structures hold the address as 16 raw bytes.
+fn format_ipv6(bytes: [u8; 16]) -> String {
+    Ipv6Addr::from(bytes).to_string()
+}
+
 fn tcp_state(state: u32) -> &'static str {
     match state {
         1 => "closed",
@@ -112,9 +117,9 @@ fn tcp6(out: &mut Vec<Connection>) {
         out.push(Connection {
             protocol: "tcp",
             ipv6: true,
-            local_address: Ipv6Addr::from(r.ucLocalAddr).to_string(),
+            local_address: format_ipv6(r.ucLocalAddr),
             local_port: port(r.dwLocalPort),
-            remote_address: (!listening).then(|| Ipv6Addr::from(r.ucRemoteAddr).to_string()),
+            remote_address: (!listening).then(|| format_ipv6(r.ucRemoteAddr)),
             remote_port: (!listening).then(|| port(r.dwRemotePort)),
             state: Some(tcp_state(r.dwState)),
             pid: r.dwOwningPid,
@@ -154,7 +159,7 @@ fn udp6(out: &mut Vec<Connection>) {
         out.push(Connection {
             protocol: "udp",
             ipv6: true,
-            local_address: Ipv6Addr::from(r.ucLocalAddr).to_string(),
+            local_address: format_ipv6(r.ucLocalAddr),
             local_port: port(r.dwLocalPort),
             remote_address: None,
             remote_port: None,
@@ -212,6 +217,28 @@ mod tests {
         assert_eq!(tcp_state(2), "listen");
         assert_eq!(tcp_state(5), "established");
         assert_eq!(tcp_state(99), "closed");
+    }
+
+    #[test]
+    fn formats_ipv6_addresses() {
+        assert_eq!(format_ipv6([0; 16]), "::");
+        let mut loopback = [0u8; 16];
+        loopback[15] = 1;
+        assert_eq!(format_ipv6(loopback), "::1");
+        let mut address = [0u8; 16];
+        address[..4].copy_from_slice(&[0x20, 0x01, 0x0d, 0xb8]);
+        address[15] = 1;
+        assert_eq!(format_ipv6(address), "2001:db8::1");
+    }
+
+    #[test]
+    #[ignore = "requires live sockets on a Windows machine"]
+    fn enumerates_live_connections() {
+        let connections = list();
+        assert!(!connections.is_empty());
+        assert!(connections
+            .iter()
+            .all(|connection| connection.protocol == "tcp" || connection.protocol == "udp"));
     }
 
     #[test]

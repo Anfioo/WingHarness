@@ -344,6 +344,21 @@ fn is_enabled(approved: &Key, name: &str) -> bool {
     r != ERROR_SUCCESS || len == 0 || data[0] & 1 == 0
 }
 
+/// The `StartupApproved` value: 12 bytes whose first byte is even when the
+/// entry runs and odd when it is disabled, followed by the moment of the
+/// change (all zero for an enabled entry).
+fn approved_bytes(enabled: bool, changed: FILETIME) -> [u8; 12] {
+    let mut data = [0u8; 12];
+    if enabled {
+        data[0] = 0x02;
+    } else {
+        data[0] = 0x03;
+        data[4..8].copy_from_slice(&changed.dwLowDateTime.to_le_bytes());
+        data[8..12].copy_from_slice(&changed.dwHighDateTime.to_le_bytes());
+    }
+    data
+}
+
 /// Enables or disables an entry the way Task Manager does, without touching the
 /// entry itself.
 pub fn set_enabled(id: &str, enabled: bool) -> Result<(), ActionError> {
@@ -356,15 +371,8 @@ pub fn set_enabled(id: &str, enabled: bool) -> Result<(), ActionError> {
         .find(|l| l.id == loc_id)
         .ok_or(ActionError::Refused)?;
 
-    let mut data = [0u8; 12];
-    if enabled {
-        data[0] = 0x02;
-    } else {
-        data[0] = 0x03;
-        let ft: FILETIME = unsafe { GetSystemTimeAsFileTime() };
-        data[4..8].copy_from_slice(&ft.dwLowDateTime.to_le_bytes());
-        data[8..12].copy_from_slice(&ft.dwHighDateTime.to_le_bytes());
-    }
+    let changed: FILETIME = unsafe { GetSystemTimeAsFileTime() };
+    let data = approved_bytes(enabled, changed);
 
     let path = wide(&format!(r"{APPROVED}\{}", loc.approved));
     let mut key = HKEY::default();
@@ -397,6 +405,63 @@ pub fn set_enabled(id: &str, enabled: bool) -> Result<(), ActionError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ids_name_a_known_location_and_parse_the_entry_after_the_separator() {
+        let ids: Vec<_> = LOCATIONS.iter().map(|location| location.id).collect();
+        assert_eq!(
+            ids,
+            [
+                "hkcuRun",
+                "hklmRun",
+                "hklmRun32",
+                "userFolder",
+                "commonFolder"
+            ]
+        );
+        assert_eq!(LOCATIONS[0].root, HKEY_CURRENT_USER);
+        assert_eq!(LOCATIONS[1].root, HKEY_LOCAL_MACHINE);
+        assert_eq!(LOCATIONS[2].root, HKEY_LOCAL_MACHINE);
+        assert_eq!(LOCATIONS[3].root, HKEY_CURRENT_USER);
+        assert_eq!(LOCATIONS[4].root, HKEY_LOCAL_MACHINE);
+
+        // Malformed ids are refused before anything touches the registry.
+        for id in ["", "hkcuRun", "nosuchLocation|Entry"] {
+            assert!(matches!(set_enabled(id, true), Err(ActionError::Refused)));
+        }
+    }
+
+    #[test]
+    fn approved_values_carry_the_enabled_byte_and_time() {
+        let changed = FILETIME {
+            dwLowDateTime: 0x1122_3344,
+            dwHighDateTime: 0x5566_7788,
+        };
+        let enabled = approved_bytes(true, changed);
+        assert_eq!(enabled[0], 0x02);
+        assert_eq!(&enabled[4..], &[0u8; 8]);
+
+        let disabled = approved_bytes(false, changed);
+        assert_eq!(disabled[0], 0x03);
+        assert_eq!(&disabled[4..8], &0x1122_3344u32.to_le_bytes());
+        assert_eq!(&disabled[8..12], &0x5566_7788u32.to_le_bytes());
+    }
+
+    #[test]
+    fn parses_the_executable_out_of_a_command_line() {
+        assert_eq!(
+            exe_from_command(r#""C:\Apps\Example App\Example.exe" --hidden"#).as_deref(),
+            Some(r"C:\Apps\Example App\Example.exe")
+        );
+        assert_eq!(
+            exe_from_command(r#"  "C:\only.exe"  "#).as_deref(),
+            Some(r"C:\only.exe")
+        );
+        assert_eq!(
+            exe_from_command("definitely-not-a-real-program-xyz.exe").as_deref(),
+            Some("definitely-not-a-real-program-xyz.exe")
+        );
+    }
 
     #[test]
     fn startup_names_prefer_program_metadata_without_losing_shortcut_names() {
