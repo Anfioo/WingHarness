@@ -42,6 +42,7 @@ export type AppRouteGroup =
   | "taskManager"
   | "oneMail"
   | "moin"
+  | "mise"
   | "codeg";
 
 /**
@@ -79,6 +80,7 @@ export type AppRouteId =
   | "taskManager"
   | "oneMail"
   | "moin"
+  | "mise"
   | "codeg"
   | "codegDev";
 
@@ -206,6 +208,18 @@ const routeTable: AppRoute[] = [
     icon: Mail,
     scope: "侧栏页面 / 账号 + 会话 + 对话",
     items: ["账号与文件夹同步", "按往来人聚合的会话", "Markdown 写信与发件箱", "FTS5 搜索与筛选"],
+  },
+  {
+    id: "mise",
+    group: "mise",
+    path: "/mise",
+    title: "环境管理",
+    navLabel: "环境管理",
+    description:
+      "查看本机 mise 运行时、已安装工具与版本、项目级版本覆盖，并编辑全局与项目 mise 配置。",
+    icon: Boxes,
+    scope: "本机 mise 环境 / 工具 / 项目 / 配置",
+    items: ["工具版本与远端版本", "项目覆盖扫描", "全局与项目 TOML", "操作历史"],
   },
   {
     id: "servers",
