@@ -138,7 +138,10 @@ export default function OverviewTab({ runtime, onReloadRuntime }: OverviewTabPro
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
               label={t("mise.overview.metrics.system.label")}
-              value={`${dashboard.system.osName ?? unknown} / ${dashboard.system.arch || unknown}`}
+              value={t("mise.overview.metrics.system.caption", {
+                os: dashboard.system.osName ?? unknown,
+                arch: dashboard.system.arch || unknown,
+              })}
               caption={
                 [dashboard.system.osVersion, dashboard.system.hostName]
                   .filter((part): part is string => Boolean(part))
