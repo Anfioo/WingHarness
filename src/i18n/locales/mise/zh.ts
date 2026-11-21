@@ -18,6 +18,11 @@ const mise = {
     copy: "复制",
     openScoop: "打开 Scoop",
   },
+  actionPreview: {
+    affectedFiles: "受影响的文件",
+    impactScope: "影响范围",
+    riskNotes: "风险提示",
+  },
   level: {
     healthy: "正常",
     info: "提示",
@@ -297,6 +302,7 @@ const mise = {
     openedEmpty: "当前没有打开的项目窗口。",
     empty: "没有发现项目配置。",
     emptyHint: "打开一个项目，或添加扫描根。",
+    emptyScanHint: "扫描根下没有发现项目配置。请检查配置文件名。",
     loading: "正在扫描项目…",
     scan: "立即扫描",
     table: {
@@ -306,9 +312,9 @@ const mise = {
       tools: "工具",
       declared: "声明数",
       overrides: "覆盖数",
-      issue: "扫描问题",
       modified: "最近变更",
       notes: "备注",
+      status: "状态",
       expand: "展开绑定",
       collapse: "收起绑定",
     },
@@ -376,6 +382,8 @@ const mise = {
       content: "内容",
       edit: "编辑文档",
       hint: "文件在打开标签时读取，不会监听外部修改。",
+      discardTitle: "放弃未保存的修改？",
+      discardDescription: "修改不会写入配置文件。",
     },
     runtime: {
       title: "运行时设置",
@@ -416,6 +424,8 @@ const mise = {
       edit: "编辑 Java 别名",
       add: "添加别名",
       remove: "删除别名",
+      aliasRequired: "请输入别名。",
+      aliasDuplicate: "该别名已存在。",
     },
     diff: {
       title: "确认改动",
@@ -424,6 +434,7 @@ const mise = {
       createsFile: "这次保存会创建该文件。",
       path: "文件",
       backupPath: "备份",
+      back: "返回编辑",
     },
     save: {
       confirm: "保存",

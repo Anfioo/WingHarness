@@ -19,6 +19,11 @@ const mise = {
     copy: "Copy",
     openScoop: "Open Scoop",
   },
+  actionPreview: {
+    affectedFiles: "Affected files",
+    impactScope: "Impact",
+    riskNotes: "Risks",
+  },
   level: {
     healthy: "Healthy",
     info: "Info",
@@ -303,6 +308,8 @@ const mise = {
     openedEmpty: "No project window is open.",
     empty: "No project configuration was found.",
     emptyHint: "Open a project or add a scan root.",
+    emptyScanHint:
+      "No project configuration was found under the scan roots. Check the config file names.",
     loading: "Scanning projects…",
     scan: "Scan now",
     table: {
@@ -312,9 +319,9 @@ const mise = {
       tools: "Tools",
       declared: "Declared",
       overrides: "Overrides",
-      issue: "Issue",
       modified: "Last change",
       notes: "Notes",
+      status: "Status",
       expand: "Show bindings",
       collapse: "Hide bindings",
     },
@@ -383,6 +390,8 @@ const mise = {
       content: "Content",
       edit: "Edit document",
       hint: "The file is read when the tab opens; it is not watched for external changes.",
+      discardTitle: "Discard unsaved changes?",
+      discardDescription: "Your edits will not be written to the configuration file.",
     },
     runtime: {
       title: "Runtime settings",
@@ -423,6 +432,8 @@ const mise = {
       edit: "Edit Java aliases",
       add: "Add alias",
       remove: "Remove alias",
+      aliasRequired: "Enter an alias.",
+      aliasDuplicate: "This alias already exists.",
     },
     diff: {
       title: "Review changes",
@@ -431,6 +442,7 @@ const mise = {
       createsFile: "This save creates the file.",
       path: "File",
       backupPath: "Backup",
+      back: "Back to editing",
     },
     save: {
       confirm: "Save",
