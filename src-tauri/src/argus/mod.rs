@@ -62,10 +62,13 @@ impl ArgusState {
         self.settings.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// Sends a control message to the running sampler, if any.
-    pub fn send(&self, control: sampler::Control) {
-        if let Some(sampler) = self.sampler().as_ref() {
-            let _ = sampler.send(control);
+    /// Sends a control message to the running sampler; `false` means no
+    /// thread is running or it has already exited.
+    pub fn send(&self, control: sampler::Control) -> bool {
+        let sampler = self.sampler();
+        match sampler.as_ref() {
+            Some(sampler) => sampler.send(control),
+            None => false,
         }
     }
 
@@ -75,16 +78,23 @@ impl ArgusState {
         self.send(sampler::Control::Refresh);
     }
 
-    /// Stops and forgets the sampler thread.
+    /// Stops the sampler thread and waits for it to release its trace session,
+    /// so a thread started right after never shares that session.
     pub fn stop_sampler(&self) {
-        if let Some(sampler) = self.sampler().take() {
-            let _ = sampler.send(sampler::Control::Stop);
+        let running = self.sampler().take();
+        if let Some(sampler) = running {
+            sampler.stop();
         }
     }
 
     /// Starts the sampler thread if it is not running.
     pub fn ensure_sampler(&self) {
         let mut sampler = self.sampler();
+        // A thread whose channel closed is already on its way out; replace the
+        // handle rather than sending it controls that can no longer arrive.
+        if sampler.as_ref().is_some_and(sampler::Sampler::is_finished) {
+            *sampler = None;
+        }
         if sampler.is_none() {
             *sampler = Some(sampler::Sampler::spawn(self.meta.clone()));
         }
@@ -99,24 +109,39 @@ impl ArgusState {
         if settings.background_monitoring {
             self.ensure_sampler();
         }
-        self.send(sampler::Control::SetInterval(settings.interval_ms));
-        self.send(sampler::Control::SetBackground(
+        if self.send_settings(settings) || !settings.background_monitoring {
+            return;
+        }
+        // The thread exited between the check above and these sends. Start a
+        // fresh one and hand it the same settings instead of leaving the app
+        // with background monitoring enabled but nothing sampling.
+        self.stop_sampler();
+        self.ensure_sampler();
+        let _ = self.send_settings(settings);
+    }
+
+    /// Sends every setting to the sampler. `false` when no thread could take
+    /// them.
+    fn send_settings(&self, settings: &ArgusSettings) -> bool {
+        let mut applied = self.send(sampler::Control::SetInterval(settings.interval_ms));
+        applied &= self.send(sampler::Control::SetBackground(
             settings.background_monitoring,
         ));
-        self.send(sampler::Control::SetBackgroundInterval(
+        applied &= self.send(sampler::Control::SetBackgroundInterval(
             settings.background_interval_ms,
         ));
-        if settings.background_monitoring {
+        let history_dir = if settings.background_monitoring {
             match argus_core::history::dir() {
-                Ok(dir) => self.send(sampler::Control::SetHistoryDir(Some(dir))),
+                Ok(dir) => Some(dir),
                 Err(error) => {
                     eprintln!("[argus] history directory unavailable: {error:?}");
-                    self.send(sampler::Control::SetHistoryDir(None));
+                    None
                 }
             }
         } else {
-            self.send(sampler::Control::SetHistoryDir(None));
-        }
+            None
+        };
+        applied & self.send(sampler::Control::SetHistoryDir(history_dir))
     }
 
     /// Drops the page's subscription. The thread keeps running when background
@@ -170,8 +195,9 @@ pub fn start_background(app: &tauri::AppHandle) {
             ArgusSettings::default()
         }
     };
-    if let Ok(dir) = argus_core::history::dir() {
-        argus_core::history::prune_expired(&dir);
+    match argus_core::history::dir() {
+        Ok(dir) => argus_core::history::prune_expired(&dir),
+        Err(error) => eprintln!("[argus] history directory unavailable at startup: {error:?}"),
     }
     if !settings.background_monitoring {
         return;
