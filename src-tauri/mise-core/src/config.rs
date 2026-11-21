@@ -21,7 +21,7 @@ const MAX_CONFIG_BYTES: u64 = 1024 * 1024;
 const TOML_CONFIG_FILE_NAMES: [&str; 3] = ["mise.toml", ".mise.local.toml", "mise.local.toml"];
 
 /// Files the save command accepts below a project or scan root.
-const WHITELIST_FILE_NAMES: [&str; 10] = [
+const WHITELIST_FILE_NAMES: [&str; 11] = [
     "mise.toml",
     ".mise.local.toml",
     "mise.local.toml",
@@ -32,6 +32,7 @@ const WHITELIST_FILE_NAMES: [&str; 10] = [
     ".ruby-version",
     ".java-version",
     ".go-version",
+    ".terraform-version",
 ];
 
 /// A save target may sit at most this many levels below a project or scan root.
@@ -1172,6 +1173,11 @@ mod tests {
         ));
         assert!(is_allowed_path(
             Path::new(&format!("{root}/a/b/c/.tool-versions")),
+            None,
+            &roots
+        ));
+        assert!(is_allowed_path(
+            Path::new(&format!("{root}/.terraform-version")),
             None,
             &roots
         ));
