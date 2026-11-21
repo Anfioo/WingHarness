@@ -42,7 +42,7 @@ W0（A0 基线）由用户手动委派并完成；之后每个波次用本技能
 6. 非 `--dry-run` 时执行 Git 前置检查：
    - `git rev-parse --abbrev-ref HEAD`：在 `main` / `master` 上停止，提示先手动完成 W0 并切到计划的目标分支。
    - 分支名应包含 `<module>` 或与计划 §11 的目标分支一致（`feature/<module>` / `feat/<module>` 都算）；不一致就停止并让用户确认，避免在错误分支上委派。
-   - `git status --porcelain`：排除 `.dev/`（本就不入 Git）和本技能目录 `.claude/skills/porting-wave-runner/` 后，仍有内容就停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
+   - `git status --porcelain`：排除 `.dev/`（本就不入 Git）和 `.claude/skills/`（工具目录，不属于本次移植改动）后，仍有内容就停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
    - 记录 `git rev-parse HEAD` 作为 `startSha`。
 7. 非 `--dry-run` 时 `mkdir -p <planRoot>/waves`。
 
@@ -248,7 +248,7 @@ git log --oneline <startSha>..HEAD
 ## 自检
 
 - [ ] 没有接受 `w0`。
-- [ ] 已确认不在 `main` / `master`、分支与计划一致，且除 `.dev/` 与本技能目录外 `git status` 干净。
+- [ ] 已确认不在 `main` / `master`、分支与计划一致，且除 `.dev/` 与 `.claude/skills/` 外 `git status` 干净。
 - [ ] 执行轨全部并行发起，不是串行。
 - [ ] 协调者在所有执行轨成功后才发起；最后一波没有额外协调者。
 - [ ] 失败轨最多重试一次；仍失败时没有运行协调者。
@@ -259,5 +259,6 @@ git log --oneline <startSha>..HEAD
 ## 参考
 
 - [coordinator-fallback.md](coordinator-fallback.md) —— `prompts.md` 缺少协调者段落时的兜底模板
+- 上层编排：`porting-super-runner` —— 把 W0→A1 的多波串成一条委派链，一次跑完
 - 前置技能：`porting-plan-waves` —— 生成 `plan.1.md`、`inbox/<lane>.md` 与 `inbox/prompts.md`
 - Codeg 工具：`mcp__codeg-mcp__delegate_to_agent`、`mcp__codeg-mcp__get_delegation_status`、`mcp__codeg-mcp__cancel_delegation`
