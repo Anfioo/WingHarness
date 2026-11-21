@@ -86,6 +86,10 @@
       "noTunnels": "该配置没有隧道",
       "back": "返回",
       "loading": "加载中…"
+    },
+    "taskManager": {
+      "background": "后台持续监听",
+      "toggleFailed": "切换后台持续监听失败。"
     }
   },
   "updater": {
