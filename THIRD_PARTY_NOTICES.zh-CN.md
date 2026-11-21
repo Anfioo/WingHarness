@@ -94,6 +94,25 @@ Claude 聊天页与 `src-tauri/src/commands/claude_history.rs` 是 jetbrains-cc-
 
 `src-tauri/src/mcphub` 改编自 McpHub；每个源文件都保留了归属声明。
 
+### mise_gui
+
+- 项目：[mise_gui](https://github.com/likaia/mise_gui)
+- 版本：1.0.8（提交 `db111d7`）
+- 许可证：MIT
+- 许可证文本：[licenses/mise_gui-LICENSE.txt](./licenses/mise_gui-LICENSE.txt)
+
+mise_gui (https://github.com/likaia/mise_gui)
+Copyright (c) 2026 likai
+Licensed under the MIT License.
+mise CLI 探测、工具／版本查询、项目覆盖扫描、配置解析，以及总览／工具／项目／配置
+界面均改编自 mise_gui。
+
+`src-tauri/mise-core` 是环境管理页面背后的引擎。上游实现为 Dart（Flutter 服务与
+页面）；本移植把服务层重写为 Rust、界面重写为 React，通过十六条 Tauri 命令驱动，
+不保留任何 Dart 代码。GUI 自更新、应用自更新、窗口 chrome、托盘、Mock 服务、
+Dart 测试、配置监听、登录 shell 探测与旧数据迁移均未移植。配置写入增加了预览／
+白名单／备份／原子写路径。移植记录见 `src-tauri/mise-core/UPSTREAM.md`。
+
 ### moin
 
 - 项目：[moin](https://github.com/exxvius/moin)

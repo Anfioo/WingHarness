@@ -75,6 +75,7 @@ for the project name (2026-11-05).
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`, `moin` page, `extension/` | 0.4.0 at `79e7587`; reworked for this app; `moin-core/UPSTREAM.md` |
 | [ScoopInstaller/Install](https://github.com/ScoopInstaller/Install) | Unlicense | `src-tauri/resources/scoop/install.ps1` | Bundled unchanged on 2026-11-13; SHA-256 `94f983b1…f2512`; `THIRD_PARTY_NOTICES.md` |
 | [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`, `one-mail` page | 0.1.0 at `181ccb6`; engine rewritten for this app's storage and command layers, UI rebuilt on this app's components, and the mail-HTML preparer / HTML-to-text conversion ported directly; `one-mail-core/UPSTREAM.md` |
+| [mise_gui](https://github.com/likaia/mise_gui) | MIT | `src-tauri/mise-core`, `mise` page (`src/pages/mise`) | 1.0.8 at `db111d7`; the Dart service layer rewritten in Rust and the Flutter UI in React, no identical files; `mise-core/UPSTREAM.md` |
 
 **Notes on this group**
 
@@ -88,10 +89,10 @@ for the project name (2026-11-05).
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
   `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core`,
-  `argus-core`, `argus-service`, `space-preview-core`, `moin-core` and
-  `one-mail-core`. The preview's two halves each have one — the Rust crate and
-  the frontend viewers. The license text of each upstream is in `licenses/`;
-  GPL upstreams point at the project's own `LICENSE`.
+  `argus-core`, `argus-service`, `space-preview-core`, `moin-core`,
+  `one-mail-core` and `mise-core`. The preview's two halves each have one — the
+  Rust crate and the frontend viewers. The license text of each upstream is in
+  `licenses/`; GPL upstreams point at the project's own `LICENSE`.
 - **Argus** is AGPL-3.0-or-later, the same licence family as this project, so
   the ported crates keep the AGPL notice and point at the project's own
   `LICENSE`. The monitoring path, the service catalogue, startup items,
@@ -151,4 +152,5 @@ Use this for every feature carried over.
 | 2026-11-11 | moin 0.4.0 (`79e7587`, MIT) ported as `src-tauri/moin-core`, the download page and `extension/`; `moin-core/UPSTREAM.md` and `licenses/moin-LICENSE.txt` added, notices updated. The general daemon was replaced by embedded commands/events; the extension RPC and aria2 backend were retained. |
 | 2026-11-18 | Argus 0.3.4 (`709b26d3`, AGPL-3.0-or-later) ported as `src-tauri/argus-core` and `src-tauri/argus-service`, behind the task manager page at `/task-manager`. The port was done after the project switched to AGPL-3.0-only, so the ported code keeps its AGPL notice and the combined work is AGPL-3.0-only; the repository's GPL-3.0-only upstreams (MangoDisk, TizuMark) keep their own notice and are combined under GPLv3 §13 as before. The PawnIO driver, sensors, Task Manager replacement, admin helpers, handle queries and the rules and file-lock modules were not carried over; the startup, connections and history modules were later ported for the page's new tabs. `argus-core/UPSTREAM.md`, `argus-service/UPSTREAM.md` and the guide pair `docs/features/TASK_MANAGER.md` / `.zh-CN.md` added. |
 | 2026-11-18 | OneMail 0.1.0 (`181ccb6`, AGPL-3.0-only) ported as `src-tauri/one-mail-core` and the `/one-mail` page; `one-mail-core/UPSTREAM.md` and the guide pair `docs/features/ONE_MAIL.md` / `.zh-CN.md` added. OAuth, Gmail/Graph sync, AI, backup and the background supervisor were not carried over. |
+| 2026-11-22 | mise_gui 1.0.8 (`db111d7`, MIT) ported as `src-tauri/mise-core` and the `/mise` environment page; `mise-core/UPSTREAM.md`, `licenses/mise_gui-LICENSE.txt` and the guide pair `docs/features/MISE.md` / `.zh-CN.md` added. The Dart service layer was rewritten in Rust and the Flutter UI in React; GUI self-update, app update, window chrome, the tray, mocks, Dart tests, config watching, login-shell probing and old-data migration were not carried over. |
 

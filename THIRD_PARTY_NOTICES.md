@@ -105,6 +105,29 @@ Windows-only; macOS and Linux code paths were not carried over.
 `src-tauri/src/mcphub` is adapted from McpHub; every source file keeps its
 attribution header.
 
+### mise_gui
+
+- Project: [mise_gui](https://github.com/likaia/mise_gui)
+- Version: 1.0.8 (commit `db111d7`)
+- License: MIT
+- License text: [licenses/mise_gui-LICENSE.txt](./licenses/mise_gui-LICENSE.txt)
+
+mise_gui (https://github.com/likaia/mise_gui)
+Copyright (c) 2026 likai
+Licensed under the MIT License.
+Portions of the mise CLI probing, tool/version queries, project coverage scan,
+configuration parsing and the overview/tools/projects/config UI are adapted
+from mise_gui.
+
+`src-tauri/mise-core` is the engine behind the environment page. The upstream
+implementation is Dart (Flutter services and pages); this port rewrites the
+service layer in Rust and the UI in React behind sixteen Tauri commands, and
+keeps no Dart code. GUI self-update, app update, window chrome, the tray, mock
+services, Dart tests, configuration watching, login-shell probing and old-data
+migration were not carried over. Configuration writes add a preview / whitelist
+/ backup / atomic-write path. See `src-tauri/mise-core/UPSTREAM.md` for the
+porting record.
+
 ### moin
 
 - Project: [moin](https://github.com/exxvius/moin)
