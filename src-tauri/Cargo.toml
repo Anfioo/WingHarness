@@ -1,6 +1,6 @@
 [package]
 name = "wingharness"
-version = "0.0.22"
+version = "0.0.23"
 description = "WingHarness, a local-first desktop workspace built on Tauri."
 authors = ["Anfioo"]
 license = "AGPL-3.0-only"
