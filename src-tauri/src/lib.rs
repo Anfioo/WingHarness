@@ -107,6 +107,15 @@ pub fn run() {
                 app.manage(one_mail_core::state::OneMailState::new(
                     app.handle().clone(),
                 ));
+                // Warm the mail database in the background so the first mail page
+                // does not pay for SQLite opening and schema verification.
+                let mail_app = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = mail_app.state::<one_mail_core::state::OneMailState>();
+                    if let Err(error) = state.pool().await {
+                        eprintln!("one_mail_db_warmup_failed error={error}");
+                    }
+                });
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
