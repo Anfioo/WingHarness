@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-argus-history-moment"
+description = "Enables the argus_history_moment command without any pre-configured scope."
+commands.allow = ["argus_history_moment"]
+
+[[permission]]
+identifier = "deny-argus-history-moment"
+description = "Denies the argus_history_moment command without any pre-configured scope."
+commands.deny = ["argus_history_moment"]

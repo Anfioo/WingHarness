@@ -12,6 +12,7 @@
 pub mod actions;
 pub mod app_windows;
 pub mod collector;
+pub mod connections;
 mod cpu;
 pub mod details;
 pub mod diagnostics;
@@ -19,6 +20,7 @@ pub mod disk_process;
 pub mod error;
 pub mod gpu_process;
 pub mod hardware;
+pub mod history;
 pub mod meta;
 pub mod models;
 pub mod net_process;
@@ -28,6 +30,7 @@ mod pdh;
 pub mod privilege;
 pub mod process;
 pub mod services;
+pub mod startup;
 pub mod store;
 pub mod system;
 mod util;
@@ -39,7 +42,10 @@ pub use actions::{ActionError, Priority, TreeKillReport};
 pub use collector::{Collector, Snapshot};
 pub use details::ProcessDetails;
 pub use error::{ArgusError, ArgusErrorCode};
-pub use models::ArgusSettings;
+pub use models::{
+    ArgusSettings, Connection, HistoryMoment, HistoryPoint, HistoryProcess, HistoryUsage,
+    StartupItem,
+};
 pub use process::ProcessRow;
 pub use services::{ServiceAction, ServiceCatalog, ServiceInfo, StartType};
 pub use system::SystemStats;

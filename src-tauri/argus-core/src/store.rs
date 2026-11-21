@@ -14,23 +14,26 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::error::{ArgusError, ArgusResult};
-use crate::models::{ArgusSettings, DEFAULT_INTERVAL_MS};
+use crate::models::{ArgusSettings, DEFAULT_BACKGROUND_INTERVAL_MS, DEFAULT_INTERVAL_MS};
 use crate::paths;
 
 const SETTINGS_FILE: &str = "settings.json";
-const SETTINGS_VERSION: u32 = 1;
+const SETTINGS_VERSION: u32 = 2;
 
 /// Serialises the staged write, so two saves cannot interleave in the same
 /// `settings.json.tmp`.
 static WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 /// The on-disk document. `version` is written for future migrations and
-/// ignored when reading: only version 1 exists today.
+/// ignored when reading: a version 1 file simply lacks the background fields,
+/// which the struct-level `default` supplies before the settings are clamped.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 struct StoredSettings {
     version: u32,
     interval_ms: u64,
+    background_monitoring: bool,
+    background_interval_ms: u64,
 }
 
 impl Default for StoredSettings {
@@ -38,6 +41,8 @@ impl Default for StoredSettings {
         Self {
             version: SETTINGS_VERSION,
             interval_ms: DEFAULT_INTERVAL_MS,
+            background_monitoring: false,
+            background_interval_ms: DEFAULT_BACKGROUND_INTERVAL_MS,
         }
     }
 }
@@ -47,6 +52,8 @@ impl From<&ArgusSettings> for StoredSettings {
         Self {
             version: SETTINGS_VERSION,
             interval_ms: settings.interval_ms,
+            background_monitoring: settings.background_monitoring,
+            background_interval_ms: settings.background_interval_ms,
         }
     }
 }
@@ -55,6 +62,8 @@ impl From<StoredSettings> for ArgusSettings {
     fn from(stored: StoredSettings) -> Self {
         Self {
             interval_ms: stored.interval_ms,
+            background_monitoring: stored.background_monitoring,
+            background_interval_ms: stored.background_interval_ms,
         }
         .clamped()
     }
@@ -196,10 +205,46 @@ mod tests {
     #[test]
     fn settings_round_trip_and_leave_no_temp_file() {
         let directory = temp_dir("roundtrip");
-        let saved = save_at(&directory, ArgusSettings::with_interval_ms(1500)).unwrap();
+        let saved = save_at(
+            &directory,
+            ArgusSettings {
+                interval_ms: 1500,
+                background_monitoring: true,
+                background_interval_ms: 15_000,
+            },
+        )
+        .unwrap();
         assert_eq!(saved.interval_ms, 1500);
-        assert_eq!(load_at(&directory).unwrap().interval_ms, 1500);
+        let loaded = load_at(&directory).unwrap();
+        assert_eq!(loaded.interval_ms, 1500);
+        assert!(loaded.background_monitoring);
+        assert_eq!(loaded.background_interval_ms, 15_000);
         assert!(!temp_file(&directory).exists());
+        let _ = std::fs::remove_dir_all(&directory);
+    }
+
+    #[test]
+    fn version_one_file_gets_the_background_defaults() {
+        let directory = temp_dir("version-one");
+        std::fs::create_dir_all(&directory).unwrap();
+        std::fs::write(
+            settings_file(&directory),
+            br#"{ "version": 1, "intervalMs": 2000 }"#,
+        )
+        .unwrap();
+        let loaded = load_at(&directory).unwrap();
+        assert_eq!(loaded.interval_ms, 2000);
+        assert!(!loaded.background_monitoring);
+        assert_eq!(
+            loaded.background_interval_ms,
+            crate::models::DEFAULT_BACKGROUND_INTERVAL_MS
+        );
+        // Saving writes the current version and the new fields.
+        save_at(&directory, loaded).unwrap();
+        let raw = std::fs::read_to_string(settings_file(&directory)).unwrap();
+        assert!(raw.contains("\"version\": 2"));
+        assert!(raw.contains("\"backgroundMonitoring\""));
+        assert!(raw.contains("\"backgroundIntervalMs\""));
         let _ = std::fs::remove_dir_all(&directory);
     }
 
@@ -249,7 +294,8 @@ mod tests {
         )
         .unwrap();
         assert_eq!(load_at(&directory).unwrap().interval_ms, 1500);
-        // The file is still readable after a save rewrites it as version 1.
+        // The file is still readable after a save rewrites it as the current
+        // version.
         assert_eq!(
             save_at(&directory, load_at(&directory).unwrap())
                 .unwrap()

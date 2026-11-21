@@ -22,6 +22,108 @@ export type ArgusError = {
 export type ArgusSettings = {
   /** Sampling interval, 250–5000 ms. */
   intervalMs: number;
+  /** Keep sampling (and recording history) while the page is closed. */
+  backgroundMonitoring: boolean;
+  /** Background sampling interval, 1000–60000 ms. */
+  backgroundIntervalMs: number;
+};
+
+/** One program that starts at logon. */
+export type StartupItemLocation =
+  | "hkcuRun"
+  | "hklmRun"
+  | "hklmRun32"
+  | "userFolder"
+  | "commonFolder"
+  | "package";
+
+export type StartupItem = {
+  /** `<location>|<entry>`; pass back to `argusStartupSetEnabled`. */
+  id: string;
+  name: string;
+  /** Original registry value, shortcut name or packaged task identifier. */
+  entry: string;
+  command: string;
+  path: string | null;
+  location: StartupItemLocation;
+  /** Applies to all users (needs administrator rights to change). */
+  machine: boolean;
+  enabled: boolean;
+  /** Non-null when the switch cannot be changed. */
+  blocked: "managed" | "unavailable" | null;
+  /** False when the target executable no longer exists. */
+  exists: boolean;
+  publisher: string | null;
+  description: string | null;
+  icon: number | null;
+};
+
+export type TcpState =
+  | "listen"
+  | "established"
+  | "synSent"
+  | "synReceived"
+  | "finWait1"
+  | "finWait2"
+  | "closeWait"
+  | "closing"
+  | "lastAck"
+  | "timeWait"
+  | "closed";
+
+/** One TCP or UDP endpoint with its owning process. */
+export type Connection = {
+  protocol: "tcp" | "udp";
+  ipv6: boolean;
+  localAddress: string;
+  localPort: number;
+  /** Null for listening TCP sockets and for UDP. */
+  remoteAddress: string | null;
+  remotePort: number | null;
+  /** TCP only. */
+  state: TcpState | null;
+  pid: number;
+};
+
+/** System totals for one history frame (or one chart bucket). */
+export type HistoryPoint = {
+  /** Unix ms: the frame's start, or a bucket's average. */
+  ts: number;
+  cpu: number;
+  cpuPeak: number;
+  gpu: number;
+  memUsed: number;
+  memTotal: number;
+  /** Bytes per second, all disks. */
+  disk: number;
+  /** Bytes per second, all adapters. */
+  net: number;
+  battery: number | null;
+  batteryRate: number | null;
+};
+
+/** A process that stood out in one history frame. */
+export type HistoryProcess = {
+  name: string;
+  pid: number;
+  cpu: number;
+  mem: number;
+  io: number;
+  gpu: number;
+  net: number;
+};
+
+/** What the recorded history takes on disk. */
+export type HistoryUsage = {
+  bytes: number;
+  /** Unix ms of the oldest recorded frame. */
+  first: number | null;
+};
+
+/** One frame: the system and the processes that stood out at that moment. */
+export type HistoryMoment = {
+  system: HistoryPoint;
+  processes: HistoryProcess[];
 };
 
 export type Priority = "idle" | "belowNormal" | "normal" | "aboveNormal" | "high" | "realtime";

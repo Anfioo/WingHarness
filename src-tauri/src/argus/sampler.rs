@@ -6,8 +6,9 @@
 //! the service clients, and never touches `ArgusState` or performs a service
 //! round trip while a lock is held.
 
-use std::sync::Arc;
+use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use argus_core::meta::MetaStore;
@@ -32,6 +33,16 @@ pub enum Control {
     SetInterval(u64),
     /// Take a frame now, e.g. right after a process action.
     Refresh,
+    /// Drop the subscriber without stopping the thread. When background
+    /// monitoring is on the thread keeps running for the history recorder.
+    Unsubscribe,
+    /// Keep sampling with no subscriber, at the background interval.
+    SetBackground(bool),
+    SetBackgroundInterval(u64),
+    /// Attach or detach the history recorder's directory.
+    SetHistoryDir(Option<PathBuf>),
+    /// Remove every history file and report the result on the sender.
+    ClearHistory(PathBuf, Sender<std::io::Result<()>>),
     /// Stop the thread and drop the collector.
     Stop,
 }
@@ -70,15 +81,20 @@ fn run(rx: Receiver<Control>, meta: Arc<MetaStore>) {
     let mut interval = Duration::from_millis(store::clamp_interval(
         argus_core::models::DEFAULT_INTERVAL_MS,
     ));
+    let mut background = false;
+    let mut background_interval =
+        Duration::from_millis(argus_core::models::DEFAULT_BACKGROUND_INTERVAL_MS);
     let mut next_tick = Instant::now() + interval;
 
     loop {
+        let waiting = subscriber.is_some() || background;
         let wait = next_tick.saturating_duration_since(Instant::now());
-        let received = if subscriber.is_some() {
+        let received = if waiting {
             rx.recv_timeout(wait)
         } else {
-            // Nothing is listening: block until the page subscribes or the app
-            // exits, instead of waking up for frames nobody wants.
+            // Nothing is listening and background monitoring is off: block
+            // until the page subscribes or the app exits, instead of waking up
+            // for frames nobody wants.
             rx.recv().map_err(|_| RecvTimeoutError::Disconnected)
         };
 
@@ -86,6 +102,7 @@ fn run(rx: Receiver<Control>, meta: Arc<MetaStore>) {
             Ok(Control::Subscribe(channel, interval_ms)) => {
                 interval = Duration::from_millis(store::clamp_interval(interval_ms));
                 subscriber = Some(channel);
+                next_tick = Instant::now() + interval;
                 true
             }
             Ok(Control::SetInterval(interval_ms)) => {
@@ -94,12 +111,53 @@ fn run(rx: Receiver<Control>, meta: Arc<MetaStore>) {
                 continue;
             }
             Ok(Control::Refresh) => subscriber.is_some(),
+            Ok(Control::Unsubscribe) => {
+                subscriber = None;
+                if !background {
+                    break;
+                }
+                next_tick = Instant::now() + background_interval;
+                continue;
+            }
+            Ok(Control::SetBackground(on)) => {
+                background = on;
+                if on {
+                    next_tick = Instant::now() + background_interval;
+                } else if subscriber.is_none() {
+                    break;
+                }
+                continue;
+            }
+            Ok(Control::SetBackgroundInterval(ms)) => {
+                background_interval = Duration::from_millis(ms.clamp(
+                    argus_core::models::MIN_BACKGROUND_INTERVAL_MS,
+                    argus_core::models::MAX_BACKGROUND_INTERVAL_MS,
+                ));
+                next_tick = Instant::now()
+                    + if subscriber.is_some() {
+                        interval
+                    } else {
+                        background_interval
+                    };
+                continue;
+            }
+            // The history recorder is attached by the background-lifetime port.
+            Ok(Control::SetHistoryDir(path)) => {
+                let _ = path;
+                continue;
+            }
+            Ok(Control::ClearHistory(path, reply)) => {
+                let _ = reply.send(argus_core::history::clear(&path));
+                continue;
+            }
             Ok(Control::Stop) | Err(RecvTimeoutError::Disconnected) => break,
-            Err(RecvTimeoutError::Timeout) => false,
+            Err(RecvTimeoutError::Timeout) => subscriber.is_some(),
         };
 
         let Some(channel) = subscriber.as_ref() else {
-            // A refresh with no subscriber has nothing to deliver.
+            // A background tick with no subscriber has no channel to deliver
+            // to; the history recorder will be fed here once it is attached.
+            next_tick = Instant::now() + background_interval;
             continue;
         };
 
@@ -110,11 +168,17 @@ fn run(rx: Receiver<Control>, meta: Arc<MetaStore>) {
             eprintln!("[argus] disk enrichment unavailable: {reason}");
         }
 
-        // A failed send means the page went away; stop rather than sample into
-        // nothing. The next `argus_snapshot_start` spawns a fresh thread.
+        // A failed send means the page went away. Keep the thread when
+        // background monitoring is on; otherwise stop and let the next start
+        // spawn a fresh one.
         if channel.send(snapshot).is_err() {
-            eprintln!("[argus] sampler subscriber disconnected; stopping the thread");
-            break;
+            eprintln!("[argus] sampler subscriber disconnected");
+            subscriber = None;
+            if !background {
+                break;
+            }
+            next_tick = Instant::now() + background_interval;
+            continue;
         }
 
         next_tick = if sample_now {

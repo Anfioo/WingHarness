@@ -57,9 +57,10 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The operation-set version. It starts above 1 on purpose: a Ping is always
 /// sent in the version-one envelope so the host can discover an older service,
 /// so 1 cannot also identify this operation set. Version 3 added service
-/// control and start-type changes; a version-2 service is reported as outdated
-/// instead of denying the new operations.
-const PROTOCOL: u32 = 3;
+/// control and start-type changes; version 4 adds closing an established IPv4
+/// TCP connection. An older service is reported as outdated instead of denying
+/// the new operations.
+const PROTOCOL: u32 = 4;
 
 /// Handles service and helper modes before the host starts Tauri, its single
 /// instance guard or its sampler. None means a normal launch.

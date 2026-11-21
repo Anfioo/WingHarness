@@ -18,6 +18,21 @@ pub fn status() -> Result<ServiceStatus, ArgusError> {
     })
 }
 
+/// Closes an established IPv4 TCP connection. Stub baseline: the local-first
+/// attempt and the privileged-service fallback land with the connection port.
+pub fn close_connection(
+    local_address: String,
+    local_port: u16,
+    remote_address: String,
+    remote_port: u16,
+) -> Result<(), ArgusError> {
+    let _ = (local_address, local_port, remote_address, remote_port);
+    Err(ArgusError::new(
+        ArgusErrorCode::AccessDenied,
+        "Closing connections is not available yet.",
+    ))
+}
+
 pub fn manage(action: &str) -> Result<ServiceStatus, ArgusError> {
     match action {
         "install" | "uninstall" | "update" => argus_service::manage(action).map_err(|error| {

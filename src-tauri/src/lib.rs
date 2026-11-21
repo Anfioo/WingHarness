@@ -28,6 +28,9 @@ pub fn run() {
                 // others. The state owns the sampler thread; exit stops it.
                 let _ = argus_core::paths::CONFIG_DIR.set(config::dir().join("argus"));
                 app.manage(argus::ArgusState::default());
+                // Background monitoring and history pruning follow the
+                // persisted settings; the thread stays idle when it is off.
+                argus::start_background(app.handle());
                 // The download engine keeps `downloads.db`, `settings.json`,
                 // `categories.json` and the aria2 session files under
                 // `<data dir>/moin`, so the whole feature moves with the data

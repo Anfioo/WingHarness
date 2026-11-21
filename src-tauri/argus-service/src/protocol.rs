@@ -69,6 +69,14 @@ pub enum Operation {
         name: String,
         start_type: StartType,
     },
+    /// Resets an established IPv4 TCP connection. Added in protocol version 4.
+    #[serde(rename_all = "camelCase")]
+    CloseConnection {
+        local_address: String,
+        local_port: u16,
+        remote_address: String,
+        remote_port: u16,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -115,7 +123,12 @@ impl Operation {
                     return Err(ActionError::Refused);
                 }
             }
-            Self::Ping | Self::NetworkSnapshot | Self::DiskSnapshot {} => {}
+            // Address validation for `CloseConnection` lands with the
+            // connection module; it needs no process check either way.
+            Self::Ping
+            | Self::NetworkSnapshot
+            | Self::DiskSnapshot {}
+            | Self::CloseConnection { .. } => {}
             Self::ControlService { name, .. } | Self::ServiceStartType { name, .. } => {
                 if name.trim().is_empty() || name.len() > 256 {
                     return Err(ActionError::Refused);
@@ -172,6 +185,8 @@ pub fn execute(operation: Operation, context: &Context, client_pid: u32) -> Repl
         Operation::ServiceStartType { name, start_type } => {
             context.services.set_start_type(&name, start_type)
         }
+        // Replaced when the connection module is ported.
+        Operation::CloseConnection { .. } => return Reply::Error(ActionError::Refused),
     };
     result.map_or_else(Reply::Error, |_| Reply::Done)
 }
