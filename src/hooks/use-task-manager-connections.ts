@@ -16,35 +16,17 @@ import {
 } from "@/commands";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useTaskManager } from "@/hooks/use-task-manager";
+import {
+  connectionStats,
+  filterConnections,
+  type ConnectionFilter,
+  type ConnectionStats,
+} from "@/lib/task-manager/connection-rows";
 
-export type ConnectionFilter = "all" | "listen" | "established" | "udp";
-
-export type ConnectionStats = {
-  listening: number;
-  established: number;
-  udp: number;
-  total: number;
-};
+export { connectionEndpoint, connectionKey } from "@/lib/task-manager/connection-rows";
+export type { ConnectionFilter, ConnectionStats } from "@/lib/task-manager/connection-rows";
 
 const POLL_INTERVAL_MS = 2_000;
-
-/** `address:port`, with brackets around an IPv6 address. */
-export function connectionEndpoint(address: string, port: number | null, ipv6: boolean): string {
-  if (port === null) return address;
-  return ipv6 ? `[${address}]:${port}` : `${address}:${port}`;
-}
-
-/** One connection is one endpoint pair owned by one PID. */
-export function connectionKey(connection: Connection): string {
-  return [
-    connection.protocol,
-    connection.localAddress,
-    connection.localPort,
-    connection.remoteAddress ?? "",
-    connection.remotePort ?? "",
-    connection.pid,
-  ].join("|");
-}
 
 /**
  * The connections tab's data: the endpoint list, its 2 s poll, the filter and
@@ -109,43 +91,13 @@ export function useTaskManagerConnections(active: boolean) {
     return map;
   }, [page.snapshot]);
 
-  // Filters and search are pure front-end work. A number is almost always a
-  // port or a PID, so it matches exactly; anything else matches as a substring
-  // of the addresses or the owning process's name and description.
-  const rows = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    const number = /^\d+$/.test(needle) ? Number(needle) : null;
-    return connections.filter((connection) => {
-      if (filter === "listen" && connection.state !== "listen") return false;
-      if (filter === "established" && connection.state !== "established") return false;
-      if (filter === "udp" && connection.protocol !== "udp") return false;
-      if (!needle) return true;
-      if (number !== null) {
-        return (
-          connection.localPort === number ||
-          connection.remotePort === number ||
-          connection.pid === number
-        );
-      }
-      const process = processes.get(connection.pid);
-      return (
-        connection.localAddress.toLocaleLowerCase().includes(needle) ||
-        (connection.remoteAddress?.toLocaleLowerCase().includes(needle) ?? false) ||
-        (process?.name.toLocaleLowerCase().includes(needle) ?? false) ||
-        (process?.description?.toLocaleLowerCase().includes(needle) ?? false)
-      );
-    });
-  }, [connections, filter, query, processes]);
-
-  const stats = useMemo<ConnectionStats>(
-    () => ({
-      listening: connections.filter((connection) => connection.state === "listen").length,
-      established: connections.filter((connection) => connection.state === "established").length,
-      udp: connections.filter((connection) => connection.protocol === "udp").length,
-      total: connections.length,
-    }),
-    [connections]
+  // Filters and search are pure front-end work, kept in `connection-rows.ts`.
+  const rows = useMemo(
+    () => filterConnections(connections, filter, query, processes),
+    [connections, filter, query, processes]
   );
+
+  const stats = useMemo<ConnectionStats>(() => connectionStats(connections), [connections]);
 
   // Resetting a connection of another user needs the privileged service; the
   // menu disables the action rather than letting the call fail.

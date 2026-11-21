@@ -4,39 +4,23 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { useTaskManagerStartup } from "@/hooks/use-task-manager-startup";
-import type { StartupItem } from "@/commands";
-import { StartupTable, type StartupSort } from "@/components/task-manager/startup-table";
+import { StartupTable } from "@/components/task-manager/startup-table";
 import { StartupToolbar } from "@/components/task-manager/startup-toolbar";
-
-function sortItems(items: StartupItem[], sort: StartupSort): StartupItem[] {
-  return [...items].sort((a, b) => {
-    const left = sort === "enabled" ? Number(a.enabled) : (a[sort] ?? "");
-    const right = sort === "enabled" ? Number(b.enabled) : (b[sort] ?? "");
-    return String(left).localeCompare(String(right), undefined, {
-      numeric: true,
-      sensitivity: "base",
-    });
-  });
-}
+import {
+  filterStartupItems,
+  sortStartupItems,
+  type StartupSort,
+} from "@/lib/task-manager/startup-rows";
 
 export function StartupTab() {
   const { t } = useAppTranslation();
   const { items, loading, error, pending, load, setEnabled } = useTaskManagerStartup();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<StartupSort>("name");
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    return sortItems(
-      items.filter(
-        (item) =>
-          !needle ||
-          [item.name, item.entry, item.publisher, item.command, item.description].some((value) =>
-            value?.toLocaleLowerCase().includes(needle)
-          )
-      ),
-      sort
-    );
-  }, [items, query, sort]);
+  const filtered = useMemo(
+    () => sortStartupItems(filterStartupItems(items, query), sort),
+    [items, query, sort]
+  );
   const enabled = items.filter((item) => item.enabled).length;
 
   return (
