@@ -1,16 +1,15 @@
 const taskManager = {
-  title: "Task Manager",
-  subtitle:
-    "See processes, CPU, memory, disk, network and GPU usage, and end processes or change their priority.",
   tabs: {
     processes: "Processes",
     performance: "Performance",
     services: "Services",
+    startup: "Startup",
+    connections: "Connections",
+    history: "History",
   },
   actions: {
     refresh: "Refresh",
     settings: "Settings",
-    close: "Close",
     cancel: "Cancel",
     kill: "End task",
     killTree: "End process tree",
@@ -20,8 +19,6 @@ const taskManager = {
   },
   service: {
     label: "Privileged service",
-    description:
-      "Runs as a Windows service to act on system processes and to collect per-process network and disk traffic for this page.",
     state: {
       notInstalled: "Not installed",
       stopped: "Stopped",
@@ -31,28 +28,6 @@ const taskManager = {
       unavailable: "Unavailable",
       incompatible: "Incompatible",
       unknown: "Unknown",
-    },
-    open: "Open service panel",
-    unknown: "—",
-    checking: "Checking the service status…",
-    authorized: "This Windows account",
-    notAuthorized: "Not authorized for this account",
-    errorDetails: "Error details",
-    busy: "Waiting for administrator permission…",
-    cancelled: "The operation was cancelled. The service was not changed.",
-    enabledHint:
-      "The service is running: system processes and per-process network traffic are available.",
-    stoppedHint:
-      "The service is installed but stopped. Update the service to install and start it again.",
-    unavailableHint:
-      "The service is installed but cannot be reached right now. Recheck, or update the service after an app upgrade.",
-    incompatibleHint:
-      "The service version is incompatible. Update the service to install the version that matches the app, or uninstall it and install it again.",
-    details: {
-      status: "Status",
-      version: "Version",
-      account: "Authorized account",
-      reported: "Reported state",
     },
     actions: {
       install: "Install",
@@ -81,13 +56,15 @@ const taskManager = {
   empty: {
     processes: "Process data will appear here once sampling starts.",
     performance: "Performance charts will appear here once sampling starts.",
-    service:
-      "Install the privileged service from this page to act on system processes and see per-process network and disk traffic.",
   },
   settings: {
     title: "Task manager settings",
+    menuLabel: "Task manager",
     description: "How often this page collects data, and the optional privileged service.",
     save: "Save",
+    saveFailed: "Could not save the settings.",
+    loadFailed: "Could not read the task manager settings.",
+    retry: "Retry",
     interval: {
       label: "Sampling interval",
       option: "{{ms}} ms",
@@ -96,10 +73,31 @@ const taskManager = {
       lifecycle:
         "Sampling runs only while the task manager page is open. Leaving the page stops it; opening it again starts a fresh sample.",
     },
+    background: {
+      label: "Background monitoring",
+      description:
+        "Keep sampling and recording history while the task manager page is closed. The tray menu can toggle this too.",
+      intervalLabel: "Background sampling interval",
+      intervalDescription: "How often data is collected while the page is closed.",
+      intervalOption: "{{seconds}} s",
+    },
+    history: {
+      title: "History storage",
+      usage: "Recorded history",
+      size: "{{size}} on disk",
+      first: "Oldest record: {{time}}",
+      clear: "Clear history",
+      empty: "No history has been recorded.",
+      clearTitle: "Clear recorded history?",
+      clearBody: "This deletes every recorded frame from the last seven days. It cannot be undone.",
+      clearAction: "Clear",
+      cleared: "History cleared.",
+      clearFailed: "Could not clear the history.",
+      loadFailed: "Could not read the history usage.",
+    },
     service: {
       description:
         "Install the optional service to act on system processes and see per-process network traffic.",
-      open: "Open service panel",
     },
   },
   services: {
@@ -168,6 +166,173 @@ const taskManager = {
       clear: "Clear filters",
     },
   },
+  startup: {
+    search: {
+      placeholder: "Search by name, publisher or command",
+      aria: "Search startup items",
+      clear: "Clear search",
+    },
+    column: {
+      name: "Name",
+      publisher: "Publisher",
+      status: "Status",
+      location: "Location",
+      command: "Command",
+    },
+    status: {
+      enabled: "Enabled",
+      disabled: "Disabled",
+      missing: "File missing",
+    },
+    location: {
+      hkcuRun: "Current user Run key",
+      hklmRun: "All users Run key",
+      hklmRun32: "All users Run key (32-bit)",
+      userFolder: "Startup folder (current user)",
+      commonFolder: "Startup folder (all users)",
+      package: "Packaged app",
+    },
+    blocked: {
+      managed: "This entry is managed by policy and cannot be changed.",
+      unavailable: "This entry cannot be changed right now.",
+    },
+    actions: {
+      enable: "Enable",
+      disable: "Disable",
+      openLocation: "Open file location",
+      copyCommand: "Copy command",
+    },
+    summary: "{{enabled}} of {{total}} enabled",
+    empty: {
+      none: "No startup items were found.",
+      noMatch: "No startup item matches the current search.",
+      clear: "Clear search",
+    },
+    toast: {
+      enabled: 'Enabled "{{name}}".',
+      disabled: 'Disabled "{{name}}".',
+      failed: 'Could not change "{{name}}".',
+    },
+  },
+  connections: {
+    title: "Connections",
+    filter: {
+      all: "All",
+      listen: "Listening",
+      established: "Established",
+      udp: "UDP",
+    },
+    search: {
+      placeholder: "Search by address, port, PID or process",
+      aria: "Search connections",
+      clear: "Clear search",
+    },
+    column: {
+      process: "Process",
+      protocol: "Protocol",
+      local: "Local address",
+      remote: "Remote address",
+      state: "State",
+      pid: "PID",
+    },
+    protocol: {
+      tcp: "TCP",
+      udp: "UDP",
+      ipv6: "IPv6",
+    },
+    state: {
+      listen: "Listening",
+      established: "Established",
+      synSent: "SYN sent",
+      synReceived: "SYN received",
+      finWait1: "FIN wait 1",
+      finWait2: "FIN wait 2",
+      closeWait: "Close wait",
+      closing: "Closing",
+      lastAck: "Last ACK",
+      timeWait: "Time wait",
+      closed: "Closed",
+    },
+    actions: {
+      gotoProcess: "Go to process",
+      killProcess: "End process",
+      close: "Close connection",
+      copyLocal: "Copy local endpoint",
+      copyRemote: "Copy remote endpoint",
+    },
+    summary: {
+      listening: "{{count}} listening",
+      established: "{{count}} established",
+      udp: "{{count}} UDP",
+      total: "{{count}} total",
+    },
+    hints: {
+      closeNeedsService: "Closing a connection needs the privileged service.",
+      closeUnsupported: "Only established IPv4 TCP connections can be closed.",
+      processExited: "The process has already exited.",
+    },
+    empty: {
+      loading: "Reading connections…",
+      none: "No connections were found.",
+      noMatch: "No connection matches the current filters.",
+      clear: "Clear filters",
+    },
+    toast: {
+      closed: "Connection closed",
+      closeFailed: "Could not close the connection.",
+      endpointCopied: "Endpoint copied",
+      copyFailed: "Could not copy to the clipboard.",
+    },
+  },
+  history: {
+    title: "History",
+    range: {
+      hour1: "1h",
+      hour6: "6h",
+      hour24: "24h",
+      day7: "7d",
+    },
+    latest: "Latest",
+    chart: {
+      label: "Recorded history",
+      cursor: "Time cursor",
+      loading: "Reading history…",
+    },
+    metric: {
+      cpu: "CPU",
+      cpuPeak: "CPU peak",
+      gpu: "GPU",
+      memory: "Memory",
+      disk: "Disk",
+      network: "Network",
+      battery: "Battery",
+    },
+    process: {
+      title: "Busiest processes",
+      column: {
+        name: "Name",
+        pid: "PID",
+        cpu: "CPU",
+        mem: "Memory",
+        io: "I/O",
+        gpu: "GPU",
+        net: "Network",
+      },
+      empty: "No process data was recorded at this moment.",
+      exited: "This process has already exited.",
+    },
+    actions: {
+      refresh: "Refresh",
+      gotoProcess: "Go to process",
+      enable: "Open settings",
+    },
+    empty: {
+      disabled: "History recording is off.",
+      disabledHint: "Turn on background monitoring to record history.",
+      none: "No history has been recorded yet.",
+      error: "Could not read the recorded history.",
+    },
+  },
   performance: {
     devices: { label: "Devices" },
     chart: { label: "Last {{seconds}} seconds" },
@@ -177,6 +342,7 @@ const taskManager = {
       speed: "Speed",
       pCoreSpeed: "P core speed",
       eCoreSpeed: "E core speed",
+      cores: "Logical processors",
       total: "Total",
       kernel: "Kernel",
       mode: "CPU graph",

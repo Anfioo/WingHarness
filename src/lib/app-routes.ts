@@ -189,10 +189,11 @@ const routeTable: AppRoute[] = [
     path: "/task-manager",
     title: "任务管理器",
     navLabel: "任务管理器",
-    description: "查看进程、CPU、内存、磁盘、网络与 GPU，结束进程或调整优先级。",
+    description:
+      "查看进程、CPU、内存、磁盘、网络与 GPU，管理服务、启动项与网络连接，并回看历史曲线；结束进程或调整优先级。",
     icon: Activity,
-    scope: "侧栏单页",
-    items: ["进程三视图", "进程详情与操作", "性能图表", "可选特权服务"],
+    scope: "侧栏单页 / 六个标签",
+    items: ["进程三视图", "性能图表", "服务", "启动项", "连接", "历史与后台监听"],
   },
   {
     id: "oneMail",

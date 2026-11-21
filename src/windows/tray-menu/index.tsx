@@ -59,6 +59,7 @@ import {
 } from "@/commands";
 import { isActiveProcessState } from "@/components/frp/state-badge";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { groupsForMode, isSelectable, toneClass } from "@/pages/clash/nodes";
 import { formatBytes, niceCeiling, smoothRate } from "@/pages/clash/shared";
@@ -68,6 +69,7 @@ import { cn } from "@/lib/utils";
 import { createWindow, showWindow } from "@/lib/window";
 import { AppsPanel } from "./apps-panel";
 import { FrpPanel } from "./frp-panel";
+import { TaskManagerRow } from "./task-manager-row";
 
 /** How long the pointer must rest on the Clash row before the flyout opens. */
 const OPEN_DELAY_MS = 140;
@@ -807,6 +809,9 @@ export default function TrayMenuPage() {
 
   return (
     <ThemeProvider defaultTheme="system" storageKey="tauri-ui-theme">
+      {/* Toasts paint inside this popup, which is only as wide as the menu, so
+          they are narrowed to fit the column instead of the 356px default. */}
+      <Toaster position="bottom-center" toastOptions={{ style: { width: 196 } }} />
       <div
         // The window is transparent and the app has no native context menu for
         // this page, so the card *is* the menu — a right-click here must not
@@ -825,7 +830,9 @@ export default function TrayMenuPage() {
         >
           {panel !== null && side === "left" && activePanel}
 
-          <div className="bg-popover text-popover-foreground border-border flex h-[273px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
+          {/* 8px padding + nine 32px rows + the 9px divider, matching
+              `menu_height` in tray_popup.rs. */}
+          <div className="bg-popover text-popover-foreground border-border flex h-[305px] w-[220px] shrink-0 flex-col rounded-md border p-1 select-none">
             <MenuItem
               icon={SquareArrowOutUpRight}
               label={t("tray.show")}
@@ -905,6 +912,8 @@ export default function TrayMenuPage() {
               }
               {...flyoutRow("frp")}
             />
+
+            <TaskManagerRow />
 
             {/* my-1 + h-px — the 9px the Rust-side height arithmetic accounts for. */}
             <div className="bg-border my-1 h-px" />

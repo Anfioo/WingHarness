@@ -20,8 +20,15 @@ import {
   type Snapshot,
   type TreeKillReport,
 } from "@/commands";
+import { subscribeTaskManagerSettings } from "@/lib/task-manager/settings-event";
 
-export type TaskManagerTab = "processes" | "performance" | "services";
+export type TaskManagerTab =
+  | "processes"
+  | "performance"
+  | "services"
+  | "startup"
+  | "connections"
+  | "history";
 
 export type TaskManagerState = {
   snapshot: Snapshot | null;
@@ -33,6 +40,10 @@ export type TaskManagerState = {
   service: ServiceStatus | null;
   activeTab: TaskManagerTab;
   setActiveTab: (tab: TaskManagerTab) => void;
+  /** A PID another tab asked the process table to select. */
+  revealPid: number | null;
+  revealProcess: (pid: number) => void;
+  clearReveal: () => void;
   setInterval: (ms: number) => Promise<void>;
   refresh: () => Promise<void>;
   reloadService: () => Promise<void>;
@@ -54,9 +65,14 @@ type TaskManagerView = {
   settings: ArgusSettings;
   service: ServiceStatus | null;
   activeTab: TaskManagerTab;
+  revealPid: number | null;
 };
 
-const DEFAULT_SETTINGS: ArgusSettings = { intervalMs: 1000 };
+const DEFAULT_SETTINGS: ArgusSettings = {
+  intervalMs: 1000,
+  backgroundMonitoring: false,
+  backgroundIntervalMs: 5000,
+};
 
 const INITIAL_VIEW: TaskManagerView = {
   snapshot: null,
@@ -66,6 +82,7 @@ const INITIAL_VIEW: TaskManagerView = {
   settings: DEFAULT_SETTINGS,
   service: null,
   activeTab: "processes",
+  revealPid: null,
 };
 
 function toArgusError(value: unknown): ArgusError {
@@ -89,6 +106,7 @@ class TaskManagerStore {
   private listeners = new Set<() => void>();
   private view: TaskManagerView = INITIAL_VIEW;
   private channel: Channel<Snapshot> | null = null;
+  private settingsUnlisten: (() => void) | null = null;
   private paused = false;
 
   getView = (): TaskManagerView => this.view;
@@ -113,6 +131,15 @@ class TaskManagerStore {
 
   setActiveTab = (activeTab: TaskManagerTab): void => {
     this.update({ activeTab });
+  };
+
+  /** Switches to the process tab and asks it to select `pid` on the next frame. */
+  revealProcess = (pid: number): void => {
+    this.update({ activeTab: "processes", revealPid: pid });
+  };
+
+  clearReveal = (): void => {
+    if (this.view.revealPid !== null) this.update({ revealPid: null });
   };
 
   setInterval = async (ms: number): Promise<void> => {
@@ -205,6 +232,17 @@ class TaskManagerStore {
     this.channel = channel;
     this.paused = false;
 
+    // Another window (the Settings partition or the tray row) may be the one
+    // that saves. Keep the page's copy in step without polling.
+    void subscribeTaskManagerSettings((settings) => {
+      if (this.channel === channel) this.update({ settings });
+    })
+      .then((dispose) => {
+        if (this.channel === channel) this.settingsUnlisten = dispose;
+        else dispose();
+      })
+      .catch(() => undefined);
+
     try {
       const settings = await argusSettingsGet();
       // A tab may unmount before the settings arrive; a newer start owns the
@@ -229,6 +267,10 @@ class TaskManagerStore {
 
   private stop(): void {
     this.channel = null;
+    if (this.settingsUnlisten) {
+      this.settingsUnlisten();
+      this.settingsUnlisten = null;
+    }
     this.paused = false;
     this.view = { ...INITIAL_VIEW };
     this.notify();
@@ -245,6 +287,8 @@ const store = new TaskManagerStore();
 const actions = {
   setPaused: (paused: boolean) => store.setPaused(paused),
   setActiveTab: (tab: TaskManagerTab) => store.setActiveTab(tab),
+  revealProcess: (pid: number) => store.revealProcess(pid),
+  clearReveal: () => store.clearReveal(),
   setInterval: (ms: number) => store.setInterval(ms),
   refresh: () => store.refresh(),
   reloadService: () => store.reloadService(),

@@ -13,7 +13,7 @@ Adapted from [Argus](https://github.com/Ray-lea/Argus).
 
 ## Status
 
-Ported and cut down to a fixed eight-operation protocol. The PawnIO driver,
+Ported and cut down to a fixed nine-operation protocol. The PawnIO driver,
 sensor service, Task Manager replacement, admin helpers, handle queries and the
 upstream binaries were not ported. Every ported source file keeps a short
 attribution header.
@@ -24,7 +24,7 @@ attribution header.
 | --- | --- |
 | `src/server.rs` | `server.rs` |
 | `src/pipe.rs` | `pipe.rs` |
-| `src/protocol.rs` | `protocol.rs`, cut to the eight operations below |
+| `src/protocol.rs` | `protocol.rs`, cut to the nine operations below |
 | `src/security.rs` | `security.rs`, minus the admin-only helpers |
 | `src/install.rs` | `install.rs`, minus the driver and Task Manager calls |
 | `src/network.rs` | `network.rs` (ETW session) |
@@ -44,21 +44,24 @@ Not ported: `driver/`, `sensors/`, `taskmgr/`, `admin/`, `handles.rs`, `bin/`.
   `\\.\pipe\WingHarness.Privileged.v1` (`.Dev.v1`). The ETW session, display
   name, setup helper arguments and diagnostic report directory are renamed the
   same way, so an installed Argus never collides with this service.
-- **Eight operations.** `Ping`, `NetworkSnapshot`, `DiskSnapshot`, `Terminate`,
-  `Priority`, `Efficiency`, `ControlService` and `ServiceStartType`. The
-  service-control pair was first dropped with the services page and has been
-  re-added now that the page has a services tab; the driver, sensor,
-  connection, handle and Task Manager operations of upstream's protocol stay
-  gone. The enum plus `deny_unknown_fields` is the whitelist: an unknown
-  operation or field is rejected before anything runs, and a service name must
-  be non-empty and at most 256 bytes.
-- **Protocol version 3, pipe name `.v1`.** A `Ping` is always sent in the
+- **Nine operations.** `Ping`, `NetworkSnapshot`, `DiskSnapshot`, `Terminate`,
+  `Priority`, `Efficiency`, `ControlService`, `ServiceStartType` and
+  `CloseConnection`. The service-control pair was first dropped with the
+  services page and has been re-added now that the page has a services tab;
+  `CloseConnection` resets an established IPv4 TCP connection for an
+  unelevated host. The driver, sensor, handle and Task Manager operations of
+  upstream's protocol stay gone. The enum plus `deny_unknown_fields` is the
+  whitelist: an unknown operation or field is rejected before anything runs,
+  a service name must be non-empty and at most 256 bytes, and a
+  `CloseConnection` must carry two non-zero ports and two IPv4 addresses.
+- **Protocol version 4, pipe name `.v1`.** A `Ping` is always sent in the
   version-1 envelope so the host can discover an older service; the operation
   set therefore cannot also be version 1 or the two would be
-  indistinguishable. Version 3 added `ControlService` and `ServiceStartType`,
-  so an installed version-2 service is reported as outdated and the page asks
-  for an update instead of mistaking a refused operation for access-denied. The
-  pipe name keeps `.v1` so the name stays stable.
+  indistinguishable. Version 3 added `ControlService` and `ServiceStartType`;
+  version 4 added `CloseConnection`, so an installed version-3 (or older)
+  service is reported as outdated and the page asks for an update instead of
+  mistaking a refused operation for access-denied. The pipe name keeps `.v1`
+  so the name stays stable.
 - **Routing lives here.** `Operation`, `Reply`, `Routed` and `route()` are
   added for the host: `route` is blocking, returns `Absent` when no service is
   installed and `Outdated` when the running service speaks another version, and

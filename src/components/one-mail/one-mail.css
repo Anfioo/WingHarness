@@ -2,32 +2,19 @@
    (https://github.com/zhihui-hu/one-mail), AGPL-3.0-only.
    See `src-tauri/one-mail-core/UPSTREAM.md` for the porting record. */
 
-/* The mail workspace keeps the source project's two-pane palette: a cool
-   sidebar and list, a neutral reading surface and a warmer outgoing bubble. */
+/* Keep the mail workspace aligned with the application's theme instead of
+   imposing a separate blue palette on every page theme. */
 [data-workspace="one-mail"] {
-  --mail-sidebar: #e7f0fc;
-  --mail-list: #eef3fb;
-  --mail-hover: #e5edfa;
-  --mail-selected: #d7e6fb;
-  --mail-background: #f5f5f5;
-  --mail-bubble: #ffffff;
-  --mail-outgoing: #d8e9ff;
-  --mail-outgoing-foreground: #213e62;
-  --mail-avatar: #dce9fa;
-  --mail-avatar-foreground: #34577f;
-}
-
-.dark [data-workspace="one-mail"] {
-  --mail-sidebar: #222d40;
-  --mail-list: #273243;
-  --mail-hover: #2e3d53;
-  --mail-selected: #354c6b;
-  --mail-background: #202020;
-  --mail-bubble: #353535;
-  --mail-outgoing: #294e7e;
-  --mail-outgoing-foreground: #eff6ff;
-  --mail-avatar: #344963;
-  --mail-avatar-foreground: #d9e9ff;
+  --mail-sidebar: var(--muted);
+  --mail-list: var(--card);
+  --mail-hover: color-mix(in oklab, var(--accent) 55%, var(--card));
+  --mail-selected: var(--accent);
+  --mail-background: var(--background);
+  --mail-bubble: var(--card);
+  --mail-outgoing: var(--secondary);
+  --mail-outgoing-foreground: var(--secondary-foreground);
+  --mail-avatar: var(--accent);
+  --mail-avatar-foreground: var(--accent-foreground);
 }
 
 [data-workspace="one-mail"] {
@@ -182,14 +169,14 @@
   max-width: 100%;
   overflow-x: auto;
   overflow-wrap: anywhere;
-  color: #222;
-  background: #fff;
+  color: var(--foreground);
+  background: var(--card);
   padding: 8px;
   border-radius: 3px;
 }
 
 .conversation-html a {
-  color: #2563eb;
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 2px;
 }

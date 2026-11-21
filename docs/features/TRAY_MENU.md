@@ -30,8 +30,11 @@ window is sized from constants rather than measured:
 | Item count constant | `MENU_ITEM_COUNT` in `tray_popup.rs` |
 
 Show window / Settings / Space preview / Open file / **Apps** / Clash / FRP /
-Quit is eight items, so the collapsed popup is 273px tall. Adding a row means
-changing the constant, the `h-[273px]` class, and nothing else.
+**Background monitoring** / Quit is nine items, so the collapsed popup is 305px
+tall. Adding a row means changing the constant, the `h-[305px]` class, and
+nothing else. The background-monitoring row toggles the task manager's
+`backgroundMonitoring` setting; see
+[TASK_MANAGER.md](./TASK_MANAGER.md#tray-row).
 
 A flyout (Clash, FRP, or the apps' second-level menu) replaces that geometry with
 340 × 460 and the window grows sideways, to the left of the menu column unless

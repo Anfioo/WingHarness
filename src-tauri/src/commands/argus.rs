@@ -9,13 +9,18 @@
 use argus_core::actions::{self, ActionError, Priority, TreeKillReport};
 use argus_core::collector::Snapshot;
 use base64::Engine as _;
+use argus_core::connections;
 use argus_core::details::{self, ProcessDetails};
-use argus_core::models::ArgusSettings;
+use argus_core::history;
+use argus_core::models::{
+    ArgusSettings, Connection, HistoryMoment, HistoryPoint, HistoryUsage, StartupItem,
+};
 use argus_core::services::{ServiceAction, ServiceInfo, StartType};
+use argus_core::startup;
 use argus_core::{ArgusError, ArgusErrorCode};
 use argus_service::{Operation, Reply, Routed, ServiceStatus};
-use tauri::State;
 use tauri::ipc::Channel;
+use tauri::{Emitter, State};
 
 use crate::argus::{ArgusState, service, store};
 
@@ -25,28 +30,38 @@ pub fn argus_snapshot_start(
     channel: Channel<Snapshot>,
     interval_ms: u64,
 ) -> Result<(), ArgusError> {
-    let settings = ArgusSettings::with_interval_ms(interval_ms);
-    *state.settings() = settings.clone();
-
-    let mut sampler = state.sampler();
-    if sampler.is_none() {
-        *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
-    }
-    let subscribe = |running: &crate::argus::sampler::Sampler| {
-        running.send(crate::argus::sampler::Control::Subscribe(
-            channel.clone(),
-            settings.interval_ms,
-        ))
+    // Keep the background fields: this command only changes the foreground
+    // interval.
+    let settings = {
+        let mut settings = state.settings().clone();
+        settings.interval_ms = interval_ms;
+        settings.clamped()
     };
-    // The previous page may have gone away without a stop, in which case the
-    // thread exited by itself; its handle is dead, so replace it instead of
-    // leaving this page subscribed to nothing.
-    if !sampler.as_ref().is_some_and(subscribe) {
-        *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
-        if let Some(running) = sampler.as_ref() {
-            subscribe(running);
+    // The page may also be the first thing to start the thread; applying the
+    // settings afterwards gives a freshly spawned thread the background
+    // interval and the history directory as well.
+    {
+        let mut sampler = state.sampler();
+        if sampler.is_none() {
+            *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
+        }
+        let subscribe = |running: &crate::argus::sampler::Sampler| {
+            running.send(crate::argus::sampler::Control::Subscribe(
+                channel.clone(),
+                settings.interval_ms,
+            ))
+        };
+        // The previous page may have gone away without a stop, in which case
+        // the thread exited by itself; its handle is dead, so replace it
+        // instead of leaving this page subscribed to nothing.
+        if !sampler.as_ref().is_some_and(subscribe) {
+            *sampler = Some(crate::argus::sampler::Sampler::spawn(state.meta.clone()));
+            if let Some(running) = sampler.as_ref() {
+                subscribe(running);
+            }
         }
     }
+    state.apply_settings(&settings);
     Ok(())
 }
 
@@ -65,7 +80,13 @@ pub fn argus_icon(state: State<'_, ArgusState>, id: u32) -> Option<String> {
 
 #[tauri::command]
 pub fn argus_snapshot_stop(state: State<'_, ArgusState>) -> Result<(), ArgusError> {
-    state.stop_sampler();
+    // With background monitoring on, the page only drops its subscription: the
+    // sampler keeps feeding the history recorder.
+    if state.settings().background_monitoring {
+        state.unsubscribe_sampler();
+    } else {
+        state.stop_sampler();
+    }
     Ok(())
 }
 
@@ -74,7 +95,13 @@ pub fn argus_set_interval(
     state: State<'_, ArgusState>,
     interval_ms: u64,
 ) -> Result<ArgusSettings, ArgusError> {
-    let settings = store::set(ArgusSettings::with_interval_ms(interval_ms))?;
+    // Only the foreground interval changes; the background fields survive.
+    let settings = {
+        let mut settings = state.settings().clone();
+        settings.interval_ms = interval_ms;
+        settings.clamped()
+    };
+    let settings = store::set(settings)?;
     *state.settings() = settings.clone();
     state.send(crate::argus::sampler::Control::SetInterval(
         settings.interval_ms,
@@ -97,14 +124,92 @@ pub fn argus_settings_get(state: State<'_, ArgusState>) -> Result<ArgusSettings,
 
 #[tauri::command]
 pub fn argus_settings_set(
+    app: tauri::AppHandle,
     state: State<'_, ArgusState>,
     settings: ArgusSettings,
 ) -> Result<ArgusSettings, ArgusError> {
     let settings = store::set(settings)?;
     *state.settings() = settings.clone();
-    state.send(crate::argus::sampler::Control::SetInterval(
-        settings.interval_ms,
-    ));
+    state.apply_settings(&settings);
+    app.emit("argus-settings-changed", &settings)
+        .map_err(|error| ArgusError::internal(format!("Could not broadcast settings: {error}")))?;
+    Ok(settings)
+}
+
+#[tauri::command(async)]
+pub fn argus_startup_list(state: State<'_, ArgusState>) -> Vec<StartupItem> {
+    startup::list(&state.meta)
+}
+
+#[tauri::command(async)]
+pub fn argus_startup_set_enabled(id: String, enabled: bool) -> Result<(), ArgusError> {
+    startup::set_enabled(&id, enabled).map_err(map_action_error)
+}
+
+#[tauri::command(async)]
+pub fn argus_connections_list() -> Vec<Connection> {
+    connections::list()
+}
+
+#[tauri::command(async)]
+pub fn argus_connections_close(
+    local_address: String,
+    local_port: u16,
+    remote_address: String,
+    remote_port: u16,
+) -> Result<(), ArgusError> {
+    service::close_connection(local_address, local_port, remote_address, remote_port)
+}
+
+#[tauri::command(async)]
+pub fn argus_history_range() -> Option<(i64, i64)> {
+    let dir = history::dir().ok()?;
+    history::range(&dir)
+}
+
+#[tauri::command(async)]
+pub fn argus_history_series(from: i64, to: i64, buckets: u32) -> Vec<HistoryPoint> {
+    let Ok(dir) = history::dir() else {
+        return Vec::new();
+    };
+    history::series(&dir, from, to, buckets as usize)
+}
+
+#[tauri::command(async)]
+pub fn argus_history_moment(ts: i64) -> Option<HistoryMoment> {
+    let dir = history::dir().ok()?;
+    history::moment(&dir, ts)
+}
+
+#[tauri::command(async)]
+pub fn argus_history_usage() -> HistoryUsage {
+    let Ok(dir) = history::dir() else {
+        return HistoryUsage::default();
+    };
+    history::usage(&dir)
+}
+
+#[tauri::command(async)]
+pub fn argus_history_clear(state: State<'_, ArgusState>) -> Result<(), ArgusError> {
+    state.clear_history()
+}
+
+#[tauri::command]
+pub fn argus_set_background_monitoring(
+    app: tauri::AppHandle,
+    state: State<'_, ArgusState>,
+    enabled: bool,
+) -> Result<ArgusSettings, ArgusError> {
+    let settings = {
+        let mut settings = state.settings().clone();
+        settings.background_monitoring = enabled;
+        settings
+    };
+    let settings = store::set(settings)?;
+    *state.settings() = settings.clone();
+    state.apply_settings(&settings);
+    app.emit("argus-settings-changed", &settings)
+        .map_err(|error| ArgusError::internal(format!("Could not broadcast settings: {error}")))?;
     Ok(settings)
 }
 

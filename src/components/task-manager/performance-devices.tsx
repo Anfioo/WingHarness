@@ -254,7 +254,7 @@ export function PerformanceDeviceList({
           <ChartFrame
             grid={false}
             color={device.color}
-            className="h-10 w-[76px] shrink-0 overflow-hidden rounded-[3px]"
+            className="relative h-10 w-[76px] shrink-0 overflow-hidden rounded-[3px]"
           >
             <Sparkline series={series} max={device.max} />
           </ChartFrame>

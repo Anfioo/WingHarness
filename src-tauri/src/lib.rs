@@ -28,6 +28,9 @@ pub fn run() {
                 // others. The state owns the sampler thread; exit stops it.
                 let _ = argus_core::paths::CONFIG_DIR.set(config::dir().join("argus"));
                 app.manage(argus::ArgusState::default());
+                // Background monitoring and history pruning follow the
+                // persisted settings; the thread stays idle when it is off.
+                argus::start_background(app.handle());
                 // The download engine keeps `downloads.db`, `settings.json`,
                 // `categories.json` and the aria2 session files under
                 // `<data dir>/moin`, so the whole feature moves with the data
@@ -107,6 +110,15 @@ pub fn run() {
                 app.manage(one_mail_core::state::OneMailState::new(
                     app.handle().clone(),
                 ));
+                // Warm the mail database in the background so the first mail page
+                // does not pay for SQLite opening and schema verification.
+                let mail_app = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let state = mail_app.state::<one_mail_core::state::OneMailState>();
+                    if let Err(error) = state.pool().await {
+                        eprintln!("one_mail_db_warmup_failed error={error}");
+                    }
+                });
                 // The database tools keep the data sources, the saved passwords
                 // and the query history under `<data dir>/db`, so the whole
                 // feature moves with the data directory. The app-wide manager
