@@ -20,6 +20,7 @@ import {
   type Snapshot,
   type TreeKillReport,
 } from "@/commands";
+import { subscribeTaskManagerSettings } from "@/lib/task-manager/settings-event";
 
 export type TaskManagerTab =
   | "processes"
@@ -105,6 +106,7 @@ class TaskManagerStore {
   private listeners = new Set<() => void>();
   private view: TaskManagerView = INITIAL_VIEW;
   private channel: Channel<Snapshot> | null = null;
+  private settingsUnlisten: (() => void) | null = null;
   private paused = false;
 
   getView = (): TaskManagerView => this.view;
@@ -230,6 +232,17 @@ class TaskManagerStore {
     this.channel = channel;
     this.paused = false;
 
+    // Another window (the Settings partition or the tray row) may be the one
+    // that saves. Keep the page's copy in step without polling.
+    void subscribeTaskManagerSettings((settings) => {
+      if (this.channel === channel) this.update({ settings });
+    })
+      .then((dispose) => {
+        if (this.channel === channel) this.settingsUnlisten = dispose;
+        else dispose();
+      })
+      .catch(() => undefined);
+
     try {
       const settings = await argusSettingsGet();
       // A tab may unmount before the settings arrive; a newer start owns the
@@ -254,6 +267,10 @@ class TaskManagerStore {
 
   private stop(): void {
     this.channel = null;
+    if (this.settingsUnlisten) {
+      this.settingsUnlisten();
+      this.settingsUnlisten = null;
+    }
     this.paused = false;
     this.view = { ...INITIAL_VIEW };
     this.notify();
