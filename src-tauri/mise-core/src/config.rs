@@ -1045,6 +1045,64 @@ mod tests {
     }
 
     #[test]
+    fn runtime_settings_report_values_and_defaults() {
+        let content = "[settings]\nhttp_timeout = \"45s\"\noffline = true\n";
+        let runtime = build_runtime_settings("C:/cfg/mise.toml", content);
+        let by_key = runtime
+            .settings
+            .iter()
+            .map(|setting| (setting.key.as_str(), setting))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(runtime.path, "C:/cfg/mise.toml");
+        assert_eq!(by_key["http_timeout"].value, "45s");
+        assert!(by_key["http_timeout"].is_set);
+        assert_eq!(by_key["http_timeout"].default_value, "30s");
+        assert_eq!(by_key["offline"].value, "true");
+        assert!(by_key["offline"].is_set);
+        assert_eq!(by_key["http_retries"].value, "");
+        assert_eq!(by_key["http_retries"].default_value, "3");
+        assert!(!by_key["http_retries"].is_set);
+    }
+
+    #[test]
+    fn proxy_settings_prefer_lowercase_and_ignore_blank_values() {
+        let content = "[env]\n\
+            http_proxy = \"http://lower:1\"\n\
+            HTTP_PROXY = \"http://upper:2\"\n\
+            https_proxy = \"   \"\n\
+            HTTPS_PROXY = \"http://fallback:3\"\n";
+        let proxy = build_proxy_settings("C:/cfg/mise.toml", content);
+        let by_key = proxy
+            .settings
+            .iter()
+            .map(|setting| (setting.key.as_str(), setting))
+            .collect::<BTreeMap<_, _>>();
+
+        assert_eq!(by_key["http_proxy"].value, "http://lower:1");
+        assert!(by_key["http_proxy"].requires_uri);
+        assert_eq!(by_key["https_proxy"].value, "http://fallback:3");
+        assert_eq!(by_key["all_proxy"].value, "");
+        assert!(!by_key["all_proxy"].is_set);
+        assert!(!by_key["no_proxy"].requires_uri);
+    }
+
+    #[test]
+    fn java_aliases_are_read_from_the_alias_section() {
+        let content = "[tool_alias.java.versions]\n21 = \"temurin-21\"\n17 = \"temurin-17\"\n";
+
+        let aliases = build_java_aliases(content);
+
+        assert_eq!(
+            aliases
+                .iter()
+                .map(|alias| (alias.alias.as_str(), alias.target.as_str()))
+                .collect::<Vec<_>>(),
+            vec![("17", "temurin-17"), ("21", "temurin-21")]
+        );
+    }
+
+    #[test]
     fn proxy_content_appends_env_section_with_both_spellings() {
         let current = "[tools]\nnode = \"20\"\n";
         let edit = values(&[("http_proxy", Some("http://127.0.0.1:7890"))]);

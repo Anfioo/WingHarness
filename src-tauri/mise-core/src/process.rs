@@ -394,6 +394,18 @@ mod tests {
     }
 
     #[test]
+    fn a_directory_before_a_file_is_skipped() {
+        let scratch = Scratch::new("resolve-directory-first");
+        let file = scratch.path().join("real-mise");
+        std::fs::write(&file, b"").unwrap();
+
+        assert_eq!(
+            resolve_executable_from(vec![scratch.path().to_path_buf(), file.clone()]),
+            Some(file)
+        );
+    }
+
+    #[test]
     fn utf8_output_decodes_as_utf8() {
         assert_eq!(decode_output("mise 版本".as_bytes()), "mise 版本");
         assert_eq!(decode_output(&[]), "");

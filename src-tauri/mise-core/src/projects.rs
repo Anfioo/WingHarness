@@ -1363,6 +1363,36 @@ mod tests {
     }
 
     #[test]
+    fn discovery_stops_at_the_project_limit() {
+        let temp = TempDir::new("discover-project-limit");
+        for index in 0..(MAX_PROJECTS_PER_ROOT + 10) {
+            temp.write(&format!("p{index:03}/mise.toml"), "");
+        }
+
+        let projects = discover_projects(&temp.path);
+
+        assert_eq!(projects.len(), MAX_PROJECTS_PER_ROOT);
+    }
+
+    #[test]
+    fn discovery_stops_at_the_directory_limit() {
+        let temp = TempDir::new("discover-directory-limit");
+        for index in 0..(MAX_DIRECTORIES_PER_ROOT + 10) {
+            temp.mkdir(&format!("d{index:03}"));
+        }
+        temp.write("d000/mise.toml", "");
+        temp.write(
+            &format!("d{:03}/mise.toml", MAX_DIRECTORIES_PER_ROOT + 9),
+            "",
+        );
+
+        let projects = discover_projects(&temp.path);
+
+        assert_eq!(projects.len(), 1);
+        assert!(projects[0].directory_path.ends_with("/d000"));
+    }
+
+    #[test]
     fn records_config_paths_in_priority_order() {
         let temp = TempDir::new("discover-order");
         temp.write("project/mise.toml", "");
