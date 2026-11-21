@@ -164,6 +164,34 @@ export type OneMailPageState = {
 
 const CONVERSATION_PAGE_SIZE = 50;
 const KEYWORD_DEBOUNCE_MS = 300;
+const AUTO_SYNC_DELAY_MS = 1200;
+
+// Keep the last local snapshot while the page is remounted. The backend remains
+// the source of truth; these values only remove the blank state while SQLite is
+// queried again and a background sync starts.
+let cachedSettings: OneMailSettings | null = null;
+let cachedAccounts: AccountSummary[] = [];
+let cachedOutbox: OutboxItem[] = [];
+let cachedSyncStatus: OneMailSyncStatus | null = null;
+const cachedConversationPages = new Map<string, ConversationSummary[]>();
+
+function conversationCacheKey(
+  accountId: number | null,
+  filters: OneMailFilters,
+  keyword: string
+): string {
+  return JSON.stringify({ accountId, ...filters, keyword });
+}
+
+const INITIAL_CONVERSATION_CACHE_KEY = conversationCacheKey(
+  null,
+  {
+    unreadOnly: false,
+    starredOnly: false,
+    range: "all",
+  },
+  ""
+);
 
 function startOfToday(): Date {
   const now = new Date();
@@ -220,14 +248,21 @@ export function useOneMailPage(): OneMailPageState {
   const { t } = useAppTranslation();
   const pageActive = usePageActive();
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => cachedSettings === null && cachedAccounts.length === 0
+  );
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<OneMailSettings | null>(null);
-  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [settings, setSettings] = useState<OneMailSettings | null>(cachedSettings);
+  const [accounts, setAccounts] = useState<AccountSummary[]>(cachedAccounts);
   const [folders, setFolders] = useState<MailFolder[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
-  const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversations, setConversations] = useState<ConversationSummary[]>(
+    () => cachedConversationPages.get(INITIAL_CONVERSATION_CACHE_KEY) ?? []
+  );
   const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsLoaded, setConversationsLoaded] = useState(() =>
+    cachedConversationPages.has(INITIAL_CONVERSATION_CACHE_KEY)
+  );
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [hasMoreConversations, setHasMoreConversations] = useState(false);
   const [filters, setFilters] = useState<OneMailFilters>({
@@ -242,14 +277,14 @@ export function useOneMailPage(): OneMailPageState {
   const [threadLoading, setThreadLoading] = useState(false);
   const [threadError, setThreadError] = useState<string | null>(null);
   const [bodyState, setBodyState] = useState<Record<number, MessageBodyLoad | "loading">>({});
-  const [syncStatus, setSyncStatus] = useState<OneMailSyncStatus | null>(null);
+  const [syncStatus, setSyncStatus] = useState<OneMailSyncStatus | null>(cachedSyncStatus);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgressPayload | null>(null);
   const [activityLog, setActivityLog] = useState<OneMailActivityEntry[]>([]);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerDraft, setComposerDraft] = useState<Draft | null>(null);
   const [composerMode, setComposerMode] = useState<ComposeKind>("new");
-  const [outbox, setOutbox] = useState<OutboxItem[]>([]);
+  const [outbox, setOutbox] = useState<OutboxItem[]>(cachedOutbox);
   const [outboxOpen, setOutboxOpen] = useState(false);
   const [accountDialogOpen, setAccountDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<AccountSummary | null>(null);
@@ -317,7 +352,9 @@ export function useOneMailPage(): OneMailPageState {
 
   const reloadAccounts = useCallback(async () => {
     try {
-      setAccounts(await oneMailAccountsList());
+      const next = await oneMailAccountsList();
+      cachedAccounts = next;
+      setAccounts(next);
       setError(null);
     } catch (failure) {
       setError(describeError(failure));
@@ -326,7 +363,9 @@ export function useOneMailPage(): OneMailPageState {
 
   const reloadOutbox = useCallback(async () => {
     try {
-      setOutbox(await oneMailOutboxList());
+      const next = await oneMailOutboxList();
+      cachedOutbox = next;
+      setOutbox(next);
     } catch (failure) {
       setError(describeError(failure));
     }
@@ -368,6 +407,13 @@ export function useOneMailPage(): OneMailPageState {
           offset,
         });
         if (request !== conversationRequest.current) return;
+        if (offset === 0) {
+          cachedConversationPages.set(
+            conversationCacheKey(selectedAccountId, filters, debouncedKeyword),
+            page.items
+          );
+          setConversationsLoaded(true);
+        }
         setConversations((current) => (offset === 0 ? page.items : [...current, ...page.items]));
         setHasMoreConversations(page.hasMore);
       } catch (failure) {
@@ -382,8 +428,16 @@ export function useOneMailPage(): OneMailPageState {
   );
 
   useEffect(() => {
+    const cached = cachedConversationPages.get(
+      conversationCacheKey(selectedAccountId, filters, debouncedKeyword)
+    );
+    if (cached) {
+      setConversations(cached);
+      setConversationsLoaded(true);
+      setConversationsLoading(false);
+    }
     void loadConversations(0);
-  }, [loadConversations]);
+  }, [loadConversations, selectedAccountId, filters, debouncedKeyword]);
 
   const loadMoreConversations = useCallback(() => {
     if (!hasMoreConversations || conversationsLoading) return;
@@ -725,6 +779,7 @@ export function useOneMailPage(): OneMailPageState {
       oneMailSettingsGet()
         .then((value) => {
           if (!cancelled) {
+            cachedSettings = value;
             setSettings(value);
             settingsRef.current = value;
           }
@@ -736,6 +791,7 @@ export function useOneMailPage(): OneMailPageState {
       reloadOutbox(),
       oneMailSyncStatus()
         .then((value) => {
+          cachedSyncStatus = value;
           if (!cancelled) setSyncStatus(value);
         })
         .catch(() => undefined),
@@ -760,16 +816,17 @@ export function useOneMailPage(): OneMailPageState {
   }, [syncNow]);
 
   useEffect(() => {
-    if (!pageActive || accounts.length === 0) return;
-    void syncNowRef.current();
-  }, [pageActive, accounts.length]);
+    if (!pageActive || accounts.length === 0 || !conversationsLoaded) return;
+    const timer = setTimeout(() => void syncNowRef.current(), AUTO_SYNC_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [pageActive, accounts.length, conversationsLoaded]);
 
   useEffect(() => {
     const minutes = settings?.refreshIntervalMinutes ?? 0;
-    if (!pageActive || accounts.length === 0 || minutes <= 0) return;
+    if (!pageActive || accounts.length === 0 || !conversationsLoaded || minutes <= 0) return;
     const timer = setInterval(() => void syncNowRef.current(), minutes * 60_000);
     return () => clearInterval(timer);
-  }, [pageActive, accounts.length, settings?.refreshIntervalMinutes]);
+  }, [pageActive, accounts.length, conversationsLoaded, settings?.refreshIntervalMinutes]);
 
   const notifyNewMail = useCallback(
     async (payload: NewMailPayload) => {
