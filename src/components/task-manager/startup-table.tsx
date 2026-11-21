@@ -1,10 +1,9 @@
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import type { StartupItem } from "@/commands";
+import type { StartupSort } from "@/lib/task-manager/startup-rows";
 import { StartupContextMenu } from "./startup-context-menu";
 import { StartupIcon } from "./startup-icon";
 import { StartupStatus } from "./startup-status";
-
-export type StartupSort = "name" | "publisher" | "enabled" | "location";
 
 export function StartupTable({
   items,
@@ -25,7 +24,7 @@ export function StartupTable({
     { key: "publisher", label: t("taskManager.startup.column.publisher") },
     { key: "enabled", label: t("taskManager.startup.column.status") },
     { key: "location", label: t("taskManager.startup.column.location") },
-    { key: "location", label: t("taskManager.startup.column.command") },
+    { key: "command", label: t("taskManager.startup.column.command") },
   ];
   return (
     <div className="border-border bg-card min-h-0 flex-1 overflow-auto rounded-xl border">
