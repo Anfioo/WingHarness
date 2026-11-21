@@ -31,7 +31,11 @@
 ## 开工检查
 
 1. `git rev-parse --abbrev-ref HEAD` 必须是 `<BRANCH>`；不是就停止。
-2. `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/` 后必须为空；非空就停止并逐条列出，不要清理。
+2. `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/`。**不要求工作树干净**；有未提交改动时先逐个查看：
+   - 与本波次/本次移植相关（本计划文件、同一波次其他轨的并行进度、上一波遗留）→ 读取分析后继续；
+   - 与本波次要改的文件冲突（同一文件同一区域无法共存）、同一文件混有别人的未提交改动又无法只提交自己的部分，或与本次移植完全无关 → `STATUS: BLOCKED`，逐条列出；
+   - 不确定时按「相关」处理：先读再判断。
+   - 若 W0 提示词里旧的措辞要求「工作树必须完全干净」或「出现非本轨文件时立即停止」，按这里的放宽规则执行。
 3. 若 `WAVE ≥ w1`，用 `ToolSearch` 加载 `mcp__codeg-mcp__delegate_to_agent`、`mcp__codeg-mcp__get_delegation_status`、`mcp__codeg-mcp__cancel_delegation`；加载不到就 `STATUS: BLOCKED`。`WAVE = w0` 不需要委派工具。
 
 ## 执行本波
@@ -54,7 +58,7 @@
 
 ## 结束检查
 
-- `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/` 后应为空；非空则本波 BLOCKED。
+- `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/` 后若有改动：逐个查看。本波相关 → 在回报里列出并标注「相关未提交，继续」；与本波文件冲突或与本次移植无关 → 本波 BLOCKED。
 - 记录本波提交：`git log --oneline <WAVE_START_SHA>..HEAD`。
 
 ## 返回格式
@@ -72,5 +76,5 @@ NOTES: <风险/遗留；无则 none>
 ```
 
 - 本波成功才写 `STATUS: DONE`。
-- 任何阻塞、失败、未提交改动、报告不可信，都写 `STATUS: BLOCKED` 并说明原因。
+- 阻塞、失败、报告不可信 → `STATUS: BLOCKED` 并说明原因。相关未提交改动不单独构成 BLOCKED；在 `NOTES` 里写明即可。只有与本次移植无关或与本波文件冲突的未提交改动才按 BLOCKED 处理。
 - **不要在返回前委派下一波**；返回后本轮就结束了。

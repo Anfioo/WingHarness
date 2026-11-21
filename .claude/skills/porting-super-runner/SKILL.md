@@ -78,7 +78,10 @@ required_depth = 2
 8. **分支检查（仅非 `--dry-run`）**（本技能不做任何分支操作）：
    - `git rev-parse --abbrev-ref HEAD`：在 `main` / `master` 上停止，提示先切到计划的目标分支（如 `feature/<module>`）。
    - 分支名应包含 `<module>` 或与计划 §11 的目标分支一致（`feature/<module>` / `feat/<module>` 都算）；不一致就停止让用户确认。
-9. **工作区检查（仅非 `--dry-run`）**：`git status --porcelain` 排除 `.dev/` 与 `.claude/skills/`（工具目录，不算移植改动）后仍有内容 → 停止并逐条列出；不要 stash / reset / clean。
+9. **工作区检查（仅非 `--dry-run`）**：`git status --porcelain` 排除 `.dev/` 与 `.claude/skills/`（工具目录，不算移植改动）。非空时**不要立刻停止**，先逐个查看内容：
+   - 与本次移植相关（本计划文件、并行轨进度、上一波遗留）→ 读取分析后继续；
+   - 与本波次要改的文件冲突或与本次移植完全无关 → 停止并逐条列出；不要 stash / reset / clean。
+   - 不确定时按「相关」处理：先读再判断，只有确认冲突或无关才停。
 10. 非 `--dry-run` 时记录 `startSha = git rev-parse HEAD`、`branch`，并 `mkdir -p <planRoot>/waves`。
 11. `--dry-run`：输出下发顺序表（序号、波次、行区间、depth、说明）、`planPath`、报告路径，然后停止。
 
@@ -114,7 +117,7 @@ required_depth = 2
    - 用户中途要求停止：`cancel_delegation(waveTaskId)`，写报告并汇总。
 5. **本波验收**：
    - `git rev-parse --abbrev-ref HEAD` 应仍为 `branch`；变了就标红并停止。
-   - `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/` 后应为空；非空 → 本波记 BLOCKED，停止。
+   - `git status --porcelain` 排除 `.dev/` 与 `.claude/skills/`：**不要求为空**。有改动时逐个查看——本波相关（本计划文件、下一波仍需的进度）→ 记入报告并继续；与本波文件冲突或与本次移植无关 → 本波记 BLOCKED，停止。不要替 Agent 提交或清理。
    - 读取 `<planRoot>/waves/` 下本波最新报告（`<WAVE>.md` 或 `<WAVE>.<timestamp>.md`）；报告不存在或状态为「有阻塞」时本波记 BLOCKED。
    - 记录 `git log --oneline <waveStartSha>..HEAD` 作为本波提交。
 6. 把本波结果追加到全波次报告（见 §3），然后回到第 1 步处理下一波。**不要在还有波次未处理时提前结束**。
@@ -194,12 +197,12 @@ required_depth = 2
 5. **只用 codeg MCP 委派**：`delegate_to_agent` / `get_delegation_status` / `cancel_delegation`；加载不到就停，不用原生 Agent / Task / Workflow。
 6. **严格按序，不跳波**：某一波 BLOCKED 就停止，不下发后续波。
 7. **按引用执行**：W0 给行区间；W≥1 交给 `porting-wave-runner` 自解析。
-8. **不越权处理工作区**：不 stash / reset / clean / checkout / 切分支；发现无关改动就停。
+8. **不越权处理工作区**：不 stash / reset / clean / checkout / 切分支。有未提交改动时先看内容：相关进度继续，冲突或与本次移植无关才停；不强制要求工作树干净。
 9. **等待期间少说话**：只有终态、`blocked_on`、失败或需要用户决定时才输出。
 
 ## 自检
 
-- [ ] 已确认不在 `main` / `master`、分支与计划一致，且除 `.dev/` 与 `.claude/skills/` 外 `git status` 干净。
+- [ ] 已确认不在 `main` / `master`、分支与计划一致；`git status` 有改动时已逐个判断：相关则继续，冲突/无关才停。
 - [ ] 已解析出连续波次 `selected[]` 和最后一波。
 - [ ] 已确认委派深度 ≥ 2（波数不影响深度）。
 - [ ] 逐波下发：每一波一个子 Agent，等它完成并验收后才下发下一波。
