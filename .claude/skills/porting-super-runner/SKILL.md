@@ -20,6 +20,7 @@ description: 主窗口按 W0→W1→…→A1 的顺序逐波下发 Codeg 委派�
 ```
 
 - **主窗口负责下发**：每次只委派当前这一波，等它返回后才委派下一波。
+- **主窗口必须看得到 N 次委派**：选了几波，主窗口就实际发起几次 `delegate_to_agent`（W0、W1、W2…各一次），在对话里是一行行独立的委派记录；**不是**一次任务包办所有波。
 - **波次 Agent 只干自己这一波**：W0 直接执行 A0 基线；W≥1 调用 `porting-wave-runner`，由 runner 去并行委派本波执行轨与协调者。
 - **波次 Agent 不委派下一波**：它跑完就返回，下一波由主窗口继续下发。所以不会递归下去。
 - 每一波都是全新的子 Agent，深度都是 1；runner 的执行轨在 depth 2。
@@ -85,7 +86,7 @@ required_depth = 2
 
 先加载一次工具：`ToolSearch` 查询 `select:mcp__codeg-mcp__delegate_to_agent,mcp__codeg-mcp__get_delegation_status,mcp__codeg-mcp__cancel_delegation`；加载不到就停。
 
-按 `selected[]` 顺序，**一次只处理一波**：
+按 `selected[]` 顺序，**一次只处理一波**。这里的硬性要求：**每一波在主窗口里单独调用一次 `delegate_to_agent`**，task 只装这一波；禁止把所有波合并进一个 task，禁止委派一个「总执行者」代跑全部波。
 
 1. 记录本波起点 `waveStartSha = git rev-parse HEAD`。
 2. 读取 [wave-task.md](wave-task.md)，用下列变量填充成 `task`：
@@ -186,7 +187,7 @@ required_depth = 2
 
 ## 硬性规则
 
-1. **主窗口下发，不递归**：每次只委派当前一波；波次 Agent 不委派下一波。
+1. **主窗口下发，不递归**：每次只委派当前一波；主窗口对每一波各发起一次 `delegate_to_agent`，波次 Agent 不委派下一波。
 2. **W0 也由本技能委派**：W0 的波次 Agent 直接执行 A0 基线；这是与 `porting-wave-runner`（拒绝 w0）的关键区别。
 3. **W≥1 交给 runner**：波次 Agent 调用 `porting-wave-runner`，不自己重写并行执行逻辑。
 4. **只编排，不施工**：本技能不改业务代码、不提交、不跑构建；只读文件、委派波次 Agent、写 `waves/` 报告。
@@ -202,6 +203,7 @@ required_depth = 2
 - [ ] 已解析出连续波次 `selected[]` 和最后一波。
 - [ ] 已确认委派深度 ≥ 2（波数不影响深度）。
 - [ ] 逐波下发：每一波一个子 Agent，等它完成并验收后才下发下一波。
+- [ ] 主窗口实际发起了 N 次 `delegate_to_agent`（每波一次），不是一次总任务。
 - [ ] 波次 Agent 的任务里**没有**「委派下一波」的步骤。
 - [ ] 某一波 BLOCKED 后没有下发后续波。
 - [ ] 报告写在本次运行的 `waves/SUPER-<timestamp>.md`，并包含各波结果。
