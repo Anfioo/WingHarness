@@ -66,7 +66,7 @@
 最后只输出下面这段固定格式，不要写客套话：
 
 ```
-STATUS: DONE | BLOCKED
+STATUS: <DONE 或 BLOCKED>
 WAVE: <WAVE>
 REPORT: <本波报告路径；无则 none>
 COMMITS: <hash subject（每个提交一行）；无则 none>
@@ -75,6 +75,7 @@ BLOCKED_REASON: <原因；无则 none>
 NOTES: <风险/遗留；无则 none>
 ```
 
+- `STATUS:` 行必须二选一：`STATUS: DONE` 或 `STATUS: BLOCKED`；不要原样输出 `STATUS: DONE | BLOCKED` 这种选项示例。
 - 本波成功才写 `STATUS: DONE`。
 - 阻塞、失败、报告不可信 → `STATUS: BLOCKED` 并说明原因。相关未提交改动不单独构成 BLOCKED；在 `NOTES` 里写明即可。只有与本次移植无关或与本波文件冲突的未提交改动才按 BLOCKED 处理。
 - **不要在返回前委派下一波**；返回后本轮就结束了。

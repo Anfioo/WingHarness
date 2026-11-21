@@ -112,8 +112,10 @@ required_depth = 2
    - `task`：上一步填充后的全文
 4. 记录 `waveTaskId`，用 `get_delegation_status({ task_ids: [waveTaskId], wait_ms: 60000 })` 轮询直到终态：
    - `blocked_on`：立即用一句话告诉用户哪一波、卡在什么（通常是权限/问题/计划审批），然后继续轮询；同一提示只唤醒一次。
-   - `completed` 且 text 中存在以 `STATUS: DONE` 开头的行 → 进入第 5 步。
-   - `completed` 且 text 中存在以 `STATUS: BLOCKED` 开头的行，或 `failed` / `canceled`，或完全没有 `STATUS:` 行 → 本波 BLOCKED，停止循环。
+   - `completed` 时取回报中**最后一条**严格匹配 `^STATUS: (DONE|BLOCKED)$` 的行（不要匹配 `STATUS: DONE | BLOCKED` 这种选项示例）：
+     - 明确的 `STATUS: DONE` → 进入第 5 步；
+     - `STATUS: BLOCKED`、没有严格 STATUS 行、或只有带 `|` 的示例行 → 本波 BLOCKED，停止循环。
+   - `failed` / `canceled` → 本波 BLOCKED，停止循环。
    - 用户中途要求停止：`cancel_delegation(waveTaskId)`，写报告并汇总。
 5. **本波验收**：
    - `git rev-parse --abbrev-ref HEAD` 应仍为 `branch`；变了就标红并停止。

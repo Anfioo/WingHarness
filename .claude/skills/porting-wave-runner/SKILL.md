@@ -44,7 +44,7 @@ W0（A0 基线）由用户手动委派并完成；之后每个波次用本技能
    - 分支名应包含 `<module>` 或与计划 §11 的目标分支一致（`feature/<module>` / `feat/<module>` 都算）；不一致就停止并让用户确认，避免在错误分支上委派。
    - `git status --porcelain`：排除 `.dev/`（本就不入 Git）和 `.claude/skills/`（工具目录，不属于本次移植改动）。非空时**不要立刻停止**，先逐个查看内容：
      - 与本次波次/移植相关（上一波遗留、并行轨进度、计划内文件）→ 读取分析后继续；
-     - 与本波次要改的文件冲突（同一文件同一区域无法共存）或与本次移植完全无关 → 停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
+     - 与本波执行轨要改的文件冲突（同一文件同一区域无法共存）或与本次移植完全无关 → 停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
      - 不确定时按「相关」处理：先读再判断，只有确认冲突或无关才停。
    - 记录 `git rev-parse HEAD` 作为 `startSha`。
 7. 非 `--dry-run` 时 `mkdir -p <planRoot>/waves`。
@@ -92,8 +92,8 @@ W0（A0 基线）由用户手动委派并完成；之后每个波次用本技能
 - 只提交自己的改动；只 git add 明确路径；禁止 git add -A / git add . / --no-verify / amend / force push；不要把其他轨的未提交改动加入自己的提交。
 - 提交信息用 Conventional Commits；不要加 Co-Authored-By、Generated with 等 AI 署名行。
 
-完成回报（最后输出，供协调者读取）：
-STATUS: DONE | BLOCKED
+完成回报（最后输出，供协调者读取；`STATUS:` 行必须二选一，不要原样输出 `DONE | BLOCKED`）：
+STATUS: <DONE 或 BLOCKED>
 FILES: <改动文件，每行一个>
 COMMITS: <hash> <subject>（每个提交一行；无则 none）
 VERIFY: <验收命令与结果>
@@ -111,12 +111,12 @@ BLOCKERS: <无则 none>
 - 终端状态为 `completed` / `failed` / `canceled`；`running` 继续等。
 - **等待期间不要发「还在跑」之类的进度消息**；只在有终态、用户阻塞或需要用户决定时说话。
 - 返回 `blocked_on`：立即用一句话告诉用户哪条轨、卡在什么，然后继续轮询（同一个提示只唤醒一次，重调安全）。
-- `status=completed` 但 `text` 中存在以 `STATUS: BLOCKED` 开头的行：按阻塞/失败处理。
+- `status=completed` 时取 `text` 中**最后一条**严格匹配 `^STATUS: (DONE|BLOCKED)$` 的行；`STATUS: BLOCKED`、没有严格 STATUS 行、或只有 `STATUS: DONE | BLOCKED` 这种示例行 → 按阻塞/失败处理。只有明确的 `STATUS: DONE` 才算成功。
 - 用户中途要求停止：加载 `mcp__codeg-mcp__cancel_delegation`，对仍在运行的 task 逐个取消，然后写报告并汇总。
 
 ### 4. 失败与重试
 
-失败 = `status` 为 `failed` / `canceled`，或回报里出现 `STATUS: BLOCKED`。
+失败 = `status` 为 `failed` / `canceled`，或回报中最后一条严格 `STATUS:` 行是 `STATUS: BLOCKED`（没有严格 STATUS 行也算失败）。
 
 - 先等本波所有执行轨都到终态，再统一处理失败轨的重试；不要在还有轨运行时提前收尾。
 - 每条执行轨**最多重试一次**。重试仍用 `delegate_to_agent`，task 在原模板前加：
