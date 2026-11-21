@@ -36,7 +36,7 @@ export default function ProjectsTab() {
                 {t("mise.projects.scanRoot.title")} · {scanRootCount}
               </span>
               <span className={COUNT_CHIP}>
-                {t("mise.overview.metrics.projects.caption", {
+                {t("mise.projects.scanRoot.summary", {
                   count: projectCount,
                   overrides: overrideCount,
                 })}

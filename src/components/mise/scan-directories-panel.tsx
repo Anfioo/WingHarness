@@ -164,7 +164,7 @@ export function ScanDirectoriesPanel({
                     <div className="min-w-0 flex-1 space-y-1">
                       <p className="font-mono text-xs break-all select-text">{directory.path}</p>
                       <p className="text-muted-foreground text-xs">
-                        {t("mise.overview.metrics.projects.caption", {
+                        {t("mise.projects.scanRoot.summary", {
                           count: stats.count,
                           overrides: stats.overrides,
                         })}

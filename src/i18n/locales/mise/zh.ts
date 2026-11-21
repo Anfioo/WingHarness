@@ -313,7 +313,6 @@ const mise = {
       declared: "声明数",
       overrides: "覆盖数",
       modified: "最近变更",
-      notes: "备注",
       status: "状态",
       expand: "展开绑定",
       collapse: "收起绑定",
@@ -346,6 +345,7 @@ const mise = {
       disable: "停用",
       empty: "还没有自定义扫描根。",
       limit: "最多只能添加 50 个扫描根。",
+      summary: "{{count}} 个项目中有 {{overrides}} 处覆盖",
       toggleAria: "启用或停用 {{path}}",
     },
     bindings: {

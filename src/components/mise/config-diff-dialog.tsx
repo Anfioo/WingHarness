@@ -140,7 +140,7 @@ export function ConfigDiffDialog({
         <DialogFooter>
           <Button variant="outline" disabled={blocked} onClick={onBack}>
             <ArrowLeft />
-            {t("mise.actions.edit")}
+            {t("mise.config.diff.back")}
           </Button>
           <Button disabled={blocked || !preview.hasChanges} onClick={() => void save()}>
             {saving && <Loader2 className="animate-spin" />}

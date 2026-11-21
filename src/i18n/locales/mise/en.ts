@@ -320,7 +320,6 @@ const mise = {
       declared: "Declared",
       overrides: "Overrides",
       modified: "Last change",
-      notes: "Notes",
       status: "Status",
       expand: "Show bindings",
       collapse: "Hide bindings",
@@ -353,6 +352,7 @@ const mise = {
       disable: "Disable",
       empty: "No custom scan root.",
       limit: "At most 50 scan roots can be added.",
+      summary: "{{overrides}} overrides across {{count}} projects",
       toggleAria: "Enable or disable {{path}}",
     },
     bindings: {

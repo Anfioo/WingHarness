@@ -211,6 +211,13 @@ export function JavaAliasPanel({ aliases, onPreview, onSave }: JavaAliasPanelPro
               );
             })}
 
+            {hasEmptyAlias && (
+              <p className="text-destructive text-xs">{t("mise.config.aliases.aliasRequired")}</p>
+            )}
+            {hasDuplicateAlias && (
+              <p className="text-destructive text-xs">{t("mise.config.aliases.aliasDuplicate")}</p>
+            )}
+
             <Button variant="outline" size="sm" className="self-start" onClick={addRow}>
               <Plus />
               {t("mise.config.aliases.add")}

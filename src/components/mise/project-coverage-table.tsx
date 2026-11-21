@@ -96,7 +96,7 @@ export function ProjectCoverageTable({ projects, scanRootCount }: ProjectCoverag
         <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
           <p className="text-sm font-medium">{t("mise.projects.empty")}</p>
           <p className="text-muted-foreground text-xs">
-            {scanRootCount > 0 ? t("mise.projects.scanRoot.hint") : t("mise.projects.emptyHint")}
+            {scanRootCount > 0 ? t("mise.projects.emptyScanHint") : t("mise.projects.emptyHint")}
           </p>
         </div>
       ) : (
@@ -110,7 +110,7 @@ export function ProjectCoverageTable({ projects, scanRootCount }: ProjectCoverag
                 <th className="px-3 py-2 font-medium">{t("mise.projects.table.declared")}</th>
                 <th className="px-3 py-2 font-medium">{t("mise.projects.table.overrides")}</th>
                 <th className="px-3 py-2 font-medium">{t("mise.projects.table.modified")}</th>
-                <th className="px-3 py-2 font-medium">{t("mise.projects.table.notes")}</th>
+                <th className="px-3 py-2 font-medium">{t("mise.projects.table.status")}</th>
               </tr>
             </thead>
             <tbody>

@@ -63,8 +63,8 @@ export function ConfigDocumentEditorDialog({
     if (previewBusy) return;
     if (dirty) {
       const discard = await confirmDialog({
-        title: t("mise.config.diff.title"),
-        description: t("mise.config.diff.description"),
+        title: t("mise.config.document.discardTitle"),
+        description: t("mise.config.document.discardDescription"),
         confirmLabel: t("mise.actions.close"),
         destructive: true,
       });
