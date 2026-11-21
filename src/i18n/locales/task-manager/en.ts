@@ -167,7 +167,6 @@ const taskManager = {
     },
   },
   startup: {
-    title: "Startup",
     search: {
       placeholder: "Search by name, publisher or command",
       aria: "Search startup items",
@@ -197,7 +196,6 @@ const taskManager = {
       managed: "This entry is managed by policy and cannot be changed.",
       unavailable: "This entry cannot be changed right now.",
     },
-    machineHint: "Changing an all-users entry asks for administrator permission.",
     actions: {
       enable: "Enable",
       disable: "Disable",
@@ -206,7 +204,6 @@ const taskManager = {
     },
     summary: "{{enabled}} of {{total}} enabled",
     empty: {
-      loading: "Reading startup items…",
       none: "No startup items were found.",
       noMatch: "No startup item matches the current search.",
       clear: "Clear search",
@@ -215,8 +212,6 @@ const taskManager = {
       enabled: 'Enabled "{{name}}".',
       disabled: 'Disabled "{{name}}".',
       failed: 'Could not change "{{name}}".',
-      commandCopied: "Command copied",
-      copyFailed: "Could not copy to the clipboard.",
     },
   },
   connections: {

@@ -162,7 +162,6 @@ const taskManager = {
     },
   },
   startup: {
-    title: "启动项",
     search: {
       placeholder: "按名称、发布者或命令搜索",
       aria: "搜索启动项",
@@ -192,7 +191,6 @@ const taskManager = {
       managed: "该项由策略管理，无法更改。",
       unavailable: "该项当前无法更改。",
     },
-    machineHint: "更改所有用户的启动项需要管理员权限。",
     actions: {
       enable: "启用",
       disable: "禁用",
@@ -201,7 +199,6 @@ const taskManager = {
     },
     summary: "已启用 {{enabled}} / {{total}}",
     empty: {
-      loading: "正在读取启动项…",
       none: "没有找到启动项。",
       noMatch: "没有匹配当前搜索的启动项。",
       clear: "清除搜索",
@@ -210,8 +207,6 @@ const taskManager = {
       enabled: "已启用「{{name}}」",
       disabled: "已禁用「{{name}}」",
       failed: "无法更改「{{name}}」",
-      commandCopied: "命令已复制",
-      copyFailed: "复制到剪贴板失败。",
     },
   },
   connections: {
