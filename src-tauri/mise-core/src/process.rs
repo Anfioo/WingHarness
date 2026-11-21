@@ -433,6 +433,25 @@ mod tests {
 
     #[test]
     #[ignore = "requires a local mise install"]
+    fn real_mise_without_arguments_forwards_the_result() {
+        let result = runtime()
+            .block_on(run_command(
+                &[],
+                None,
+                Duration::from_secs(15),
+                true,
+                None,
+                None,
+            ))
+            .expect("an empty argument list must still produce a command result");
+
+        // `mise` prints its usage when it has nothing to do; the process layer
+        // must not invent arguments of its own.
+        assert!(!result.stdout.is_empty() || !result.stderr.is_empty());
+    }
+
+    #[test]
+    #[ignore = "requires a local mise install"]
     fn real_mise_version_runs() {
         let result = runtime()
             .block_on(run_command(
