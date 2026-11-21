@@ -159,8 +159,8 @@ checked against the whitelist.
 configuration file, or one of eleven known configuration file names below an
 opened project root or an enabled scan root, at most three levels down. Anything
 else — including a path outside those roots — is refused with `invalid-input`
-and the file is untouched. A document over 1 MiB or not valid UTF-8 is refused
-the same way.
+and the file is untouched. A document over 1 MiB is refused with `invalid-input`,
+as is an existing file that cannot be read as UTF-8.
 
 **Writing.** The existing file is first copied to `<name>.bak-<unix seconds>`,
 then the new bytes are written to `<name>.tmp`, flushed, and renamed over the
