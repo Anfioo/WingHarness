@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-scan-dirs-set-enabled"
+description = "Enables the mise_scan_dirs_set_enabled command without any pre-configured scope."
+commands.allow = ["mise_scan_dirs_set_enabled"]
+
+[[permission]]
+identifier = "deny-mise-scan-dirs-set-enabled"
+description = "Denies the mise_scan_dirs_set_enabled command without any pre-configured scope."
+commands.deny = ["mise_scan_dirs_set_enabled"]
