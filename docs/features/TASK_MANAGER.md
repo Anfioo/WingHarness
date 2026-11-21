@@ -24,19 +24,19 @@ what came across and what did not.
 
 | Route | Renders |
 | --- | --- |
-| `/task-manager` | The page: header, service summary, tab strip, the process, performance and services tabs, the settings dialog |
+| `/task-manager` | The page: service summary, the tab strip with the service badge and page actions, the process, performance and services tabs, the settings dialog |
 
 | Path | Responsibility |
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | Page shell inside `AppShell` |
-| `src/pages/task-manager/task-manager-app.tsx` | Header (title, service badge, refresh, settings), tab strip, all three tab panels |
+| `src/pages/task-manager/task-manager-app.tsx` | Tab strip (with the service badge, refresh and settings), all three tab panels |
 | `src/pages/task-manager/tabs/processes.tsx` | Process tab: the vitals band, toolbar, table, inline detail panel, confirmation dialogs |
 | `src/pages/task-manager/tabs/performance.tsx` | Performance tab: the device list, one detail view per device, the 60-sample window |
 | `src/pages/task-manager/tabs/services.tsx` | Services tab: polling lifecycle, search / filter / sort state, toolbar actions, toasts |
 | `src/components/task-manager/` | Table, toolbar, row, detail body and actions, right-hand detail panel, vitals band, hardware overview, splitter, context menu, service table and menu, the performance device list and per-device views, service panel and badge, settings dialog, `format.ts` |
 | `src/hooks/use-task-manager.ts` | One shared store: channel, settings, service status, actions |
 | `src/commands/services/task-manager/` | Typed wrappers over the eighteen `argus_*` commands and their DTOs |
-| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `process-history`, `performance-target`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors` |
+| `src/lib/task-manager/` | Pure logic: `process-search`, `process-sections`, `process-identity`, `process-history`, `performance-target`, `service-rows`, `chart-history`, `chart-scale`, `chart-metrics`, `chart-memory`, `chart-colors`, `engine-grid` |
 | `src-tauri/src/commands/argus.rs` | The thin command surface |
 | `src-tauri/src/argus/` | `sampler.rs` (sampling thread), `service.rs` (status and install), `store.rs` (settings), `mod.rs` (`ArgusState`) |
 

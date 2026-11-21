@@ -1,6 +1,4 @@
 const taskManager = {
-  title: "任务管理器",
-  subtitle: "查看进程、CPU、内存、磁盘、网络与 GPU 的使用情况，结束进程或调整优先级。",
   tabs: {
     processes: "进程",
     performance: "性能",

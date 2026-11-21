@@ -10,19 +10,19 @@
 
 | 路由 | 渲染内容 |
 | --- | --- |
-| `/task-manager` | 页面：页头、服务摘要、标签栏、进程 / 性能 / 服务三个标签、设置对话框 |
+| `/task-manager` | 页面：服务摘要、带服务徽标与页面操作的标签栏、进程 / 性能 / 服务三个标签、设置对话框 |
 
 | 路径 | 职责 |
 | --- | --- |
 | `src/pages/task-manager/index.tsx` | `AppShell` 内的页面外壳 |
-| `src/pages/task-manager/task-manager-app.tsx` | 页头（标题、服务徽标、刷新、设置）、标签栏、三个标签面板 |
+| `src/pages/task-manager/task-manager-app.tsx` | 标签栏（含服务徽标、刷新、设置）、三个标签面板 |
 | `src/pages/task-manager/tabs/processes.tsx` | 进程标签：Vitals 带、工具条、表格、内联详情面板、确认对话框 |
 | `src/pages/task-manager/tabs/performance.tsx` | 性能标签：设备列表、按设备切换的详情、60 个样本的窗口 |
 | `src/pages/task-manager/tabs/services.tsx` | 服务标签：轮询生命周期、搜索 / 筛选 / 排序状态、工具条操作与提示 |
 | `src/components/task-manager/` | 表格、工具条、行、详情内容与操作、右侧详情面板、Vitals 带、硬件概览、分隔条、右键菜单、服务表格与右键菜单、性能设备列表与各设备视图、服务面板与徽标、设置对话框、`format.ts` |
 | `src/hooks/use-task-manager.ts` | 一份共享 store：通道、设置、服务状态与操作 |
 | `src/commands/services/task-manager/` | 十八条 `argus_*` 命令的类型化封装与 DTO |
-| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`process-history`、`performance-target`、`service-rows`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors` |
+| `src/lib/task-manager/` | 纯逻辑：`process-search`、`process-sections`、`process-identity`、`process-history`、`performance-target`、`service-rows`、`chart-history`、`chart-scale`、`chart-metrics`、`chart-memory`、`chart-colors`、`engine-grid` |
 | `src-tauri/src/commands/argus.rs` | 薄命令层 |
 | `src-tauri/src/argus/` | `sampler.rs`（采样线程）、`service.rs`（状态与安装）、`store.rs`（设置）、`mod.rs`（`ArgusState`） |
 

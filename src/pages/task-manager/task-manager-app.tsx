@@ -23,9 +23,9 @@ const TABS: TaskManagerTab[] = [
 ];
 
 /**
- * The shared task manager surface: the header with the service badge and the
- * settings entry, the six tabs and their panels. Every panel stays mounted so a
- * tab switch keeps its state.
+ * The shared task manager surface: the tab row with the service badge and the
+ * settings entry, and the six panels. Every panel stays mounted so a tab
+ * switch keeps its state.
  */
 export function TaskManagerApp() {
   const { t } = useAppTranslation();
@@ -36,34 +36,7 @@ export function TaskManagerApp() {
 
   return (
     <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold">{t("taskManager.title")}</h1>
-          <p className="text-muted-foreground text-sm">{t("taskManager.subtitle")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ServiceBadge service={page.service} onClick={openTaskManagerSettings} />
-          <Button variant="outline" size="sm" onClick={() => void page.refresh()}>
-            <RefreshCw className="size-4" />
-            {t("taskManager.actions.refresh")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={openTaskManagerSettings}>
-            <Settings className="size-4" />
-            {t("taskManager.actions.settings")}
-          </Button>
-        </div>
-      </header>
-
-      {page.error && (
-        <div
-          role="alert"
-          className="border-destructive/40 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm"
-        >
-          {t(argusErrorKey(page.error.code))}
-        </div>
-      )}
-
-      <div className="flex shrink-0 border-b px-3 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-1.5">
         <nav className="bg-muted/70 flex flex-wrap items-center gap-0.5 rounded-lg p-0.5">
           {TABS.map((tab) => (
             <button
@@ -81,7 +54,27 @@ export function TaskManagerApp() {
             </button>
           ))}
         </nav>
+        <div className="flex flex-wrap items-center gap-2">
+          <ServiceBadge service={page.service} onClick={openTaskManagerSettings} />
+          <Button variant="outline" size="sm" onClick={() => void page.refresh()}>
+            <RefreshCw className="size-4" />
+            {t("taskManager.actions.refresh")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={openTaskManagerSettings}>
+            <Settings className="size-4" />
+            {t("taskManager.actions.settings")}
+          </Button>
+        </div>
       </div>
+
+      {page.error && (
+        <div
+          role="alert"
+          className="border-destructive/40 bg-destructive/5 text-destructive rounded-lg border px-3 py-2 text-sm"
+        >
+          {t(argusErrorKey(page.error.code))}
+        </div>
+      )}
 
       <div className="min-h-0 flex-1">
         <div hidden={page.activeTab !== "processes"} className="h-full">

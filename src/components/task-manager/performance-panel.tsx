@@ -29,10 +29,10 @@ export function PerformanceDetailHeader({
 }) {
   return (
     <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
-      <h2 className="shrink-0 text-[24px] font-semibold tracking-tight">{title}</h2>
+      <h2 className="shrink-0 text-[26px] font-semibold tracking-tight">{title}</h2>
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
         {model && (
-          <p className="text-muted-foreground min-w-0 truncate text-sm" title={model}>
+          <p className="text-muted-foreground min-w-0 truncate text-[15px]" title={model}>
             {model}
           </p>
         )}
@@ -68,7 +68,7 @@ export function SegmentedControl<T extends string>({
           title={option.title}
           onClick={() => onChange(option.value)}
           className={cn(
-            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
+            "h-[26px] rounded px-2.5 py-0 text-xs font-medium transition-colors",
             value === option.value
               ? "bg-background text-foreground shadow-sm ring-1 ring-black/5 dark:ring-white/10"
               : "text-muted-foreground hover:text-foreground"

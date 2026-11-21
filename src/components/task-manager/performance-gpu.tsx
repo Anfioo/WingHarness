@@ -6,7 +6,7 @@
 // and shared memory over the window, and the clocks, temperature and power
 // the adapter reports.
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { formatGigabytes, formatPercent, formatWatts } from "@/components/task-manager/format";
 import { ChartFrame } from "@/components/task-manager/chart-frame";
 import {
@@ -33,6 +33,7 @@ import {
 import { useAppTranslation } from "@/hooks/use-app-translation";
 import { historySpanSeconds, historyValues } from "@/lib/task-manager/chart-history";
 import { CHART_COLORS } from "@/lib/task-manager/chart-colors";
+import { ENGINE_LAYOUTS, planGrid, type EngineLayout } from "@/lib/task-manager/engine-grid";
 import {
   isSmart,
   shownEngines,
@@ -42,10 +43,10 @@ import {
   withSmart,
   type EngineChoice,
 } from "@/lib/task-manager/gpu-engines";
-import { cn } from "@/lib/utils";
 
-type EngineLayout = "grid" | "focus" | "rows";
-const ENGINE_LAYOUTS: EngineLayout[] = ["grid", "focus", "rows"];
+/** The smallest an engine chart may be, and the gap between them. */
+const ENGINE_CELL = { width: 150, height: 76 };
+const ENGINE_GAP = 6;
 
 export function PerformanceGpu({
   snapshot,
@@ -57,6 +58,28 @@ export function PerformanceGpu({
   const [layout, setLayout] = useState<EngineLayout>("grid");
   const [choices, setChoices] = useState<Record<string, EngineChoice>>({});
   const [share, setShare] = useState(SHARE_DEFAULT);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
+
+  // The engine grid's plan follows its area, as in Argus: measure the element
+  // the charts are laid out in and plan again when it changes.
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const update = () => {
+      const rect = grid.getBoundingClientRect();
+      setGridSize((current) =>
+        Math.abs(current.width - rect.width) < 0.5 && Math.abs(current.height - rect.height) < 0.5
+          ? current
+          : { width: rect.width, height: rect.height }
+      );
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
+
   const gpus = snapshot.hardware.gpus;
   const index = gpus.findIndex((entry) => entry.info.id === id);
   const gpu = gpus[index];
@@ -74,6 +97,10 @@ export function PerformanceGpu({
     return engineIndex >= 0 && wasBusy(historyValues(history, `${prefix}.e${engineIndex}`));
   };
   const shown = shownEngines(engines, choice, busy);
+  const plan =
+    shown.length > 0 && gridSize.width > 0
+      ? planGrid(layout, shown.length, gridSize.width, gridSize.height, ENGINE_CELL, ENGINE_GAP)
+      : null;
   const choose = (next: EngineChoice) => setChoices((current) => ({ ...current, [model]: next }));
 
   const display = isSmart(choice) ? "smart" : String(shown.length);
@@ -92,10 +119,9 @@ export function PerformanceGpu({
         ? `${Math.round(gpu.power)}% TDP`
         : null;
   const spanSeconds = historySpanSeconds(intervalMs);
-  const focusFirst = layout === "focus" && shown.length >= 3;
 
   return (
-    <div className="flex min-h-full flex-col gap-4">
+    <div className="flex h-full flex-col gap-4">
       <PerformanceDetailHeader title={`GPU ${index}`} model={gpu.info.name} />
 
       {engines.length > 1 && (
@@ -107,7 +133,7 @@ export function PerformanceGpu({
               title={
                 isSmart(choice) ? t("taskManager.performance.gpu.engineSmartTitle") : undefined
               }
-              className="h-7 w-auto min-w-[118px] gap-1 text-xs"
+              className="w-auto min-w-[118px] text-xs"
             >
               <SelectValue />
             </SelectTrigger>
@@ -138,29 +164,40 @@ export function PerformanceGpu({
         </div>
       )}
 
-      <div className="flex min-h-[360px] flex-1 flex-col">
+      <div className="flex min-h-min flex-1 flex-col">
         <div className="text-muted-foreground flex items-baseline justify-between gap-3 text-[12px] tabular-nums">
           <span>{t("taskManager.performance.gpu.engineUtilization")}</span>
           <span>100%</span>
         </div>
-        <div className="flex min-h-[200px] flex-col pt-0.5" style={{ flex: `${share} 1 0` }}>
+        <div className="flex flex-col pt-0.5" style={{ flex: `${share} 1 0` }}>
           <div
-            className={cn(
-              "grid flex-1 gap-1.5",
-              layout === "rows"
-                ? "auto-rows-[minmax(96px,1fr)] grid-cols-1"
-                : "auto-rows-[minmax(96px,1fr)] grid-cols-[repeat(auto-fill,minmax(150px,1fr))]"
-            )}
+            ref={gridRef}
+            className="relative grid flex-1"
+            style={{
+              gap: ENGINE_GAP,
+              gridTemplateColumns: plan
+                ? `repeat(${plan.columns}, minmax(0, 1fr))`
+                : `repeat(auto-fit, minmax(${ENGINE_CELL.width}px, 1fr))`,
+              gridTemplateRows: plan ? `repeat(${plan.rows}, minmax(0, 1fr))` : undefined,
+              minHeight: plan
+                ? plan.stack * ENGINE_CELL.height + (plan.stack - 1) * ENGINE_GAP
+                : undefined,
+            }}
           >
             {shown.map((engine, slot) => {
               const engineIndex = engines.indexOf(engine);
+              const place = plan?.cells[slot];
               return (
                 <div
                   key={engine}
-                  className={cn(
-                    "flex min-w-0 flex-col",
-                    focusFirst && slot === 0 && "min-[560px]:col-span-2 min-[560px]:row-span-2"
-                  )}
+                  className="flex min-h-0 min-w-0 flex-col"
+                  style={
+                    place
+                      ? {
+                          gridArea: `${place.row} / ${place.column} / span ${place.rows} / span ${place.columns}`,
+                        }
+                      : undefined
+                  }
                 >
                   <div className="flex h-[22px] flex-none items-center justify-between gap-2 px-px pb-[3px] text-xs tabular-nums">
                     <Select
@@ -171,7 +208,8 @@ export function PerformanceGpu({
                     >
                       <SelectTrigger
                         aria-label={t("taskManager.performance.gpu.engineType")}
-                        className="h-5 min-w-0 flex-1 gap-1 border-0 bg-transparent px-0.5 py-0 text-xs font-medium shadow-none focus-visible:ring-0"
+                        className="max-w-full min-w-0 border-0 bg-transparent text-xs font-medium shadow-none focus-visible:ring-0 [&_svg]:size-3"
+                        style={{ height: 18, padding: "0 2px 0 4px", marginLeft: -4, gap: 2 }}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -183,8 +221,11 @@ export function PerformanceGpu({
                         ))}
                       </SelectContent>
                     </Select>
-                    <span className="text-foreground flex-none font-semibold">
-                      {formatPercent(gpu.engines[engineIndex] ?? Number.NaN, 0)}
+                    <span className="text-foreground flex-none text-[13px] leading-none font-semibold">
+                      {Math.round(gpu.engines[engineIndex] ?? 0)}
+                      <span className="text-muted-foreground ml-px text-[10.5px] font-normal">
+                        %
+                      </span>
                     </span>
                   </div>
                   <ChartFrame
@@ -232,7 +273,7 @@ export function PerformanceGpu({
             formatValue={formatGigabytes}
             spanSeconds={spanSeconds}
             fill
-            fillMin={120}
+            fillMin={64}
             className="h-full"
             label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
           />
@@ -251,7 +292,7 @@ export function PerformanceGpu({
             formatValue={formatGigabytes}
             spanSeconds={spanSeconds}
             fill
-            fillMin={120}
+            fillMin={64}
             className="h-full"
             label={t("taskManager.performance.chart.label", { seconds: spanSeconds })}
           />
