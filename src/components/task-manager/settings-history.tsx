@@ -89,7 +89,7 @@ export function SettingsHistory({
           {failed && (
             <Button variant="outline" size="sm" disabled={disabled} onClick={onRetry}>
               <RefreshCw />
-              {t("taskManager.service.actions.recheck")}
+              {t("taskManager.settings.retry")}
             </Button>
           )}
           <Button

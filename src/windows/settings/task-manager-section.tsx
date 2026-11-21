@@ -47,10 +47,10 @@ export function TaskManagerSection() {
           role="alert"
           className="border-destructive/40 bg-destructive/5 text-destructive flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2 text-sm"
         >
-          <span className="min-w-0 flex-1">{t("taskManager.error.internal")}</span>
+          <span className="min-w-0 flex-1">{t("taskManager.settings.loadFailed")}</span>
           <Button variant="outline" size="sm" onClick={controller.reload}>
             <RefreshCw />
-            {t("taskManager.service.actions.recheck")}
+            {t("taskManager.settings.retry")}
           </Button>
         </div>
       </div>

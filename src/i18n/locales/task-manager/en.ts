@@ -10,7 +10,6 @@ const taskManager = {
   actions: {
     refresh: "Refresh",
     settings: "Settings",
-    close: "Close",
     cancel: "Cancel",
     kill: "End task",
     killTree: "End process tree",
@@ -20,8 +19,6 @@ const taskManager = {
   },
   service: {
     label: "Privileged service",
-    description:
-      "Runs as a Windows service to act on system processes and to collect per-process network and disk traffic for this page.",
     state: {
       notInstalled: "Not installed",
       stopped: "Stopped",
@@ -31,28 +28,6 @@ const taskManager = {
       unavailable: "Unavailable",
       incompatible: "Incompatible",
       unknown: "Unknown",
-    },
-    open: "Open service panel",
-    unknown: "—",
-    checking: "Checking the service status…",
-    authorized: "This Windows account",
-    notAuthorized: "Not authorized for this account",
-    errorDetails: "Error details",
-    busy: "Waiting for administrator permission…",
-    cancelled: "The operation was cancelled. The service was not changed.",
-    enabledHint:
-      "The service is running: system processes and per-process network traffic are available.",
-    stoppedHint:
-      "The service is installed but stopped. Update the service to install and start it again.",
-    unavailableHint:
-      "The service is installed but cannot be reached right now. Recheck, or update the service after an app upgrade.",
-    incompatibleHint:
-      "The service version is incompatible. Update the service to install the version that matches the app, or uninstall it and install it again.",
-    details: {
-      status: "Status",
-      version: "Version",
-      account: "Authorized account",
-      reported: "Reported state",
     },
     actions: {
       install: "Install",
@@ -81,8 +56,6 @@ const taskManager = {
   empty: {
     processes: "Process data will appear here once sampling starts.",
     performance: "Performance charts will appear here once sampling starts.",
-    service:
-      "Install the privileged service from this page to act on system processes and see per-process network and disk traffic.",
   },
   settings: {
     title: "Task manager settings",
@@ -90,6 +63,8 @@ const taskManager = {
     description: "How often this page collects data, and the optional privileged service.",
     save: "Save",
     saveFailed: "Could not save the settings.",
+    loadFailed: "Could not read the task manager settings.",
+    retry: "Retry",
     interval: {
       label: "Sampling interval",
       option: "{{ms}} ms",
@@ -123,7 +98,6 @@ const taskManager = {
     service: {
       description:
         "Install the optional service to act on system processes and see per-process network traffic.",
-      open: "Open service panel",
     },
   },
   services: {
@@ -373,6 +347,7 @@ const taskManager = {
       speed: "Speed",
       pCoreSpeed: "P core speed",
       eCoreSpeed: "E core speed",
+      cores: "Logical processors",
       total: "Total",
       kernel: "Kernel",
       mode: "CPU graph",

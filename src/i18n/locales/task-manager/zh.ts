@@ -10,7 +10,6 @@ const taskManager = {
   actions: {
     refresh: "刷新",
     settings: "设置",
-    close: "关闭",
     cancel: "取消",
     kill: "结束任务",
     killTree: "结束进程树",
@@ -20,7 +19,6 @@ const taskManager = {
   },
   service: {
     label: "特权服务",
-    description: "以 Windows 服务运行，用于操作系统进程，并为本页采集每进程网络与磁盘流量。",
     state: {
       notInstalled: "未安装",
       stopped: "已停止",
@@ -30,24 +28,6 @@ const taskManager = {
       unavailable: "不可用",
       incompatible: "不兼容",
       unknown: "未知",
-    },
-    open: "打开服务面板",
-    unknown: "—",
-    checking: "正在检查服务状态…",
-    authorized: "当前 Windows 账户",
-    notAuthorized: "当前账户未获授权",
-    errorDetails: "错误详情",
-    busy: "正在等待管理员授权…",
-    cancelled: "操作已取消，服务状态未改变。",
-    enabledHint: "服务运行中：可以操作系统进程并查看每进程网络流量。",
-    stoppedHint: "服务已安装但已停止。更新服务可重新安装并启动它。",
-    unavailableHint: "服务已安装，但当前无法连接。可重新检查，或在应用升级后更新服务。",
-    incompatibleHint: "服务版本不兼容。更新服务可安装与应用匹配的版本，或先卸载再重新安装。",
-    details: {
-      status: "状态",
-      version: "版本",
-      account: "授权账户",
-      reported: "报告的状态",
     },
     actions: {
       install: "安装",
@@ -76,7 +56,6 @@ const taskManager = {
   empty: {
     processes: "采样开始后，进程数据会显示在这里。",
     performance: "采样开始后，性能图表会显示在这里。",
-    service: "在本页安装特权服务后，即可操作系统进程并查看每个进程的网络与磁盘流量。",
   },
   settings: {
     title: "任务管理器设置",
@@ -84,6 +63,8 @@ const taskManager = {
     description: "设置本页采集数据的频率，以及可选的特权服务。",
     save: "保存",
     saveFailed: "保存设置失败。",
+    loadFailed: "无法读取任务管理器设置。",
+    retry: "重试",
     interval: {
       label: "采样间隔",
       option: "{{ms}} 毫秒",
@@ -113,7 +94,6 @@ const taskManager = {
     },
     service: {
       description: "安装可选的服务后，可操作系统进程并查看每进程网络流量。",
-      open: "打开服务面板",
     },
   },
   services: {
