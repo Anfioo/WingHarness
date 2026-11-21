@@ -35,8 +35,8 @@ const MENU_ITEM_HEIGHT: f64 = 32.0;
 const MENU_PAD_Y: f64 = 4.0;
 const MENU_DIVIDER_HEIGHT: f64 = 9.0;
 /// Show window / Settings / Space preview / Open file / Apps / Clash / FRP /
-/// Quit.
-const MENU_ITEM_COUNT: f64 = 8.0;
+/// Background monitoring / Quit.
+const MENU_ITEM_COUNT: f64 = 9.0;
 
 /// The flyouts — Clash, FRP, and the apps' second-level menu. A flyout sits
 /// beside the menu column, taller than it, so the menu keeps its place and the
