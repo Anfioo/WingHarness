@@ -30,7 +30,7 @@ machine; without one it shows an install command instead of failing.
 | `src/commands/services/mise/` | Typed wrappers over the sixteen `mise_*` commands and the DTOs |
 | `src/lib/mise/` | Error-key mapping, formatting helpers and the pure action-script builders |
 | `src-tauri/mise-core/src/` | Process, runtime probe, history, configuration, tools, actions, projects and dashboard |
-| `src-tauri/src/commands/…` | Only the thin `#[tauri::command]` layer lives outside the crate |
+| `src-tauri/src/invoke.rs` | Registers the sixteen `mise_*` commands in `all_commands!` |
 
 There is no `standalonePaths` entry and no window record. The sidebar group
 `mise` is deliberately absent from `GROUP_ORDER` in
@@ -58,12 +58,12 @@ that fails leaves mise installed and usable and only leaves the version blank.
 
 ## Tabs
 
-- **Overview** — one `mise_dashboard` payload: four metrics (installed tools,
-  active tools, scanned projects, overrides), environment signals, the three
-  newest history entries, and system information. It loads once on mount and
-  does not poll; the header's refresh re-probes the runtime and remounts the
-  current tab. Every block degrades on its own — a missing mise still produces
-  zero counts and a notice instead of a failed command.
+- **Overview** — one `mise_dashboard` payload: four metrics (system, installed
+  tools, scanned projects, mise version), environment signals, the three newest
+  history entries, and system information. It loads once on mount and does not
+  poll; the header's refresh re-probes the runtime and remounts the current tab.
+  Every block degrades on its own — a missing mise still produces zero counts
+  and a notice instead of a failed command.
 - **Tools** — `mise_tools_list` reads `mise ls --json` (30 s). Selecting a tool
   calls `mise_tool_detail`, which re-reads that tool's installed versions and
   then asks the registry: Python uses `mise outdated`, every other backend uses
@@ -175,8 +175,8 @@ Action history is `<data dir>/mise/history.json`, `{ "version": 1, "entries":
 
 - At most 100 entries; appending past the cap drops the oldest.
 - Each stream (`stdout`, `stderr`) is capped at 16 KiB, cut on a character
-  boundary, and the list view shows the first three non-empty lines as a
-  snippet.
+  boundary, and the list view shows the first three lines of the trimmed output
+  as a snippet.
 - Writes are atomic and serialized, so two appends cannot drop each other's
   entry.
 - An unreadable document is moved aside as `history.json.bak-<unix seconds>` and

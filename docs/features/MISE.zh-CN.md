@@ -22,7 +22,7 @@ mise 本身**不随应用打包**。页面使用机器上已安装的 CLI；没�
 | `src/commands/services/mise/` | 十六条 `mise_*` 命令的类型化封装与 DTO |
 | `src/lib/mise/` | 错误码映射、格式化辅助函数与纯函数式动作脚本生成 |
 | `src-tauri/mise-core/src/` | 进程、运行时探测、历史、配置、工具、动作、项目与总览 |
-| `src-tauri/src/commands/…` | crate 之外只有一层很薄的 `#[tauri::command]` |
+| `src-tauri/src/invoke.rs` | 在 `all_commands!` 中登记十六条 `mise_*` 命令 |
 
 没有 `standalonePaths` 条目，也没有窗口记录。侧栏分组 `mise` 刻意没有加入 `src/lib/sidebar-config.ts` 的 `GROUP_ORDER`，因此入口落在**其他**。
 
@@ -41,7 +41,7 @@ mise 缺失是受支持的状态，不是错误：页面显示对应平台的安
 
 ## 标签
 
-- **总览** —— 一条 `mise_dashboard` 负载：四项指标（已装工具、活跃工具、已扫描项目、覆盖数）、环境信号、最近三条历史与系统信息。进入时加载一次，不轮询；页头的刷新会重新探测运行时并重挂当前标签。每个区块独立降级——即使没有 mise，也会得到零计数与一条提示，而不是整条命令失败。
+- **总览** —— 一条 `mise_dashboard` 负载：四项指标（系统、已装工具、已扫描项目、mise 版本）、环境信号、最近三条历史与系统信息。进入时加载一次，不轮询；页头的刷新会重新探测运行时并重挂当前标签。每个区块独立降级——即使没有 mise，也会得到零计数与一条提示，而不是整条命令失败。
 - **工具** —— `mise_tools_list` 读取 `mise ls --json`（30 秒）。选中工具后调用 `mise_tool_detail`，重新读取该工具已安装的版本，再向仓库查询：Python 使用 `mise outdated`，其它后端使用 `mise ls-remote --json`，预算 90 秒并带取消令牌。取消会调用 `mise_tool_detail_cancel`，由后端停止请求，而不只是前端丢弃响应。远端查询失败时退回 `outdated` 条目或本地版本，并给出 `remote-unavailable` 提示。
 - **项目** —— `mise_projects_scan` 扫描已打开的项目窗口与启用的自定义扫描根，见下方「项目覆盖」。
 - **配置** —— `mise_config_workspace` 返回全局文档、所选项目文档，以及页面可编辑的结构化区块，见下方「配置编辑」。
@@ -98,7 +98,7 @@ mise 缺失是受支持的状态，不是错误：页面显示对应平台的安
 动作历史位于 `<data dir>/mise/history.json`，结构为 `{ "version": 1, "entries": […] }`，最新的在前。
 
 - 最多 100 条；超过上限时丢弃最旧的。
-- `stdout`、`stderr` 各自截断到 16 KiB，按字符边界截断；列表视图显示截断后前三行非空内容作为摘要。
+- `stdout`、`stderr` 各自截断到 16 KiB，按字符边界截断；列表视图显示截断后前三行内容作为摘要。
 - 写入是原子且串行的，两次追加不会互相覆盖。
 - 文档无法读取时另存为 `history.json.bak-<unix seconds>`，列表从空开始，而不是报错。
 
