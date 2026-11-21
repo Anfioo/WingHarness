@@ -1,7 +1,4 @@
 const taskManager = {
-  title: "Task Manager",
-  subtitle:
-    "See processes, CPU, memory, disk, network and GPU usage, and end processes or change their priority.",
   tabs: {
     processes: "Processes",
     performance: "Performance",
