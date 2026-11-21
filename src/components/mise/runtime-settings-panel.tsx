@@ -38,12 +38,17 @@ export type RuntimeSettingsPanelProps = {
   onSave: (path: string, nextContent: string) => Promise<MiseConfigSaveResult>;
 };
 
+/**
+ * A boolean that is not set has no value to show, so the switch starts at its
+ * default; `buildEdit` then omits it unless the switch was moved, which keeps an
+ * untouched default from being written as an explicit line.
+ */
 function initialDraft(settings: MiseConfigRuntimeSetting[]): Record<string, string> {
   return Object.fromEntries(
     settings.map((setting) => [
       setting.key,
       setting.valueType === "boolean"
-        ? setting.isSet && setting.value === "true"
+        ? (setting.isSet ? setting.value : setting.defaultValue) === "true"
           ? "true"
           : "false"
         : setting.value,
@@ -74,9 +79,13 @@ export function RuntimeSettingsPanel({ settings, onPreview, onSave }: RuntimeSet
 
   const buildEdit = (): MiseConfigEdit => {
     const values: Record<string, string | null> = {};
+    const initial = initialDraft(settings.settings);
     for (const setting of settings.settings) {
       const raw = (draft[setting.key] ?? "").trim();
       if (setting.valueType === "boolean") {
+        // An untouched switch (including an unset setting showing its default)
+        // must not add a line to the file.
+        if (raw === initial[setting.key]) continue;
         values[setting.key] = raw === "true" ? "true" : "false";
       } else {
         values[setting.key] = raw === "" ? null : raw;
