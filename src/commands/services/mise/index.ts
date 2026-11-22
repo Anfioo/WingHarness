@@ -17,6 +17,7 @@ import type {
   MiseDashboard,
   MiseHistoryEntry,
   MiseProjectCoverage,
+  MiseRemoteVersion,
   MiseRuntimeInfo,
   MiseScanDirectory,
   MiseTool,
@@ -40,6 +41,21 @@ export async function miseToolDetail(tool: string): Promise<MiseTool> {
 
 export async function miseToolDetailCancel(tool: string): Promise<void> {
   return await invokeCommand<{ tool: string }, void>("mise_tool_detail_cancel", { tool });
+}
+
+/**
+ * Versions the registry offers for a tool, installed or not, newest first.
+ * `filter` keeps only versions containing it; `limit` caps the list.
+ */
+export async function miseRemoteVersions(
+  tool: string,
+  filter?: string,
+  limit?: number
+): Promise<MiseRemoteVersion[]> {
+  return await invokeCommand<
+    { tool: string; filter?: string; limit?: number },
+    MiseRemoteVersion[]
+  >("mise_remote_versions", { tool, filter, limit });
 }
 
 export async function miseActionRun(

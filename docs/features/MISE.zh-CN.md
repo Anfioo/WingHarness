@@ -42,7 +42,7 @@ mise 缺失是受支持的状态，不是错误：页面显示对应平台的安
 ## 标签
 
 - **总览** —— 一条 `mise_dashboard` 负载：四项指标（系统、已装工具、已扫描项目、mise 版本）、环境信号、最近三条历史与系统信息。进入时加载一次，不轮询；页头的刷新会重新探测运行时并重挂当前标签。每个区块独立降级——即使没有 mise，也会得到零计数与一条提示，而不是整条命令失败。
-- **工具** —— `mise_tools_list` 读取 `mise ls --json`（30 秒）。选中工具后调用 `mise_tool_detail`，重新读取该工具已安装的版本，再向仓库查询：Python 使用 `mise outdated`，其它后端使用 `mise ls-remote --json`，预算 90 秒并带取消令牌。取消会调用 `mise_tool_detail_cancel`，由后端停止请求，而不只是前端丢弃响应。远端查询失败时退回 `outdated` 条目或本地版本，并给出 `remote-unavailable` 提示。
+- **工具** —— `mise_tools_list` 读取 `mise ls --json`（30 秒）。选中工具后调用 `mise_tool_detail`，重新读取该工具已安装的版本，再向仓库查询：Python 使用 `mise outdated`，其它后端使用 `mise ls-remote --json`，预算 90 秒并带取消令牌。取消会调用 `mise_tool_detail_cancel`，由后端停止请求，而不只是前端丢弃响应。远端查询失败时退回 `outdated` 条目或本地版本，并给出 `remote-unavailable` 提示。安装弹窗的「加载版本」按钮调用 `mise_remote_versions`，可以查询未安装的工具名；它返回最新在前的完整仓库列表（上限一万条），由弹窗本地筛选，因此 Java 8 这类旧大版本仍能找到。
 - **项目** —— `mise_projects_scan` 扫描已打开的项目窗口与启用的自定义扫描根，见下方「项目覆盖」。
 - **配置** —— `mise_config_workspace` 返回全局文档、所选项目文档，以及页面可编辑的结构化区块，见下方「配置编辑」。
 
@@ -140,6 +140,7 @@ mise 自己的文件不会被搬移或复制。页面只编辑全局配置（选
 | `mise_dashboard` | 总览负载 |
 | `mise_tools_list` | 从 `mise ls --json` 读取已装工具 |
 | `mise_tool_detail` / `mise_tool_detail_cancel` | 单个工具的本机版本与远端候选；取消该请求 |
+| `mise_remote_versions` | 某工具的仓库版本列表，最新在前，可筛选与截断；工具无需已安装 |
 | `mise_action_run` | 校验并执行动作脚本，流式输出进度 |
 | `mise_projects_scan` | 扫描已打开项目与自定义根 |
 | `mise_scan_dirs_list` / `_add` / `_remove` / `_set_enabled` | 管理自定义扫描根 |
@@ -178,6 +179,7 @@ pnpm exec prettier --check src/pages/mise src/components/mise \
 | `process::tests::real_mise_*` | 本机 mise |
 | `tools::tests::real_mise_lists_installed_tools` | 本机 mise |
 | `tools::tests::real_mise_loads_remote_versions_for_a_tool` | 本机 mise 与网络 |
+| `tools::tests::real_mise_searches_remote_versions` | 本机 mise 与网络 |
 | `projects::tests::discovers_a_real_directory` | `MISE_PROJECT_SCAN_ROOT` 指向含 mise 项目的目录 |
 
 mise 不在 `PATH` 中时设置 `MISE_EXECUTABLE`。

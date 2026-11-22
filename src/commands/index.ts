@@ -1364,6 +1364,7 @@ export {
   miseHistoryList,
   miseHistoryRecordCanceled,
   miseProjectsScan,
+  miseRemoteVersions,
   miseRuntimeInfo,
   miseScanDirsAdd,
   miseScanDirsList,

@@ -202,6 +202,7 @@ macro_rules! all_commands {
             mise_core::commands::history::mise_history_list,
             mise_core::commands::history::mise_history_record_canceled,
             mise_core::commands::projects::mise_projects_scan,
+            mise_core::commands::tools::mise_remote_versions,
             mise_core::commands::runtime::mise_runtime_info,
             mise_core::commands::projects::mise_scan_dirs_add,
             mise_core::commands::projects::mise_scan_dirs_list,

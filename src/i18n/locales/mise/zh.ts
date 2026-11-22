@@ -261,6 +261,13 @@ const mise = {
       command: "将执行的命令",
       confirm: "安装",
       invalid: "请输入工具名与版本。",
+      search: "加载版本",
+      searching: "正在加载版本…",
+      searchHint: "通过 mise ls-remote 读取远端版本，工具无需已安装。",
+      searchFailed: "无法加载版本列表。",
+      searchResult: "{{shown}} / {{total}} 个版本",
+      filterPlaceholder: "筛选，例如 8 或 temurin",
+      noMatches: "没有匹配的版本。",
     },
     progress: {
       title: "正在执行 mise",

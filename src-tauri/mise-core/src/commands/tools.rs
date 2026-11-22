@@ -3,7 +3,7 @@
 
 use crate::actions;
 use crate::error::MiseResult;
-use crate::models::{MiseActionResult, MiseTool};
+use crate::models::{MiseActionResult, MiseRemoteVersion, MiseTool};
 use crate::tools;
 use crate::MiseState;
 
@@ -26,6 +26,16 @@ pub async fn mise_tool_detail_cancel(
     tool: String,
 ) -> MiseResult<()> {
     tools::tool_detail_cancel(state.inner(), &tool).await
+}
+
+/// Versions the registry offers for a tool name, installed or not.
+#[tauri::command]
+pub async fn mise_remote_versions(
+    tool: String,
+    filter: Option<String>,
+    limit: Option<u32>,
+) -> MiseResult<Vec<MiseRemoteVersion>> {
+    tools::remote_versions(&tool, filter.as_deref(), limit).await
 }
 
 #[tauri::command]

@@ -71,6 +71,10 @@ that fails leaves mise installed and usable and only leaves the version blank.
   Cancel calls `mise_tool_detail_cancel`, so the backend stops instead of the
   frontend merely dropping the response. A failed remote lookup degrades to the
   `outdated` entry or the local versions plus a `remote-unavailable` notice.
+  The install dialog's **Load versions** button calls `mise_remote_versions`
+  for a typed tool name, installed or not; it returns the registry list newest
+  first (up to ten thousand entries) and the dialog filters it locally, so an
+  old major such as Java 8 stays reachable.
 - **Projects** — `mise_projects_scan` scans the open project windows and the
   enabled custom roots. See *Project coverage* below.
 - **Config** — `mise_config_workspace` returns the global document, the selected
@@ -224,6 +228,7 @@ for logs and the frontend localizes by `code`.
 | `mise_dashboard` | The overview payload |
 | `mise_tools_list` | Installed tools from `mise ls --json` |
 | `mise_tool_detail` / `mise_tool_detail_cancel` | One tool's versions and remote candidates; cancel that request |
+| `mise_remote_versions` | A tool's registry list, newest first, filtered and capped; the tool need not be installed |
 | `mise_action_run` | Validate and run an action script, streaming progress |
 | `mise_projects_scan` | Scan the open projects and custom roots |
 | `mise_scan_dirs_list` / `_add` / `_remove` / `_set_enabled` | Manage the custom scan roots |
@@ -267,6 +272,7 @@ and, where noted, an environment variable:
 | `process::tests::real_mise_*` | a local mise |
 | `tools::tests::real_mise_lists_installed_tools` | a local mise |
 | `tools::tests::real_mise_loads_remote_versions_for_a_tool` | a local mise and network access |
+| `tools::tests::real_mise_searches_remote_versions` | a local mise and network access |
 | `projects::tests::discovers_a_real_directory` | `MISE_PROJECT_SCAN_ROOT` set to a directory with a mise project |
 
 Set `MISE_EXECUTABLE` when mise is installed outside `PATH`.

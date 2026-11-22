@@ -266,6 +266,13 @@ const mise = {
       command: "Commands to run",
       confirm: "Install",
       invalid: "Enter a tool name and a version.",
+      search: "Load versions",
+      searching: "Loading versions…",
+      searchHint: "Reads the registry with mise ls-remote; the tool need not be installed.",
+      searchFailed: "The version list could not be loaded.",
+      searchResult: "{{shown}} of {{total}} versions",
+      filterPlaceholder: "Filter, e.g. 8 or temurin",
+      noMatches: "No version matches.",
     },
     progress: {
       title: "Running mise",

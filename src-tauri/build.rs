@@ -353,6 +353,7 @@ const COMMANDS: &[&str] = &[
     "mise_history_list",
     "mise_history_record_canceled",
     "mise_projects_scan",
+    "mise_remote_versions",
     "mise_runtime_info",
     "mise_scan_dirs_add",
     "mise_scan_dirs_list",

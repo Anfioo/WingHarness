@@ -33,6 +33,13 @@ const LIST_TIMEOUT: Duration = Duration::from_secs(30);
 const OUTDATED_TIMEOUT: Duration = Duration::from_secs(30);
 /// `mise ls-remote --json` talks to the backend's registry.
 const REMOTE_TIMEOUT: Duration = Duration::from_secs(90);
+/// How many remote versions the install dialog receives when it asks for none
+/// on a Java backend, whose registry can list thousands.
+const REMOTE_LIST_DEFAULT: usize = 300;
+/// Upper bound a caller may request. Java's registry alone lists over four
+/// thousand versions, and a client-side filter is only correct when it sees
+/// all of them; this cap exists to stop a runaway caller, not to trim results.
+const REMOTE_LIST_MAX: usize = 10_000;
 
 /// One installed version as `mise ls --json` reports it.
 #[derive(Debug, Deserialize)]
@@ -103,6 +110,29 @@ pub async fn tool_detail_cancel(state: &MiseState, tool: &str) -> MiseResult<()>
             "No detail request is running for this tool.",
         ))
     }
+}
+
+/// Versions the backend's registry offers for one tool, newest first.
+///
+/// Unlike [`tool_detail`] this does not require the tool to be installed: the
+/// install dialog asks about a name the user typed. `filter` keeps only
+/// versions containing it, case-insensitively — what a shell user gets from
+/// `mise ls-remote <tool> | findstr <filter>`.
+///
+/// The request is not registered for cancellation. The dialog has no cancel
+/// control, and [`REMOTE_TIMEOUT`] already bounds the child process.
+pub async fn remote_versions(
+    tool: &str,
+    filter: Option<&str>,
+    limit: Option<u32>,
+) -> MiseResult<Vec<MiseRemoteVersion>> {
+    let tool = tool.trim();
+    if tool.is_empty() {
+        return Err(MiseError::invalid_input("tool", "Enter a tool name."));
+    }
+
+    let versions = fetch_remote_versions(tool, CancellationToken::new()).await?;
+    Ok(filter_remote_versions(versions, filter, limit))
 }
 
 async fn tool_detail_inner(tool: &str, cancel: CancellationToken) -> MiseResult<MiseTool> {
@@ -482,6 +512,32 @@ async fn windows_shim_missing() -> bool {
     }
 }
 
+/// Newest first, optionally narrowed to versions containing `filter`
+/// (case-insensitive), capped at `limit`.
+pub(crate) fn filter_remote_versions(
+    mut versions: Vec<MiseRemoteVersion>,
+    filter: Option<&str>,
+    limit: Option<u32>,
+) -> Vec<MiseRemoteVersion> {
+    versions.sort_by(|left, right| compare_versions(&left.version, &right.version));
+    versions.reverse();
+
+    let needle = filter
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if !needle.is_empty() {
+        versions.retain(|version| version.version.to_ascii_lowercase().contains(&needle));
+    }
+
+    let limit = limit
+        .map(|value| value as usize)
+        .unwrap_or(REMOTE_LIST_DEFAULT)
+        .clamp(1, REMOTE_LIST_MAX);
+    versions.truncate(limit);
+    versions
+}
+
 /// Remote candidates as the detail view shows them: scoped by tool and
 /// requested major, newest first, at most four.
 pub(crate) fn filter_remote_candidates(
@@ -763,6 +819,44 @@ mod tests {
     }
 
     #[test]
+    fn remote_search_is_newest_first() {
+        let versions = vec![
+            remote("8.0.302"),
+            remote("11.0.21"),
+            remote("8.0.412"),
+            remote("17.0.9"),
+        ];
+        let found = filter_remote_versions(versions, None, None);
+        let versions: Vec<&str> = found.iter().map(|item| item.version.as_str()).collect();
+        assert_eq!(versions, vec!["17.0.9", "11.0.21", "8.0.412", "8.0.302"]);
+    }
+
+    #[test]
+    fn remote_search_filters_by_substring_case_insensitively() {
+        let versions = vec![
+            remote("temurin-21.0.2"),
+            remote("temurin-17.0.9"),
+            remote("zulu-21.0.3"),
+        ];
+        let found = filter_remote_versions(versions, Some("Temurin-17"), None);
+        let versions: Vec<&str> = found.iter().map(|item| item.version.as_str()).collect();
+        assert_eq!(versions, vec!["temurin-17.0.9"]);
+    }
+
+    #[test]
+    fn remote_search_trims_the_filter_and_caps_the_list() {
+        let versions: Vec<MiseRemoteVersion> = (1..=10)
+            .map(|minor| remote(&format!("20.{minor}.0")))
+            .collect();
+        let found = filter_remote_versions(versions.clone(), Some(" 20. "), Some(3));
+        assert_eq!(found.len(), 3);
+        assert_eq!(found[0].version, "20.10.0");
+
+        let capped = filter_remote_versions(versions, None, Some(0));
+        assert_eq!(capped.len(), 1, "a zero limit still returns one version");
+    }
+
+    #[test]
     fn java_keeps_the_requested_major_and_drops_jre_builds() {
         let versions = vec![
             remote("temurin-21.0.2"),
@@ -879,6 +973,23 @@ mod tests {
             assert_eq!(tool.remote_state, MiseRemoteState::Pending);
             assert!(tool.latest_stable_version.is_none());
         }
+    }
+
+    #[test]
+    #[ignore = "requires a local mise install and network access"]
+    fn real_mise_searches_remote_versions() {
+        // `8.0.` only matches the old Java 8 line. It is well past the newest
+        // few hundred entries, so finding it proves the filter runs over the
+        // whole registry list instead of a newest-first slice.
+        let found = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(remote_versions("java", Some("8.0."), Some(20)))
+            .expect("searching remote versions must not fail");
+
+        assert!(!found.is_empty(), "java 8 versions must still be listed");
+        assert!(found.iter().all(|version| version.version.contains("8.0.")));
     }
 
     #[test]

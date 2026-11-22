@@ -397,6 +397,7 @@
     "allow-mise-history-list",
     "allow-mise-history-record-canceled",
     "allow-mise-projects-scan",
+    "allow-mise-remote-versions",
     "allow-mise-runtime-info",
     "allow-mise-scan-dirs-add",
     "allow-mise-scan-dirs-list",

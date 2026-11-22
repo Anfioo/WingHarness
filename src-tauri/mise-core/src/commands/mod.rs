@@ -20,5 +20,6 @@ pub use projects::{
 };
 pub use runtime::mise_runtime_info;
 pub use tools::{
-    mise_action_run, mise_tool_detail, mise_tool_detail_cancel, mise_tools_list,
+    mise_action_run, mise_remote_versions, mise_tool_detail, mise_tool_detail_cancel,
+    mise_tools_list,
 };
