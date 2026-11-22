@@ -68,6 +68,7 @@ WingHarness 源自作者自己的私有工作流应用
 
 | [moin](https://github.com/exxvius/moin) | MIT | `moin-core`、`moin` 页面、`extension/` | 0.4.0，提交 `79e7587`；按本仓架构改写；`moin-core/UPSTREAM.md` |
 | [OneMail](https://github.com/zhihui-hu/one-mail) | AGPL-3.0-only | `one-mail-core`、`one-mail` 页面 | 0.1.0，提交 `181ccb6`；引擎按本仓的存储与命令层重写，界面用本仓组件重建，邮件 HTML 预处理器与 HTML 转文本直接移植；`one-mail-core/UPSTREAM.md` |
+| [mise_gui](https://github.com/likaia/mise_gui) | MIT | `src-tauri/mise-core`、`mise` 页面（`src/pages/mise`） | 1.0.8，提交 `db111d7`；Dart 服务层重写为 Rust，Flutter 界面重写为 React，无相同文件；`mise-core/UPSTREAM.md` |
 
 **这一组的说明**
 
@@ -79,7 +80,7 @@ WingHarness 源自作者自己的私有工作流应用
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
   `ports-core`、`shaic-core`、`db-core`、`argus-core`、`argus-service`、
-  `space-preview-core`、`moin-core` 与 `one-mail-core`。
+  `space-preview-core`、`moin-core`、`one-mail-core` 与 `mise-core`。
   预览的两半各有一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
   指向本项目的 `LICENSE`。
 - **Argus** 是 AGPL-3.0-or-later，与本项目同属一个许可证家族，因此移植的两个
@@ -135,3 +136,4 @@ WingHarness 源自作者自己的私有工作流应用
 | 2026-11-11 | moin 0.4.0（`79e7587`，MIT）移植为 `src-tauri/moin-core`、下载页面与 `extension/`；新增 `moin-core/UPSTREAM.md` 和 `licenses/moin-LICENSE.txt`，更新声明。通用守护进程改为内嵌命令／事件，保留扩展 RPC 与 aria2 后端。 |
 | 2026-11-18 | Argus 0.3.4（`709b26d3`，AGPL-3.0-or-later）移植为 `src-tauri/argus-core` 与 `src-tauri/argus-service`，服务于 `/task-manager` 任务管理器页面。移植发生在本仓切换为 AGPL-3.0-only 之后，因此移植代码保留其 AGPL 声明，合并作品以 AGPL-3.0-only 分发；仓库内 GPL-3.0-only 上游（MangoDisk、TizuMark）仍保留各自声明，按 GPLv3 §13 并入。PawnIO 驱动、传感器、任务管理器替换、管理员助手、句柄查询以及规则与文件占用模块均未移植；启动项、连接与历史模块后来为页面的新标签补移植。新增 `argus-core/UPSTREAM.md`、`argus-service/UPSTREAM.md` 与成对的功能文档 `docs/features/TASK_MANAGER.md` / `.zh-CN.md`。 |
 | 2026-11-18 | OneMail 0.1.0（`181ccb6`，AGPL-3.0-only）移植为 `src-tauri/one-mail-core` 与 `/one-mail` 页面；新增 `one-mail-core/UPSTREAM.md` 与成对的功能文档 `docs/features/ONE_MAIL.md` / `.zh-CN.md`。OAuth、Gmail/Graph 同步、AI、备份与后台 supervisor 未移植。 |
+| 2026-11-22 | mise_gui 1.0.8（`db111d7`，MIT）移植为 `src-tauri/mise-core` 与 `/mise` 环境管理页面；新增 `mise-core/UPSTREAM.md`、`licenses/mise_gui-LICENSE.txt` 与成对的功能文档 `docs/features/MISE.md` / `.zh-CN.md`。Dart 服务层重写为 Rust，Flutter 界面重写为 React；GUI 自更新、应用自更新、窗口 chrome、托盘、Mock、Dart 测试、配置监听、登录 shell 探测与旧数据迁移均未移植。 |

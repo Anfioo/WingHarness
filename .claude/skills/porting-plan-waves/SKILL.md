@@ -180,4 +180,5 @@ description: 为一个待移植或集成的项目生成多 Agent 波次开发计
 - [project-facts.md](project-facts.md) —— WingHarness 的挂载点、硬约束、门禁命令与坑
 - 前置技能：`porting-decisions` —— 方案未定时先产出 `.dev/Plans/<module>/decisions.md`
 - 后续执行：`porting-wave-runner` —— 按波次并行委派执行轨，全部完成后自动委派波次协调者
+- 全波次执行：`porting-super-runner` —— 主窗口按 W0→A1 顺序逐波下发，一条命令跑完
 - 样板计划（仓库外，故写绝对路径）：`M:\MaBangProjectsWorkflowsResource\Plans\frp\`、`M:\MaBangProjectsWorkflowsResource\Plans\md-editor\`

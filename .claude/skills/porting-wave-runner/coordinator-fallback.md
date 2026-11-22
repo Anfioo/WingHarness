@@ -46,7 +46,7 @@ pnpm exec eslint <本功能文件>
 ## 回报格式
 
 ```
-STATUS: DONE | BLOCKED
+STATUS: <DONE 或 BLOCKED>
 COORDINATED: <逐条处理结果>
 SHARED_FILES: <修改的共享文件；无则 none>
 COMMITS: <hash> <subject>（每个一行；无则 none）

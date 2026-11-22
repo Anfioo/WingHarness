@@ -102,6 +102,13 @@ pub fn run() {
                 // The ports page keeps `settings.json` under `<data dir>/ports`,
                 // so the whole feature moves with the data directory.
                 let _ = ports_core::paths::CONFIG_DIR.set(config::dir().join("ports"));
+                // The environment page keeps `history.json` and `scan_dirs.json`
+                // under `<data dir>/mise`. The host data directory is published
+                // too: the runtime probe looks for the app's own Scoop shims
+                // below it, and it must never guess where that directory is.
+                let _ = mise_core::paths::HOST_DATA_DIR.set(config::dir());
+                let _ = mise_core::paths::CONFIG_DIR.set(config::dir().join("mise"));
+                app.manage(mise_core::MiseState::default());
                 // The mail engine keeps `onemail.db` (accounts, messages, FTS5,
                 // outbox) and `settings.json` under `<data dir>/one-mail`. The
                 // directory is sensitive: it holds mailbox passwords in clear

@@ -162,6 +162,7 @@ pnpm dlx shadcn@latest add button
 | [GIT.zh-CN.md](./docs/features/GIT.zh-CN.md) | 本地 Git 客户端，每个仓库一个窗口 |
 | [MCP_HUB.zh-CN.md](./docs/features/MCP_HUB.zh-CN.md) | 用一个本地端点聚合本地 MCP 服务器 |
 | [MD_EDITOR.zh-CN.md](./docs/features/MD_EDITOR.zh-CN.md) | 多标签 Markdown 编辑器，文件留在原处 |
+| [MISE.zh-CN.md](./docs/features/MISE.zh-CN.md) | mise 运行时、已装工具与版本、项目覆盖，以及全局与项目 mise 配置编辑 |
 | [MOIN.zh-CN.md](./docs/features/MOIN.zh-CN.md) | HTTP/HTTPS 下载、分段续传、队列、分类与 aria2 |
 | [MOIN_EXTENSION.zh-CN.md](./docs/features/MOIN_EXTENSION.zh-CN.md) | 浏览器下载捕获、配对、权限与隐私说明 |
 | [NOTES.zh-CN.md](./docs/features/NOTES.zh-CN.md) | 存放在数据目录中的 Markdown 笔记 |

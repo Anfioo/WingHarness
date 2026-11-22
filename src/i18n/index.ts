@@ -21,6 +21,8 @@ import runtimeEn from "./locales/runtime/en";
 import runtimeZh from "./locales/runtime/zh";
 import moinEn from "./locales/moin/en";
 import moinZh from "./locales/moin/zh";
+import miseEn from "./locales/mise/en";
+import miseZh from "./locales/mise/zh";
 import spacePreviewEn from "./locales/space-preview/en";
 import spacePreviewZh from "./locales/space-preview/zh";
 import scoopEn from "./locales/scoop/en";
@@ -49,6 +51,7 @@ i18n
           ports: portsEn,
           runtime: runtimeEn,
           moin: moinEn,
+          mise: miseEn,
           spacePreview: spacePreviewEn,
           scoop: scoopEn,
           codeg: codegEn,
@@ -68,6 +71,7 @@ i18n
           ports: portsZh,
           runtime: runtimeZh,
           moin: moinZh,
+          mise: miseZh,
           spacePreview: spacePreviewZh,
           scoop: scoopZh,
           codeg: codegZh,

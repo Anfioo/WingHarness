@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-history-list"
+description = "Enables the mise_history_list command without any pre-configured scope."
+commands.allow = ["mise_history_list"]
+
+[[permission]]
+identifier = "deny-mise-history-list"
+description = "Denies the mise_history_list command without any pre-configured scope."
+commands.deny = ["mise_history_list"]

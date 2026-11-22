@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-config-preview-edit"
+description = "Enables the mise_config_preview_edit command without any pre-configured scope."
+commands.allow = ["mise_config_preview_edit"]
+
+[[permission]]
+identifier = "deny-mise-config-preview-edit"
+description = "Denies the mise_config_preview_edit command without any pre-configured scope."
+commands.deny = ["mise_config_preview_edit"]

@@ -21,6 +21,7 @@ members = [
     "server-core",
     "frp-core",
     "md-editor-core",
+    "mise-core",
     "db-core",
     "space-preview-core",
     "ports-core",
@@ -84,6 +85,10 @@ frp-core = { path = "frp-core" }
 # The Markdown editor's engine: document I/O with encoding fallback, settings,
 # recent files and the restored session.
 md-editor-core = { path = "md-editor-core" }
+# The environment page's engine: mise runtime probing, installed tools, project
+# coverage and the global / project configuration workspace. It only drives the
+# mise CLI already installed on the machine; no binary is bundled.
+mise-core = { path = "mise-core" }
 # The database page's engine: data sources, live connections (SQLite, PostgreSQL,
 # MySQL), introspection, query execution and table editing.
 db-core = { path = "db-core" }
