@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-tool-detail"
+description = "Enables the mise_tool_detail command without any pre-configured scope."
+commands.allow = ["mise_tool_detail"]
+
+[[permission]]
+identifier = "deny-mise-tool-detail"
+description = "Denies the mise_tool_detail command without any pre-configured scope."
+commands.deny = ["mise_tool_detail"]

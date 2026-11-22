@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-action-run"
+description = "Enables the mise_action_run command without any pre-configured scope."
+commands.allow = ["mise_action_run"]
+
+[[permission]]
+identifier = "deny-mise-action-run"
+description = "Denies the mise_action_run command without any pre-configured scope."
+commands.deny = ["mise_action_run"]

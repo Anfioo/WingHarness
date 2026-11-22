@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-remote-versions"
+description = "Enables the mise_remote_versions command without any pre-configured scope."
+commands.allow = ["mise_remote_versions"]
+
+[[permission]]
+identifier = "deny-mise-remote-versions"
+description = "Denies the mise_remote_versions command without any pre-configured scope."
+commands.deny = ["mise_remote_versions"]

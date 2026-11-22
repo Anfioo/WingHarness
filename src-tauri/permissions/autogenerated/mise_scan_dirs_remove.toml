@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-scan-dirs-remove"
+description = "Enables the mise_scan_dirs_remove command without any pre-configured scope."
+commands.allow = ["mise_scan_dirs_remove"]
+
+[[permission]]
+identifier = "deny-mise-scan-dirs-remove"
+description = "Denies the mise_scan_dirs_remove command without any pre-configured scope."
+commands.deny = ["mise_scan_dirs_remove"]

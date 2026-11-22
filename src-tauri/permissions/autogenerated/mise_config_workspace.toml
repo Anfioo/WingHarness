@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mise-config-workspace"
+description = "Enables the mise_config_workspace command without any pre-configured scope."
+commands.allow = ["mise_config_workspace"]
+
+[[permission]]
+identifier = "deny-mise-config-workspace"
+description = "Denies the mise_config_workspace command without any pre-configured scope."
+commands.deny = ["mise_config_workspace"]

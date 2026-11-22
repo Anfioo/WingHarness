@@ -18,6 +18,7 @@ example of each platform feature are done; what the app is *for* is yours to add
 | Download <!-- moin --> | `src-tauri/moin-core/`, `src/pages/moin/`, `extension/` | Rust/React/JavaScript | HTTP downloads, queue, categories, aria2 and browser capture | [MOIN.md](./docs/features/MOIN.md) |
 | Mail <!-- one-mail --> | `src-tauri/one-mail-core/`, `src/pages/one-mail/` | Rust/React | IMAP/SMTP accounts, sync, conversations, sanitized reading, compose and outbox | [ONE_MAIL.md](./docs/features/ONE_MAIL.md) |
 | Task manager <!-- argus --> | `src-tauri/argus-core/`, `src-tauri/argus-service/`, `src/pages/task-manager/` | Rust/React | Process sampling and actions, performance charts, optional privileged service | [TASK_MANAGER.md](./docs/features/TASK_MANAGER.md) |
+| Environment <!-- mise --> | `src-tauri/mise-core/`, `src/pages/mise/` | Rust/React | mise runtime probing, tools, project coverage and config editing | [MISE.md](./docs/features/MISE.md) |
 | Documentation | `docs/` | Markdown | Cross-cutting guides at the root; one guide per feature under `docs/features/` | — |
 
 Both module guides are loaded automatically when working inside those
@@ -152,6 +153,7 @@ Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 - [GIT.md](./docs/features/GIT.md) — the local Git client
 - [MCP_HUB.md](./docs/features/MCP_HUB.md) — the local MCP gateway
 - [MD_EDITOR.md](./docs/features/MD_EDITOR.md) — the multi-tab Markdown editor
+- [MISE.md](./docs/features/MISE.md) — the mise runtime, tools, project coverage and configuration editing
 - [NOTES.md](./docs/features/NOTES.md) — Markdown notes in the data directory
 - [ONE_MAIL.md](./docs/features/ONE_MAIL.md) — IMAP/SMTP accounts, sync, person-centric conversations, sanitized reading, compose and the outbox
 - [PLUGINS.md](./docs/features/PLUGINS.md) — the plugin format and its generated settings UI

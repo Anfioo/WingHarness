@@ -42,7 +42,10 @@ W0（A0 基线）由用户手动委派并完成；之后每个波次用本技能
 6. 非 `--dry-run` 时执行 Git 前置检查：
    - `git rev-parse --abbrev-ref HEAD`：在 `main` / `master` 上停止，提示先手动完成 W0 并切到计划的目标分支。
    - 分支名应包含 `<module>` 或与计划 §11 的目标分支一致（`feature/<module>` / `feat/<module>` 都算）；不一致就停止并让用户确认，避免在错误分支上委派。
-   - `git status --porcelain`：排除 `.dev/`（本就不入 Git）和本技能目录 `.claude/skills/porting-wave-runner/` 后，仍有内容就停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
+   - `git status --porcelain`：排除 `.dev/`（本就不入 Git）和 `.claude/skills/`（工具目录，不属于本次移植改动）。非空时**不要立刻停止**，先逐个查看内容：
+     - 与本次波次/移植相关（上一波遗留、并行轨进度、计划内文件）→ 读取分析后继续；
+     - 与本波执行轨要改的文件冲突（同一文件同一区域无法共存）或与本次移植完全无关 → 停止并逐条列出；不要 stash / reset / clean，不要替用户决定其他改动可以忽略。
+     - 不确定时按「相关」处理：先读再判断，只有确认冲突或无关才停。
    - 记录 `git rev-parse HEAD` 作为 `startSha`。
 7. 非 `--dry-run` 时 `mkdir -p <planRoot>/waves`。
 
@@ -74,15 +77,23 @@ W0（A0 基线）由用户手动委派并完成；之后每个波次用本技能
 
 执行方式：只读 <promptsPath 绝对路径> 的第 <headingLine>–<endLine> 行（Read 用 offset=<headingLine>、limit=<endLine - headingLine + 1>，或 `sed -n '<headingLine>,<endLine>p'`），不要读整个文件。区间第一行必须是以「<headingText>」开头的标题；若不符，说明文件已变，改为全文搜索该标题，取其后 ~~~（或 ```）围栏内的完整提示词。严格执行围栏内的提示词，只执行这一节，不要执行其他波次或其他轨。
 
+开工检查（以本条为准；若提示词里旧的措辞要求「工作树必须干净」或「出现非本轨文件时立即停止」，按这里的放宽规则执行）：
+- 执行 `git rev-parse --abbrev-ref HEAD` 与 `git status --porcelain`（排除 `.dev/` 与 `.claude/skills/`）。
+- 有未提交改动时不要立即停，先逐个 `git diff -- <file>` 或读文件判断：
+  - 与本轨要改的文件、同一波次其他轨的并行进度、或本次移植计划相关 → 读取并分析，在已有进度上继续；不要回滚或清理。
+  - 与本轨要修改的文件冲突（同一文件同一区域无法共存），同一文件里混有别人的未提交改动又无法只提交自己的部分，或与本次移植完全无关 → 停止并输出 STATUS: BLOCKED，列出文件与原因。
+  - 不确定时按「相关」处理：先读再判断，只有确认冲突或无关才停。
+- 不要 stash / reset / clean / checkout --；不要替别人提交或清理。
+
 协作边界：
 - 不派发新的 Agent；不联系其他轨；用户不会实时回答问题。
 - 遇到必须由用户决定的事项：停止并输出 STATUS: BLOCKED + 具体原因，不要自行猜测。
 - 不做任何分支操作（switch/create/merge/rebase/pull/push/stash/reset/clean）。
-- 只提交自己的改动；只 git add 明确路径；禁止 git add -A / git add . / --no-verify / amend / force push。
+- 只提交自己的改动；只 git add 明确路径；禁止 git add -A / git add . / --no-verify / amend / force push；不要把其他轨的未提交改动加入自己的提交。
 - 提交信息用 Conventional Commits；不要加 Co-Authored-By、Generated with 等 AI 署名行。
 
-完成回报（最后输出，供协调者读取）：
-STATUS: DONE | BLOCKED
+完成回报（最后输出，供协调者读取；`STATUS:` 行必须二选一，不要原样输出 `DONE | BLOCKED`）：
+STATUS: <DONE 或 BLOCKED>
 FILES: <改动文件，每行一个>
 COMMITS: <hash> <subject>（每个提交一行；无则 none）
 VERIFY: <验收命令与结果>
@@ -100,12 +111,12 @@ BLOCKERS: <无则 none>
 - 终端状态为 `completed` / `failed` / `canceled`；`running` 继续等。
 - **等待期间不要发「还在跑」之类的进度消息**；只在有终态、用户阻塞或需要用户决定时说话。
 - 返回 `blocked_on`：立即用一句话告诉用户哪条轨、卡在什么，然后继续轮询（同一个提示只唤醒一次，重调安全）。
-- `status=completed` 但 `text` 中存在以 `STATUS: BLOCKED` 开头的行：按阻塞/失败处理。
+- `status=completed` 时取 `text` 中**最后一条**严格匹配 `^STATUS: (DONE|BLOCKED)$` 的行；`STATUS: BLOCKED`、没有严格 STATUS 行、或只有 `STATUS: DONE | BLOCKED` 这种示例行 → 按阻塞/失败处理。只有明确的 `STATUS: DONE` 才算成功。
 - 用户中途要求停止：加载 `mcp__codeg-mcp__cancel_delegation`，对仍在运行的 task 逐个取消，然后写报告并汇总。
 
 ### 4. 失败与重试
 
-失败 = `status` 为 `failed` / `canceled`，或回报里出现 `STATUS: BLOCKED`。
+失败 = `status` 为 `failed` / `canceled`，或回报中最后一条严格 `STATUS:` 行是 `STATUS: BLOCKED`（没有严格 STATUS 行也算失败）。
 
 - 先等本波所有执行轨都到终态，再统一处理失败轨的重试；不要在还有轨运行时提前收尾。
 - 每条执行轨**最多重试一次**。重试仍用 `delegate_to_agent`，task 在原模板前加：
@@ -149,7 +160,8 @@ report:
 
 约束：
 - 不派发 Agent，不替执行轨补业务代码；只处理共享文件与各轨「## 待协调」。
-- 不做任何分支操作；不 stash / reset / clean。
+- 开工时工作树有未提交改动不要立即停：先逐个查看，属于本波次相关进度 → 读取分析后继续；与本波次文件冲突或与本次移植无关 → 停止并报告。不要 stash / reset / clean。
+- 不做任何分支操作；不要替执行轨提交或清理其未提交改动。
 - 只 git add 明确路径；提交信息用 Conventional Commits；不要加 Co-Authored-By、Generated with 等 AI 署名行。
 - 完成后按协调者提示词要求的回报格式输出。
 ~~~
@@ -168,7 +180,9 @@ git log --oneline <startSha>..HEAD
 ```
 
 - 分支与开始时不一致 → 在报告与汇总里标红。
-- `git status --porcelain` 非空 → 报告「有未提交改动」，列出文件；**不要**替 Agent 提交或清理。
+- `git status --porcelain`（排除 `.dev/`、`.claude/skills/`）非空 → 逐个查看后报告「有未提交改动」，列出文件并注明「本波相关，继续」或「与本次移植无关」；**不要**替 Agent 提交或清理。
+  - 相关未提交改动：报告里保留，不因此判定本波失败；「可开启下一波」仍可为是。
+  - 无关或与本波文件冲突：报告阻塞，「可开启下一波」为否。
 - 本波提交最多列 50 条。
 - **不要自己跑 cargo / pnpm**：门禁由各轨与协调者执行，以它们的 `VERIFY` 为准。
 
@@ -241,14 +255,14 @@ git log --oneline <startSha>..HEAD
 3. **只用 codeg MCP 委派**：`delegate_to_agent` / `get_delegation_status` / `cancel_delegation`；加载不到就停，不用原生 Agent / Task / Workflow 代替。
 4. **按引用执行**：task 里给绝对路径 + 精确标题与行区间（`headingLine`–`endLine`），让子 Agent 只读那一小节，避免复制走样，也避免它读整个 `prompts.md`。
 5. **不覆盖旧报告**：同名报告已存在时加时间戳。
-6. **不越权处理工作区**：不 stash / reset / clean / checkout / 切分支；发现无关改动就停。
+6. **不越权处理工作区**：不 stash / reset / clean / checkout / 切分支。有未提交改动时先看内容：相关进度继续，冲突或与本次移植无关才停；不要强制要求工作树干净。
 7. **解析不到就停**：波次不存在、多个协调者、执行轨为 0 或超过 4 条，都不要猜。
 8. **等待期间少说话**：只有终态、`blocked_on`、失败或需要用户决定时才输出。
 
 ## 自检
 
 - [ ] 没有接受 `w0`。
-- [ ] 已确认不在 `main` / `master`、分支与计划一致，且除 `.dev/` 与本技能目录外 `git status` 干净。
+- [ ] 已确认不在 `main` / `master`、分支与计划一致；`git status` 有改动时已逐个判断：相关则继续，冲突/无关才停。
 - [ ] 执行轨全部并行发起，不是串行。
 - [ ] 协调者在所有执行轨成功后才发起；最后一波没有额外协调者。
 - [ ] 失败轨最多重试一次；仍失败时没有运行协调者。
@@ -259,5 +273,6 @@ git log --oneline <startSha>..HEAD
 ## 参考
 
 - [coordinator-fallback.md](coordinator-fallback.md) —— `prompts.md` 缺少协调者段落时的兜底模板
+- 上层编排：`porting-super-runner` —— 主窗口按 W0→A1 顺序逐波下发，一次跑完
 - 前置技能：`porting-plan-waves` —— 生成 `plan.1.md`、`inbox/<lane>.md` 与 `inbox/prompts.md`
 - Codeg 工具：`mcp__codeg-mcp__delegate_to_agent`、`mcp__codeg-mcp__get_delegation_status`、`mcp__codeg-mcp__cancel_delegation`

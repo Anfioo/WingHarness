@@ -44,10 +44,10 @@
 1. .dev/Plans/<module>/plan.1.md —— 重点 §0、§3、§5、§6、§7、§11
 2. .dev/Plans/<module>/inbox/A0.md —— 你的完整任务清单与冻结清单
 
-开工前的前置检查（硬性）：
+开工前的前置检查：
 - 执行 `git rev-parse --abbrev-ref HEAD` 与 `git status --porcelain`。
-- 出现与本次任务无关的未提交改动时立即停止并报告，不要 stash、不要 checkout --、不要 reset、不要 clean。
-- 只有在工作树干净时才执行 `git switch -c feature/<module>`（已存在则 `git switch feature/<module>`）。之后全程不做任何分支操作。
+- 有未提交改动时先逐个查看：与本次移植相关 → 读取分析后继续；与本次任务冲突或完全无关 → 停止并报告。不要 stash、不要 checkout --、不要 reset、不要 clean。
+- 只有在没有会阻碍切换的冲突改动时才执行 `git switch -c feature/<module>`（已存在则 `git switch feature/<module>`）。之后全程不做任何分支操作。
 
 你独占的文件（只改这些，其他一律只读）：
 - src-tauri/<module>-core/Cargo.toml
@@ -194,10 +194,10 @@
 3. .dev/Plans/<module>/inbox/B1.md、B2.md、F1.md —— 各轨「待协调」与完成记录（按实际波次替换）
 4. 其他本波次执行轨工作单及其完成回报
 
-前置检查（硬性）：
+前置检查：
 - 执行 `git rev-parse --abbrev-ref HEAD` 与 `git status --porcelain`。
 - 确认本波次所有执行轨均已完成并有提交 hash；缺任何一轨就停止并报告，不要替它实现功能。
-- 确认没有与本次协调无关的未提交改动；不要 stash、reset、clean 或切换分支。
+- 有未提交改动时先逐个查看：属于本波次相关进度 → 读取分析后继续；与本次协调冲突或与本次移植无关 → 停止并报告。不要 stash、reset、clean 或切换分支。
 
 协调范围：
 1. 汇总并逐条处理上一波各轨 `## 待协调`：命令、DTO、事件、公开签名、i18n、共享类型和文档登记项按计划归属处理。
@@ -233,7 +233,7 @@
 前置检查：
 - 执行 `git rev-parse --abbrev-ref HEAD` 与 `git status --porcelain`。
 - 确认本波次所有执行轨均已完成并有提交 hash；缺任何一轨就停止并报告。
-- 不处理无关改动，不 stash、reset、clean 或切换分支。
+- 有未提交改动时先逐个查看：属于本波次相关进度 → 读取分析后继续；与本次协调冲突或与本次移植无关 → 停止并报告。不 stash、reset、clean 或切换分支。
 
 协调范围：
 1. 逐条处理 W2 各轨 `## 待协调`，只修改计划规定的共享文件或协调记录。
@@ -295,7 +295,7 @@
 每段提示词复制出去就能开工，缺一项都不合格：
 
 1. 工作目录与分支
-2. 开工前 `git status` 检查 + 不符时停下报告
+2. 开工前 `git status` 检查：相关未提交改动读取分析后继续，冲突或无关才停下报告
 3. 独占文件清单
 4. 只读/禁止修改清单
 5. 必读文档的路径（仓内相对、仓外绝对）
