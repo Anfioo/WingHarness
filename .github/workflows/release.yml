@@ -122,10 +122,17 @@ jobs:
             if [ -n "$existing" ]; then
               gh api --method DELETE "repos/${REPOSITORY}/releases/assets/${existing}"
             fi
-            gh api --method POST \
+            upload_url="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}" | jq -r '.upload_url' | sed 's/{?name,label}$//')"
+            if [ -z "$upload_url" ] || [ "$upload_url" = "null" ]; then
+              echo "Release upload URL not found for release ${RELEASE_ID}" >&2
+              exit 1
+            fi
+            curl --fail --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
               -H "Content-Type: application/zip" \
-              "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?name=${name}" \
-              --input "$zip"
+              --data-binary "@${zip}" \
+              "${upload_url}?name=$(jq -rn --arg name "$name" '$name|@uri')"
           done
 
   publish-tauri:
