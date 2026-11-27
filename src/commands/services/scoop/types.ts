@@ -213,12 +213,7 @@ export type ScoopCheckupFix =
 
 /** The checks the diagnostics tab runs, in the order they are shown. */
 export type ScoopCheckupId =
-  | "git"
-  | "mainBucket"
-  | "developerMode"
-  | "longPaths"
-  | "ntfs"
-  | "helper";
+  "git" | "mainBucket" | "developerMode" | "longPaths" | "ntfs" | "helper";
 
 /** One row of the checkup. */
 export interface ScoopCheckupItem {

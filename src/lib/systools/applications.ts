@@ -14,9 +14,7 @@ export const LEFTOVERS_PROGRESS_EVENT = "systools:leftovers-progress";
 
 /** Stages of the running application-inventory scan, in execution order. */
 export type ApplicationScanStage =
-  | "discoveringApplications"
-  | "checkingProcesses"
-  | "validatingApplications";
+  "discoveringApplications" | "checkingProcesses" | "validatingApplications";
 
 export interface ApplicationScanProgress {
   stage: ApplicationScanStage;
@@ -29,10 +27,7 @@ export interface ApplicationScanProgress {
 
 /** Stages of the running leftover scan, in execution order. */
 export type ApplicationLeftoverScanStage =
-  | "uninstallRegistry"
-  | "orphanRegistryGroups"
-  | "dataDirectories"
-  | "shortcuts";
+  "uninstallRegistry" | "orphanRegistryGroups" | "dataDirectories" | "shortcuts";
 
 export interface ApplicationLeftoverScanProgress {
   stage: ApplicationLeftoverScanStage;
@@ -113,20 +108,10 @@ export type ApplicationSystemKind =
 export type ApplicationUninstallPlatform = "windowsRegistry";
 
 export type ApplicationUninstallInstallerKind =
-  | "windowsMsi"
-  | "windowsAppx"
-  | "windowsScoop"
-  | "windowsChocolatey"
-  | "windowsRegistered";
+  "windowsMsi" | "windowsAppx" | "windowsScoop" | "windowsChocolatey" | "windowsRegistered";
 
 export type ApplicationUninstallInventorySource =
-  | "windowsRegistry"
-  | "windowsMsi"
-  | "windowsAppx"
-  | "winget"
-  | "steam"
-  | "scoop"
-  | "chocolatey";
+  "windowsRegistry" | "windowsMsi" | "windowsAppx" | "winget" | "steam" | "scoop" | "chocolatey";
 
 export type ApplicationUninstallExecutionMode = "silent" | "interactive" | "externalClient";
 
@@ -136,11 +121,7 @@ export interface ApplicationUninstallSourceIdentity {
 }
 
 export type ApplicationUninstallCapability =
-  | "ready"
-  | "applicationRunning"
-  | "requiresElevation"
-  | "protectedApplication"
-  | "viewOnly";
+  "ready" | "applicationRunning" | "requiresElevation" | "protectedApplication" | "viewOnly";
 
 export type ApplicationUninstallRecordState = "installed" | "orphanedRegistration";
 
@@ -455,10 +436,7 @@ export interface ApplicationLeftoverPlanItem {
 export type ApplicationLeftoverActionStatus = "previewed" | "completed" | "cancelled" | "failed";
 
 export type ApplicationLeftoverActionReason =
-  | "candidateChanged"
-  | "ownerReappeared"
-  | "applicationRunning"
-  | "permanentDeleteFailed";
+  "candidateChanged" | "ownerReappeared" | "applicationRunning" | "permanentDeleteFailed";
 
 export interface ApplicationLeftoverActionResult {
   candidateId: string;

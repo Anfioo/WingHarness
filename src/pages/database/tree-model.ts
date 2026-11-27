@@ -13,9 +13,7 @@ import type { DbObjectRef } from "./object-sql";
 
 /** A node's loaded children, or the reason there are none. */
 export type Loaded<T> =
-  | { status: "loading" }
-  | { status: "ok"; value: T }
-  | { status: "error"; message: string };
+  { status: "loading" } | { status: "ok"; value: T } | { status: "error"; message: string };
 
 /** IDEA's groups under a table. */
 export type TreeGroup = "columns" | "primaryKeys" | "foreignKeys" | "indexes" | "triggers";

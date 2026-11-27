@@ -119,8 +119,7 @@ function Block({
 }
 
 type BlockGroup =
-  | { kind: "list"; blocks: AiReportBlock[] }
-  | { kind: "single"; block: AiReportBlock };
+  { kind: "list"; blocks: AiReportBlock[] } | { kind: "single"; block: AiReportBlock };
 
 function groupBlocks(blocks: AiReportBlock[]): BlockGroup[] {
   const groups: BlockGroup[] = [];

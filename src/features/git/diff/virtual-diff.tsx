@@ -438,7 +438,7 @@ function HorizontalScrollbar({
           if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
             event.stopPropagation();
         }}
-        className="scrollbar-none h-full overflow-x-auto overflow-y-hidden"
+        className="h-full scrollbar-none overflow-x-auto overflow-y-hidden"
       >
         <div className="h-px" />
       </div>

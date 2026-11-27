@@ -13,12 +13,7 @@ export const SYSTOOLS_PATH = "/systools";
 export const SYSTOOLS_WINDOW_PATH = "/systools-window";
 
 export type SystoolsTab =
-  | "startup"
-  | "uninstall"
-  | "optimize"
-  | "analysis"
-  | "duplicates"
-  | "largeFiles";
+  "startup" | "uninstall" | "optimize" | "analysis" | "duplicates" | "largeFiles";
 
 export const SYSTOOLS_TABS: readonly SystoolsTab[] = [
   "startup",

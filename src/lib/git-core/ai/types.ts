@@ -39,13 +39,7 @@ export type HttpClient = (request: HttpRequest) => Promise<HttpResponse>;
 export type AiProviderKind = "cli" | "openai" | "anthropic" | "gemini" | "ollama" | "lmstudio";
 
 export type CliAgentId =
-  | "claude"
-  | "copilot"
-  | "codex"
-  | "gemini"
-  | "opencode"
-  | "antigravity"
-  | "cursor";
+  "claude" | "copilot" | "codex" | "gemini" | "opencode" | "antigravity" | "cursor";
 
 export interface CliAgentInfo {
   id: CliAgentId;

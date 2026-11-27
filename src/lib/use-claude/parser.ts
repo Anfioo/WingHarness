@@ -134,12 +134,7 @@ export interface ControlRequestEvent {
  * defeat discriminated narrowing on `event.type`.
  */
 export type ClaudeEvent =
-  | SystemEvent
-  | StreamEvent
-  | AssistantEvent
-  | UserEvent
-  | ResultEvent
-  | ControlRequestEvent;
+  SystemEvent | StreamEvent | AssistantEvent | UserEvent | ResultEvent | ControlRequestEvent;
 
 /**
  * Converts a raw NDJSON line from stdout into a typed ClaudeEvent.

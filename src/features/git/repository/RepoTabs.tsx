@@ -297,7 +297,7 @@ export function RepoTabs() {
     <div className="border-border bg-card flex h-9 shrink-0 items-end gap-0.5 border-b px-2">
       <div
         ref={stripRef}
-        className="scrollbar-none flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto"
+        className="flex min-w-0 flex-1 scrollbar-none items-end gap-0.5 overflow-x-auto"
         onWheel={(e) => {
           if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
             e.currentTarget.scrollLeft += e.deltaY;

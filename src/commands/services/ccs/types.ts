@@ -1,14 +1,6 @@
 /// 支持的 AI 编程 CLI 应用标识。
 export type AppId =
-  | "claude"
-  | "codex"
-  | "gemini"
-  | "grokbuild"
-  | "opencode"
-  | "openclaw"
-  | "hermes"
-  | "pi"
-  | "mcode";
+  "claude" | "codex" | "gemini" | "grokbuild" | "opencode" | "openclaw" | "hermes" | "pi" | "mcode";
 
 /// 配置文件格式。
 export type ConfigFormat = "json" | "toml" | "yaml" | "env";

@@ -13,15 +13,7 @@ import type { GitignorePattern, SvnInfo, SvnStatus } from "@/lib/svn-core";
  */
 
 export type SvnTabId =
-  | "changes"
-  | "commit"
-  | "update"
-  | "checkout"
-  | "log"
-  | "diff"
-  | "blame"
-  | "stash"
-  | "settings";
+  "changes" | "commit" | "update" | "checkout" | "log" | "diff" | "blame" | "stash" | "settings";
 
 export interface SvnDiffTarget {
   path: string;

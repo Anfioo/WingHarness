@@ -28,12 +28,7 @@ export type FolderRole =
   | "custom";
 
 export type AccountStatus =
-  | "active"
-  | "disabled"
-  | "syncing"
-  | "auth_error"
-  | "sync_error"
-  | "network_error";
+  "active" | "disabled" | "syncing" | "auth_error" | "sync_error" | "network_error";
 
 export type BodyStatus = "none" | "loading" | "ready" | "error";
 

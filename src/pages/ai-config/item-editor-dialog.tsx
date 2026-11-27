@@ -16,8 +16,7 @@ import { useAppTranslation } from "@/hooks/use-app-translation";
 import { cn } from "@/lib/utils";
 
 export type EditorTarget =
-  | { mode: "new"; kind: ItemKind }
-  | { mode: "edit"; kind: ItemKind; name: string };
+  { mode: "new"; kind: ItemKind } | { mode: "edit"; kind: ItemKind; name: string };
 
 /**
  * The TUI opens item text in `$EDITOR`; in-app we edit the same
