@@ -30,6 +30,10 @@ export default tseslint.config(
       "react-hooks/incompatible-library": "off",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/immutability": "off",
+      // The latest-ref pattern (`ref.current = value` during render) is used
+      // deliberately to keep a callback or a lazily built value stable across
+      // renders; the compiler skipping those components is expected.
+      "react-hooks/refs": "off",
     },
   },
   {

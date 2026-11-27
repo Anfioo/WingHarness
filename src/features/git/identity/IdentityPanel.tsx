@@ -360,6 +360,8 @@ function ProfilesCard() {
       },
     });
 
+  const repoName = repo?.name;
+
   const use = useCallback(
     async (profile: IdentityProfile) => {
       setBusy(true);
@@ -369,7 +371,7 @@ function ProfilesCard() {
           toast.success(
             t("gitRepo.remote.identity.profiles.appliedRepo", {
               label: profile.label,
-              repo: repo?.name ?? "",
+              repo: repoName ?? "",
             })
           );
         } else {
@@ -385,7 +387,7 @@ function ProfilesCard() {
         setBusy(false);
       }
     },
-    [repoPath, repo?.name, t]
+    [repoPath, repoName, t]
   );
 
   const remove = async (profile: IdentityProfile) => {

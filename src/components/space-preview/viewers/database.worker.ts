@@ -13,6 +13,10 @@ self.onmessage = async (
     if (bytes) {
       const SQL = await initSqlJs({
         locateFile: () => new URL('/engines/sql-wasm.wasm', self.location.href).href,
+        // Keep sql.js' legacy math/string functions, which sql.js enabled by
+        // default before this option existed: a view in the opened database may
+        // call one, and switching to the native SQLite set would break it.
+        useOldExtensionFunctions: true,
       });
       database?.close();
       database = new SQL.Database(bytes);
