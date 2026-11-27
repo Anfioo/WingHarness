@@ -142,7 +142,7 @@ Cross-cutting:
 
 Features — one per directory under `docs/features/`, each with a `.zh-CN.md`:
 
-- [AI_CONFIG.md](./docs/features/AI_CONFIG.md) — AI config sync store and per-agent materialisation
+- [AI_CONFIG.md](./docs/features/AI_CONFIG.md) — the AI config placeholder page and the isolated engine crate
 - [API_CLIENT.md](./docs/features/API_CLIENT.md) — REST client driven by an OpenAPI or Swagger document
 - [CC_SWITCH.md](./docs/features/CC_SWITCH.md) — provider management for the AI coding CLIs
 - [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) — the Claude chat, history and workflow pages

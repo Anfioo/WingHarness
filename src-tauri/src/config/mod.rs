@@ -4,7 +4,6 @@
 //! and tools. The real config directory is handed over once at startup through
 //! [`init`], with a `%APPDATA%` fallback for anything running outside the app.
 
-use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -39,9 +38,6 @@ static SAVE_LOCK: Mutex<()> = Mutex::new(());
 pub struct Config {
     /// CC Switch（AI 编程 CLI 供应商切换）设置。
     pub ccs: crate::ccs::settings::CcsSettings,
-    /// AI 配置同步（shaic）设置。
-    #[serde(rename = "aiConfig")]
-    pub ai_config: AiConfig,
     /// The outbound proxy the app and the tools it spawns use.
     pub proxy: ProxyConfig,
     /// 文件预览页的读取上限与高亮开关。
@@ -216,35 +212,9 @@ const NO_PROXY_VARS: [&str; 2] = ["NO_PROXY", "no_proxy"];
 /// those requests back into itself.
 const LOOPBACK_BYPASS: [&str; 3] = ["localhost", "127.0.0.1", "::1"];
 
-/// AI 配置同步（shaic）设置。
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, Default)]
-#[serde(default)]
-pub struct AiConfig {
-    /// 允许被同步的 agent id 列表。
-    ///
-    /// `None`（键缺省）表示「全部开启」，这是新装与老配置的默认；显式列表按
-    /// 原样采用，空数组表示「一个都不开」。之所以不用「空 = 全部」的约定，
-    /// 是因为设置页是一排开关，必须能区分「用户全部关掉」与「用户没动过」。
-    #[serde(rename = "enabledAgents")]
-    pub enabled_agents: Option<Vec<String>>,
-}
-
-
 impl Config {
     /// Repairs values that would otherwise break a feature silently.
     fn normalize(&mut self) {
-        // `None` means "every agent" and is kept as-is; an explicit list is the
-        // user's literal choice, so it is only trimmed and de-duplicated. Ids are
-        // lower-case constants, so folding case for the duplicate check is safe.
-        self.ai_config.enabled_agents = self.ai_config.enabled_agents.as_ref().map(|ids| {
-            let mut seen = HashSet::new();
-            ids.iter()
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty())
-                .filter(|id| seen.insert(id.to_ascii_lowercase()))
-                .collect()
-        });
-
         self.proxy.url = self.proxy.url.trim().to_string();
         // A bare `host:port` is how proxy apps usually display their address.
         // Without a scheme reqwest cannot parse it, so it is assumed to be HTTP.
@@ -572,7 +542,6 @@ mod tests {
     #[test]
     fn partial_json_falls_back_to_defaults() {
         let config: Config = serde_json::from_str("{}").unwrap();
-        assert_eq!(config.ai_config.enabled_agents, None);
         assert_eq!(config.proxy, ProxyConfig::default());
         assert_eq!(config.file_preview, FilePreviewConfig::default());
         // Standalone is the default, so the sidebar's account stays hidden.
@@ -756,43 +725,15 @@ mod tests {
         }
     }
 
-    /// Enabled agents default to `None` ("every agent"); an explicit list is the
-    /// user's literal choice, kept trimmed and de-duplicated.
+    /// The AI config sync settings were removed from this struct. An older
+    /// `config.json` still carries the `aiConfig` key, which serde must ignore
+    /// rather than reject — a deny-unknown-fields mistake would make the whole
+    /// file fail to load.
     #[test]
-    fn enabled_agents_default_to_every_agent() {
-        assert_eq!(Config::default().ai_config.enabled_agents, None);
-
-        let json = serde_json::to_string(&Config::default()).unwrap();
-        assert!(json.contains("\"aiConfig\""), "{json}");
-        assert!(json.contains("\"enabledAgents\":null"), "{json}");
-
-        let mut patched = Config {
-            ai_config: AiConfig {
-                enabled_agents: Some(vec![
-                    "  claude-code ".to_string(),
-                    String::new(),
-                    "CLAUDE-CODE".to_string(),
-                    "cursor".to_string(),
-                ]),
-            },
-            ..Config::default()
-        };
-        patched.normalize();
-        assert_eq!(
-            patched.ai_config.enabled_agents,
-            Some(vec!["claude-code".to_string(), "cursor".to_string()])
-        );
-
-        // An explicit empty list means "none", which is why the field is an
-        // `Option`: a plain `Vec` could not tell that apart from "untouched".
-        let mut none = Config {
-            ai_config: AiConfig {
-                enabled_agents: Some(Vec::new()),
-            },
-            ..Config::default()
-        };
-        none.normalize();
-        assert_eq!(none.ai_config.enabled_agents, Some(Vec::new()));
+    fn legacy_ai_config_key_is_ignored() {
+        let config: Config =
+            serde_json::from_str(r#"{"aiConfig":{"enabledAgents":["cursor"]}}"#).unwrap();
+        assert_eq!(config, Config::default());
     }
 
     #[test]

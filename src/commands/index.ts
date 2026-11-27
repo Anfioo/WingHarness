@@ -117,8 +117,6 @@ export {
   setDataDir,
 } from "./services/config";
 export type {
-  AgentOption,
-  AiConfig,
   AppConfig,
   CodegConfig,
   ConfigView,
@@ -350,40 +348,6 @@ export type {
 export { runProgressDemo } from "./services/progress";
 export { runtimeReadArchive, runtimeTarget, runtimeWriteFile } from "./services/runtime";
 export type { RuntimeKind, RuntimeTarget } from "./services/runtime/types";
-export {
-  shaicAgentDetail,
-  shaicApply,
-  shaicDashboard,
-  shaicImportScope,
-  shaicInit,
-  shaicItemSource,
-  shaicItemTemplate,
-  shaicListItems,
-  shaicPlan,
-  shaicPull,
-  shaicPush,
-  shaicRemoveItem,
-  shaicSaveItem,
-  shaicStatus,
-} from "./services/shaic";
-export type {
-  AgentDetailView,
-  AgentRowView,
-  AgentSubRowView,
-  AxisView,
-  ChangeLineView,
-  ItemKind,
-  ItemListView,
-  ItemView,
-  KindCountView,
-  MessageKind,
-  OpResult,
-  PlanView,
-  Scope,
-  ScopeView,
-  StoreStatus,
-  SyncStatus,
-} from "./services/shaic/types";
 export {
   quitApp,
   setTrayMenuExpanded,
@@ -1324,7 +1288,6 @@ export type {
   SyncProgressPayload,
   SyncReport,
   SyncStage,
-  // The shaic service already exports its own `SyncStatus`.
   SyncStatus as OneMailSyncStatus,
   ThreadGroup,
 } from "./services/one-mail/types";

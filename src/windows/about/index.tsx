@@ -120,7 +120,7 @@ const UPSTREAMS: { name: string; license: string; url: string; module: string }[
     name: "shaic",
     license: "MIT",
     url: "https://github.com/dariocurr/shaic",
-    module: "src-tauri/shaic-core",
+    module: "src-tauri/agent-sync-core",
   },
   {
     name: "SpacePreview",

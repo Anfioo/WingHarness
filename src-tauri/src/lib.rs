@@ -9,7 +9,6 @@ mod mcphub;
 mod plugins;
 pub mod proc;
 pub mod projects;
-mod shaic;
 mod sidebar;
 mod theme;
 use tauri::Manager;

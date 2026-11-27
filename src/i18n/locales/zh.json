@@ -180,15 +180,6 @@
     "title": "设置",
     "button": "设置",
     "close": "关闭",
-    "aiConfig": {
-      "title": "AI 配置同步",
-      "description": "选择同步页管理哪些 AI 编程工具。关闭的工具不会出现在该页，也不会被写入磁盘。",
-      "agentsLabel": "Agent",
-      "agentsHint": "只有这里开启的工具会出现在 AI 配置同步页，并被写入磁盘。",
-      "noneEnabled": "没有开启任何 agent — 同步页将为空。",
-      "autoSave": "修改后自动保存。",
-      "loadFailed": "加载 agent 列表失败。"
-    },
     "proxy": {
       "title": "代理",
       "description": "应用发起网络请求时使用的代理，应用启动的工具同样适用。",
@@ -741,125 +732,9 @@
     }
   },
   "aiConfig": {
-    "loading": "加载中…",
-    "loadFailed": "加载 AI 配置失败。",
-    "refreshed": "已刷新。",
-    "cancel": "取消",
-    "save": "保存",
-    "close": "关闭",
-    "storeExists": "Store 已就绪",
-    "storeMissing": "尚未初始化 Store",
-    "noRemote": "未配置远程仓库",
-    "storePath": "Store 路径",
-    "projectRoot": "项目目录",
-    "push": "推送",
-    "pull": "拉取",
-    "setup": {
-      "title": "初始化 Store",
-      "description": "填写一个 git 远程仓库地址作为唯一配置数据源。每个 AI 编码工具都从它翻译出各自的 skills / rules / commands 配置。",
-      "init": "初始化"
-    },
-    "tabs": {
-      "agents": "Agent 状态",
-      "items": "条目"
-    },
-    "agents": {
-      "noStore": "初始化 Store 后即可查看各 agent 的同步状态。",
-      "agent": "Agent",
-      "status": "状态",
-      "detail": "明细",
-      "contentDiff": "内容差异",
-      "mcpDiff": "MCP 差异",
-      "search": "按名称搜索 agent…",
-      "filterAll": "全部状态",
-      "noMatch": "没有符合筛选条件的 agent。"
-    },
-    "status": {
-      "in-sync": "已同步",
-      "drift": "有漂移",
-      "unconfirmed": "未确认",
-      "error": "错误"
-    },
-    "scope": {
-      "global": "全局",
-      "project": "项目"
-    },
-    "detail": {
-      "description": "按作用域拆分。每个轴展示写入路径、磁盘上已有的内容，以及同步会做出的改动。",
-      "axis": {
-        "content": "内容",
-        "mcp": "MCP 服务器"
-      },
-      "location": "路径",
-      "locationUnavailable": "本机没有可用路径",
-      "onDisk": "该类型在磁盘上已有的文件数",
-      "pending": "待写入 {{toWrite}} · 待删除 {{toDelete}}",
-      "nothingPending": "已同步 — 无需写入",
-      "readOnly": "约定未确认 — 只读，不会写入任何内容。",
-      "import": "导入到 Store"
-    },
-    "plan": {
-      "title": "写入预览",
-      "description": "下面是本次同步会改动的内容。确认后才会真正写入 agent 的配置文件。",
-      "inSync": "已完全同步 — 没有需要应用的内容",
-      "apply": "应用"
-    },
-    "items": {
-      "noStore": "初始化 Store 后即可管理条目。",
-      "all": "全部",
-      "empty": "还没有条目。",
-      "add": "新建条目",
-      "newTitle": "新建条目",
-      "editTitle": "编辑条目",
-      "editorHint": "直接编辑 frontmatter 与正文；保存后写入 Store。改名不被支持。",
-      "name": "名称",
-      "edit": "编辑",
-      "loadFailed": "加载条目失败。"
-    },
-    "kind": {
-      "skill": "Skill",
-      "rule": "Rule",
-      "command": "Command",
-      "subagent": "Subagent"
-    },
-    "help": {
-      "title": "帮助",
-      "open": "帮助",
-      "subtitle": "store 与 agent 磁盘文件是两件事，以及各页面的操作说明。",
-      "lines": [
-        "shaic 管理两类互不相同的东西：",
-        "  store        — 你添加的、作为唯一数据源的 skills / rules / commands / subagents / MCP servers；会被同步到每个 agent。",
-        "  agent files  — 某个 agent 磁盘上已有的配置（可能在 shaic 介入之前就存在）。CLI 的 'agents discover' 可列出；条目页的「导入」可把某一作用域拉进 store。",
-        "",
-        "Agent 状态",
-        "  每个 agent 一行，显示其在所有支持的作用域与 content/MCP 维度上的最差状态。",
-        "  「明细」= 进入 agent 详情   「内容差异」/「MCP 差异」= 写入前的预览",
-        "  「推送」/「拉取」同步 store；被密钥扫描拦截时会二次确认",
-        "  「初始化」= 设置向导   「刷新」= 重新拉取状态",
-        "",
-        "条目（skills / rules / commands / subagents）",
-        "  顶部筛选按类型过滤   「新建条目」= 新增   「编辑」= 修改   「删除」= 删除并立即同步",
-        "",
-        "写入预览（真正写入之前展示）",
-        "  「应用」= 按列出的改动写入   「取消」= 什么都不写",
-        "",
-        "Agent 详情",
-        "  按作用域（Global / Project）拆开所选 agent，每行同时展示 content 与 MCP 状态。",
-        "  「内容差异」/「MCP 差异」= 预览对应轴的改动   「导入到 Store」= 把该作用域磁盘文件拉进 store",
-        "",
-        "设置向导（首次运行，或 store 缺失时显示）",
-        "  填入 git remote 地址，「初始化」= 校验后 clone / init"
-      ]
-    },
-    "confirm": {
-      "deleteTitle": "删除条目",
-      "deleteBody": "确定删除 {{kind}} {{name}}，并同步到各 agent？",
-      "delete": "删除",
-      "importTitle": "导入到 Store",
-      "importBody": "把 {{label}} 本地磁盘上的文件导入 Store？（不会写入 agent 配置）",
-      "import": "导入",
-      "forceTitle": "密钥扫描已拦截",
-      "force": "仍然继续"
+    "underConstruction": {
+      "title": "构建中",
+      "description": "AI 资产同步引擎正在重建，完成后此页面将恢复。"
     }
   },
   "claudeChat": {

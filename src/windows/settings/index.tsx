@@ -11,7 +11,6 @@ import { ProxySection } from "./proxy-section.tsx";
 import { DataSection } from "./data-section.tsx";
 import { FilePreviewSection } from "./file-preview-section.tsx";
 import { EditorSection } from "./editor-section.tsx";
-import { AiConfigSection } from "./ai-config-section.tsx";
 import { CcsAppConfigSection } from "./ccs-app-config-section.tsx";
 import { MdEditorSection } from "./md-editor-section.tsx";
 import { PortsSection } from "./ports-section.tsx";
@@ -31,7 +30,6 @@ import {
   ScanEye,
   SquarePen,
   FileText,
-  Bot,
   Plug,
   Cpu,
   Download,
@@ -57,7 +55,6 @@ type SettingSection =
   | "filePreview"
   | "editor"
   | "mdEditor"
-  | "aiConfig"
   | "ccs"
   | "ports"
   | "runtime"
@@ -77,7 +74,6 @@ const SECTION_IDS: readonly SettingSection[] = [
   "filePreview",
   "editor",
   "mdEditor",
-  "aiConfig",
   "ccs",
   "ports",
   "runtime",
@@ -181,11 +177,6 @@ export default function SettingsPage() {
       icon: FileText,
     },
     {
-      id: "aiConfig" as SettingSection,
-      label: t("settings.aiConfig.title"),
-      icon: Bot,
-    },
-    {
       id: "ports" as SettingSection,
       label: t("ports.title"),
       icon: Plug,
@@ -271,8 +262,6 @@ export default function SettingsPage() {
           {activeSection === "editor" && <EditorSection />}
 
           {activeSection === "mdEditor" && <MdEditorSection />}
-
-          {activeSection === "aiConfig" && <AiConfigSection />}
 
           {activeSection === "ports" && <PortsSection />}
 

@@ -98,7 +98,7 @@ import { getConfig, projectTree } from "@/commands";
 a module variable — each window has its own JavaScript context, so two project
 windows never share one. A project window sets it when it mounts, and a page
 with a `ProjectPicker` sets it when the user chooses; the wrappers for
-`project-fs`, `file-preview`, `shaic` and `database` read it. Never call a
+`project-fs`, `file-preview` and `database` read it. Never call a
 project command from a page that has no root in play.
 
 ## Layout

@@ -57,7 +57,7 @@
 
 每个 webview 都有独立的 JavaScript 上下文，所以根目录可以放在每个窗口各自的模块
 变量里：`src/commands/project-context.ts` 保存窗口的活动项目，在 workbench 挂载
-时设置。`commands/services/project-fs`、`file-preview`、`shaic` 与 `database` 中的
+时设置。`commands/services/project-fs`、`file-preview` 与 `database` 中的
 命令包装层读取它，因此调用点保持原有签名。
 
 workbench 在挂载时设置它、卸载时清空它——留下旧值会把另一个项目的命令发到窗口
@@ -179,7 +179,7 @@ SQL 在主编辑区编辑：可以是该数据源的查询文件（命名为 `<�
 `ProjectPicker`：跨最近列表的下拉框，外加一个跳转到项目页的 **管理** 按钮。
 
 - [文件预览](./FILE_PREVIEW.md)——浏览哪个项目的文件树。
-- [AI 配置同步](./AI_CONFIG.md)——仪表盘读写哪个项目的 agent 文件。
+- [AI 配置同步](./AI_CONFIG.md)——当前为占位页；引擎重建前不读取任何项目。
 - [数据库](./DATABASE.md)——*相对*路径的 SQLite 源按哪个项目解析，以及项目
   数据源属于哪个项目。
 

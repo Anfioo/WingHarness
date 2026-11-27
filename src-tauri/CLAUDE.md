@@ -90,8 +90,8 @@ project windows only, and the caller's origin additionally has to match.
 
 - `src/config/mod.rs` is deliberately plain `std` + `serde_json`, with no Tauri
   handle, so it stays usable from tests and tools
-- `config.json` holds the per-app settings: the Codex switch preferences, the
-  AI config sync's enabled agents, and the outbound proxy. It holds no project —
+- `config.json` holds the per-app settings: the Codex switch preferences, and
+  the outbound proxy. It holds no project —
   projects are their own store, below — and the preview's own preferences are
   `preview.json`, not here
 - The proxy has three modes (`none`, `system`, `custom`) and is written into
