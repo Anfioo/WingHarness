@@ -1,6 +1,6 @@
 [package]
 name = "wingharness"
-version = "0.0.23"
+version = "0.0.24"
 description = "WingHarness, a local-first desktop workspace built on Tauri."
 authors = ["Anfioo"]
 license = "AGPL-3.0-only"
@@ -114,9 +114,10 @@ argus-service = { path = "argus-service" }
 # plugin's own site (an iframe cannot: plugins forbid framing). Tauri marks
 # multi-webview as unstable, so these APIs can move in a 2.x minor release.
 tauri = { version = "2", features = ["tray-icon", "unstable"] }
-tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
-tauri-plugin-global-shortcut = "2"
+tauri-plugin-opener = "2.5.3"
+tauri-plugin-global-shortcut = "2.3.1"
+tauri-plugin-process = "2.3.1"
 # Download-complete notifications for the moin engine. Registered in `lib.rs`
 # and allowed in `capabilities/default.json` (`notification:default`).
 tauri-plugin-notification = "2"

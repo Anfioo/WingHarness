@@ -1,0 +1,70 @@
+/* Adapted from moin (MIT), https://github.com/exxvius/moin — see PRIVACY.md.
+ *
+ * The fallback prompt window: a compact card on top of theme.css.
+ */
+
+body {
+  display: flex;
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: 22px 22px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.logo {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 8px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.file {
+  max-height: 3.2em;
+  margin: 4px 0 18px;
+  padding: 8px 12px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--muted);
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

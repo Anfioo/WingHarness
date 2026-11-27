@@ -8,10 +8,11 @@
 // declining lets the browser download normally. The extension can't start the
 // app itself, so the prompt tells the user to open WingHarness and then retries.
 
-// Chrome service worker: pull in the shared helpers. Firefox loads shared.js
-// itself via the manifest, where `importScripts` doesn't exist — hence the guard.
+// Chrome service worker: pull in the strings and shared helpers. Firefox loads
+// the same two files itself via the manifest, where `importScripts` doesn't
+// exist — hence the guard.
 if (typeof importScripts === "function") {
-  importScripts("shared.js");
+  importScripts("i18n.js", "shared.js");
 }
 
 // How long to keep polling WingHarness's RPC after the user says they started it.
@@ -44,7 +45,7 @@ function setupMenus() {
   B.contextMenus.removeAll(() => {
     B.contextMenus.create({
       id: "wingharness-download",
-      title: "Download with WingHarness",
+      title: t("contextMenuDownload"),
       contexts: ["link", "image", "video", "audio", "selection"],
     });
   });
@@ -70,7 +71,10 @@ function takeManualCapture(url) {
   const request = requests.shift();
   if (requests.length === 0) pendingManualCaptures.delete(url);
   if (typeof request.tabId === "number") {
-    activeManualCaptureTabs.set(request.tabId, (activeManualCaptureTabs.get(request.tabId) || 0) + 1);
+    activeManualCaptureTabs.set(
+      request.tabId,
+      (activeManualCaptureTabs.get(request.tabId) || 0) + 1
+    );
   }
   return request;
 }
@@ -102,7 +106,7 @@ function hasPendingManualCapture(tabId) {
 B.contextMenus.onClicked.addListener((info, tab) => {
   const url = info.linkUrl || info.srcUrl || info.selectionText;
   if (!isHandoffable(url)) {
-    notify("Nothing to download", "That link isn't a direct file WingHarness can fetch.");
+    notify(t("notifyNothingTitle"), t("notifyNothingBody"));
     return;
   }
 
@@ -110,7 +114,7 @@ B.contextMenus.onClicked.addListener((info, tab) => {
   queueManualCapture(request);
   B.downloads.download({ url }).catch((error) => {
     removeManualCapture(request);
-    notify("Couldn't start the browser download", String(error));
+    notify(t("notifyBrowserStartTitle"), String(error));
   });
 });
 
@@ -137,7 +141,7 @@ function setupResponseInterception() {
   B.webRequest.onHeadersReceived.addListener(
     onHeadersReceived,
     { urls: ["<all_urls>"], types: ["main_frame", "sub_frame"] },
-    ["blocking", "responseHeaders"],
+    ["blocking", "responseHeaders"]
   );
 }
 setupResponseInterception();
@@ -153,7 +157,7 @@ function onHeadersReceived(details) {
   if (!isHandoffable(details.url) || bypass.has(details.url)) return {};
   if (Date.now() < suppressAutoUntil) return {};
   const disposition = (details.responseHeaders || []).find(
-    (h) => h.name.toLowerCase() === "content-disposition",
+    (h) => h.name.toLowerCase() === "content-disposition"
   );
   if (!disposition || !/attachment/i.test(disposition.value || "")) return {};
 
@@ -191,10 +195,7 @@ B.downloads.onCreated.addListener(async (item) => {
     const finalUrl = await resolveDownloadUrl(item);
     if (!finalUrl || !isHandoffable(finalUrl)) {
       if (manual) {
-        notify(
-          "Couldn't resolve the final download URL",
-          "The browser will continue this download. Try again after the page finishes redirecting.",
-        );
+        notify(t("notifyResolveTitle"), t("notifyResolveBody"));
       }
       return;
     }
@@ -281,10 +282,7 @@ async function resolveDownloadUrl(item) {
 async function capture({ url, referrer, tabId, filename }) {
   const cfg = await loadConfig();
   if (!cfg.token) {
-    notify(
-      "WingHarness isn't set up",
-      "Open the extension's options and paste WingHarness's access token.",
-    );
+    notify(t("notifyNotSetUpTitle"), t("notifyNotSetUpBody"));
     return "failed";
   }
 
@@ -294,29 +292,23 @@ async function capture({ url, referrer, tabId, filename }) {
     const wantsRetry = await askToRetry(url, tabId);
     if (!wantsRetry) return "declined";
     if (!(await waitForApp(cfg))) {
-      notify(
-        "WingHarness isn't running",
-        "Start WingHarness, then try this download again.",
-      );
+      notify(t("notifyNotRunningTitle"), t("notifyNotRunningBody"));
       return "failed";
     }
   }
 
   try {
     await sendToApp(cfg, { url, referrer, filename });
-    notify("Sent to WingHarness", filename || filenameFromUrl(url));
+    notify(t("notifySentTitle"), filename || filenameFromUrl(url));
     return "handed";
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.warn(`${LOG} /add failed`, message);
     // A 401 means the paired token is stale — point the user at options.
     if (message.includes("401")) {
-      notify(
-        "WingHarness rejected the token",
-        "Regenerate it in WingHarness and update the extension's options.",
-      );
+      notify(t("notifyBadTokenTitle"), t("notifyBadTokenBody"));
     } else {
-      notify("Couldn't send to WingHarness", message);
+      notify(t("notifySendFailedTitle"), message);
     }
     return "failed";
   }
@@ -348,7 +340,7 @@ async function askToRetry(url, tabId) {
       const res = await B.tabs.sendMessage(
         target,
         { type: "wingharness-show-prompt", file },
-        { frameId: 0 },
+        { frameId: 0 }
       );
       if (res && typeof res.retry === "boolean") return res.retry;
     } catch {
@@ -372,8 +364,7 @@ async function resolvePromptTab(tabId) {
 /** The popup-window prompt — the fallback when an in-page prompt isn't possible. */
 function askToRetryWindow(file) {
   return new Promise((resolve) => {
-    const promptUrl =
-      B.runtime.getURL("src/prompt.html") + `?file=${encodeURIComponent(file)}`;
+    const promptUrl = B.runtime.getURL("src/prompt.html") + `?file=${encodeURIComponent(file)}`;
 
     B.windows
       .create({ url: promptUrl, type: "popup", width: 440, height: 260 })
@@ -428,7 +419,11 @@ function filenameFromUrl(url) {
   }
 }
 
-const pause = (id) => B.downloads.pause(id).then(() => true).catch(() => false);
+const pause = (id) =>
+  B.downloads
+    .pause(id)
+    .then(() => true)
+    .catch(() => false);
 const resume = (id) => B.downloads.resume(id).catch(() => {});
 const cancel = (id) => B.downloads.cancel(id).catch(() => {});
 const erase = (id) => B.downloads.erase({ id }).catch(() => {});

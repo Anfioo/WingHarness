@@ -48,6 +48,24 @@ Changing the app's switch or port takes effect after an app restart. Regeneratin
 the token takes effect immediately and invalidates the old one; copy the new
 value into the extension options as well.
 
+## Interface, language and About
+
+The options page reuses the desktop app's neutral palette, 10px radius and system
+font stack (`extension/src/theme.css` mirrors `src/index.css`). Its **About**
+card links to the WingHarness repository and the upstream moin repository, states
+both licenses (AGPL-3.0-only and MIT), and shows the two marks: the WingHarness
+logo and the original moin icon.
+
+Every extension surface follows the browser's own UI language through the
+standard `_locales/` mechanism: English is the default locale and Simplified
+Chinese (`zh_CN`) is bundled. The manifest name and description, the options
+page, the in-page prompt, the fallback prompt window, the context menu and the
+notifications all read the same message files. There is no separate language
+setting.
+
+Chromium does not accept SVG manifest icons, so `icons/icon.svg` ships with
+16/32/48/128 PNG renders; Firefox loads the SVG directly.
+
 ## Load in Chrome, Edge or Brave
 
 1. Open `chrome://extensions`, `edge://extensions` or `brave://extensions`.
@@ -59,11 +77,12 @@ No compile step is required for this path.
 
 ## Load in Firefox
 
-Firefox uses background scripts instead of the Chromium service worker. Build
-the browser-specific folders from `extension/`:
+Firefox uses background scripts instead of the Chromium service worker. From the
+repository root run `pnpm build:extension`, or from `extension/` run
+`node build.mjs`:
 
 ```bash
-node build.mjs
+pnpm build:extension
 ```
 
 Then open `about:debugging#/runtime/this-firefox`, choose **Load Temporary
@@ -73,7 +92,8 @@ loaded again.
 
 The same command also creates `dist/chrome` and versioned Chrome/Firefox zip
 files. It only packages the extension and does not participate in the app's
-`pnpm build`.
+`pnpm build`. The release workflow runs it for every `v*` tag and attaches both
+zips to the GitHub release.
 
 ## Permissions
 
@@ -136,18 +156,22 @@ extension/
   manifest.json            Chrome/Edge/Brave MV3, service worker
   manifest.firefox.json    Firefox MV3, background scripts
   build.mjs                Build dist/chrome and dist/firefox, then zip them
-  icons/                   SVG source and 32/48/128 PNG icons
+  _locales/                en and zh_CN message files (manifest and all UI)
+  icons/                   WingHarness logo (SVG + 16/32/48/128 PNG) and moin.svg
   src/
+    i18n.js                Locale lookup and data-i18n application
+    theme.css              Palette and primitives shared with the app
     shared.js              Options, RPC client and cookie header
     content.js             Click interception and in-page app-start prompt
     background.js          Menus, capture paths, notifications and retry prompt
-    prompt.html/.js        Popup prompt for restricted pages
-    options.html/.js/.css  Pairing and capture preferences
+    prompt.html/.css/.js   Popup prompt for restricted pages
+    options.html/.css/.js  Pairing, capture preferences and About
 ```
 
 ## Credits
 
 Adapted from [moin](https://github.com/exxvius/moin) 0.4.0 at commit `79e7587`
 (MIT). The `/ping` and `/add` contract remains compatible. WingHarness changes
-the branding, keeps browser integration on port `47653`, and replaces automatic
+the branding, uses its own logo for the extension while keeping moin's original
+icon in About, keeps browser integration on port `47653`, and replaces automatic
 `moin://` launching with an explicit start-app prompt.

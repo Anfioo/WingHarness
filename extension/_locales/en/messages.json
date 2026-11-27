@@ -1,0 +1,149 @@
+{
+  "extName": {
+    "message": "WingHarness — download capture"
+  },
+  "extDescription": {
+    "message": "Send your browser's downloads to WingHarness, cookies and all — with a right-click or automatically."
+  },
+  "optionsTitle": {
+    "message": "WingHarness extension — options"
+  },
+  "optionsSubtitle": {
+    "message": "Send downloads from your browser to WingHarness."
+  },
+  "pairingTitle": {
+    "message": "Pairing"
+  },
+  "pairingDesc": {
+    "message": "Match these to WingHarness's Settings → Browser integration. Copy the access token from there and paste it below."
+  },
+  "portLabel": {
+    "message": "Port"
+  },
+  "tokenLabel": {
+    "message": "Access token"
+  },
+  "tokenPlaceholder": {
+    "message": "Paste from WingHarness"
+  },
+  "testButton": {
+    "message": "Test connection"
+  },
+  "statusNotTested": {
+    "message": "Not tested yet"
+  },
+  "captureTitle": {
+    "message": "Capture"
+  },
+  "enabledLabel": {
+    "message": "Enable WingHarness capture"
+  },
+  "enabledDesc": {
+    "message": "The master switch for this extension."
+  },
+  "autoLabel": {
+    "message": "Auto-capture downloads"
+  },
+  "autoDesc": {
+    "message": "Intercept the browser's own downloads and hand them to WingHarness. Off by default — right-click → “Download with WingHarness” works either way."
+  },
+  "footerNote": {
+    "message": "Settings save as you change them. WingHarness must be running for capture to work — the extension can't start it for you."
+  },
+  "aboutTitle": {
+    "message": "About"
+  },
+  "aboutProjectDesc": {
+    "message": "Download capture for the WingHarness desktop app."
+  },
+  "aboutLicense": {
+    "message": "Released under AGPL-3.0-only."
+  },
+  "aboutRepository": {
+    "message": "Open the WingHarness repository on GitHub"
+  },
+  "aboutUpstreamTitle": {
+    "message": "Based on moin"
+  },
+  "aboutUpstreamDesc": {
+    "message": "The download-capture flow and the original icon come from moin, an open-source download manager, under the MIT license."
+  },
+  "aboutUpstreamRepository": {
+    "message": "Open the moin repository on GitHub"
+  },
+  "statusPasteToken": {
+    "message": "Paste the access token first"
+  },
+  "statusTesting": {
+    "message": "Testing…"
+  },
+  "statusConnected": {
+    "message": "Connected to WingHarness ✓"
+  },
+  "statusBadToken": {
+    "message": "Reached WingHarness, but the token is wrong"
+  },
+  "statusUnreachable": {
+    "message": "Couldn't reach WingHarness — is it running?"
+  },
+  "promptWindowTitle": {
+    "message": "Start WingHarness?"
+  },
+  "promptTitle": {
+    "message": "WingHarness isn't running"
+  },
+  "promptBody": {
+    "message": "Start WingHarness, then send it this download."
+  },
+  "promptFallbackFile": {
+    "message": "this download"
+  },
+  "promptNotNow": {
+    "message": "Not now"
+  },
+  "promptRetry": {
+    "message": "I started it"
+  },
+  "contextMenuDownload": {
+    "message": "Download with WingHarness"
+  },
+  "notifyNothingTitle": {
+    "message": "Nothing to download"
+  },
+  "notifyNothingBody": {
+    "message": "That link isn't a direct file WingHarness can fetch."
+  },
+  "notifyBrowserStartTitle": {
+    "message": "Couldn't start the browser download"
+  },
+  "notifyResolveTitle": {
+    "message": "Couldn't resolve the final download URL"
+  },
+  "notifyResolveBody": {
+    "message": "The browser will continue this download. Try again after the page finishes redirecting."
+  },
+  "notifyNotSetUpTitle": {
+    "message": "WingHarness isn't set up"
+  },
+  "notifyNotSetUpBody": {
+    "message": "Open the extension's options and paste WingHarness's access token."
+  },
+  "notifyNotRunningTitle": {
+    "message": "WingHarness isn't running"
+  },
+  "notifyNotRunningBody": {
+    "message": "Start WingHarness, then try this download again."
+  },
+  "notifySentTitle": {
+    "message": "Sent to WingHarness"
+  },
+  "notifyBadTokenTitle": {
+    "message": "WingHarness rejected the token"
+  },
+  "notifyBadTokenBody": {
+    "message": "Regenerate it in WingHarness and update the extension's options."
+  },
+  "notifySendFailedTitle": {
+    "message": "Couldn't send to WingHarness"
+  }
+}

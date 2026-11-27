@@ -40,6 +40,20 @@ deep link。应用不可达时，提示框可以等待你手动启动；拒绝�
 修改应用内开关或端口后需要重启应用。重新生成令牌会立即生效并使旧令牌失效，
 同时必须把新值复制到扩展选项页。
 
+## 界面、语言与关于
+
+选项页沿用桌面应用的中性色、10px 圆角与系统字体栈（`extension/src/theme.css`
+对应应用的 `src/index.css`）。其中的**关于**卡片链接到 WingHarness 仓库与上游
+moin 仓库，列出两种许可证（AGPL-3.0-only 与 MIT），并同时展示两个图标：
+WingHarness 标志与原始 moin 图标。
+
+扩展的所有界面都通过标准的 `_locales/` 机制跟随浏览器自身的界面语言：默认语言
+为英语，并内置简体中文（`zh_CN`）。清单名称与描述、选项页、页内提示、回退提示
+窗口、右键菜单和通知都读取同一组消息文件，没有单独的语言开关。
+
+Chromium 不支持把 SVG 用作清单图标，因此 `icons/icon.svg` 随包提供
+16/32/48/128 的 PNG 渲染；Firefox 直接使用 SVG。
+
 ## 在 Chrome、Edge 或 Brave 中加载
 
 1. 打开 `chrome://extensions`、`edge://extensions` 或 `brave://extensions`。
@@ -51,11 +65,11 @@ deep link。应用不可达时，提示框可以等待你手动启动；拒绝�
 
 ## 在 Firefox 中加载
 
-Firefox 使用 background scripts，而不是 Chromium 的 service worker。在
-`extension/` 目录运行：
+Firefox 使用 background scripts，而不是 Chromium 的 service worker。在仓库根目录
+运行 `pnpm build:extension`，或在 `extension/` 目录运行 `node build.mjs`：
 
 ```bash
-node build.mjs
+pnpm build:extension
 ```
 
 然后打开 `about:debugging#/runtime/this-firefox`，选择 **Load Temporary
@@ -63,7 +77,8 @@ Add-on…**，选中 `dist/firefox/manifest.json`。如果 Firefox 请求主机�
 请允许。临时扩展会在 Firefox 重启后移除，需要重新加载。
 
 同一命令还会生成 `dist/chrome` 和带版本号的 Chrome/Firefox zip 文件。它只负责
-打包扩展，不参与应用的 `pnpm build`。
+打包扩展，不参与应用的 `pnpm build`。发布工作流会在每次 `v*` 标签发布时运行它，
+并把两个 zip 上传到对应的 GitHub Release。
 
 ## 权限说明
 
@@ -119,18 +134,22 @@ Referer 和 User-Agent 只发送到用户本机的 `http://127.0.0.1:<port>`，�
 extension/
   manifest.json            Chrome/Edge/Brave MV3, service worker
   manifest.firefox.json    Firefox MV3, background scripts
-  build.mjs                Build dist/chrome and dist/firefox, then zip them
-  icons/                   SVG source and 32/48/128 PNG icons
+  build.mjs                生成 dist/chrome 与 dist/firefox，再打包为 zip
+  _locales/                en 与 zh_CN 消息文件（清单与全部界面）
+  icons/                   WingHarness 标志（SVG + 16/32/48/128 PNG）与 moin.svg
   src/
-    shared.js              Options, RPC client and cookie header
-    content.js             Click interception and in-page app-start prompt
-    background.js          Menus, capture paths, notifications and retry prompt
-    prompt.html/.js        Popup prompt for restricted pages
-    options.html/.js/.css  Pairing and capture preferences
+    i18n.js                语言查找与 data-i18n 填充
+    theme.css              与应用共享的调色板与基础样式
+    shared.js              配置、RPC 客户端与 Cookie 请求头
+    content.js             点击拦截与页内启动应用提示
+    background.js          菜单、捕获路径、通知与重试提示
+    prompt.html/.css/.js   受限页面使用的弹窗提示
+    options.html/.css/.js  配对、捕获偏好与关于
 ```
 
 ## 归属
 
 改编自 [moin](https://github.com/exxvius/moin) 0.4.0、提交 `79e7587`（MIT）。
-`/ping` 与 `/add` 契约保持兼容。WingHarness 修改了品牌，默认浏览器集成端口为
+`/ping` 与 `/add` 契约保持兼容。WingHarness 修改了品牌，扩展图标改用
+WingHarness 标志并在「关于」中保留 moin 原始图标，默认浏览器集成端口为
 `47653`，并把 `moin://` 自动拉起替换为明确的启动应用提示。
