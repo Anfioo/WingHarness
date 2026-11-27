@@ -21,6 +21,8 @@ jobs:
       contents: write
     outputs:
       tag: ${{ steps.vars.outputs.tag }}
+      release_id: ${{ steps.release.outputs.id }}
+      release_body: ${{ steps.release.outputs.body }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,6 +59,31 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx changelogithub --draft --name "${{ steps.vars.outputs.tag }}"
 
+      # Resolve the release once, in the creating job. Downstream jobs consume
+      # these outputs instead of independently listing releases through the API.
+      - name: Resolve the created release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ steps.vars.outputs.tag }}
+        run: |
+          set -euo pipefail
+          release_id="$(gh api --repo "$REPOSITORY" "releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+          if [ -z "$release_id" ]; then
+            echo "Draft release not found for tag $TAG in $REPOSITORY" >&2
+            exit 1
+          fi
+          echo "id=$release_id" >> "$GITHUB_OUTPUT"
+
+          body="$(gh api --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/${release_id}" | jq -r '.body // ""')"
+          {
+            echo "body<<WH_RELEASE_BODY_EOF"
+            printf '%s\n' "$body"
+            echo "WH_RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
   # Packages the browser extension and attaches both zips to the same draft
   # release, so the release page carries the app installer and the extension
   # side by side. build.mjs has no dependencies, so no install step is needed.
@@ -79,36 +106,32 @@ jobs:
       - name: Package the browser extension
         run: node extension/build.mjs
 
-      # Uploads by release id: the release is still a draft, and naming it by
-      # tag is the lookup the app job also avoids. Existing assets are deleted
-      # first so a re-run of the same tag replaces them.
+      # The release id comes from create-release, so this job never has to
+      # list releases or race another publisher.
       - name: Upload the extension zips
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-          TAG: ${{ needs.create-release.outputs.tag }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
         run: |
-          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
-          if [ -z "$release_id" ]; then
-            echo "Draft release not found for tag $TAG" >&2
-            exit 1
-          fi
-
+          set -euo pipefail
           for zip in extension/dist/*.zip; do
             name="$(basename "$zip")"
-            existing="$(gh api "repos/${REPOSITORY}/releases/${release_id}/assets?per_page=100" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
+            existing="$(gh api --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
             if [ -n "$existing" ]; then
-              gh api --method DELETE "repos/${REPOSITORY}/releases/assets/${existing}"
+              gh api --method DELETE --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/assets/${existing}"
             fi
-            gh api --method POST \
+            gh api --method POST --repo "$REPOSITORY" \
               -H "Content-Type: application/zip" \
-              "repos/${REPOSITORY}/releases/${release_id}/assets?name=${name}" \
+              "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?name=${name}" \
               --input "$zip"
           done
 
   publish-tauri:
-    needs: create-release
+    # Keep all release asset writes serialized: the extension upload must finish
+    # before tauri-action adds installers and updater metadata to the draft.
+    needs: [create-release, publish-extension]
     permissions:
       contents: write
     # Job-level env so the var survives into the tauri-action step and from
@@ -206,25 +229,14 @@ jobs:
         id: draft_release
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ needs.create-release.outputs.tag }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+          RELEASE_BODY: ${{ needs.create-release.outputs.release_body }}
         run: |
-          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$RELEASE_TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
-          if [ -z "$release_id" ]; then
-            echo "Draft release not found for tag $RELEASE_TAG" >&2
-            exit 1
-          fi
-          echo "id=$release_id" >> "$GITHUB_OUTPUT"
-
-          # tauri-action writes latest.json's `notes` from its `releaseBody`
-          # input only. Given a releaseId it never looks the release up, so the
-          # generated changelog has to be handed to it explicitly or notes comes
-          # out empty.
-          body="$(gh api "repos/${REPOSITORY}/releases/${release_id}" | jq -r '.body // ""')"
+          set -euo pipefail
+          echo "id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
           {
             echo "body<<WH_RELEASE_BODY_EOF"
-            printf '%s\n' "$body"
+            printf '%s\n' "$RELEASE_BODY"
             echo "WH_RELEASE_BODY_EOF"
           } >> "$GITHUB_OUTPUT"
 
