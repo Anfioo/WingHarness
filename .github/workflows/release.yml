@@ -70,14 +70,14 @@ jobs:
           TAG: ${{ steps.vars.outputs.tag }}
         run: |
           set -euo pipefail
-          release_id="$(gh api --repo "$REPOSITORY" "releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
           if [ -z "$release_id" ]; then
             echo "Draft release not found for tag $TAG in $REPOSITORY" >&2
             exit 1
           fi
           echo "id=$release_id" >> "$GITHUB_OUTPUT"
 
-          body="$(gh api --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/${release_id}" | jq -r '.body // ""')"
+          body="$(gh api "repos/${REPOSITORY}/releases/${release_id}" | jq -r '.body // ""')"
           {
             echo "body<<WH_RELEASE_BODY_EOF"
             printf '%s\n' "$body"
@@ -118,11 +118,11 @@ jobs:
           set -euo pipefail
           for zip in extension/dist/*.zip; do
             name="$(basename "$zip")"
-            existing="$(gh api --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
+            existing="$(gh api "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?per_page=100" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
             if [ -n "$existing" ]; then
-              gh api --method DELETE --repo "$REPOSITORY" "repos/${REPOSITORY}/releases/assets/${existing}"
+              gh api --method DELETE "repos/${REPOSITORY}/releases/assets/${existing}"
             fi
-            gh api --method POST --repo "$REPOSITORY" \
+            gh api --method POST \
               -H "Content-Type: application/zip" \
               "repos/${REPOSITORY}/releases/${RELEASE_ID}/assets?name=${name}" \
               --input "$zip"
