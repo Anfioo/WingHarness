@@ -57,6 +57,56 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx changelogithub --draft --name "${{ steps.vars.outputs.tag }}"
 
+  # Packages the browser extension and attaches both zips to the same draft
+  # release, so the release page carries the app installer and the extension
+  # side by side. build.mjs has no dependencies, so no install step is needed.
+  publish-extension:
+    needs: create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.create-release.outputs.tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package the browser extension
+        run: node extension/build.mjs
+
+      # Uploads by release id: the release is still a draft, and naming it by
+      # tag is the lookup the app job also avoids. Existing assets are deleted
+      # first so a re-run of the same tag replaces them.
+      - name: Upload the extension zips
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ needs.create-release.outputs.tag }}
+        run: |
+          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+          if [ -z "$release_id" ]; then
+            echo "Draft release not found for tag $TAG" >&2
+            exit 1
+          fi
+
+          for zip in extension/dist/*.zip; do
+            name="$(basename "$zip")"
+            existing="$(gh api "repos/${REPOSITORY}/releases/${release_id}/assets?per_page=100" | jq -r --arg name "$name" '.[] | select(.name == $name) | .id')"
+            if [ -n "$existing" ]; then
+              gh api --method DELETE "repos/${REPOSITORY}/releases/assets/${existing}"
+            fi
+            gh api --method POST \
+              -H "Content-Type: application/zip" \
+              "repos/${REPOSITORY}/releases/${release_id}/assets?name=${name}" \
+              --input "$zip"
+          done
+
   publish-tauri:
     needs: create-release
     permissions:

@@ -1,0 +1,149 @@
+{
+  "extName": {
+    "message": "WingHarness — 下载捕获"
+  },
+  "extDescription": {
+    "message": "把浏览器下载交给 WingHarness，连同 Cookie —— 右键或自动捕获。"
+  },
+  "optionsTitle": {
+    "message": "WingHarness 扩展 — 选项"
+  },
+  "optionsSubtitle": {
+    "message": "把浏览器下载发送到 WingHarness。"
+  },
+  "pairingTitle": {
+    "message": "配对"
+  },
+  "pairingDesc": {
+    "message": "与 WingHarness 的「设置 → 浏览器集成」保持一致。把那里的访问令牌复制到下方。"
+  },
+  "portLabel": {
+    "message": "端口"
+  },
+  "tokenLabel": {
+    "message": "访问令牌"
+  },
+  "tokenPlaceholder": {
+    "message": "从 WingHarness 粘贴"
+  },
+  "testButton": {
+    "message": "测试连接"
+  },
+  "statusNotTested": {
+    "message": "尚未测试"
+  },
+  "captureTitle": {
+    "message": "捕获"
+  },
+  "enabledLabel": {
+    "message": "启用 WingHarness 捕获"
+  },
+  "enabledDesc": {
+    "message": "此扩展的总开关。"
+  },
+  "autoLabel": {
+    "message": "自动捕获下载"
+  },
+  "autoDesc": {
+    "message": "拦截浏览器自身的下载并交给 WingHarness。默认关闭 —— 右键「用 WingHarness 下载」在任何情况下都可用。"
+  },
+  "footerNote": {
+    "message": "设置会随修改自动保存。捕获需要 WingHarness 正在运行——扩展无法替你启动它。"
+  },
+  "aboutTitle": {
+    "message": "关于"
+  },
+  "aboutProjectDesc": {
+    "message": "WingHarness 桌面应用的下载捕获组件。"
+  },
+  "aboutLicense": {
+    "message": "以 AGPL-3.0-only 许可发布。"
+  },
+  "aboutRepository": {
+    "message": "在 GitHub 上打开 WingHarness 仓库"
+  },
+  "aboutUpstreamTitle": {
+    "message": "基于 moin"
+  },
+  "aboutUpstreamDesc": {
+    "message": "下载捕获流程与原始图标来自开源下载管理器 moin，采用 MIT 许可。"
+  },
+  "aboutUpstreamRepository": {
+    "message": "在 GitHub 上打开 moin 仓库"
+  },
+  "statusPasteToken": {
+    "message": "请先粘贴访问令牌"
+  },
+  "statusTesting": {
+    "message": "正在测试…"
+  },
+  "statusConnected": {
+    "message": "已连接 WingHarness ✓"
+  },
+  "statusBadToken": {
+    "message": "已连上 WingHarness，但令牌不正确"
+  },
+  "statusUnreachable": {
+    "message": "无法连接 WingHarness —— 应用在运行吗？"
+  },
+  "promptWindowTitle": {
+    "message": "启动 WingHarness？"
+  },
+  "promptTitle": {
+    "message": "WingHarness 未运行"
+  },
+  "promptBody": {
+    "message": "启动 WingHarness 后，再把此下载交给它。"
+  },
+  "promptFallbackFile": {
+    "message": "此下载"
+  },
+  "promptNotNow": {
+    "message": "暂不"
+  },
+  "promptRetry": {
+    "message": "我已启动"
+  },
+  "contextMenuDownload": {
+    "message": "用 WingHarness 下载"
+  },
+  "notifyNothingTitle": {
+    "message": "没有可下载的内容"
+  },
+  "notifyNothingBody": {
+    "message": "该链接不是 WingHarness 能直接获取的文件。"
+  },
+  "notifyBrowserStartTitle": {
+    "message": "无法启动浏览器下载"
+  },
+  "notifyResolveTitle": {
+    "message": "无法解析最终下载地址"
+  },
+  "notifyResolveBody": {
+    "message": "浏览器会继续此次下载。请在页面重定向结束后重试。"
+  },
+  "notifyNotSetUpTitle": {
+    "message": "WingHarness 尚未配置"
+  },
+  "notifyNotSetUpBody": {
+    "message": "打开扩展的选项页，粘贴 WingHarness 的访问令牌。"
+  },
+  "notifyNotRunningTitle": {
+    "message": "WingHarness 未运行"
+  },
+  "notifyNotRunningBody": {
+    "message": "启动 WingHarness 后再试一次此下载。"
+  },
+  "notifySentTitle": {
+    "message": "已发送到 WingHarness"
+  },
+  "notifyBadTokenTitle": {
+    "message": "WingHarness 拒绝了令牌"
+  },
+  "notifyBadTokenBody": {
+    "message": "在 WingHarness 中重新生成令牌，并更新扩展选项。"
+  },
+  "notifySendFailedTitle": {
+    "message": "无法发送到 WingHarness"
+  }
+}

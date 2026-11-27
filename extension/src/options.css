@@ -1,198 +1,344 @@
-/* Adapted from moin (MIT), https://github.com/exxvius/moin — see PRIVACY.md. */
+/* Adapted from moin (MIT), https://github.com/exxvius/moin — see PRIVACY.md.
+ *
+ * Options page layout on top of theme.css, which carries the shared palette,
+ * typography and button styles.
+ */
 
-:root {
-  color-scheme: light dark;
-  --bg: #f4f6fb;
-  --card: #ffffff;
-  --text: #1a1d24;
-  --dim: #5b6472;
-  --border: #dfe3ec;
-  --accent: #1d1d1f;
-  --accent-text: #ffffff;
-  --ghost: #eef1f7;
-  --ok: #1a9d5a;
-  --bad: #d1443f;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0f1218;
-    --card: #171b23;
-    --text: #eef1f7;
-    --dim: #9aa4b2;
-    --border: #262c38;
-    --accent: #f5f5f7;
-    --accent-text: #1d1d1f;
-    --ghost: #222835;
-    --ok: #35c780;
-    --bad: #ef6b64;
-  }
-}
+@import url("theme.css");
 
-* {
-  box-sizing: border-box;
-}
 body {
-  margin: 0;
-  font:
-    14px/1.55 system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  min-height: 100vh;
 }
-.wrap {
-  max-width: 560px;
+
+.page {
+  max-width: 660px;
   margin: 0 auto;
-  padding: 32px 22px 48px;
+  padding: 40px 24px 56px;
 }
-.head {
+
+/* ---- Header ------------------------------------------------------------ */
+
+.hero {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   margin-bottom: 24px;
 }
-.mark {
-  width: 44px;
-  height: 44px;
+
+.logo {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 13px;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
 }
+
+.hero-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 h1 {
   margin: 0;
   font-size: 22px;
-  font-weight: 680;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
+
 h2 {
   margin: 0 0 4px;
   font-size: 15px;
-  font-weight: 640;
+  font-weight: 600;
 }
-p {
-  margin: 0;
+
+.hero p {
+  margin: 2px 0 0;
+  font-size: 13.5px;
 }
-.dim {
-  color: var(--dim);
+
+.badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
 }
+
+.badge-quiet {
+  background: transparent;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--muted-foreground);
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.icon-button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+.icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-button:focus-visible,
+.about-link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- Cards and fields -------------------------------------------------- */
+
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius);
   padding: 20px;
-  margin-bottom: 18px;
-}
-.card > .dim {
   margin-bottom: 16px;
 }
+
+.card > .desc {
+  margin: 0 0 18px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
 .field {
   display: block;
   margin-bottom: 14px;
 }
-.field:last-child {
+
+.field:last-of-type {
   margin-bottom: 0;
 }
+
 .label {
   display: block;
-  font-weight: 600;
   margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
+
 input[type="number"],
 input[type="text"] {
   width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: 1px solid var(--input);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
   font: inherit;
-  padding: 9px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
+
 input[type="number"] {
-  width: 8rem;
+  width: 8.5rem;
 }
-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
-}
+
 input[type="text"] {
-  font-family: ui-monospace, "Cascadia Code", "Roboto Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
+
+input:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 30%, transparent);
+}
+
 .test-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
-.btn {
-  font: inherit;
-  font-weight: 600;
-  padding: 9px 16px;
-  border-radius: 9px;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: var(--accent-text);
-  cursor: pointer;
+
+.status {
+  font-size: 13px;
 }
-.btn:hover {
-  filter: brightness(1.05);
-}
+
 .status.ok {
-  color: var(--ok);
-  font-weight: 600;
+  color: var(--success);
+  font-weight: 500;
 }
+
 .status.bad {
-  color: var(--bad);
-  font-weight: 600;
+  color: var(--destructive);
+  font-weight: 500;
 }
+
+/* ---- Toggles ----------------------------------------------------------- */
+
 .toggle-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
+  gap: 20px;
+  padding: 14px 0;
   border-top: 1px solid var(--border);
 }
+
 .toggle-row:first-of-type {
+  padding-top: 8px;
   border-top: none;
-  padding-top: 4px;
 }
-.toggle-row .label {
+
+.toggle-copy {
+  display: block;
+}
+
+.toggle-copy .label {
   margin-bottom: 2px;
 }
-.toggle-row .dim {
+
+.toggle-copy .muted {
   display: block;
   font-size: 13px;
 }
+
 .switch {
-  flex: none;
-  width: 42px;
-  height: 24px;
-  appearance: none;
-  border-radius: 999px;
-  background: var(--border);
   position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
   cursor: pointer;
-  transition: background 150ms ease;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
 }
-.switch:checked {
-  background: var(--accent);
-}
+
 .switch::after {
   content: "";
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
+  top: 1px;
+  left: 1px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--card);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.24);
   transition: transform 150ms ease;
 }
-.switch:checked::after {
-  transform: translateX(18px);
+
+.switch:checked {
+  background: var(--primary);
+  border-color: var(--primary);
 }
-.foot {
+
+.switch:checked::after {
+  background: var(--primary-foreground);
+  transform: translateX(16px);
+}
+
+.switch:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ---- About ------------------------------------------------------------- */
+
+.about-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 16px;
+}
+
+.about-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.about-row + .about-row {
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.about-logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+.about-copy {
+  min-width: 0;
+}
+
+.about-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.about-copy .muted {
+  margin: 0 0 6px;
   font-size: 13px;
+}
+
+.about-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.about-link svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.about-link:hover span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---- Footer ------------------------------------------------------------ */
+
+.foot {
+  margin: 20px 0 0;
+  font-size: 12.5px;
   text-align: center;
-  margin-top: 8px;
 }

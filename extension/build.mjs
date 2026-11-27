@@ -7,14 +7,7 @@
 // folder unpacked as-is. The build is for a clean Firefox folder and for zips.
 // No dependencies: the zip writer below is a few dozen lines over node:zlib.
 
-import {
-  cpSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
@@ -22,12 +15,13 @@ import { deflateRawSync } from "node:zlib";
 const root = dirname(fileURLToPath(import.meta.url));
 const dist = join(root, "dist");
 
-/** Copy the shared payload (source + icons) plus a chosen manifest into a target. */
+/** Copy the shared payload (source, locales + icons) plus a chosen manifest. */
 function assemble(name, manifestFile) {
   const out = join(dist, name);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
   cpSync(join(root, "src"), join(out, "src"), { recursive: true });
+  cpSync(join(root, "_locales"), join(out, "_locales"), { recursive: true });
   cpSync(join(root, "icons"), join(out, "icons"), { recursive: true });
   cpSync(join(root, manifestFile), join(out, "manifest.json"));
   console.log(`built dist/${name}`);

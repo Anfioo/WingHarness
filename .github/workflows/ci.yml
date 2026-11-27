@@ -40,3 +40,8 @@ jobs:
 
       - name: Format, lint and build
         run: pnpm check
+
+      # The extension is packaged outside pnpm build, so build it here to keep
+      # build.mjs (and its locale/icon payload) honest on every change.
+      - name: Package the browser extension
+        run: node extension/build.mjs

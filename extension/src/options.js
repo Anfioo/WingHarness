@@ -1,7 +1,8 @@
 // Adapted from moin (MIT), https://github.com/exxvius/moin — see PRIVACY.md.
 //
-// Options page logic. Reuses the globals from shared.js (loaded first): `B`,
-// `loadConfig`, `saveConfig`, `verifyApp`. Settings save as they change.
+// Options page logic. Reuses the globals from i18n.js (`t`, `applyI18n`) and
+// shared.js (`B`, `loadConfig`, `saveConfig`, `verifyApp`), both loaded first.
+// Settings save as they change.
 
 const portEl = document.getElementById("port");
 const tokenEl = document.getElementById("token");
@@ -9,6 +10,11 @@ const enabledEl = document.getElementById("enabled");
 const autoEl = document.getElementById("autoCapture");
 const testEl = document.getElementById("test");
 const statusEl = document.getElementById("status");
+const versionEl = document.getElementById("version");
+
+document.documentElement.lang = B.i18n.getUILanguage();
+applyI18n(document);
+versionEl.textContent = `v${B.runtime.getManifest().version}`;
 
 async function init() {
   const cfg = await loadConfig();
@@ -18,9 +24,9 @@ async function init() {
   autoEl.checked = cfg.autoCapture;
 }
 
-function setStatus(text, kind) {
-  statusEl.textContent = text;
-  statusEl.className = `status ${kind ?? "dim"}`;
+function setStatus(key, kind) {
+  statusEl.textContent = t(key);
+  statusEl.className = `status ${kind ?? "muted"}`;
 }
 
 // Persist the port only when it's a valid TCP port; otherwise snap it back.
@@ -43,14 +49,14 @@ testEl.addEventListener("click", async () => {
   await commitPort();
   const cfg = { port: Number(portEl.value), token: tokenEl.value.trim() };
   if (!cfg.token) {
-    setStatus("Paste the access token first", "bad");
+    setStatus("statusPasteToken", "bad");
     return;
   }
-  setStatus("Testing…", "dim");
+  setStatus("statusTesting", "muted");
   const result = await verifyApp(cfg);
-  if (result === "ok") setStatus("Connected to WingHarness ✓", "ok");
-  else if (result === "bad-token") setStatus("Reached WingHarness, but the token is wrong", "bad");
-  else setStatus("Couldn't reach WingHarness — is it running?", "bad");
+  if (result === "ok") setStatus("statusConnected", "ok");
+  else if (result === "bad-token") setStatus("statusBadToken", "bad");
+  else setStatus("statusUnreachable", "bad");
 });
 
 init();
