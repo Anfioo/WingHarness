@@ -10,6 +10,7 @@
 		"predev": "node scripts/prepare-preview.mjs",
 		"build": "tsc && vite build",
 		"prebuild": "node scripts/prepare-preview.mjs",
+		"build:extension": "node extension/build.mjs",
 		"preview": "vite preview",
 		"test": "vitest run",
 		"release:version": "node scripts/release-version.mjs",

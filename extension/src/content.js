@@ -4,6 +4,9 @@
 // A URL that looks like a file can still redirect to a landing page or an auth
 // flow, so this script intentionally never intercepts link clicks. The
 // background listens for the browser's actual download and uses its final URL.
+//
+// Loaded after i18n.js in the manifest's content_scripts, so `t` and
+// `applyI18n` are already defined here.
 
 (() => {
   const B = globalThis.browser ?? globalThis.chrome;
@@ -23,12 +26,13 @@
       // A shadow root keeps the page's CSS from bleeding into (or breaking) the
       // prompt, and vice versa.
       const host = document.createElement("div");
-      host.style.cssText =
-        "all:initial;position:fixed;inset:0;z-index:2147483647;";
+      host.style.cssText = "all:initial;position:fixed;inset:0;z-index:2147483647;";
+      host.setAttribute("lang", B.i18n.getUILanguage());
       const shadow = host.attachShadow({ mode: "open" });
       shadow.innerHTML = PROMPT_MARKUP;
-      shadow.querySelector(".mark").src = B.runtime.getURL("icons/icon-128.png");
-      shadow.querySelector(".file").textContent = file || "this download";
+      applyI18n(shadow);
+      shadow.querySelector(".mark").src = B.runtime.getURL("icons/icon.svg");
+      if (file) shadow.querySelector(".file").textContent = file;
 
       const done = (retry) => {
         document.removeEventListener("keydown", onKey, true);
@@ -50,47 +54,82 @@
     });
   }
 
+  // Palette and type mirror src/theme.css (the desktop app's neutral shadcn
+  // tokens), so the prompt belongs to WingHarness on any page and in either
+  // color scheme.
   const PROMPT_MARKUP = `
     <style>
+      :host {
+        --wh-card: oklch(1 0 0);
+        --wh-text: oklch(0.145 0 0);
+        --wh-muted: oklch(0.556 0 0);
+        --wh-border: oklch(0.922 0 0);
+        --wh-ghost: oklch(0.97 0 0);
+        --wh-primary: oklch(0.205 0 0);
+        --wh-primary-text: oklch(0.985 0 0);
+      }
+      @media (prefers-color-scheme: dark) {
+        :host {
+          --wh-card: oklch(0.19 0 0);
+          --wh-text: oklch(0.985 0 0);
+          --wh-muted: oklch(0.708 0 0);
+          --wh-border: oklch(0.269 0 0);
+          --wh-ghost: oklch(0.269 0 0);
+          --wh-primary: oklch(0.985 0 0);
+          --wh-primary-text: oklch(0.205 0 0);
+        }
+      }
       .backdrop {
         position: fixed; inset: 0; display: flex; align-items: center;
-        justify-content: center; background: rgba(6, 8, 12, 0.5);
-        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        justify-content: center; background: rgb(0 0 0 / 0.45);
+        font:
+          14px/1.55 Inter, ui-sans-serif, system-ui, -apple-system,
+          "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
       .card {
         width: 380px; max-width: calc(100vw - 40px);
-        background: #171b23; color: #eef1f7;
-        border: 1px solid #262c38; border-radius: 14px;
-        padding: 22px 22px 18px; box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+        background: var(--wh-card); color: var(--wh-text);
+        border: 1px solid var(--wh-border); border-radius: 10px;
+        padding: 22px 22px 18px; box-shadow: 0 18px 50px rgb(0 0 0 / 0.4);
       }
       .row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-      .mark { width: 34px; height: 34px; border-radius: 9px; }
-      h1 { margin: 0; font-size: 16px; font-weight: 650; }
-      p { margin: 0 0 6px; color: #9aa4b2; }
+      .mark { width: 34px; height: 34px; flex: none; border-radius: 8px; }
+      h1 { margin: 0; font-size: 16px; font-weight: 600; }
+      p { margin: 0 0 6px; color: var(--wh-muted); }
       .file {
-        margin: 4px 0 18px; padding: 8px 12px; background: #222835;
+        margin: 4px 0 18px; padding: 8px 12px; background: var(--wh-ghost);
         border-radius: 8px; font-size: 13px; word-break: break-all;
         max-height: 3.2em; overflow: hidden;
       }
       .actions { display: flex; gap: 10px; justify-content: flex-end; }
       button {
-        font: inherit; font-weight: 600; padding: 9px 16px; border-radius: 9px;
-        border: 1px solid #262c38; background: #222835; color: #eef1f7; cursor: pointer;
+        min-height: 36px; padding: 0 14px; border-radius: 8px;
+        border: 1px solid var(--wh-border); background: transparent;
+        color: var(--wh-text); font: inherit; font-weight: 500; cursor: pointer;
       }
-      button.primary { background: #f5f5f7; border-color: #f5f5f7; color: #1d1d1f; }
-      button:hover { filter: brightness(1.08); }
+      button:hover { background: var(--wh-ghost); }
+      button.primary {
+        background: var(--wh-primary); border-color: var(--wh-primary);
+        color: var(--wh-primary-text);
+      }
+      button.primary:hover { opacity: 0.9; }
+      button:focus-visible { outline: 2px solid var(--wh-muted); outline-offset: 2px; }
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; }
+      }
     </style>
     <div class="backdrop">
       <div class="card" role="dialog" aria-modal="true">
         <div class="row">
           <img class="mark" alt="" />
-          <h1>WingHarness isn't running</h1>
+          <h1 data-i18n="promptTitle">WingHarness isn't running</h1>
         </div>
-        <p>Start WingHarness, then send it this download.</p>
-        <div class="file"></div>
+        <p data-i18n="promptBody">Start WingHarness, then send it this download.</p>
+        <div class="file" data-i18n="promptFallbackFile">this download</div>
         <div class="actions">
-          <button id="wh-cancel">Not now</button>
-          <button id="wh-retry" class="primary">I started it</button>
+          <button id="wh-cancel" data-i18n="promptNotNow">Not now</button>
+          <button id="wh-retry" class="primary" data-i18n="promptRetry">I started it</button>
         </div>
       </div>
     </div>`;

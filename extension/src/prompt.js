@@ -7,6 +7,9 @@
 
 const B = globalThis.browser ?? globalThis.chrome;
 
+document.documentElement.lang = B.i18n.getUILanguage();
+applyI18n(document);
+
 const params = new URLSearchParams(location.search);
 const file = params.get("file");
 if (file) document.getElementById("file").textContent = file;

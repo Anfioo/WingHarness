@@ -34,6 +34,23 @@ scheme and no deep link — so the prompt offers to wait: start WingHarness from
 Start menu / launcher, click **I started it**, and the download is queued. Decline
 and the browser downloads it normally.
 
+## Options, language and About
+
+Clicking the toolbar icon opens the options page. It pairs the extension with
+WingHarness, sets the capture toggles, and carries an **About** card with the
+WingHarness repository, the upstream [moin](https://github.com/exxvius/moin)
+project, both licenses and the original moin icon.
+
+The interface follows the browser's own UI language. English and Simplified
+Chinese are bundled in `_locales/`; the manifest name and description are
+localized there too. There is no in-extension language switch — change the
+browser's language to change the extension's.
+
+The extension's visuals reuse the desktop app's neutral palette, 10px radius and
+inter/system font stack (`src/theme.css` mirrors the app's `src/index.css`). The
+WingHarness logo is `icons/icon.svg`, with 16/32/48/128 PNG renders for Chromium
+(which does not accept SVG icons); Firefox loads the SVG directly.
+
 ## Setup
 
 1. **Start WingHarness.** In **Settings → Browser integration**, turn it on, copy
@@ -63,7 +80,13 @@ folder itself.
 ### Firefox
 
 Firefox needs its own manifest (background scripts instead of a service worker), so
-build the per-browser folders first:
+build the per-browser folders first. From the repository root:
+
+```
+pnpm build:extension
+```
+
+or from this folder:
 
 ```
 node build.mjs
@@ -76,9 +99,12 @@ Then in `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…**
 > reaches WingHarness — allow it. Temporary add-ons are removed when Firefox
 > restarts, so re-load it after a restart.
 
-`node build.mjs` also writes zips to `dist/` (`wingharness-chrome-<version>.zip`,
-`wingharness-firefox-<version>.zip`) for handing a build to someone else. That is
-all the build does — it never touches the app's `pnpm build`.
+`pnpm build:extension` (or `node build.mjs`) also writes zips to `dist/`
+(`wingharness-chrome-<version>.zip`, `wingharness-firefox-<version>.zip`) for
+handing a build to someone else. That is all the build does — it never touches the
+app's `pnpm build`. The release workflow packages the same two zips and attaches
+them to the GitHub release for each `v*` tag, so a published build can be
+downloaded without running anything.
 
 ## How it talks to WingHarness
 
@@ -154,13 +180,16 @@ extension/
   manifest.json            Chrome/Edge/Brave (MV3, service worker)
   manifest.firefox.json    Firefox (MV3, background scripts)
   build.mjs                assembles dist/chrome and dist/firefox, then zips them
-  icons/                   WingHarness icon (SVG source + 32/48/128 PNG)
+  _locales/                UI strings: en, zh_CN (browser-native i18n)
+  icons/                   WingHarness logo (SVG + 16/32/48/128 PNG) and moin.svg
   src/
+    i18n.js                locale lookup and static data-i18n application
+    theme.css              shared palette, type and buttons (mirrors the app)
     shared.js              config + WingHarness API (ping / verify / send), cookie header
     content.js             in-page "start WingHarness" prompt
     background.js          context menu, response/download capture and retry prompt
-    prompt.html/.js        fallback popup-window prompt (restricted pages)
-    options.html/.js/.css  pairing (port + token) and capture toggles
+    prompt.html/.css/.js   fallback popup-window prompt (restricted pages)
+    options.html/.css/.js  pairing, capture toggles and the About card
 ```
 
 Clicking the toolbar icon opens these options. The "start WingHarness" prompt
@@ -172,4 +201,5 @@ store) it falls back to a small popup window.
 
 Adapted from [moin](https://github.com/exxvius/moin) (MIT). The RPC contract is
 byte-compatible with the original; the branding, defaults and the "app isn't
-running" flow are WingHarness-specific.
+running" flow are WingHarness-specific. The About card shows both repositories,
+the two licenses and the original moin icon alongside the WingHarness logo.
