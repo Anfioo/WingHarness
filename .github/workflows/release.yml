@@ -70,9 +70,19 @@ jobs:
           TAG: ${{ steps.vars.outputs.tag }}
         run: |
           set -euo pipefail
-          release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+          release_id=""
+          for attempt in {1..30}; do
+            release_id="$(gh api "repos/${REPOSITORY}/releases?per_page=100" | jq -r --arg tag "$TAG" '[.[] | select(.tag_name == $tag and .draft == true)][0].id // empty')"
+            if [ -n "$release_id" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 30 ]; then
+              echo "Draft release for tag $TAG is not visible yet; retrying ($attempt/30)..."
+              sleep 2
+            fi
+          done
           if [ -z "$release_id" ]; then
-            echo "Draft release not found for tag $TAG in $REPOSITORY" >&2
+            echo "Draft release not found for tag $TAG in $REPOSITORY after 30 attempts" >&2
             exit 1
           fi
           echo "id=$release_id" >> "$GITHUB_OUTPUT"
