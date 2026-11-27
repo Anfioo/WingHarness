@@ -182,15 +182,6 @@
     "title": "Settings",
     "button": "Settings",
     "close": "Close",
-    "aiConfig": {
-      "title": "AI config sync",
-      "description": "Choose which AI coding tools the sync page manages. A switched-off tool is not listed there and is never written to.",
-      "agentsLabel": "Agents",
-      "agentsHint": "Only the tools switched on here appear on the AI config sync page and get written to disk.",
-      "noneEnabled": "No agent is switched on — the sync page will be empty.",
-      "autoSave": "Changes save automatically.",
-      "loadFailed": "Could not load the agent list."
-    },
     "proxy": {
       "title": "Proxy",
       "description": "The proxy the app uses for network requests, including the tools it starts.",
@@ -743,125 +734,9 @@
     }
   },
   "aiConfig": {
-    "loading": "Loading…",
-    "loadFailed": "Could not load AI config.",
-    "refreshed": "Refreshed.",
-    "cancel": "Cancel",
-    "save": "Save",
-    "close": "Close",
-    "storeExists": "Store ready",
-    "storeMissing": "Store not initialized",
-    "noRemote": "No remote configured",
-    "storePath": "Store path",
-    "projectRoot": "Project root",
-    "push": "Push",
-    "pull": "Pull",
-    "setup": {
-      "title": "Initialize Store",
-      "description": "Point at a git remote to use as the single source of truth. Every AI coding tool translates it into its own skills / rules / commands.",
-      "init": "Initialize"
-    },
-    "tabs": {
-      "agents": "Agent status",
-      "items": "Items"
-    },
-    "agents": {
-      "noStore": "Initialize the store to see each agent's sync status.",
-      "agent": "Agent",
-      "status": "Status",
-      "detail": "Detail",
-      "contentDiff": "Content diff",
-      "mcpDiff": "MCP diff",
-      "search": "Search agents by name…",
-      "filterAll": "All statuses",
-      "noMatch": "No agents match the filter."
-    },
-    "status": {
-      "in-sync": "In sync",
-      "drift": "Drift",
-      "unconfirmed": "Unconfirmed",
-      "error": "Error"
-    },
-    "scope": {
-      "global": "Global",
-      "project": "Project"
-    },
-    "detail": {
-      "description": "Broken down by scope. Each axis shows where it writes, what is already on disk, and what a sync would change.",
-      "axis": {
-        "content": "Content",
-        "mcp": "MCP servers"
-      },
-      "location": "Path",
-      "locationUnavailable": "No usable path on this machine",
-      "onDisk": "Files of this kind already on disk",
-      "pending": "{{toWrite}} to write · {{toDelete}} to delete",
-      "nothingPending": "In sync — nothing to write",
-      "readOnly": "Convention unconfirmed — read-only, nothing will be written here.",
-      "import": "Import to store"
-    },
-    "plan": {
-      "title": "Write preview",
-      "description": "What this sync would change. Nothing is written until you confirm.",
-      "inSync": "Everything is in sync — nothing to apply",
-      "apply": "Apply"
-    },
-    "items": {
-      "noStore": "Initialize the store to manage items.",
-      "all": "All",
-      "empty": "No items yet.",
-      "add": "New item",
-      "newTitle": "New item",
-      "editTitle": "Edit item",
-      "editorHint": "Edit the frontmatter and body directly; saving writes it to the store. Renaming is not supported.",
-      "name": "Name",
-      "edit": "Edit",
-      "loadFailed": "Could not load the item."
-    },
-    "kind": {
-      "skill": "Skill",
-      "rule": "Rule",
-      "command": "Command",
-      "subagent": "Subagent"
-    },
-    "help": {
-      "title": "Help",
-      "open": "Help",
-      "subtitle": "The store and each agent's files on disk are two separate things — plus what each control does.",
-      "lines": [
-        "shaic tracks two separate things:",
-        "  the store    — canonical skills/rules/commands/subagents/MCP servers you've added; this is what gets synced out to every agent.",
-        "  agent files  — whatever's already on disk for an agent (may exist before shaic ever touched it). 'agents discover' (CLI) lists these; 'Import' in a scope row pulls one into the store.",
-        "",
-        "Agent status",
-        "  one row per agent, showing its worst status across every scope and content/MCP axis it supports.",
-        "  Detail = open the agent   Content diff / MCP diff = preview before any write",
-        "  Push / Pull sync the store; a secret-scan block asks for confirmation first",
-        "  Initialize = setup wizard   Refresh = re-read status",
-        "",
-        "Items (skills / rules / commands / subagents)",
-        "  the chips filter by kind   New item = add   Edit = change   Delete = remove and sync out immediately",
-        "",
-        "Write preview (shown before anything is written)",
-        "  Apply writes the listed changes   Cancel writes nothing",
-        "",
-        "Agent detail",
-        "  breaks the selected agent down by scope (Global / Project), each row showing both content and MCP status.",
-        "  Content diff / MCP diff = preview that axis   Import to store = pull this scope's on-disk files in",
-        "",
-        "Setup wizard (first run, or when no store exists)",
-        "  type the git remote URL, Initialize = validate then clone/init it"
-      ]
-    },
-    "confirm": {
-      "deleteTitle": "Delete item",
-      "deleteBody": "Delete {{kind}} {{name}} and materialize to every agent?",
-      "delete": "Delete",
-      "importTitle": "Import to store",
-      "importBody": "Pull {{label}}'s on-disk files into the store? (Does not write agent config.)",
-      "import": "Import",
-      "forceTitle": "Blocked by secret scan",
-      "force": "Continue anyway"
+    "underConstruction": {
+      "title": "Under construction",
+      "description": "The AI asset sync engine is being rebuilt. This page will return when it is ready."
     }
   },
   "claudeChat": {

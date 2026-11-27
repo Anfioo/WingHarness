@@ -67,7 +67,7 @@ makes every command in the window fail.
 Each webview has its own JavaScript context, so the root can live in one module
 variable per window: `src/commands/project-context.ts` holds the window's active
 project, set when the workbench mounts. The command wrappers in
-`commands/services/project-fs`, `file-preview`, `shaic` and `database` read it,
+`commands/services/project-fs`, `file-preview` and `database` read it,
 so call sites keep their signatures.
 
 The workbench sets it on mount and clears it on unmount — leaving it behind
@@ -205,8 +205,8 @@ Three pages work on a project without having one of their own. Each puts a
 button that goes to the projects page.
 
 - [File preview](./FILE_PREVIEW.md) — which project's tree to browse.
-- [AI config sync](./AI_CONFIG.md) — which project's agent files the dashboard
-  reads and writes.
+- [AI config sync](./AI_CONFIG.md) — currently a placeholder page; the engine
+  reads no project until it is rebuilt.
 - [Database](./DATABASE.md) — the project a *relative* SQLite path resolves
   against, and the project a project data source belongs to.
 

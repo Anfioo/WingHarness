@@ -15,7 +15,7 @@ members = [
     "git-core",
     "api-core",
     "svn-core",
-    "shaic-core",
+    "agent-sync-core",
     "prism-core",
     "systools-core",
     "server-core",
@@ -161,11 +161,6 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
 thiserror = "1"
 once_cell = "1"
-# The AI config-sync engine: store, agent adapters and materialize logic,
-# adapted from https://github.com/dariocurr/shaic (MIT). See its `UPSTREAM.md`
-# for what diverges from the original.
-shaic-core = { path = "shaic-core" }
-
 [target.'cfg(windows)'.dependencies]
 # The moin settings tab displays the effective system proxy. Reading WinINET's
 # settings is a registry lookup, not another process.

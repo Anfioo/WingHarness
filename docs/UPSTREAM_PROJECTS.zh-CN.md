@@ -55,7 +55,7 @@ WingHarness 源自作者自己的私有工作流应用
 | [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor) | GPL-3.0-only | `md-editor-core`、`md-editor` 页面 | 属改写，无相同文件；`md-editor-core/UPSTREAM.md` |
 | [angkorgit](https://github.com/cheat2001/angkorgit) | MIT | `git-core`、`git-repo` 页面 | 导入时 16 个逐字节相同的文件，当前仍有 7 个；`git-core/UPSTREAM.md` |
 | [OrcaSVN](https://github.com/wustites/OrcaSVN) | MIT | `svn-core`、`svn-workspace` 页面 | 整体移植；`svn-core/UPSTREAM.md` |
-| [shaic](https://github.com/dariocurr/shaic) | MIT | `shaic-core`、`ai-config` 页面 | 导入时 51 个逐字节相同的文件，当前仍有 50 个；`shaic-core/UPSTREAM.md` |
+| [shaic](https://github.com/dariocurr/shaic) | MIT | `agent-sync-core`、`ai-config` 页面 | 导入时 51 个逐字节相同的文件，当前仍有 50 个；`agent-sync-core/UPSTREAM.md` |
 | [McpHub](https://github.com/Soflutionltd/McpHub) | MIT | `src-tauri/src/mcphub`、`mcp-hub` 页面 | 每个源文件都保留归属声明 |
 | [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`、`servers` 页面 | 属改写，无相同文件；`server-core/UPSTREAM.md` |
 | [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`、`frp` 页面 | 属改写，无相同文件；`frp-core/UPSTREAM.md` |
@@ -79,7 +79,7 @@ WingHarness 源自作者自己的私有工作流应用
   字节相同的文件是它的 `hermes.png` 图标，声明仍然必须随行。
 - 每个整块搬过来的 crate 或子系统都保留一份目录级 `UPSTREAM.md`：`git-core`、
   `svn-core`、`systools-core`、`md-editor-core`、`frp-core`、`server-core`、
-  `ports-core`、`shaic-core`、`db-core`、`argus-core`、`argus-service`、
+  `ports-core`、`agent-sync-core`、`db-core`、`argus-core`、`argus-service`、
   `space-preview-core`、`moin-core`、`one-mail-core` 与 `mise-core`。
   预览的两半各有一份——Rust crate 与前端查看器。各上游的许可证文本放在 `licenses/`；GPL 上游
   指向本项目的 `LICENSE`。
@@ -111,7 +111,7 @@ WingHarness 源自作者自己的私有工作流应用
 4. **保留署名头。** 每个移植文件开头都写一行注释，注明上游项目与许可证。
 5. **为整目录写 `UPSTREAM.md`。** 整个 crate 或子系统被搬过来时写它，记录来源、
    版本、改了什么、以后如何跟进上游变更。可参照
-   `src-tauri/shaic-core/UPSTREAM.md`。
+   `src-tauri/agent-sync-core/UPSTREAM.md`。
 6. **更新声明。** 把项目加进
    [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)，并在此处翻转状态。
 7. **补文档。** 在 `docs/features/` 下补双语指南（`FEATURE.md` 与 `FEATURE.zh-CN.md`），

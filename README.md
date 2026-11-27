@@ -156,7 +156,7 @@ repository yet.
 
 | Guide | What it covers |
 |-------|----------------|
-| [AI_CONFIG.md](./docs/features/AI_CONFIG.md) | AI config sync: one git store, materialised into each agent's layout |
+| [AI_CONFIG.md](./docs/features/AI_CONFIG.md) | AI config sync: placeholder page; the engine is an isolated workspace crate |
 | [API_CLIENT.md](./docs/features/API_CLIENT.md) | Postman-like REST client driven by an OpenAPI or Swagger document |
 | [CC_SWITCH.md](./docs/features/CC_SWITCH.md) | Provider management for the AI coding CLIs |
 | [CLAUDE_CODE.md](./docs/features/CLAUDE_CODE.md) | The Claude chat, history and workflow pages |

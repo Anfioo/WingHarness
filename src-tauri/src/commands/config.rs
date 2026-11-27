@@ -5,14 +5,6 @@ use tauri::Manager;
 
 use crate::config::{self, Config, ProxyMode};
 
-/// One switch in the settings page's agent list.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AgentOptionView {
-    pub id: String,
-    pub name: String,
-}
-
 /// The configuration plus the context the settings UI needs to render it.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,11 +21,6 @@ pub struct ConfigView {
     pub data_dir_default: String,
     /// The pointer file, shown so it can be edited by hand.
     pub data_dir_pointer: String,
-    /// Agents the AI config sync page can manage, in the registry's order.
-    ///
-    /// Read from the registry rather than a hard-coded list, so adding an agent
-    /// to `shaic-core` makes a switch appear here without touching the UI.
-    pub ai_agents: Vec<AgentOptionView>,
 }
 
 fn view() -> ConfigView {
@@ -44,13 +31,6 @@ fn view() -> ConfigView {
         data_dir_configured: config::configured_data_dir().map(|dir| dir.display().to_string()),
         data_dir_default: config::default_dir().display().to_string(),
         data_dir_pointer: config::pointer_path().display().to_string(),
-        ai_agents: shaic_core::adapters::registry()
-            .iter()
-            .map(|agent| AgentOptionView {
-                id: agent.id().as_str().to_string(),
-                name: agent.display_name().to_string(),
-            })
-            .collect(),
     }
 }
 

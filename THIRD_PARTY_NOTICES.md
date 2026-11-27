@@ -245,9 +245,9 @@ page runs it from the data directory; it is not modified. SHA-256 at import:
 - License: MIT
 - License text: [licenses/shaic-LICENSE.txt](./licenses/shaic-LICENSE.txt)
 
-`src-tauri/shaic-core` derives from the `core/` crate of shaic; fifty-one files
-were byte-identical at import. The crate is now a first-party engine and is
-edited here. See `src-tauri/shaic-core/UPSTREAM.md` for the porting record.
+`src-tauri/agent-sync-core` derives from the `core/` crate of shaic; fifty-one
+files were byte-identical at import. The crate is now a first-party engine and is
+edited here. See `src-tauri/agent-sync-core/UPSTREAM.md` for the porting record.
 
 ### SpacePreview
 

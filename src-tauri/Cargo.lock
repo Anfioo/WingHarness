@@ -57,6 +57,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "agent-sync-core"
+version = "0.0.1"
+dependencies = [
+ "assert_fs",
+ "clap",
+ "dirs 7.0.0",
+ "keyring 4.2.0",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2 0.11.1",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml 1.2.3+spec-1.1.0",
+ "toml_edit 0.25.21+spec-1.1.0",
+ "walkdir",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7044,26 +7064,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shaic-core"
-version = "0.0.1"
-dependencies = [
- "assert_fs",
- "clap",
- "dirs 7.0.0",
- "keyring 4.2.0",
- "regex",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "sha2 0.11.1",
- "tempfile",
- "thiserror 2.0.21",
- "toml 1.2.3+spec-1.1.0",
- "toml_edit 0.25.21+spec-1.1.0",
- "walkdir",
-]
-
-[[package]]
 name = "shake"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9699,7 +9699,6 @@ dependencies = [
  "serde_yml",
  "server-core",
  "sha2 0.10.9",
- "shaic-core",
  "space-preview-core",
  "sqlx",
  "svn-core",

@@ -61,7 +61,7 @@ for the project name (2026-11-05).
 | [TizuMark](https://github.com/tizuio/TizuMark-Markdown-Editor) | GPL-3.0-only | `md-editor-core`, `md-editor` page | Rewritten, no identical files; `md-editor-core/UPSTREAM.md` |
 | [angkorgit](https://github.com/cheat2001/angkorgit) | MIT | `git-core`, `git-repo` page | 16 byte-identical files at import, 7 still identical; `git-core/UPSTREAM.md` |
 | [OrcaSVN](https://github.com/wustites/OrcaSVN) | MIT | `svn-core`, `svn-workspace` page | Ported wholesale; `svn-core/UPSTREAM.md` |
-| [shaic](https://github.com/dariocurr/shaic) | MIT | `shaic-core`, `ai-config` page | 51 byte-identical files at import, 50 still identical; `shaic-core/UPSTREAM.md` |
+| [shaic](https://github.com/dariocurr/shaic) | MIT | `agent-sync-core`, `ai-config` page | 51 byte-identical files at import, 50 still identical; `agent-sync-core/UPSTREAM.md` |
 | [McpHub](https://github.com/Soflutionltd/McpHub) | MIT | `src-tauri/src/mcphub`, `mcp-hub` page | Every source file keeps an attribution header |
 | [XTerm](https://github.com/Rockytkg/XTerm) | MIT | `server-core`, `servers` page | Rewritten, no identical files; `server-core/UPSTREAM.md` |
 | [Frpilot](https://github.com/leapfu/frpilot) | MIT | `frp-core`, `frp` page | Rewritten, no identical files; `frp-core/UPSTREAM.md` |
@@ -88,7 +88,7 @@ for the project name (2026-11-05).
   icon, so the notice still has to travel.
 - Every whole crate or subsystem carried over keeps a per-directory
   `UPSTREAM.md`: `git-core`, `svn-core`, `systools-core`, `md-editor-core`,
-  `frp-core`, `server-core`, `ports-core`, `shaic-core`, `db-core`,
+  `frp-core`, `server-core`, `ports-core`, `agent-sync-core`, `db-core`,
   `argus-core`, `argus-service`, `space-preview-core`, `moin-core`,
   `one-mail-core` and `mise-core`. The preview's two halves each have one — the
   Rust crate and the frontend viewers. The license text of each upstream is in
@@ -127,7 +127,7 @@ Use this for every feature carried over.
    comment naming the upstream project and licence.
 5. **Write a per-directory `UPSTREAM.md`** when a whole crate or subsystem is
    carried over. It records origin, version, what was changed, and how to take
-   an upstream change later. `src-tauri/shaic-core/UPSTREAM.md` is the model.
+   an upstream change later. `src-tauri/agent-sync-core/UPSTREAM.md` is the model.
 6. **Update the notices.** Add the project to
    [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) and flip its status here.
 7. **Document it.** Add or update the guide under `docs/features/`, in both languages

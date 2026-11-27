@@ -214,9 +214,9 @@ SHA-256：`94f983b190438311e006b957db7c8422709e0ba62a6c2ac04e278164108f2512`。
 - 许可证：MIT
 - 许可证文本：[licenses/shaic-LICENSE.txt](./licenses/shaic-LICENSE.txt)
 
-`src-tauri/shaic-core` 派生自 shaic 的 `core/` crate；导入时有 51 个文件逐字节
+`src-tauri/agent-sync-core` 派生自 shaic 的 `core/` crate；导入时有 51 个文件逐字节
 一致。该 crate 现在是自有引擎并在本仓库中修改。移植记录见
-`src-tauri/shaic-core/UPSTREAM.md`。
+`src-tauri/agent-sync-core/UPSTREAM.md`。
 
 ### SpacePreview
 

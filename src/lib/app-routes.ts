@@ -333,10 +333,10 @@ const routeTable: AppRoute[] = [
     title: "AI 配置同步",
     navLabel: "AI 配置同步",
     description:
-      "用一个 git 仓库作为唯一的配置数据源（store），把 skills / rules / commands / subagents 与 MCP 定义翻译成各 AI 编码工具各自需要的格式。查看每个 agent 的同步漂移状态、预览并应用写入，或把 agent 本地已有内容导入 store。",
+      "该页面正在重建：同步引擎将改为 skill 优先的资产仓库，完成后恢复完整界面，当前仅显示「构建中」占位。",
     icon: Sparkles,
     scope: "Store / Skill 同步",
-    items: ["Agent 漂移看板", "差异预览与应用", "条目管理", "Push / Pull"],
+    items: ["构建中", "引擎重建"],
   },
   {
     id: "claudeChat",
