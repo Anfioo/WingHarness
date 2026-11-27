@@ -78,7 +78,7 @@ export function PathBar({ side, path, onNavigate }: PathBarProps) {
 
   return (
     <div className="border-border bg-muted/30 flex min-w-0 flex-1 items-center gap-1 rounded-md border px-1.5 py-0.5">
-      <div className="flex min-w-0 flex-1 items-center overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-w-0 flex-1 [scrollbar-width:none] items-center overflow-x-auto [&::-webkit-scrollbar]:hidden">
         {segments.map((segment, index) => (
           <Fragment key={segment.path}>
             {index > 0 && <ChevronRight className="text-muted-foreground size-3 shrink-0" />}

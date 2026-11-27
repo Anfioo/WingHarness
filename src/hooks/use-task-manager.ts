@@ -23,12 +23,7 @@ import {
 import { subscribeTaskManagerSettings } from "@/lib/task-manager/settings-event";
 
 export type TaskManagerTab =
-  | "processes"
-  | "performance"
-  | "services"
-  | "startup"
-  | "connections"
-  | "history";
+  "processes" | "performance" | "services" | "startup" | "connections" | "history";
 
 export type TaskManagerState = {
   snapshot: Snapshot | null;

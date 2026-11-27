@@ -7,27 +7,17 @@ export type MiseHealthLevel = "healthy" | "info" | "warning" | "critical";
 export type MiseRuntimeSource = "path" | "scoop" | "direct" | "unknown";
 export type MiseShimState = "present" | "missing" | "unsupported";
 export type MiseSignalCode =
-  | "runtime"
-  | "active-tools"
-  | "path-export"
-  | "java-home"
-  | "config-source";
+  "runtime" | "active-tools" | "path-export" | "java-home" | "config-source";
 export type MiseToolSourceKind = "global" | "project" | "unknown";
 export type MiseRemoteState = "pending" | "ready" | "unavailable";
 export type MiseImpactReason = "global" | "project";
 export type MiseToolActionKind = "upgrade" | "inspect-source" | "show-current";
 export type MiseNoticeCode =
-  | "windows-shim-missing"
-  | "remote-unavailable"
-  | "project-trust"
-  | "other";
+  "windows-shim-missing" | "remote-unavailable" | "project-trust" | "other";
 export type MiseHistoryStatus = "success" | "failure" | "canceled";
 export type MiseOutputSource = "stdout" | "stderr";
 export type MiseActionProgressKind =
-  | "command-started"
-  | "output"
-  | "command-finished"
-  | "lockfile-cleanup";
+  "command-started" | "output" | "command-finished" | "lockfile-cleanup";
 export type MiseProjectNotes = "overrides" | "project-only" | "none" | "consistent";
 export type MiseProjectScanIssue = "not-trusted" | "unavailable";
 export type MiseBindingSource = "project" | "project-file" | "global" | "inherited" | "resolved";

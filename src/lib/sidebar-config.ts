@@ -83,9 +83,11 @@ export function buildDefaultConfig(routes: AppRoute[]): SidebarConfig {
     name: DEFAULT_GROUP_NAMES[group],
     items: routes
       .filter((route) => route.group === group)
-      .map(
-        (route): SidebarLeafItem => ({ kind: "route", id: routeItemId(route.id), route: route.id })
-      ),
+      .map((route): SidebarLeafItem => ({
+        kind: "route",
+        id: routeItemId(route.id),
+        route: route.id,
+      })),
   }));
 
   return { version: 1, groups };

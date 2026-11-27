@@ -4,13 +4,7 @@ import type { ChangeTreeRow } from "@/components/svn-workspace/file-tree";
 
 /** The active filter. `modified` is the reference's "Changes" grouping. */
 export type ChangeFilter =
-  | "all"
-  | "modified"
-  | "added"
-  | "deleted"
-  | "unversioned"
-  | "conflicted"
-  | "missing";
+  "all" | "modified" | "added" | "deleted" | "unversioned" | "conflicted" | "missing";
 
 export const CHANGE_FILTERS: ChangeFilter[] = [
   "all",

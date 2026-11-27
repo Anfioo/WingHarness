@@ -6,14 +6,7 @@
 
 /** Text encoding a preview may read and write with. */
 export type TextEncoding =
-  | "auto"
-  | "utf-8"
-  | "utf-16le"
-  | "utf-16be"
-  | "gb18030"
-  | "big5"
-  | "windows-1252"
-  | "shift_jis";
+  "auto" | "utf-8" | "utf-16le" | "utf-16be" | "gb18030" | "big5" | "windows-1252" | "shift_jis";
 
 /** The reading font a preview uses. Code and text stay monospaced. */
 export type PreviewFont = "auto" | "sans" | "serif" | "mono";

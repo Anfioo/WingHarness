@@ -208,13 +208,11 @@ export function PerformanceDeviceList({
     () =>
       devices.map((device) => ({
         device,
-        series: device.series.map(
-          (entry): SparkSeries => ({
-            points: historyValues(history, entry.key),
-            color: entry.color,
-            dashed: entry.dashed,
-          })
-        ),
+        series: device.series.map((entry): SparkSeries => ({
+          points: historyValues(history, entry.key),
+          color: entry.color,
+          dashed: entry.dashed,
+        })),
       })),
     [devices, history]
   );

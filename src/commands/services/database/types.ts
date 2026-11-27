@@ -313,13 +313,7 @@ export type PlanNode = {
 
 /** Stable categories the frontend branches on. */
 export type DatabaseErrorCode =
-  | "not-found"
-  | "invalid"
-  | "auth-failed"
-  | "unreachable"
-  | "cancelled"
-  | "protocol"
-  | "internal";
+  "not-found" | "invalid" | "auth-failed" | "unreachable" | "cancelled" | "protocol" | "internal";
 
 /** What a rejected command throws. `message` is English and never contains a password. */
 export type DatabaseError = {

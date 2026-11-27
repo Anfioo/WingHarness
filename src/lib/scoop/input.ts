@@ -19,8 +19,7 @@ export type ScoopBucketAction =
 export type ScoopBucketReason = "empty" | "unknown" | "name" | "url" | "tooMany";
 
 export type ScoopBucketParse =
-  | { ok: true; action: ScoopBucketAction }
-  | { ok: false; reason: ScoopBucketReason; value: string };
+  { ok: true; action: ScoopBucketAction } | { ok: false; reason: ScoopBucketReason; value: string };
 
 const BUCKET_NAME = /^[a-z0-9][a-z0-9._-]*$/;
 

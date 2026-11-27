@@ -50,13 +50,7 @@ export type StartupSummarySource =
   | "sourceLabel"
   | "unavailable";
 export type StartupTargetKind =
-  | "executable"
-  | "application"
-  | "script"
-  | "service"
-  | "task"
-  | "other"
-  | "unknown";
+  "executable" | "application" | "script" | "service" | "task" | "other" | "unknown";
 export type StartupDiagnosticCode =
   | "accessDenied"
   | "invalidData"
@@ -74,15 +68,9 @@ export type StartupCoverageReason =
   | "stateUnavailable"
   | "unsupportedOperatingSystem";
 export type StartupAggregateConfiguredState =
-  | "allEnabled"
-  | "partiallyEnabled"
-  | "allDisabled"
-  | "unknown";
+  "allEnabled" | "partiallyEnabled" | "allDisabled" | "unknown";
 export type StartupAggregateControlState =
-  | "allToggleable"
-  | "requiresElevation"
-  | "partiallyManageable"
-  | "viewOnly";
+  "allToggleable" | "requiresElevation" | "partiallyManageable" | "viewOnly";
 
 export interface StartupTarget {
   kind: StartupTargetKind;
@@ -298,13 +286,7 @@ export async function cancelStartupChange(): Promise<void> {
 
 /** Top-level source filter used for source badges and plan rows. */
 export type StartupSourceFilter =
-  | "all"
-  | "registry"
-  | "folder"
-  | "service"
-  | "task"
-  | "app"
-  | "advanced";
+  "all" | "registry" | "folder" | "service" | "task" | "app" | "advanced";
 
 /** Map one native source kind onto its page filter. */
 export function sourceFilterOf(kind: StartupSourceKind): Exclude<StartupSourceFilter, "all"> {

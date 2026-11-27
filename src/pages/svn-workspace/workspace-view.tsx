@@ -88,8 +88,7 @@ for (const tab of TAB_IDS) {
   PANELS[tab] = lazy(async () => {
     const module = await load();
     const candidate = (module.default ?? module.Panel ?? module[`${tab}Panel`] ?? module[tab]) as
-      | ComponentType
-      | undefined;
+      ComponentType | undefined;
     return { default: candidate ?? (() => <PlaceholderPanel tab={tab} />) };
   });
 }

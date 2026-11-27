@@ -179,12 +179,7 @@ export type Workspace = {
 };
 
 export type ProcessState =
-  | "starting"
-  | "running"
-  | "stopping"
-  | "stopped"
-  | "reconnecting"
-  | "failed";
+  "starting" | "running" | "stopping" | "stopped" | "reconnecting" | "failed";
 
 export type TunnelState = "unknown" | "online" | "offline" | "error";
 

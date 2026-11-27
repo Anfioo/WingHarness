@@ -84,19 +84,10 @@ export interface DirectorySelectionOutcome {
 }
 
 export type PermanentDeleteFailureReason =
-  | "accessDenied"
-  | "resourceBusy"
-  | "itemChanged"
-  | "protected"
-  | "notFound"
-  | "other";
+  "accessDenied" | "resourceBusy" | "itemChanged" | "protected" | "notFound" | "other";
 
 export type PermanentDeleteFailureStage =
-  | "validate"
-  | "prepareTarget"
-  | "createStaging"
-  | "moveToStaging"
-  | "remove";
+  "validate" | "prepareTarget" | "createStaging" | "moveToStaging" | "remove";
 
 export interface PermanentDeleteFailure {
   path: string;

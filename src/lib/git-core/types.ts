@@ -112,13 +112,7 @@ export interface SubmoduleInfo {
 }
 
 export type FileStatusKind =
-  | "new"
-  | "modified"
-  | "deleted"
-  | "renamed"
-  | "typechange"
-  | "conflicted"
-  | "untracked";
+  "new" | "modified" | "deleted" | "renamed" | "typechange" | "conflicted" | "untracked";
 
 export interface FileStatus {
   path: string;

@@ -237,15 +237,13 @@ export function BranchesPane({
     if (!grouped) {
       return [...list]
         .sort((a, b) => Number(b.isHead) - Number(a.isHead) || byName(a, b))
-        .map(
-          (branch): Row => ({
-            type: "branch",
-            key: `ref:${branch.name}`,
-            branch,
-            label: branch.name,
-            depth: 0,
-          })
-        );
+        .map((branch): Row => ({
+          type: "branch",
+          key: `ref:${branch.name}`,
+          branch,
+          label: branch.name,
+          depth: 0,
+        }));
     }
     return rowsOf(buildBranchTree(list), 0, prefix, (key) => !shut[key]);
   };

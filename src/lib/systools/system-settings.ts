@@ -13,12 +13,7 @@ import {
 export type SystemSettingsPlatform = "windows";
 
 export type SystemSettingCategory =
-  | "performance"
-  | "productivity"
-  | "privacy"
-  | "storage"
-  | "gaming"
-  | "appearance";
+  "performance" | "productivity" | "privacy" | "storage" | "gaming" | "appearance";
 
 /** Category order used by the page. */
 export const SYSTEM_SETTING_CATEGORIES: SystemSettingCategory[] = [
@@ -35,10 +30,7 @@ export type SystemSettingStatus = "recommended" | "optimized" | "unavailable";
 export type SystemSettingRiskLevel = "standard" | "caution" | "high";
 
 export type SystemSettingDiagnostic =
-  | "accessDenied"
-  | "invalidData"
-  | "unsupported"
-  | "stateUnavailable";
+  "accessDenied" | "invalidData" | "unsupported" | "stateUnavailable";
 
 export interface SystemSettingItem {
   settingId: string;

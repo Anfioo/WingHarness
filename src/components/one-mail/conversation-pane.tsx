@@ -151,7 +151,7 @@ export default function ConversationPane() {
               element.scrollHeight - element.scrollTop - element.clientHeight > 2
             );
           }}
-          className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [scrollbar-gutter:stable]"
+          className="min-h-0 flex-1 [scrollbar-gutter:stable] overflow-y-auto px-5 py-4"
         >
           {threadError && (
             <div

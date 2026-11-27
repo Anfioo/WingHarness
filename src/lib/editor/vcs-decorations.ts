@@ -21,13 +21,7 @@ import type { FileStatus, FileStatusKind } from "@/lib/git-core/types";
  */
 
 export type VcsKind =
-  | "modified"
-  | "added"
-  | "deleted"
-  | "renamed"
-  | "untracked"
-  | "conflicted"
-  | "ignored";
+  "modified" | "added" | "deleted" | "renamed" | "untracked" | "conflicted" | "ignored";
 
 /**
  * What a single file is, from its staged and unstaged halves.

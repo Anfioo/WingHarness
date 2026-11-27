@@ -31,8 +31,7 @@ import { ProjectContextMenu, type MenuPoint, type ProjectMenuItem } from "./cont
 import type { ProjectTabOpeners } from "./tab-openers";
 
 export type BranchMenuTarget =
-  | { point: MenuPoint; branch: BranchInfo }
-  | { point: MenuPoint; tag: TagInfo };
+  { point: MenuPoint; branch: BranchInfo } | { point: MenuPoint; tag: TagInfo };
 
 interface BranchContextMenuProps {
   repo: string | null;

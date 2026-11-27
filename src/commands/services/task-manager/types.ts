@@ -6,11 +6,7 @@
 
 /** Stable error codes returned by every `argus_*` command. */
 export type ArgusErrorCode =
-  | "not-found"
-  | "invalid-input"
-  | "access-denied"
-  | "service-unavailable"
-  | "internal";
+  "not-found" | "invalid-input" | "access-denied" | "service-unavailable" | "internal";
 
 /** Shape of a rejected `argus_*` command. */
 export type ArgusError = {
@@ -30,12 +26,7 @@ export type ArgusSettings = {
 
 /** One program that starts at logon. */
 export type StartupItemLocation =
-  | "hkcuRun"
-  | "hklmRun"
-  | "hklmRun32"
-  | "userFolder"
-  | "commonFolder"
-  | "package";
+  "hkcuRun" | "hklmRun" | "hklmRun32" | "userFolder" | "commonFolder" | "package";
 
 export type StartupItem = {
   /** `<location>|<entry>`; pass back to `argusStartupSetEnabled`. */
@@ -142,13 +133,7 @@ export type VersionInfo = {
 };
 
 export type Integrity =
-  | "untrusted"
-  | "low"
-  | "medium"
-  | "mediumPlus"
-  | "high"
-  | "system"
-  | "protected";
+  "untrusted" | "low" | "medium" | "mediumPlus" | "high" | "system" | "protected";
 export type Architecture = "x64" | "x86" | "arm64" | "arm";
 
 export type ProcessDetails = {

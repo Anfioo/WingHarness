@@ -180,8 +180,7 @@ export async function reviewStagedChanges(
 }
 
 export type FileChangeLocation =
-  | { kind: "working-copy"; staged: boolean }
-  | { kind: "commit"; oid: string; summary: string };
+  { kind: "working-copy"; staged: boolean } | { kind: "commit"; oid: string; summary: string };
 
 export interface FileChangeContext {
   file: string;

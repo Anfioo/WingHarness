@@ -125,19 +125,10 @@ export type DuplicateScanProgress = {
 };
 
 export type PermanentDeleteFailureReason =
-  | "accessDenied"
-  | "resourceBusy"
-  | "itemChanged"
-  | "protected"
-  | "notFound"
-  | "other";
+  "accessDenied" | "resourceBusy" | "itemChanged" | "protected" | "notFound" | "other";
 
 export type PermanentDeleteFailureStage =
-  | "validate"
-  | "prepareTarget"
-  | "createStaging"
-  | "moveToStaging"
-  | "remove";
+  "validate" | "prepareTarget" | "createStaging" | "moveToStaging" | "remove";
 
 export type PermanentDeleteFailure = {
   path: string;

@@ -24,8 +24,7 @@ import type { ScoopPageController } from "@/hooks/use-scoop-page";
 import { cn } from "@/lib/utils";
 
 type DetailData =
-  | { kind: "bucket"; info: ScoopBucketInfo }
-  | { kind: "package"; info: ScoopPackageInfo };
+  { kind: "bucket"; info: ScoopBucketInfo } | { kind: "package"; info: ScoopPackageInfo };
 
 /** One label/value line inside a detail card. */
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
