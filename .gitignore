@@ -27,6 +27,7 @@ dist-ssr
 
 .resource/
 /.agents/
+/.claude/settings.local.json
 
 # 本地开发计划 / 设计草稿：只用于指导开发，不进入版本库
 /Plan/
